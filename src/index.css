@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #F2F3F5;
+  --bg2: #E6E8EC;
+  --bg3: #D8DCE4;
+  --ink: #1C2130;
+  --ink2: #5A6070;
+  --ink3: #9AA0AE;
+  --acc: #3A5CA8;
+  --acc2: #5578C8;
+  --wht: #F8F9FB;
+  --brd: rgba(28, 33, 48, 0.10);
+  --brd2: rgba(28, 33, 48, 0.18);
+  --grn: #2E7D5E;
+  --grn-lt: #D4EDE5;
+  --org: #C45A1A;
+  --org-lt: #F5E0D0;
+  --red: #A83A3A;
+  --red-lt: #F0DADA;
+  --brn: #7A5C44;
+  --brn-lt: #EDE5DC;
+  --gry: #6B7A8D;
+  --gry-lt: #DDE2EA;
+  --r: 10px;
+  --rlg: 18px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Syne', sans-serif;
+}
