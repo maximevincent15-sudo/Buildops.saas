@@ -21,11 +21,13 @@ export function RevenueBars() {
       <div className="bars-wrap">
         {data.map((d) => (
           <div key={d.m} className="bw">
-            <div
-              className={`bar${d.hi ? ' hi' : ''}`}
-              style={{ height: `${Math.round((d.v / max) * 100)}%` }}
-              title={`${d.v}k €`}
-            />
+            <div className="bar-track">
+              <div
+                className={`bar${d.hi ? ' hi' : ''}`}
+                style={{ height: `${Math.round((d.v / max) * 100)}%` }}
+                title={`${d.v}k €`}
+              />
+            </div>
             <div className="bar-l">{d.m}</div>
           </div>
         ))}
