@@ -8,9 +8,11 @@
 
 
 -- 0. CLEANUP ────────────────────────────────────────────────
-drop trigger if exists interventions_set_reference on public.interventions;
-drop function if exists public.set_intervention_reference() cascade;
+-- Attention : `drop trigger if exists X on table` nécessite que la
+-- table existe, même si le trigger n'existe pas. On drop la table
+-- en CASCADE d'abord, ce qui supprime ses triggers automatiquement.
 drop table if exists public.interventions cascade;
+drop function if exists public.set_intervention_reference() cascade;
 alter table public.organizations drop column if exists interventions_counter;
 
 
