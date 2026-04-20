@@ -4,6 +4,15 @@
 -- À coller tel quel dans Supabase SQL Editor puis cliquer Run.
 -- Pose les fondations multi-tenant : chaque utilisateur appartient
 -- à une organization, et ne voit QUE les données de son org.
+-- Script idempotent : peut être rejoué sans erreur.
+
+
+-- 0. CLEANUP (idempotence) ──────────────────────────────────
+drop trigger if exists on_auth_user_created on auth.users;
+drop function if exists public.handle_new_user() cascade;
+drop function if exists public.current_user_organization_id() cascade;
+drop table if exists public.profiles cascade;
+drop table if exists public.organizations cascade;
 
 
 -- 1. TABLES ─────────────────────────────────────────────────
