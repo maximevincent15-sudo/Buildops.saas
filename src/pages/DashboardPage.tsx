@@ -1,32 +1,70 @@
+import { ActivityFeed } from '../features/dashboard/components/ActivityFeed'
+import { AlertsList } from '../features/dashboard/components/AlertsList'
+import { KpiCard } from '../features/dashboard/components/KpiCard'
+import { RecentInterventions } from '../features/dashboard/components/RecentInterventions'
+import { RevenueBars } from '../features/dashboard/components/RevenueBars'
+import { TechsOfDay } from '../features/dashboard/components/TechsOfDay'
+
 export function DashboardPage() {
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="flex items-center gap-2 mb-8">
-        <div className="w-8 h-8 rounded-lg bg-acc flex items-center justify-center">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="white"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="w-4 h-4"
-          >
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
+    <>
+      <div className="dash-top">
+        <div>
+          <div className="dash-title">Bonjour, Thomas 👋</div>
+          <div className="dash-sub">Tableau de bord maintenance incendie — avril 2026</div>
         </div>
-        <span className="font-display text-xl font-extrabold text-ink">
-          Build<span className="text-acc">Ops</span>
-        </span>
+        <div className="dash-acts">
+          <button className="btn-sm">+ Nouvelle intervention</button>
+          <button className="btn-sm acc">+ Nouveau rapport</button>
+        </div>
       </div>
-      <h1 className="font-display text-3xl font-extrabold text-ink mb-2">
-        Dashboard
-      </h1>
-      <p className="text-ink-2 text-sm font-light">
-        Module à construire : KPIs, planning des interventions, alertes réglementaires, activité récente.
-      </p>
-    </div>
+
+      <div className="kpi-grid">
+        <KpiCard
+          label="Interventions ce mois"
+          value="47"
+          sub="↑ +8 vs mars"
+          subVariant="up"
+          barPct={78}
+          barColor="acc"
+        />
+        <KpiCard
+          label="Alertes réglementaires"
+          value="4"
+          sub="À planifier urgemment"
+          subVariant="dn"
+          barPct={30}
+          barColor="red"
+        />
+        <KpiCard
+          label="Taux de conformité"
+          value="94%"
+          sub="↑ +2% vs mars"
+          subVariant="up"
+          barPct={94}
+          barColor="grn"
+        />
+        <KpiCard
+          label="CA avril"
+          value="31 400 €"
+          sub="Objectif : 35k €"
+          subVariant="nu"
+          barPct={62}
+          barColor="brn"
+        />
+      </div>
+
+      <div className="g2">
+        <RevenueBars />
+        <AlertsList />
+      </div>
+
+      <div className="g3">
+        <RecentInterventions />
+        <TechsOfDay />
+      </div>
+
+      <ActivityFeed />
+    </>
   )
 }
