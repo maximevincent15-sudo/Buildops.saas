@@ -111,6 +111,11 @@ export function PlanningPage() {
                         {i.site_name}
                       </div>
                     )}
+                    {i.address && (
+                      <div style={{ fontSize: '.68rem', color: 'var(--ink3)', marginTop: '2px' }}>
+                        📍 {i.address}
+                      </div>
+                    )}
                   </td>
                   <td>{EQUIPMENT_TYPES[i.equipment_type as EquipmentType] ?? i.equipment_type}</td>
                   <td>{i.technician_name ?? '—'}</td>

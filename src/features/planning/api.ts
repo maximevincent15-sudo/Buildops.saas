@@ -11,6 +11,7 @@ export async function createIntervention(
       organization_id: organizationId,
       client_name: input.client_name,
       site_name: input.site_name || null,
+      address: input.address || null,
       equipment_type: input.equipment_type,
       technician_name: input.technician_name || null,
       scheduled_date: input.scheduled_date || null,

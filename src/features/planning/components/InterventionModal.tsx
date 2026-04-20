@@ -76,6 +76,11 @@ export function InterventionModal({ open, onClose, onCreated }: Props) {
             </div>
           </div>
 
+          <div className="fg">
+            <label>Adresse (optionnelle)</label>
+            <input type="text" placeholder="Ex: 5 rue des Lilas, 60100 Creil" {...register('address')} />
+          </div>
+
           <div className="mrow">
             <div className="fg">
               <label>Type d'équipement</label>
