@@ -1,60 +1,79 @@
-type Status = 'terminee' | 'en-cours' | 'planifiee' | 'a-planifier'
+import { format, isToday, isYesterday } from 'date-fns'
+import { fr } from 'date-fns/locale'
+import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { listRecentInterventions } from '../../planning/api'
+import { InterventionStatusBadge } from '../../planning/components/InterventionStatusBadge'
+import type { Intervention } from '../../planning/schemas'
+import { EQUIPMENT_TYPES } from '../../../shared/constants/interventions'
+import type { EquipmentType } from '../../../shared/constants/interventions'
 
-type Row = {
-  ref: string
-  client: string
-  equipement: string
-  status: Status
-  date: string
-}
-
-const rows: Row[] = [
-  { ref: 'INT-042', client: 'Résidence Les Lilas', equipement: 'Extincteurs', status: 'terminee', date: 'Auj. 08h30' },
-  { ref: 'INT-041', client: "Grand'Place", equipement: 'Désenfumage', status: 'en-cours', date: 'Auj. 11h00' },
-  { ref: 'INT-040', client: 'Lycée Victor Hugo', equipement: 'SSI + RIA', status: 'planifiee', date: 'Auj. 14h00' },
-  { ref: 'INT-039', client: 'Mairie de Creil', equipement: 'SSI', status: 'a-planifier', date: '—' },
-  { ref: 'INT-038', client: 'Clinique du Parc', equipement: 'Extincteurs', status: 'terminee', date: '12 avr.' },
-]
-
-const statusStyles: Record<Status, { cls: string; label: string }> = {
-  'terminee': { cls: 'b-grn', label: 'Terminée' },
-  'en-cours': { cls: 'b-org', label: 'En cours' },
-  'planifiee': { cls: 'b-org', label: 'Planifiée' },
-  'a-planifier': { cls: 'b-red', label: 'À planifier' },
+function formatShortDate(d: string | null): string {
+  if (!d) return '—'
+  try {
+    const date = new Date(d)
+    if (isToday(date)) return "Auj."
+    if (isYesterday(date)) return 'Hier'
+    return format(date, 'd MMM', { locale: fr })
+  } catch {
+    return '—'
+  }
 }
 
 export function RecentInterventions() {
+  const [rows, setRows] = useState<Intervention[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let alive = true
+    listRecentInterventions(5)
+      .then((data) => { if (alive) setRows(data) })
+      .catch(() => { /* ignoré — dashboard peut rester muet */ })
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [])
+
   return (
     <div className="card">
       <div className="card-top">
         <span className="card-title">Interventions récentes</span>
-        <span className="card-lnk">+ Nouvelle</span>
+        <Link to="/planning" className="card-lnk">Voir tout</Link>
       </div>
-      <table className="dtbl">
-        <thead>
-          <tr>
-            <th>Réf.</th>
-            <th>Client / Site</th>
-            <th>Équipement</th>
-            <th>Statut</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => {
-            const s = statusStyles[r.status]
-            return (
-              <tr key={r.ref}>
-                <td>{r.ref}</td>
-                <td>{r.client}</td>
-                <td>{r.equipement}</td>
-                <td><span className={`badge ${s.cls}`}>{s.label}</span></td>
-                <td>{r.date}</td>
+
+      {loading && (
+        <p className="text-ink-2 text-sm font-light" style={{ padding: '.5rem 0' }}>Chargement…</p>
+      )}
+
+      {!loading && rows.length === 0 && (
+        <p className="text-ink-2 text-sm font-light" style={{ padding: '.5rem 0' }}>
+          Aucune intervention pour le moment. Clique sur <strong>+ Nouvelle intervention</strong> en haut pour démarrer.
+        </p>
+      )}
+
+      {!loading && rows.length > 0 && (
+        <table className="dtbl">
+          <thead>
+            <tr>
+              <th>Réf.</th>
+              <th>Client</th>
+              <th>Équipement</th>
+              <th>Statut</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td>{r.reference}</td>
+                <td>{r.client_name}</td>
+                <td>{EQUIPMENT_TYPES[r.equipment_type as EquipmentType] ?? r.equipment_type}</td>
+                <td><InterventionStatusBadge status={r.status} /></td>
+                <td>{formatShortDate(r.scheduled_date ?? r.created_at)}</td>
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   )
 }

@@ -217,4 +217,20 @@ h1, h2, h3, h4, h5, h6 {
   .suc-ico { width: 58px; height: 58px; border-radius: 50%; background: var(--grn-lt); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
   .suc-scr h3 { font-family: 'Syne', sans-serif; font-size: 1.25rem; font-weight: 800; }
   .suc-scr p { font-size: .85rem; color: var(--ink2); line-height: 1.6; max-width: 28ch; font-weight: 300; }
+
+  /* MODAL */
+  .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 9998; display: none; align-items: center; justify-content: center; padding: 1rem; }
+  .overlay.open { display: flex; }
+  .modal { background: var(--wht); border-radius: var(--rlg); width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto; padding: 2rem; }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.4rem; }
+  .modal-title { font-family: 'Syne', sans-serif; font-size: 1.15rem; font-weight: 800; }
+  .modal-x { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--ink2); line-height: 1; padding: 0; }
+  .mrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-foot { display: flex; gap: .7rem; justify-content: flex-end; margin-top: 1.4rem; flex-wrap: wrap; }
+  .mf { padding: .68rem 1.4rem; border-radius: 100px; font-size: .88rem; font-weight: 500; cursor: pointer; border: none; font-family: 'DM Sans', sans-serif; }
+  .mf.out { background: transparent; border: 1px solid var(--brd2); color: var(--ink); }
+  .mf.out:hover { background: var(--bg); }
+  .mf.prim { background: var(--acc); color: white; }
+  .mf.prim:hover:not(:disabled) { background: var(--acc2); }
+  .mf:disabled { opacity: .6; cursor: not-allowed; }
 }

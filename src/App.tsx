@@ -6,6 +6,7 @@ import { AuthPage } from './pages/AuthPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
+import { PlanningPage } from './pages/PlanningPage'
 
 function App() {
   return (
@@ -19,7 +20,7 @@ function App() {
       <Route element={<RequireAuth />}>
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/planning" element={<PlaceholderPage title="Planning des interventions" description="Module 1 — à construire. Priorité principale de la roadmap." />} />
+          <Route path="/planning" element={<PlanningPage />} />
           <Route path="/rapports" element={<PlaceholderPage title="Rapports d'intervention" description="Module 2 — à construire. Checklist, photos, signature, PDF auto." />} />
           <Route path="/alertes" element={<PlaceholderPage title="Alertes réglementaires" description="Toutes les échéances réglementaires par site et équipement." />} />
           <Route path="/clients" element={<PlaceholderPage title="Fiches clients" description="Module 3 — à construire. Sites, équipements, historique." />} />

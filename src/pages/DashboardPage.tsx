@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useAuthStore } from '../features/auth/store'
 import { ActivityFeed } from '../features/dashboard/components/ActivityFeed'
 import { AlertsList } from '../features/dashboard/components/AlertsList'
@@ -5,6 +6,7 @@ import { KpiCard } from '../features/dashboard/components/KpiCard'
 import { RecentInterventions } from '../features/dashboard/components/RecentInterventions'
 import { RevenueBars } from '../features/dashboard/components/RevenueBars'
 import { TechsOfDay } from '../features/dashboard/components/TechsOfDay'
+import { InterventionModal } from '../features/planning/components/InterventionModal'
 
 function capitalize(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
@@ -13,6 +15,8 @@ function capitalize(s: string) {
 export function DashboardPage() {
   const profile = useAuthStore((s) => s.profile)
   const firstName = capitalize(profile?.first_name ?? '') || 'là'
+  const [modalOpen, setModalOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   return (
     <>
@@ -22,8 +26,10 @@ export function DashboardPage() {
           <div className="dash-sub">Tableau de bord maintenance incendie — avril 2026</div>
         </div>
         <div className="dash-acts">
-          <button className="btn-sm">+ Nouvelle intervention</button>
-          <button className="btn-sm acc">+ Nouveau rapport</button>
+          <button type="button" className="btn-sm" onClick={() => setModalOpen(true)}>
+            + Nouvelle intervention
+          </button>
+          <button type="button" className="btn-sm acc">+ Nouveau rapport</button>
         </div>
       </div>
 
@@ -68,11 +74,17 @@ export function DashboardPage() {
       </div>
 
       <div className="g3">
-        <RecentInterventions />
+        <RecentInterventions key={refreshKey} />
         <TechsOfDay />
       </div>
 
       <ActivityFeed />
+
+      <InterventionModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onCreated={() => setRefreshKey((k) => k + 1)}
+      />
     </>
   )
 }
