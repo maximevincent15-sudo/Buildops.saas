@@ -75,6 +75,17 @@ export async function deleteIntervention(id: string): Promise<void> {
   if (error) throw error
 }
 
+export async function setInterventionStatus(id: string, status: string): Promise<Intervention> {
+  const { data, error } = await supabase
+    .from('interventions')
+    .update({ status })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data as Intervention
+}
+
 export async function countInterventionsThisMonth(): Promise<number> {
   const firstOfMonth = new Date()
   firstOfMonth.setDate(1)

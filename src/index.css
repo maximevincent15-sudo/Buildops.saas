@@ -235,4 +235,13 @@ h1, h2, h3, h4, h5, h6 {
   .mf.del { background: transparent; border: 1px solid rgba(168, 58, 58, .3); color: var(--red); }
   .mf.del:hover:not(:disabled) { background: var(--red-lt); border-color: var(--red); }
   .mf:disabled { opacity: .6; cursor: not-allowed; }
+
+  /* ROW ACTION BUTTONS (planning status change) */
+  .act-btn { font-size: .72rem; padding: .3rem .8rem; border-radius: 100px; border: 1px solid var(--brd2); background: transparent; cursor: pointer; color: var(--ink); font-family: 'DM Sans', sans-serif; font-weight: 500; transition: all .15s; white-space: nowrap; }
+  .act-btn:hover:not(:disabled) { background: var(--ink); color: white; border-color: var(--ink); }
+  .act-btn.done { background: var(--grn-lt); color: var(--grn); border-color: var(--grn-lt); }
+  .act-btn.done:hover:not(:disabled) { background: var(--grn); color: white; border-color: var(--grn); }
+  .act-btn.subtle { font-size: .67rem; padding: .22rem .65rem; color: var(--ink3); border-color: var(--brd); }
+  .act-btn.subtle:hover:not(:disabled) { background: var(--bg2); color: var(--ink2); border-color: var(--brd2); }
+  .act-btn:disabled { opacity: .5; cursor: not-allowed; }
 }

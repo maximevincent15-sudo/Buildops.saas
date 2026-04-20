@@ -3,6 +3,7 @@ import { fr } from 'date-fns/locale'
 import { useEffect, useState } from 'react'
 import { listInterventions } from '../features/planning/api'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
+import { InterventionRowActions } from '../features/planning/components/InterventionRowActions'
 import { InterventionStatusBadge } from '../features/planning/components/InterventionStatusBadge'
 import type { Intervention } from '../features/planning/schemas'
 import {
@@ -118,6 +119,7 @@ export function PlanningPage() {
                   <th>Date prévue</th>
                   <th>Priorité</th>
                   <th>Statut</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -146,6 +148,7 @@ export function PlanningPage() {
                     <td>{formatDate(i.scheduled_date)}</td>
                     <td>{INTERVENTION_PRIORITIES[i.priority as InterventionPriority] ?? i.priority}</td>
                     <td><InterventionStatusBadge status={i.status} /></td>
+                    <td><InterventionRowActions intervention={i} onChanged={() => void load()} /></td>
                   </tr>
                 ))}
               </tbody>
