@@ -1,6 +1,14 @@
 import { supabase } from '../../shared/lib/supabase'
 import type { LoginInput, RegisterInput } from './schemas'
 
+export type Profile = {
+  id: string
+  first_name: string
+  last_name: string
+  organization_id: string
+  organizations: { id: string; name: string } | null
+}
+
 export async function signIn({ email, password }: LoginInput) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) throw error
@@ -26,4 +34,14 @@ export async function signUp({ firstName, lastName, companyName, email, password
 export async function signOut() {
   const { error } = await supabase.auth.signOut()
   if (error) throw error
+}
+
+export async function fetchProfile(userId: string): Promise<Profile> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name, organization_id, organizations(id, name)')
+    .eq('id', userId)
+    .single()
+  if (error) throw error
+  return data as unknown as Profile
 }

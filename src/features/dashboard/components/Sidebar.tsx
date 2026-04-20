@@ -51,9 +51,14 @@ function initialsFromEmail(email?: string) {
   return local.slice(0, 2).toUpperCase()
 }
 
+function cap(s: string) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
+}
+
 export function Sidebar() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const profile = useAuthStore((s) => s.profile)
 
   async function handleSignOut() {
     await signOut()
@@ -61,7 +66,13 @@ export function Sidebar() {
   }
 
   const email = user?.email
-  const initials = initialsFromEmail(email)
+  const firstName = profile?.first_name ?? ''
+  const lastName = profile?.last_name ?? ''
+  const orgName = profile?.organizations?.name
+  const fullName = (firstName || lastName) ? `${cap(firstName)} ${cap(lastName)}`.trim() : email
+  const initials = firstName && lastName
+    ? (firstName[0]! + lastName[0]!).toUpperCase()
+    : initialsFromEmail(email)
 
   return (
     <aside className="sidebar">
@@ -83,8 +94,8 @@ export function Sidebar() {
       <div className="sb-user">
         <div className="sb-av">{initials}</div>
         <div>
-          <div className="sb-un">{email ?? '—'}</div>
-          <div className="sb-ur">Compte connecté</div>
+          <div className="sb-un">{fullName ?? '—'}</div>
+          <div className="sb-ur">{orgName ?? 'Compte connecté'}</div>
         </div>
         <button type="button" onClick={handleSignOut} className="sb-out" title="Déconnexion">⏻</button>
       </div>

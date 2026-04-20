@@ -1,3 +1,4 @@
+import { useAuthStore } from '../features/auth/store'
 import { ActivityFeed } from '../features/dashboard/components/ActivityFeed'
 import { AlertsList } from '../features/dashboard/components/AlertsList'
 import { KpiCard } from '../features/dashboard/components/KpiCard'
@@ -5,12 +6,19 @@ import { RecentInterventions } from '../features/dashboard/components/RecentInte
 import { RevenueBars } from '../features/dashboard/components/RevenueBars'
 import { TechsOfDay } from '../features/dashboard/components/TechsOfDay'
 
+function capitalize(s: string) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
+}
+
 export function DashboardPage() {
+  const profile = useAuthStore((s) => s.profile)
+  const firstName = capitalize(profile?.first_name ?? '') || 'là'
+
   return (
     <>
       <div className="dash-top">
         <div>
-          <div className="dash-title">Bonjour, Thomas 👋</div>
+          <div className="dash-title">Bonjour, {firstName} 👋</div>
           <div className="dash-sub">Tableau de bord maintenance incendie — avril 2026</div>
         </div>
         <div className="dash-acts">
