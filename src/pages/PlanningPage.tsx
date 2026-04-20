@@ -26,8 +26,9 @@ function formatDate(d: string | null) {
 export function PlanningPage() {
   const [interventions, setInterventions] = useState<Intervention[]>([])
   const [loading, setLoading] = useState(true)
-  const [modalOpen, setModalOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<Intervention | null>(null)
 
   async function load() {
     setLoading(true)
@@ -46,6 +47,21 @@ export function PlanningPage() {
     void load()
   }, [])
 
+  function openCreate() {
+    setEditing(null)
+    setModalOpen(true)
+  }
+
+  function openEdit(i: Intervention) {
+    setEditing(i)
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setEditing(null)
+  }
+
   const total = interventions.length
 
   return (
@@ -60,7 +76,7 @@ export function PlanningPage() {
           </div>
         </div>
         <div className="dash-acts">
-          <button type="button" className="btn-sm acc" onClick={() => setModalOpen(true)}>
+          <button type="button" className="btn-sm acc" onClick={openCreate}>
             + Nouvelle intervention
           </button>
         </div>
@@ -81,58 +97,68 @@ export function PlanningPage() {
             <p className="text-ink-3 text-xs font-light" style={{ marginBottom: '1.2rem' }}>
               Crée ta première intervention pour la voir apparaître ici.
             </p>
-            <button type="button" className="btn-sm acc" onClick={() => setModalOpen(true)}>
+            <button type="button" className="btn-sm acc" onClick={openCreate}>
               + Créer une intervention
             </button>
           </div>
         )}
 
         {!loading && !error && total > 0 && (
-          <table className="dtbl">
-            <thead>
-              <tr>
-                <th>Réf.</th>
-                <th>Client / Site</th>
-                <th>Équipement</th>
-                <th>Technicien</th>
-                <th>Date prévue</th>
-                <th>Priorité</th>
-                <th>Statut</th>
-              </tr>
-            </thead>
-            <tbody>
-              {interventions.map((i) => (
-                <tr key={i.id}>
-                  <td><strong>{i.reference}</strong></td>
-                  <td>
-                    <div>{i.client_name}</div>
-                    {i.site_name && (
-                      <div style={{ fontSize: '.72rem', color: 'var(--ink2)' }}>
-                        {i.site_name}
-                      </div>
-                    )}
-                    {i.address && (
-                      <div style={{ fontSize: '.68rem', color: 'var(--ink3)', marginTop: '2px' }}>
-                        📍 {i.address}
-                      </div>
-                    )}
-                  </td>
-                  <td>{EQUIPMENT_TYPES[i.equipment_type as EquipmentType] ?? i.equipment_type}</td>
-                  <td>{i.technician_name ?? '—'}</td>
-                  <td>{formatDate(i.scheduled_date)}</td>
-                  <td>{INTERVENTION_PRIORITIES[i.priority as InterventionPriority] ?? i.priority}</td>
-                  <td><InterventionStatusBadge status={i.status} /></td>
+          <>
+            <p className="text-ink-3 text-xs font-light" style={{ marginBottom: '.75rem' }}>
+              Clique sur une ligne pour modifier ou supprimer une intervention.
+            </p>
+            <table className="dtbl">
+              <thead>
+                <tr>
+                  <th>Réf.</th>
+                  <th>Client / Site</th>
+                  <th>Équipement</th>
+                  <th>Technicien</th>
+                  <th>Date prévue</th>
+                  <th>Priorité</th>
+                  <th>Statut</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {interventions.map((i) => (
+                  <tr
+                    key={i.id}
+                    onClick={() => openEdit(i)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <td><strong>{i.reference}</strong></td>
+                    <td>
+                      <div>{i.client_name}</div>
+                      {i.site_name && (
+                        <div style={{ fontSize: '.72rem', color: 'var(--ink2)' }}>
+                          {i.site_name}
+                        </div>
+                      )}
+                      {i.address && (
+                        <div style={{ fontSize: '.68rem', color: 'var(--ink3)', marginTop: '2px' }}>
+                          📍 {i.address}
+                        </div>
+                      )}
+                    </td>
+                    <td>{EQUIPMENT_TYPES[i.equipment_type as EquipmentType] ?? i.equipment_type}</td>
+                    <td>{i.technician_name ?? '—'}</td>
+                    <td>{formatDate(i.scheduled_date)}</td>
+                    <td>{INTERVENTION_PRIORITIES[i.priority as InterventionPriority] ?? i.priority}</td>
+                    <td><InterventionStatusBadge status={i.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
       </div>
 
       <InterventionModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onCreated={() => void load()}
+        onClose={closeModal}
+        onChanged={() => void load()}
+        intervention={editing}
       />
     </>
   )

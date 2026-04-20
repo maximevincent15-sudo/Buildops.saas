@@ -83,7 +83,7 @@ export function DashboardPage() {
       <InterventionModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onCreated={() => setRefreshKey((k) => k + 1)}
+        onChanged={() => setRefreshKey((k) => k + 1)}
       />
     </>
   )

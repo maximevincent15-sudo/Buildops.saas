@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
@@ -7,18 +7,40 @@ import {
   EQUIPMENT_TYPES,
   INTERVENTION_PRIORITIES,
 } from '../../../shared/constants/interventions'
-import { createIntervention } from '../api'
+import { createIntervention, deleteIntervention, updateIntervention } from '../api'
 import { createInterventionSchema } from '../schemas'
-import type { CreateInterventionInput } from '../schemas'
+import type { CreateInterventionInput, Intervention } from '../schemas'
 
 type Props = {
   open: boolean
   onClose: () => void
-  onCreated?: () => void
+  onChanged?: () => void
+  intervention?: Intervention | null
 }
 
-export function InterventionModal({ open, onClose, onCreated }: Props) {
+function toFormValues(i: Intervention | null | undefined): Partial<CreateInterventionInput> {
+  if (!i) {
+    return {
+      equipment_type: 'extincteurs',
+      priority: 'normale',
+    }
+  }
+  return {
+    client_name: i.client_name,
+    site_name: i.site_name ?? '',
+    address: i.address ?? '',
+    equipment_type: i.equipment_type as CreateInterventionInput['equipment_type'],
+    scheduled_date: i.scheduled_date ?? '',
+    technician_name: i.technician_name ?? '',
+    priority: i.priority as CreateInterventionInput['priority'],
+    notes: i.notes ?? '',
+  }
+}
+
+export function InterventionModal({ open, onClose, onChanged, intervention }: Props) {
+  const isEdit = !!intervention
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const profile = useAuthStore((s) => s.profile)
   const {
     register,
@@ -27,11 +49,16 @@ export function InterventionModal({ open, onClose, onCreated }: Props) {
     formState: { errors, isSubmitting },
   } = useForm<CreateInterventionInput>({
     resolver: zodResolver(createInterventionSchema),
-    defaultValues: {
-      equipment_type: 'extincteurs',
-      priority: 'normale',
-    },
+    defaultValues: toFormValues(intervention),
   })
+
+  // Quand on change d'intervention (ou passage create → edit), réinjecte les valeurs
+  useEffect(() => {
+    if (open) {
+      reset(toFormValues(intervention))
+      setSubmitError(null)
+    }
+  }, [open, intervention, reset])
 
   async function onSubmit(data: CreateInterventionInput) {
     if (!profile?.organization_id) {
@@ -40,12 +67,35 @@ export function InterventionModal({ open, onClose, onCreated }: Props) {
     }
     setSubmitError(null)
     try {
-      await createIntervention(data, profile.organization_id)
+      if (isEdit && intervention) {
+        await updateIntervention(intervention.id, data)
+      } else {
+        await createIntervention(data, profile.organization_id)
+      }
       reset()
       onClose()
-      onCreated?.()
+      onChanged?.()
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Erreur inconnue')
+    }
+  }
+
+  async function handleDelete() {
+    if (!intervention) return
+    const ok = window.confirm(
+      `Supprimer l'intervention ${intervention.reference} ?\n\nCette action est irréversible.`,
+    )
+    if (!ok) return
+    setIsDeleting(true)
+    setSubmitError(null)
+    try {
+      await deleteIntervention(intervention.id)
+      onClose()
+      onChanged?.()
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Erreur inconnue')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -59,7 +109,9 @@ export function InterventionModal({ open, onClose, onCreated }: Props) {
     <div className="overlay open" onClick={handleBackdropClick}>
       <div className="modal">
         <div className="modal-head">
-          <span className="modal-title">Nouvelle intervention</span>
+          <span className="modal-title">
+            {isEdit ? `Intervention ${intervention?.reference}` : 'Nouvelle intervention'}
+          </span>
           <button type="button" className="modal-x" onClick={onClose} aria-label="Fermer">×</button>
         </div>
 
@@ -119,11 +171,24 @@ export function InterventionModal({ open, onClose, onCreated }: Props) {
           {submitError && <span className="ferr on">{submitError}</span>}
 
           <div className="modal-foot">
-            <button type="button" className="mf out" onClick={onClose}>
+            {isEdit && (
+              <button
+                type="button"
+                className="mf del"
+                onClick={handleDelete}
+                disabled={isDeleting || isSubmitting}
+                style={{ marginRight: 'auto' }}
+              >
+                {isDeleting ? 'Suppression…' : '🗑 Supprimer'}
+              </button>
+            )}
+            <button type="button" className="mf out" onClick={onClose} disabled={isSubmitting || isDeleting}>
               Annuler
             </button>
-            <button type="submit" className="mf prim" disabled={isSubmitting}>
-              {isSubmitting ? 'Création…' : "Créer l'intervention"}
+            <button type="submit" className="mf prim" disabled={isSubmitting || isDeleting}>
+              {isSubmitting
+                ? (isEdit ? 'Enregistrement…' : 'Création…')
+                : (isEdit ? 'Enregistrer' : "Créer l'intervention")}
             </button>
           </div>
         </form>

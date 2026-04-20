@@ -232,5 +232,7 @@ h1, h2, h3, h4, h5, h6 {
   .mf.out:hover { background: var(--bg); }
   .mf.prim { background: var(--acc); color: white; }
   .mf.prim:hover:not(:disabled) { background: var(--acc2); }
+  .mf.del { background: transparent; border: 1px solid rgba(168, 58, 58, .3); color: var(--red); }
+  .mf.del:hover:not(:disabled) { background: var(--red-lt); border-color: var(--red); }
   .mf:disabled { opacity: .6; cursor: not-allowed; }
 }
