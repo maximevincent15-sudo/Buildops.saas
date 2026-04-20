@@ -1,4 +1,6 @@
-import { Link, NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { signOut } from '../../auth/api'
+import { useAuthStore } from '../../auth/store'
 
 type NavItem = { to: string; icon: string; label: string; badge?: number }
 
@@ -41,7 +43,26 @@ function SidebarLink({ item }: { item: NavItem }) {
   )
 }
 
+function initialsFromEmail(email?: string) {
+  if (!email) return '??'
+  const local = email.split('@')[0] ?? ''
+  const parts = local.split(/[._-]/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase()
+  return local.slice(0, 2).toUpperCase()
+}
+
 export function Sidebar() {
+  const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
+
+  async function handleSignOut() {
+    await signOut()
+    navigate('/auth', { replace: true })
+  }
+
+  const email = user?.email
+  const initials = initialsFromEmail(email)
+
   return (
     <aside className="sidebar">
       <div className="sb-sec">Principal</div>
@@ -60,12 +81,12 @@ export function Sidebar() {
       {compte.map((i) => <SidebarLink key={i.to} item={i} />)}
 
       <div className="sb-user">
-        <div className="sb-av">TM</div>
+        <div className="sb-av">{initials}</div>
         <div>
-          <div className="sb-un">Thomas Moreau</div>
-          <div className="sb-ur">Sécurité Pro IDF</div>
+          <div className="sb-un">{email ?? '—'}</div>
+          <div className="sb-ur">Compte connecté</div>
         </div>
-        <Link to="/auth" className="sb-out" title="Déconnexion">⏻</Link>
+        <button type="button" onClick={handleSignOut} className="sb-out" title="Déconnexion">⏻</button>
       </div>
     </aside>
   )

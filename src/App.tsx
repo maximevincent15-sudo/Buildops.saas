@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { DashboardLayout } from './app/layouts/DashboardLayout'
 import { PublicLayout } from './app/layouts/PublicLayout'
+import { RequireAuth } from './app/RequireAuth'
 import { AuthPage } from './pages/AuthPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -15,17 +16,19 @@ function App() {
         <Route path="/auth" element={<AuthPage />} />
       </Route>
 
-      <Route element={<DashboardLayout />}>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/planning" element={<PlaceholderPage title="Planning des interventions" description="Module 1 — à construire. Priorité principale de la roadmap." />} />
-        <Route path="/rapports" element={<PlaceholderPage title="Rapports d'intervention" description="Module 2 — à construire. Checklist, photos, signature, PDF auto." />} />
-        <Route path="/alertes" element={<PlaceholderPage title="Alertes réglementaires" description="Toutes les échéances réglementaires par site et équipement." />} />
-        <Route path="/clients" element={<PlaceholderPage title="Fiches clients" description="Module 3 — à construire. Sites, équipements, historique." />} />
-        <Route path="/techniciens" element={<PlaceholderPage title="Techniciens" description="Gestion des techniciens et de leurs disponibilités." />} />
-        <Route path="/devis" element={<PlaceholderPage title="Devis" description="Création et suivi des devis clients." />} />
-        <Route path="/factures" element={<PlaceholderPage title="Factures" description="Facturation et relances." />} />
-        <Route path="/archivage" element={<PlaceholderPage title="Archivage" description="Documents archivés par site et par intervention." />} />
-        <Route path="/parametres" element={<PlaceholderPage title="Paramètres" description="Configuration du compte et de l'organisation." />} />
+      <Route element={<RequireAuth />}>
+        <Route element={<DashboardLayout />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/planning" element={<PlaceholderPage title="Planning des interventions" description="Module 1 — à construire. Priorité principale de la roadmap." />} />
+          <Route path="/rapports" element={<PlaceholderPage title="Rapports d'intervention" description="Module 2 — à construire. Checklist, photos, signature, PDF auto." />} />
+          <Route path="/alertes" element={<PlaceholderPage title="Alertes réglementaires" description="Toutes les échéances réglementaires par site et équipement." />} />
+          <Route path="/clients" element={<PlaceholderPage title="Fiches clients" description="Module 3 — à construire. Sites, équipements, historique." />} />
+          <Route path="/techniciens" element={<PlaceholderPage title="Techniciens" description="Gestion des techniciens et de leurs disponibilités." />} />
+          <Route path="/devis" element={<PlaceholderPage title="Devis" description="Création et suivi des devis clients." />} />
+          <Route path="/factures" element={<PlaceholderPage title="Factures" description="Facturation et relances." />} />
+          <Route path="/archivage" element={<PlaceholderPage title="Archivage" description="Documents archivés par site et par intervention." />} />
+          <Route path="/parametres" element={<PlaceholderPage title="Paramètres" description="Configuration du compte et de l'organisation." />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

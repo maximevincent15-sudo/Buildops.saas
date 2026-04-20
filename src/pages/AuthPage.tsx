@@ -1,35 +1,76 @@
+import { useState } from 'react'
+import { LoginForm } from '../features/auth/components/LoginForm'
+import { RegisterForm } from '../features/auth/components/RegisterForm'
+
+type Tab = 'login' | 'register'
+
 export function AuthPage() {
+  const [tab, setTab] = useState<Tab>('login')
+
   return (
-    <div className="bg-wht border border-brd-2 rounded-lg p-8 max-w-md w-full">
-      <div className="flex items-center gap-2 mb-6">
-        <div className="w-8 h-8 rounded-lg bg-acc flex items-center justify-center">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="white"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="w-4 h-4"
-          >
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
+    <div className="auth-layout">
+      <aside className="auth-left">
+        <div className="auth-bg" />
+        <div className="auth-grid" />
+        <div className="auth-body">
+          <h2>
+            Maintenance incendie
+            <br />
+            sous <em>contrôle total</em>
+          </h2>
+          <p>Conçu pour les entreprises de maintenance incendie de 3 à 20 techniciens.</p>
+          <div className="af-list">
+            <div className="af-item">
+              <div className="af-dot" style={{ background: 'rgba(58,92,168,.3)' }}>🗓️</div>
+              <span>Planning des interventions — extincteurs, RIA, SSI, désenfumage</span>
+            </div>
+            <div className="af-item">
+              <div className="af-dot" style={{ background: 'rgba(58,92,168,.25)' }}>📱</div>
+              <span>Rapports PDF depuis le téléphone du technicien</span>
+            </div>
+            <div className="af-item">
+              <div className="af-dot" style={{ background: 'rgba(58,92,168,.2)' }}>🔔</div>
+              <span>Alertes avant chaque échéance réglementaire</span>
+            </div>
+            <div className="af-item">
+              <div className="af-dot" style={{ background: 'rgba(46,125,94,.25)' }}>📋</div>
+              <span>Traçabilité complète pour les contrôles</span>
+            </div>
+          </div>
         </div>
-        <span className="font-display text-xl font-extrabold text-ink">
-          Build<span className="text-acc">Ops</span>
-        </span>
-      </div>
-      <h1 className="font-display text-2xl font-extrabold text-ink mb-2">
-        Authentification
-      </h1>
-      <p className="text-ink-2 text-sm mb-4 font-light">
-        Module à construire : connexion et inscription via Supabase Auth.
-      </p>
-      <p className="text-ink-3 text-xs font-light">
-        Prochaines étapes : formulaires login + register avec react-hook-form + zod, RLS multi-tenant par organisation.
-      </p>
+        <div className="auth-foot">
+          <div className="tmini">
+            <div className="tmini-av">RB</div>
+            <p>
+              "Ce qui m'a convaincu, c'est les alertes réglementaires. J'avais déjà eu un problème avec un contrôle SSI oublié." —{' '}
+              <strong>Romain B., 4 techniciens</strong>
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <section className="auth-right">
+        <div className="auth-card">
+          <div className="atabs">
+            <button
+              type="button"
+              className={`atab${tab === 'login' ? ' on' : ''}`}
+              onClick={() => setTab('login')}
+            >
+              Connexion
+            </button>
+            <button
+              type="button"
+              className={`atab${tab === 'register' ? ' on' : ''}`}
+              onClick={() => setTab('register')}
+            >
+              Créer un compte
+            </button>
+          </div>
+
+          {tab === 'login' ? <LoginForm /> : <RegisterForm />}
+        </div>
+      </section>
     </div>
   )
 }
