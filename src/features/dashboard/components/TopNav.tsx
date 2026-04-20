@@ -17,7 +17,7 @@ export function TopNav() {
         <span className="text-[.82rem] text-ink-2">
           Plan <strong className="text-acc">Pro</strong>
         </span>
-        <a href="https://buildops.fr" className="btn-sm" target="_blank" rel="noreferrer">
+        <a href="https://buildops-site.vercel.app" className="btn-sm" target="_blank" rel="noreferrer">
           ← Site
         </a>
         <button type="button" onClick={handleSignOut} className="btn-sm">
