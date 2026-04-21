@@ -261,4 +261,55 @@ h1, h2, h3, h4, h5, h6 {
   .addr-option:hover, .addr-option.hi { background: var(--bg); }
   .addr-label { font-size: .87rem; color: var(--ink); font-weight: 500; }
   .addr-sub { font-size: .72rem; color: var(--ink3); margin-top: 2px; font-weight: 300; }
+
+  /* REPORT EDITOR — CHECKLIST */
+  .check-list { display: flex; flex-direction: column; gap: 0; }
+  .check-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .85rem 0; border-bottom: .5px solid var(--brd); }
+  .check-row:last-child { border-bottom: none; }
+  .check-info { flex: 1; min-width: 0; }
+  .check-label { font-size: .9rem; font-weight: 500; color: var(--ink); }
+  .check-helper { font-size: .72rem; color: var(--ink3); margin-top: 2px; font-weight: 300; }
+  .check-btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .check-btn { padding: .38rem .85rem; border-radius: var(--r); border: 1px solid var(--brd2); background: var(--wht); font-size: .75rem; font-weight: 600; cursor: pointer; color: var(--ink2); font-family: 'DM Sans', sans-serif; transition: all .15s; letter-spacing: .03em; }
+  .check-btn:hover:not(:disabled) { background: var(--bg); }
+  .check-btn.ok.on { background: var(--grn-lt); color: var(--grn); border-color: var(--grn); }
+  .check-btn.nok.on { background: var(--red-lt); color: var(--red); border-color: var(--red); }
+  .check-btn.na.on { background: var(--gry-lt); color: var(--gry); border-color: var(--gry); }
+  .check-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+  /* REPORT EDITOR — TEXTAREA + INPUT */
+  .report-textarea {
+    width: 100%;
+    min-height: 110px;
+    padding: .7rem .85rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: .88rem;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--brd2);
+    border-radius: var(--r);
+    outline: none;
+    resize: vertical;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .report-textarea:focus { border-color: var(--acc); box-shadow: 0 0 0 3px rgba(58, 92, 168, .12); }
+  .report-textarea:disabled { opacity: .7; cursor: not-allowed; }
+
+  .report-input {
+    width: 100%;
+    padding: .62rem .82rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: .9rem;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--brd2);
+    border-radius: var(--r);
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .report-input:focus { border-color: var(--acc); box-shadow: 0 0 0 3px rgba(58, 92, 168, .12); }
+  .report-input:disabled { opacity: .7; cursor: not-allowed; }
+
+  /* text utilities used in various pages */
+  .text-grn { color: var(--grn); }
 }

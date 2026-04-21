@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { MouseEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { setInterventionStatus } from '../api'
 import type { Intervention } from '../schemas'
 
@@ -29,6 +30,10 @@ export function InterventionRowActions({ intervention, onChanged }: Props) {
     void change(status)
   }
 
+  function stopPropagation(e: MouseEvent<HTMLAnchorElement>) {
+    e.stopPropagation()
+  }
+
   const { status } = intervention
 
   if (status === 'planifiee') {
@@ -46,27 +51,25 @@ export function InterventionRowActions({ intervention, onChanged }: Props) {
 
   if (status === 'en_cours') {
     return (
-      <button
-        type="button"
+      <Link
+        to={`/rapports/${intervention.id}`}
         className="act-btn done"
-        onClick={(e) => handleClick(e, 'terminee')}
-        disabled={loading}
+        onClick={stopPropagation}
       >
-        Terminer
-      </button>
+        Rapport
+      </Link>
     )
   }
 
   if (status === 'terminee') {
     return (
-      <button
-        type="button"
+      <Link
+        to={`/rapports/${intervention.id}`}
         className="act-btn subtle"
-        onClick={(e) => handleClick(e, 'en_cours')}
-        disabled={loading}
+        onClick={stopPropagation}
       >
-        Rouvrir
-      </button>
+        Voir rapport
+      </Link>
     )
   }
 
