@@ -9,6 +9,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { PlanningPage } from './pages/PlanningPage'
 import { RapportEditorPage } from './pages/RapportEditorPage'
+import { RapportsListPage } from './pages/RapportsListPage'
 
 function App() {
   return (
@@ -23,7 +24,7 @@ function App() {
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/planning" element={<PlanningPage />} />
-          <Route path="/rapports" element={<PlaceholderPage title="Rapports d'intervention" description="Les rapports s'ouvrent depuis la page Planning (bouton Rapport sur une intervention en cours ou terminée)." />} />
+          <Route path="/rapports" element={<RapportsListPage />} />
           <Route path="/rapports/:interventionId" element={<RapportEditorPage />} />
           <Route path="/alertes" element={<PlaceholderPage title="Alertes réglementaires" description="Toutes les échéances réglementaires par site et équipement." />} />
           <Route path="/clients" element={<ClientsPage />} />

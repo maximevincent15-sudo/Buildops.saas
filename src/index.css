@@ -333,4 +333,20 @@ h1, h2, h3, h4, h5, h6 {
   .photo-add:hover:not(:disabled) { border-color: var(--acc); color: var(--acc); background: var(--bg); }
   .photo-add:disabled { opacity: .55; cursor: not-allowed; }
   .photos-empty { font-size: .82rem; color: var(--ink3); font-weight: 300; padding: .5rem 0; }
+
+  /* FILTER PILLS (reports list, planning filters, etc.) */
+  .filter-pill {
+    padding: .4rem .9rem;
+    border-radius: 100px;
+    border: 1px solid var(--brd2);
+    background: var(--wht);
+    color: var(--ink2);
+    font-size: .78rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .15s;
+  }
+  .filter-pill:hover { background: var(--bg); color: var(--ink); }
+  .filter-pill.on { background: var(--ink); color: white; border-color: var(--ink); }
 }

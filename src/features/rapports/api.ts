@@ -89,3 +89,30 @@ export async function setReportPdfUrl(reportId: string, pdfUrl: string): Promise
     .eq('id', reportId)
   if (error) throw error
 }
+
+export type ReportWithIntervention = Report & {
+  intervention: {
+    id: string
+    reference: string
+    client_name: string
+    equipment_type: string
+    scheduled_date: string | null
+    technician_name: string | null
+    status: string
+  } | null
+}
+
+export async function listReports(): Promise<ReportWithIntervention[]> {
+  const { data, error } = await supabase
+    .from('reports')
+    .select(`
+      *,
+      intervention:interventions (
+        id, reference, client_name, equipment_type,
+        scheduled_date, technician_name, status
+      )
+    `)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as unknown as ReportWithIntervention[]
+}
