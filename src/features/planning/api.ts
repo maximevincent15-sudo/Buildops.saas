@@ -98,3 +98,42 @@ export async function countInterventionsThisMonth(): Promise<number> {
   if (error) throw error
   return count ?? 0
 }
+
+export type InterventionStats = {
+  thisMonth: number
+  aPlanifier: number
+  enCours: number
+  termineeThisMonth: number
+}
+
+export async function getInterventionStats(): Promise<InterventionStats> {
+  const firstOfMonth = new Date()
+  firstOfMonth.setDate(1)
+  firstOfMonth.setHours(0, 0, 0, 0)
+  const monthStart = firstOfMonth.toISOString()
+
+  const [month, planifier, enCours, terminee] = await Promise.all([
+    supabase.from('interventions').select('id', { count: 'exact', head: true }).gte('created_at', monthStart),
+    supabase.from('interventions').select('id', { count: 'exact', head: true }).eq('status', 'a_planifier'),
+    supabase.from('interventions').select('id', { count: 'exact', head: true }).eq('status', 'en_cours'),
+    supabase.from('interventions').select('id', { count: 'exact', head: true }).eq('status', 'terminee').gte('created_at', monthStart),
+  ])
+
+  return {
+    thisMonth: month.count ?? 0,
+    aPlanifier: planifier.count ?? 0,
+    enCours: enCours.count ?? 0,
+    termineeThisMonth: terminee.count ?? 0,
+  }
+}
+
+export async function listInterventionsByStatus(status: string, limit = 4): Promise<Intervention[]> {
+  const { data, error } = await supabase
+    .from('interventions')
+    .select('*')
+    .eq('status', status)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data ?? []) as Intervention[]
+}

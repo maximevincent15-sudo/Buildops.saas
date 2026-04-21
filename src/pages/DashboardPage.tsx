@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuthStore } from '../features/auth/store'
 import { ActivityFeed } from '../features/dashboard/components/ActivityFeed'
 import { AlertsList } from '../features/dashboard/components/AlertsList'
@@ -6,10 +6,18 @@ import { KpiCard } from '../features/dashboard/components/KpiCard'
 import { RecentInterventions } from '../features/dashboard/components/RecentInterventions'
 import { RevenueBars } from '../features/dashboard/components/RevenueBars'
 import { TechsOfDay } from '../features/dashboard/components/TechsOfDay'
+import { getInterventionStats } from '../features/planning/api'
+import type { InterventionStats } from '../features/planning/api'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
 
 function capitalize(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
+}
+
+function visualPct(value: number): number {
+  // Remplissage visuel de la barre : 10% minimum, 100% à partir de 10 interv.
+  if (value <= 0) return 10
+  return Math.min(100, value * 10)
 }
 
 export function DashboardPage() {
@@ -17,13 +25,27 @@ export function DashboardPage() {
   const firstName = capitalize(profile?.first_name ?? '') || 'là'
   const [modalOpen, setModalOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [stats, setStats] = useState<InterventionStats | null>(null)
+
+  const loadStats = useCallback(async () => {
+    try {
+      const s = await getInterventionStats()
+      setStats(s)
+    } catch (err) {
+      console.error('Erreur chargement stats', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadStats()
+  }, [loadStats, refreshKey])
 
   return (
     <>
       <div className="dash-top">
         <div>
           <div className="dash-title">Bonjour, {firstName} 👋</div>
-          <div className="dash-sub">Tableau de bord maintenance incendie — avril 2026</div>
+          <div className="dash-sub">Tableau de bord maintenance incendie</div>
         </div>
         <div className="dash-acts">
           <button type="button" className="btn-sm" onClick={() => setModalOpen(true)}>
@@ -36,46 +58,46 @@ export function DashboardPage() {
       <div className="kpi-grid">
         <KpiCard
           label="Interventions ce mois"
-          value="47"
-          sub="↑ +8 vs mars"
-          subVariant="up"
-          barPct={78}
+          value={stats ? String(stats.thisMonth) : '…'}
+          sub="Créées depuis le 1er du mois"
+          subVariant="nu"
+          barPct={stats ? visualPct(stats.thisMonth) : 10}
           barColor="acc"
         />
         <KpiCard
-          label="Alertes réglementaires"
-          value="4"
-          sub="À planifier urgemment"
-          subVariant="dn"
-          barPct={30}
-          barColor="red"
+          label="À planifier"
+          value={stats ? String(stats.aPlanifier) : '…'}
+          sub={stats && stats.aPlanifier > 0 ? 'Interventions sans date' : 'Tout est planifié'}
+          subVariant={stats && stats.aPlanifier > 0 ? 'dn' : 'up'}
+          barPct={stats ? visualPct(stats.aPlanifier) : 10}
+          barColor={stats && stats.aPlanifier > 0 ? 'red' : 'grn'}
         />
         <KpiCard
-          label="Taux de conformité"
-          value="94%"
-          sub="↑ +2% vs mars"
-          subVariant="up"
-          barPct={94}
-          barColor="grn"
-        />
-        <KpiCard
-          label="CA avril"
-          value="31 400 €"
-          sub="Objectif : 35k €"
+          label="En cours"
+          value={stats ? String(stats.enCours) : '…'}
+          sub="Sur le terrain"
           subVariant="nu"
-          barPct={62}
-          barColor="brn"
+          barPct={stats ? visualPct(stats.enCours) : 10}
+          barColor="acc"
+        />
+        <KpiCard
+          label="Terminées ce mois"
+          value={stats ? String(stats.termineeThisMonth) : '…'}
+          sub="Rapports clôturés"
+          subVariant="up"
+          barPct={stats ? visualPct(stats.termineeThisMonth) : 10}
+          barColor="grn"
         />
       </div>
 
       <div className="g2">
         <RevenueBars />
-        <AlertsList />
+        <AlertsList key={`al-${refreshKey}`} />
       </div>
 
       <div className="g3">
-        <RecentInterventions key={refreshKey} />
-        <TechsOfDay />
+        <RecentInterventions key={`ri-${refreshKey}`} />
+        <TechsOfDay key={`td-${refreshKey}`} />
       </div>
 
       <ActivityFeed />
