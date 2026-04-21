@@ -12,6 +12,7 @@ import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { createIntervention, deleteIntervention, updateIntervention } from '../api'
 import { createInterventionSchema } from '../schemas'
 import type { CreateInterventionInput, Intervention } from '../schemas'
+import { ClientAutocomplete } from './ClientAutocomplete'
 
 type Props = {
   open: boolean
@@ -25,10 +26,12 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
     return {
       equipment_type: 'extincteurs',
       priority: 'normale',
+      client_id: '',
     }
   }
   return {
     client_name: i.client_name,
+    client_id: i.client_id ?? '',
     site_name: i.site_name ?? '',
     address: i.address ?? '',
     equipment_type: i.equipment_type as CreateInterventionInput['equipment_type'],
@@ -49,6 +52,8 @@ export function InterventionModal({ open, onClose, onChanged, intervention }: Pr
     handleSubmit,
     reset,
     control,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<CreateInterventionInput>({
     resolver: zodResolver(createInterventionSchema),
@@ -119,10 +124,28 @@ export function InterventionModal({ open, onClose, onChanged, intervention }: Pr
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <input type="hidden" {...register('client_id')} />
           <div className="mrow">
             <div className="fg">
               <label>Client</label>
-              <input type="text" placeholder="Ex: Mairie de Creil" {...register('client_name')} />
+              <Controller
+                name="client_name"
+                control={control}
+                render={({ field }) => (
+                  <ClientAutocomplete
+                    value={field.value ?? ''}
+                    onChange={(name, client) => {
+                      field.onChange(name)
+                      setValue('client_id', client?.id ?? '')
+                      // Auto-remplit l'adresse depuis la fiche client si le champ est vide
+                      if (client?.address && !getValues('address')) {
+                        setValue('address', client.address)
+                      }
+                    }}
+                    placeholder="Tape le nom ou choisis dans tes fiches"
+                  />
+                )}
+              />
               {errors.client_name && <span className="ferr on">{errors.client_name.message}</span>}
             </div>
             <div className="fg">

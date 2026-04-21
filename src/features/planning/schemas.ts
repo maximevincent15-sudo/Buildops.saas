@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const createInterventionSchema = z.object({
   client_name: z.string().min(1, 'Client requis'),
+  client_id: z.string().optional(),
   site_name: z.string().optional(),
   address: z.string().optional(),
   equipment_type: z.enum(['extincteurs', 'ria', 'desenfumage', 'ssi', 'extinction_auto']),
@@ -18,6 +19,7 @@ export type Intervention = {
   organization_id: string
   reference: string
   client_name: string
+  client_id: string | null
   site_name: string | null
   address: string | null
   equipment_type: string

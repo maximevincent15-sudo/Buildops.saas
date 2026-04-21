@@ -10,6 +10,7 @@ export async function createIntervention(
     .insert({
       organization_id: organizationId,
       client_name: input.client_name,
+      client_id: input.client_id || null,
       site_name: input.site_name || null,
       address: input.address || null,
       equipment_type: input.equipment_type,
@@ -52,6 +53,7 @@ export async function updateIntervention(
     .from('interventions')
     .update({
       client_name: input.client_name,
+      client_id: input.client_id || null,
       site_name: input.site_name || null,
       address: input.address || null,
       equipment_type: input.equipment_type,
