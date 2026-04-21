@@ -40,7 +40,7 @@ function isoDateOnly(d: Date): string {
 export async function computeRegulatoryAlerts(): Promise<RegulatoryAlert[]> {
   const { data, error } = await supabase
     .from('interventions')
-    .select('id, reference, client_name, site_name, equipment_type, scheduled_date, completed_at, status')
+    .select('id, reference, client_name, site_name, equipment_type, scheduled_date, status, created_at')
     .eq('status', 'terminee')
   if (error) throw error
 
@@ -51,13 +51,13 @@ export async function computeRegulatoryAlerts(): Promise<RegulatoryAlert[]> {
     site_name: string | null
     equipment_type: string
     scheduled_date: string | null
-    completed_at: string | null
+    created_at: string
   }>
 
-  // Tri client-side descendant sur scheduled_date ou completed_at
+  // Tri client-side descendant (scheduled_date si dispo, sinon created_at)
   rows.sort((a, b) => {
-    const dateA = a.scheduled_date ?? a.completed_at ?? ''
-    const dateB = b.scheduled_date ?? b.completed_at ?? ''
+    const dateA = a.scheduled_date ?? a.created_at
+    const dateB = b.scheduled_date ?? b.created_at
     return dateB.localeCompare(dateA)
   })
 
@@ -73,7 +73,7 @@ export async function computeRegulatoryAlerts(): Promise<RegulatoryAlert[]> {
 
   const alerts: RegulatoryAlert[] = []
   for (const [key, r] of groups.entries()) {
-    const baseDateStr = r.scheduled_date ?? r.completed_at
+    const baseDateStr = r.scheduled_date ?? r.created_at
     if (!baseDateStr) continue
 
     const freqDays =
