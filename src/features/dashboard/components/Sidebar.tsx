@@ -14,12 +14,13 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { classifyAlert, computeRegulatoryAlerts } from '../../alertes/api'
 import { signOut } from '../../auth/api'
 import { useAuthStore } from '../../auth/store'
 import { listInterventions } from '../../planning/api'
 
 type NavItem = { to: string; Icon: LucideIcon; label: string; badgeKey?: BadgeKey }
-type BadgeKey = 'planning' | 'rapports'
+type BadgeKey = 'planning' | 'rapports' | 'alertes'
 
 type Counts = Record<BadgeKey, number>
 
@@ -27,7 +28,7 @@ const principal: NavItem[] = [
   { to: '/dashboard', Icon: LayoutDashboard, label: 'Tableau de bord' },
   { to: '/planning', Icon: CalendarDays, label: 'Planning', badgeKey: 'planning' },
   { to: '/rapports', Icon: ClipboardCheck, label: 'Rapports', badgeKey: 'rapports' },
-  { to: '/alertes', Icon: Bell, label: 'Alertes' },
+  { to: '/alertes', Icon: Bell, label: 'Alertes', badgeKey: 'alertes' },
 ]
 
 const clients: NavItem[] = [
@@ -81,17 +82,21 @@ export function Sidebar() {
   const location = useLocation()
   const user = useAuthStore((s) => s.user)
   const profile = useAuthStore((s) => s.profile)
-  const [counts, setCounts] = useState<Counts>({ planning: 0, rapports: 0 })
+  const [counts, setCounts] = useState<Counts>({ planning: 0, rapports: 0, alertes: 0 })
 
   // Refetch counts à chaque changement de route (donc après création / suppression)
   useEffect(() => {
     let alive = true
-    listInterventions()
-      .then((all) => {
+    Promise.all([listInterventions(), computeRegulatoryAlerts()])
+      .then(([all, alerts]) => {
         if (!alive) return
         const planning = all.filter((i) => i.status === 'a_planifier' || i.status === 'planifiee').length
         const rapports = all.filter((i) => i.status === 'en_cours').length
-        setCounts({ planning, rapports })
+        const alertesUrgent = alerts.filter((a) => {
+          const sev = classifyAlert(a.daysUntilDue)
+          return sev === 'overdue' || sev === 'urgent'
+        }).length
+        setCounts({ planning, rapports, alertes: alertesUrgent })
       })
       .catch(() => { /* silently ignore — no badge better than crash */ })
     return () => { alive = false }

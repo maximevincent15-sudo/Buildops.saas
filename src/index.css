@@ -334,6 +334,53 @@ h1, h2, h3, h4, h5, h6 {
   .photo-add:disabled { opacity: .55; cursor: not-allowed; }
   .photos-empty { font-size: .82rem; color: var(--ink3); font-weight: 300; padding: .5rem 0; }
 
+  /* ALERTES RÉGLEMENTAIRES */
+  .alerts-list { display: flex; flex-direction: column; gap: .5rem; }
+  .alert-row {
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+    padding: .85rem 1rem;
+    border-radius: var(--r);
+    border: .5px solid var(--brd);
+    background: var(--wht);
+    transition: background .15s;
+  }
+  .alert-row:hover { background: var(--bg); }
+  .alert-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .alert-main { flex: 1; min-width: 0; }
+  .alert-title { font-size: .92rem; font-weight: 500; color: var(--ink); }
+  .alert-site { color: var(--ink2); font-weight: 400; }
+  .alert-meta { font-size: .74rem; color: var(--ink3); margin-top: 3px; font-weight: 300; line-height: 1.5; }
+  .alert-due { text-align: right; flex-shrink: 0; }
+  .alert-due-date { font-size: .85rem; font-weight: 500; color: var(--ink); font-family: 'Syne', sans-serif; }
+  .alert-due-days { font-size: .72rem; color: var(--ink2); margin-top: 2px; font-weight: 500; }
+
+  .alert-row.sev-overdue { border-color: rgba(168, 58, 58, .3); background: var(--red-lt); }
+  .alert-row.sev-overdue .alert-icon { background: var(--red); color: white; }
+  .alert-row.sev-overdue .alert-title { color: var(--red); }
+  .alert-row.sev-overdue .alert-due-date { color: var(--red); }
+  .alert-row.sev-overdue .alert-due-days { color: var(--red); font-weight: 700; }
+
+  .alert-row.sev-urgent { border-color: rgba(196, 90, 26, .3); background: var(--org-lt); }
+  .alert-row.sev-urgent .alert-icon { background: var(--org); color: white; }
+  .alert-row.sev-urgent .alert-due-date { color: var(--org); }
+  .alert-row.sev-urgent .alert-due-days { color: var(--org); font-weight: 600; }
+
+  .alert-row.sev-soon .alert-icon { background: var(--gry-lt); color: var(--acc); }
+  .alert-row.sev-soon .alert-due-date { color: var(--acc); }
+
+  .alert-row.sev-ok .alert-icon { background: var(--grn-lt); color: var(--grn); }
+  .alert-row.sev-ok .alert-due-date { color: var(--grn); }
+
   /* FILTER PILLS (reports list, planning filters, etc.) */
   .filter-pill {
     padding: .4rem .9rem;
@@ -743,6 +790,17 @@ h1, h2, h3, h4, h5, h6 {
   .week-label { width: 100%; text-align: center; margin-left: 0; margin-top: .4rem; }
 
   .week-block-remove { opacity: 1; }
+
+  /* Alerts row : due passe sur une seconde ligne sur mobile */
+  .alert-row { flex-wrap: wrap; gap: .7rem .9rem; }
+  .alert-due {
+    text-align: left;
+    flex-basis: 100%;
+    border-top: .5px solid rgba(28, 33, 48, .1);
+    padding-top: .4rem;
+  }
+  .alert-due-date, .alert-due-days { display: inline; }
+  .alert-due-days::before { content: ' · '; color: var(--ink3); font-weight: 300; }
 
   /* Briefing : pas d'icône sur très petit écran */
   .briefing { padding: .9rem 1rem; gap: 10px; }

@@ -4,6 +4,7 @@ import { PublicLayout } from './app/layouts/PublicLayout'
 import { RequireAuth } from './app/RequireAuth'
 import { AuthPage } from './pages/AuthPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { AlertesPage } from './pages/AlertesPage'
 import { ClientsPage } from './pages/ClientsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
@@ -26,7 +27,7 @@ function App() {
           <Route path="/planning" element={<PlanningPage />} />
           <Route path="/rapports" element={<RapportsListPage />} />
           <Route path="/rapports/:interventionId" element={<RapportEditorPage />} />
-          <Route path="/alertes" element={<PlaceholderPage title="Alertes réglementaires" description="Toutes les échéances réglementaires par site et équipement." />} />
+          <Route path="/alertes" element={<AlertesPage />} />
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/techniciens" element={<PlaceholderPage title="Techniciens" description="Gestion des techniciens et de leurs disponibilités." />} />
           <Route path="/devis" element={<PlaceholderPage title="Devis" description="Création et suivi des devis clients." />} />
