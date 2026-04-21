@@ -312,4 +312,14 @@ h1, h2, h3, h4, h5, h6 {
 
   /* text utilities used in various pages */
   .text-grn { color: var(--grn); }
+
+  /* SIGNATURE PAD */
+  .sig-pad { border: 1.5px dashed var(--brd2); border-radius: var(--r); background: var(--wht); position: relative; overflow: hidden; }
+  .sig-canvas { display: block; width: 100%; height: 180px; touch-action: none; cursor: crosshair; }
+  .sig-hint { position: absolute; bottom: 6px; left: 10px; font-size: .68rem; color: var(--ink3); font-weight: 300; pointer-events: none; }
+  .sig-clear { position: absolute; top: 8px; right: 8px; display: inline-flex; align-items: center; gap: 5px; font-size: .72rem; color: var(--ink2); background: var(--wht); border: 1px solid var(--brd2); padding: 3px 9px; border-radius: var(--r); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .15s; }
+  .sig-clear:hover { color: var(--red); border-color: var(--red); background: var(--red-lt); }
+  .sig-display { border: 1px solid var(--brd); border-radius: var(--r); background: var(--wht); padding: 1rem; text-align: center; }
+  .sig-display img { display: inline-block; max-width: 100%; max-height: 160px; }
+  .sig-empty { border: 1px dashed var(--brd); border-radius: var(--r); padding: 1.2rem; text-align: center; font-size: .82rem; color: var(--ink3); font-weight: 300; }
 }

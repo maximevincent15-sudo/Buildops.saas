@@ -14,6 +14,7 @@ export const upsertReportSchema = z.object({
   checklist: z.array(checklistResponseSchema),
   observations: z.string().optional(),
   signed_by_name: z.string().optional(),
+  signature_data_url: z.string().nullable().optional(),
 })
 
 export type UpsertReportInput = z.infer<typeof upsertReportSchema>

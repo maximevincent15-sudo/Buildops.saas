@@ -13,6 +13,7 @@ import type { ChecklistResponse } from '../features/rapports/schemas'
 import { EQUIPMENT_TYPES } from '../shared/constants/interventions'
 import type { EquipmentType } from '../shared/constants/interventions'
 import { supabase } from '../shared/lib/supabase'
+import { SignaturePad } from '../shared/ui/SignaturePad'
 
 export function RapportEditorPage() {
   const { interventionId } = useParams<{ interventionId: string }>()
@@ -23,6 +24,7 @@ export function RapportEditorPage() {
   const [checklist, setChecklist] = useState<ChecklistResponse[]>([])
   const [observations, setObservations] = useState('')
   const [signedBy, setSignedBy] = useState('')
+  const [signature, setSignature] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [completedAt, setCompletedAt] = useState<string | null>(null)
@@ -50,6 +52,7 @@ export function RapportEditorPage() {
           setChecklist((report.checklist ?? []) as ChecklistResponse[])
           setObservations(report.observations ?? '')
           setSignedBy(report.signed_by_name ?? '')
+          setSignature(report.signature_data_url ?? null)
           setCompletedAt(report.completed_at)
         }
       } catch (e) {
@@ -103,6 +106,7 @@ export function RapportEditorPage() {
         checklist,
         observations,
         signed_by_name: signedBy,
+        signature_data_url: signature,
       })
       setFlash('Brouillon enregistré.')
       setTimeout(() => setFlash(null), 2500)
@@ -134,6 +138,7 @@ export function RapportEditorPage() {
         checklist,
         observations,
         signed_by_name: signedBy,
+        signature_data_url: signature,
       })
       await setInterventionStatus(iid, 'terminee')
       navigate('/planning')
@@ -211,6 +216,12 @@ export function RapportEditorPage() {
           placeholder="Nom du responsable signataire"
           disabled={isCompleted}
           className="report-input"
+          style={{ marginBottom: '1rem' }}
+        />
+        <SignaturePad
+          value={signature}
+          onChange={setSignature}
+          readOnly={isCompleted}
         />
       </div>
 

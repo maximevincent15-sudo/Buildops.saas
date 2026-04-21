@@ -25,6 +25,7 @@ async function insertReport(
       checklist: input.checklist,
       observations: input.observations || null,
       signed_by_name: input.signed_by_name || null,
+      signature_data_url: input.signature_data_url ?? null,
       completed_at: completedAt,
     })
     .select()
