@@ -647,15 +647,6 @@ h1, h2, h3, h4, h5, h6 {
   .block-form-btn.subtle { background: transparent; color: var(--ink2); }
   .block-form-btn.subtle:hover { background: var(--bg2); }
 
-  /* PLANNING FULLSCREEN */
-  .planning-fullscreen {
-    position: fixed;
-    inset: 0;
-    z-index: 9998;
-    background: var(--bg);
-    padding: 1.5rem 2rem;
-    overflow-y: auto;
-  }
 
   /* SIDEBAR BACKDROP (mobile only) */
   .sidebar-backdrop {
@@ -750,11 +741,6 @@ h1, h2, h3, h4, h5, h6 {
   .week-nav { justify-content: center; }
   .week-label { width: 100%; text-align: center; margin-left: 0; margin-top: .4rem; }
 
-  /* Masque le label "Plein écran" à côté de l'icône sur mobile */
-  .fs-label { display: none; }
-
-  /* Planning fullscreen : padding adapté mobile */
-  .planning-fullscreen { padding: 1rem .9rem; }
   .week-block-remove { opacity: 1; }
 
   /* Briefing : pas d'icône sur très petit écran */
