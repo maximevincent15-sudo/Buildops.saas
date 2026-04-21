@@ -244,4 +244,12 @@ h1, h2, h3, h4, h5, h6 {
   .act-btn.subtle { font-size: .67rem; padding: .22rem .65rem; color: var(--ink3); border-color: var(--brd); }
   .act-btn.subtle:hover:not(:disabled) { background: var(--bg2); color: var(--ink2); border-color: var(--brd2); }
   .act-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* CLIENTS GRID (fiches clients) */
+  .clients-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+  .client-card { background: var(--wht); border: .5px solid var(--brd); border-radius: var(--r); padding: 1.1rem 1.2rem; cursor: pointer; transition: border-color .15s, background .15s; display: flex; flex-direction: column; gap: .45rem; }
+  .client-card:hover { background: var(--bg); border-color: var(--brd2); }
+  .client-name { font-family: 'Syne', sans-serif; font-size: .98rem; font-weight: 800; color: var(--ink); margin-bottom: .25rem; }
+  .client-line { display: inline-flex; align-items: center; gap: 7px; font-size: .78rem; color: var(--ink2); font-weight: 400; }
+  .client-line svg { color: var(--ink3); flex-shrink: 0; }
 }
