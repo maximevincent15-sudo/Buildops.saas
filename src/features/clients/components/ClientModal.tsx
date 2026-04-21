@@ -2,8 +2,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
+import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { createClient, deleteClient, updateClient } from '../api'
 import { createClientSchema } from '../schemas'
 import type { Client, CreateClientInput } from '../schemas'
@@ -36,6 +37,7 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<CreateClientInput>({
     resolver: zodResolver(createClientSchema),
@@ -130,7 +132,17 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
 
           <div className="fg">
             <label>Adresse</label>
-            <input type="text" placeholder="Ex: 5 rue des Lilas, 60100 Creil" {...register('address')} />
+            <Controller
+              name="address"
+              control={control}
+              render={({ field }) => (
+                <AddressAutocomplete
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  placeholder="Commence à taper le numéro et la rue…"
+                />
+              )}
+            />
           </div>
 
           <div className="fg">

@@ -252,4 +252,13 @@ h1, h2, h3, h4, h5, h6 {
   .client-name { font-family: 'Syne', sans-serif; font-size: .98rem; font-weight: 800; color: var(--ink); margin-bottom: .25rem; }
   .client-line { display: inline-flex; align-items: center; gap: 7px; font-size: .78rem; color: var(--ink2); font-weight: 400; }
   .client-line svg { color: var(--ink3); flex-shrink: 0; }
+
+  /* ADDRESS AUTOCOMPLETE */
+  .addr-autocomplete { position: relative; }
+  .addr-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: var(--wht); border: 1px solid var(--brd2); border-radius: var(--r); margin-top: 4px; z-index: 100; max-height: 260px; overflow-y: auto; box-shadow: 0 4px 16px rgba(28, 33, 48, .1); display: flex; flex-direction: column; }
+  .addr-option { display: block; width: 100%; text-align: left; padding: .62rem .82rem; border: none; background: transparent; cursor: pointer; font-family: 'DM Sans', sans-serif; border-bottom: .5px solid var(--brd); transition: background .1s; }
+  .addr-option:last-child { border-bottom: none; }
+  .addr-option:hover, .addr-option.hi { background: var(--bg); }
+  .addr-label { font-size: .87rem; color: var(--ink); font-weight: 500; }
+  .addr-sub { font-size: .72rem; color: var(--ink3); margin-top: 2px; font-weight: 300; }
 }

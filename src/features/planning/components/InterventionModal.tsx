@@ -2,12 +2,13 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
 import {
   EQUIPMENT_TYPES,
   INTERVENTION_PRIORITIES,
 } from '../../../shared/constants/interventions'
+import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { createIntervention, deleteIntervention, updateIntervention } from '../api'
 import { createInterventionSchema } from '../schemas'
 import type { CreateInterventionInput, Intervention } from '../schemas'
@@ -47,6 +48,7 @@ export function InterventionModal({ open, onClose, onChanged, intervention }: Pr
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<CreateInterventionInput>({
     resolver: zodResolver(createInterventionSchema),
@@ -131,7 +133,17 @@ export function InterventionModal({ open, onClose, onChanged, intervention }: Pr
 
           <div className="fg">
             <label>Adresse (optionnelle)</label>
-            <input type="text" placeholder="Ex: 5 rue des Lilas, 60100 Creil" {...register('address')} />
+            <Controller
+              name="address"
+              control={control}
+              render={({ field }) => (
+                <AddressAutocomplete
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  placeholder="Commence à taper le numéro et la rue…"
+                />
+              )}
+            />
           </div>
 
           <div className="mrow">
