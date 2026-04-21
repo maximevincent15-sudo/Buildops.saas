@@ -13,6 +13,8 @@ import type { ChecklistResponse } from '../features/rapports/schemas'
 import { EQUIPMENT_TYPES } from '../shared/constants/interventions'
 import type { EquipmentType } from '../shared/constants/interventions'
 import { supabase } from '../shared/lib/supabase'
+import type { StoredPhoto } from '../shared/lib/storage'
+import { PhotoUploader } from '../shared/ui/PhotoUploader'
 import { SignaturePad } from '../shared/ui/SignaturePad'
 
 export function RapportEditorPage() {
@@ -25,6 +27,7 @@ export function RapportEditorPage() {
   const [observations, setObservations] = useState('')
   const [signedBy, setSignedBy] = useState('')
   const [signature, setSignature] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<StoredPhoto[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [completedAt, setCompletedAt] = useState<string | null>(null)
@@ -53,6 +56,7 @@ export function RapportEditorPage() {
           setObservations(report.observations ?? '')
           setSignedBy(report.signed_by_name ?? '')
           setSignature(report.signature_data_url ?? null)
+          setPhotos((report.photos ?? []) as StoredPhoto[])
           setCompletedAt(report.completed_at)
         }
       } catch (e) {
@@ -107,6 +111,7 @@ export function RapportEditorPage() {
         observations,
         signed_by_name: signedBy,
         signature_data_url: signature,
+        photos,
       })
       setFlash('Brouillon enregistré.')
       setTimeout(() => setFlash(null), 2500)
@@ -139,6 +144,7 @@ export function RapportEditorPage() {
         observations,
         signed_by_name: signedBy,
         signature_data_url: signature,
+        photos,
       })
       await setInterventionStatus(iid, 'terminee')
       navigate('/planning')
@@ -221,6 +227,22 @@ export function RapportEditorPage() {
         <SignaturePad
           value={signature}
           onChange={setSignature}
+          readOnly={isCompleted}
+        />
+      </div>
+
+      <div className="card" style={{ marginTop: '1rem' }}>
+        <div className="card-top">
+          <span className="card-title">Photos</span>
+          {photos.length > 0 && (
+            <span className="text-ink-3 text-xs font-light">{photos.length} photo{photos.length > 1 ? 's' : ''}</span>
+          )}
+        </div>
+        <PhotoUploader
+          photos={photos}
+          onChange={setPhotos}
+          organizationId={orgId}
+          interventionId={iid}
           readOnly={isCompleted}
         />
       </div>

@@ -26,6 +26,7 @@ async function insertReport(
       observations: input.observations || null,
       signed_by_name: input.signed_by_name || null,
       signature_data_url: input.signature_data_url ?? null,
+      photos: input.photos ?? [],
       completed_at: completedAt,
     })
     .select()
@@ -43,6 +44,8 @@ async function updateExistingReport(
     checklist: input.checklist,
     observations: input.observations || null,
     signed_by_name: input.signed_by_name || null,
+    signature_data_url: input.signature_data_url ?? null,
+    photos: input.photos ?? [],
     updated_at: new Date().toISOString(),
   }
   if (completedAt !== undefined) {
