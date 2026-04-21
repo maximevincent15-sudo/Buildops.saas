@@ -42,7 +42,6 @@ export async function computeRegulatoryAlerts(): Promise<RegulatoryAlert[]> {
     .from('interventions')
     .select('id, reference, client_name, site_name, equipment_type, scheduled_date, completed_at, status')
     .eq('status', 'terminee')
-    .order('scheduled_date', { ascending: false, nullsFirst: false })
   if (error) throw error
 
   const rows = (data ?? []) as Array<{
@@ -54,6 +53,13 @@ export async function computeRegulatoryAlerts(): Promise<RegulatoryAlert[]> {
     scheduled_date: string | null
     completed_at: string | null
   }>
+
+  // Tri client-side descendant sur scheduled_date ou completed_at
+  rows.sort((a, b) => {
+    const dateA = a.scheduled_date ?? a.completed_at ?? ''
+    const dateB = b.scheduled_date ?? b.completed_at ?? ''
+    return dateB.localeCompare(dateA)
+  })
 
   // Groupe par (client, équipement), on garde la plus récente (déjà triée DESC)
   const groups = new Map<string, (typeof rows)[number]>()

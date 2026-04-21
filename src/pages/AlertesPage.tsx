@@ -43,7 +43,16 @@ export function AlertesPage() {
     let alive = true
     computeRegulatoryAlerts()
       .then((data) => { if (alive) setAlerts(data) })
-      .catch((e) => { if (alive) setError(e instanceof Error ? e.message : 'Erreur inconnue') })
+      .catch((e: unknown) => {
+        console.error('Erreur chargement alertes', e)
+        if (!alive) return
+        if (e && typeof e === 'object') {
+          const err = e as { message?: string; details?: string; hint?: string; code?: string }
+          setError(err.message ?? err.details ?? err.hint ?? err.code ?? JSON.stringify(e))
+        } else {
+          setError(String(e))
+        }
+      })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [])
