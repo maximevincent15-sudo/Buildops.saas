@@ -494,6 +494,105 @@ h1, h2, h3, h4, h5, h6 {
     gap: .4rem;
   }
 
+  /* WEEK BLOCKS (créneaux libres — déjeuner, RDV perso, etc.) */
+  .week-block {
+    position: relative;
+    background: var(--bg2);
+    border-left: 3px solid var(--ink3);
+    border-radius: 5px;
+    padding: .45rem .55rem;
+    font-size: .78rem;
+    color: var(--ink2);
+    font-weight: 400;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    min-height: 28px;
+  }
+  .week-block-label { flex: 1; line-height: 1.25; }
+  .week-block-remove {
+    opacity: 0;
+    transition: opacity .15s;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--ink3);
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .week-block:hover .week-block-remove { opacity: 1; }
+  .week-block-remove:hover { background: var(--red); }
+
+  /* ADD BLOCK BUTTON + FORM */
+  .week-day-footer { margin-top: auto; padding-top: .4rem; }
+  .week-day-add {
+    width: 100%;
+    background: transparent;
+    border: 1px dashed var(--brd2);
+    border-radius: 5px;
+    color: var(--ink3);
+    font-size: .72rem;
+    padding: .35rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .15s;
+  }
+  .week-day-add:hover { border-color: var(--acc); color: var(--acc); background: rgba(58, 92, 168, .04); }
+  .week-day.today .week-day-add { border-color: var(--acc); }
+
+  .block-form { display: flex; flex-direction: column; gap: 6px; }
+  .block-form input[type="text"] {
+    width: 100%;
+    padding: .4rem .55rem;
+    font-size: .78rem;
+    border: 1px solid var(--brd2);
+    border-radius: 5px;
+    outline: none;
+    background: var(--wht);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--ink);
+  }
+  .block-form input[type="text"]:focus { border-color: var(--acc); }
+  .block-form-check { display: flex; align-items: center; gap: 5px; font-size: .7rem; color: var(--ink2); cursor: pointer; }
+  .block-form-check input[type="checkbox"] { cursor: pointer; }
+  .block-form-actions { display: flex; gap: 4px; justify-content: flex-end; }
+  .block-form-btn {
+    padding: .3rem .6rem;
+    border-radius: 5px;
+    border: none;
+    background: var(--acc);
+    color: white;
+    font-size: .72rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .block-form-btn:hover:not(:disabled) { background: var(--acc2); }
+  .block-form-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .block-form-btn.subtle { background: transparent; color: var(--ink2); }
+  .block-form-btn.subtle:hover { background: var(--bg2); }
+
+  /* PLANNING FULLSCREEN */
+  .planning-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: var(--bg);
+    padding: 1.5rem 2rem;
+    overflow-y: auto;
+  }
+
   /* SIDEBAR BACKDROP (mobile only) */
   .sidebar-backdrop {
     display: none;
@@ -586,6 +685,13 @@ h1, h2, h3, h4, h5, h6 {
   .week-day { min-height: auto; }
   .week-nav { justify-content: center; }
   .week-label { width: 100%; text-align: center; margin-left: 0; margin-top: .4rem; }
+
+  /* Masque le label "Plein écran" à côté de l'icône sur mobile */
+  .fs-label { display: none; }
+
+  /* Planning fullscreen : padding adapté mobile */
+  .planning-fullscreen { padding: 1rem .9rem; }
+  .week-block-remove { opacity: 1; }
 
   /* Briefing : pas d'icône sur très petit écran */
   .briefing { padding: .9rem 1rem; gap: 10px; }

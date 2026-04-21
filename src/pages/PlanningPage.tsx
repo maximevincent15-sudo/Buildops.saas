@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { MapPin } from 'lucide-react'
+import { MapPin, Maximize2, Minimize2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { listInterventions } from '../features/planning/api'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
@@ -35,6 +35,7 @@ export function PlanningPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Intervention | null>(null)
   const [view, setView] = useState<ViewMode>('list')
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -71,7 +72,7 @@ export function PlanningPage() {
   const total = interventions.length
 
   return (
-    <>
+    <div className={isFullscreen ? 'planning-fullscreen' : undefined}>
       <div className="dash-top">
         <div>
           <div className="dash-title">Planning des interventions</div>
@@ -82,6 +83,18 @@ export function PlanningPage() {
           </div>
         </div>
         <div className="dash-acts">
+          {view === 'week' && (
+            <button
+              type="button"
+              className="btn-sm"
+              onClick={() => setIsFullscreen((v) => !v)}
+              aria-label={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+            >
+              {isFullscreen ? <Minimize2 size={14} strokeWidth={2} /> : <Maximize2 size={14} strokeWidth={2} />}
+              <span className="fs-label">{isFullscreen ? 'Réduire' : 'Plein écran'}</span>
+            </button>
+          )}
           <button type="button" className="btn-sm acc" onClick={openCreate}>
             + Nouvelle intervention
           </button>
@@ -195,6 +208,6 @@ export function PlanningPage() {
         onChanged={() => void load()}
         intervention={editing}
       />
-    </>
+    </div>
   )
 }
