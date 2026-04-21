@@ -92,8 +92,7 @@ export function TechnicianCertifications({ technicianId, organizationId }: Props
     setExpiresAt('')
   }
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleAdd() {
     if (!name.trim()) return
     setSaving(true)
     try {
@@ -106,8 +105,17 @@ export function TechnicianCertifications({ technicianId, organizationId }: Props
       resetForm()
       setFormOpen(false)
       void reload()
+    } catch (err) {
+      console.error('Erreur création certification', err)
     } finally {
       setSaving(false)
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      void handleAdd()
     }
   }
 
@@ -138,12 +146,13 @@ export function TechnicianCertifications({ technicianId, organizationId }: Props
       </div>
 
       {formOpen && (
-        <form className="cert-form" onSubmit={(e) => void handleAdd(e)}>
+        <div className="cert-form">
           <input
             type="text"
             placeholder="Ex: Habilitation électrique B1V, SST, Formation SSI…"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={handleKeyDown}
             autoFocus
             maxLength={80}
           />
@@ -152,6 +161,7 @@ export function TechnicianCertifications({ technicianId, organizationId }: Props
             placeholder="Organisme (optionnel) : INRS, APAVE…"
             value={issuingBody}
             onChange={(e) => setIssuingBody(e.target.value)}
+            onKeyDown={handleKeyDown}
             maxLength={60}
           />
           <div className="cert-form-dates">
@@ -161,6 +171,7 @@ export function TechnicianCertifications({ technicianId, organizationId }: Props
                 type="date"
                 value={issuedAt}
                 onChange={(e) => setIssuedAt(e.target.value)}
+                onKeyDown={handleKeyDown}
               />
             </div>
             <div>
@@ -169,6 +180,7 @@ export function TechnicianCertifications({ technicianId, organizationId }: Props
                 type="date"
                 value={expiresAt}
                 onChange={(e) => setExpiresAt(e.target.value)}
+                onKeyDown={handleKeyDown}
               />
             </div>
           </div>
@@ -184,11 +196,16 @@ export function TechnicianCertifications({ technicianId, organizationId }: Props
             >
               Annuler
             </button>
-            <button type="submit" className="block-form-btn" disabled={saving || !name.trim()}>
+            <button
+              type="button"
+              className="block-form-btn"
+              onClick={() => void handleAdd()}
+              disabled={saving || !name.trim()}
+            >
               {saving ? '…' : 'Ajouter'}
             </button>
           </div>
-        </form>
+        </div>
       )}
 
       {loading && <p className="text-ink-3 text-xs font-light" style={{ marginTop: '.4rem' }}>Chargement…</p>}
