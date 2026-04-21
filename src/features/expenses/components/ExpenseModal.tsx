@@ -137,6 +137,10 @@ export function ExpenseModal({ open, onClose, onCreated }: Props) {
       setError('Montant TTC invalide.')
       return
     }
+    if (category === 'other' && !description.trim()) {
+      setError('Décris la nature du frais (catégorie "Autre").')
+      return
+    }
 
     setSubmitting(true)
     setError(null)
@@ -266,13 +270,22 @@ export function ExpenseModal({ open, onClose, onCreated }: Props) {
           )}
 
           <div className="fg">
-            <label>Description (optionnel)</label>
+            <label>
+              Description {category === 'other'
+                ? <span className="text-red text-xs" style={{ fontWeight: 500 }}>(requis pour "Autre")</span>
+                : <span className="text-ink-3 text-xs font-light">(optionnel)</span>}
+            </label>
             <input
               type="text"
-              placeholder="Ex: Déjeuner chantier Valoris, commande Rexel…"
+              placeholder={
+                category === 'other'
+                  ? 'Décris la nature du frais (obligatoire)'
+                  : 'Ex: Déjeuner chantier Valoris, commande Rexel…'
+              }
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               maxLength={120}
+              autoFocus={category === 'other'}
             />
           </div>
 
