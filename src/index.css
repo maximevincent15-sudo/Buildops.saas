@@ -494,6 +494,128 @@ h1, h2, h3, h4, h5, h6 {
     justify-content: flex-end;
   }
 
+  /* NOTES DE FRAIS */
+  .exp-cat-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+  }
+  .receipt-preview {
+    position: relative;
+    display: inline-block;
+  }
+  .receipt-thumb {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 110px;
+    height: 110px;
+    border-radius: var(--r);
+    border: .5px solid var(--brd2);
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .receipt-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .receipt-pdf {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 1.2rem;
+    color: var(--ink2);
+    letter-spacing: 1px;
+  }
+  .receipt-remove {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: var(--red);
+    color: white;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .receipt-remove:hover { background: #8a2d2d; }
+
+  .expenses-list { display: flex; flex-direction: column; gap: .5rem; }
+  .expense-row {
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+    padding: .85rem 1rem;
+    border-radius: var(--r);
+    border: .5px solid var(--brd);
+    background: var(--wht);
+  }
+  .expense-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gry-lt);
+    color: var(--ink2);
+  }
+  .expense-main { flex: 1; min-width: 0; }
+  .expense-title { font-size: .92rem; font-weight: 500; color: var(--ink); }
+  .expense-tech { color: var(--ink2); font-weight: 400; }
+  .expense-meta { font-size: .74rem; color: var(--ink3); margin-top: 3px; font-weight: 300; line-height: 1.5; }
+  .expense-receipt-link {
+    color: var(--acc);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .expense-receipt-link:hover { text-decoration: underline; }
+  .expense-reject-reason {
+    margin-top: 4px;
+    font-style: italic;
+    color: var(--red);
+    font-weight: 400;
+  }
+  .expense-amount { text-align: right; flex-shrink: 0; }
+  .expense-amount-val { font-size: .95rem; font-weight: 600; color: var(--ink); font-family: 'Syne', sans-serif; }
+  .expense-amount-sub { font-size: .66rem; color: var(--ink3); margin-top: 1px; font-weight: 400; }
+
+  .expense-actions { display: flex; gap: .3rem; flex-shrink: 0; }
+  .exp-act {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: .5px solid var(--brd2);
+    background: var(--wht);
+    color: var(--ink2);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+  }
+  .exp-act:hover { transform: translateY(-1px); }
+  .exp-act.approve:hover { background: var(--grn); border-color: var(--grn); color: white; }
+  .exp-act.reject:hover { background: var(--red); border-color: var(--red); color: white; }
+  .exp-act.neutral:hover { background: var(--ink); border-color: var(--ink); color: white; }
+  .exp-act.delete:hover { background: var(--red-lt); border-color: var(--red-lt); color: var(--red); }
+
+  .expense-row.status-approved { border-color: rgba(60, 130, 80, .25); background: var(--grn-lt); }
+  .expense-row.status-approved .expense-icon { background: var(--grn); color: white; }
+  .expense-row.status-approved .expense-amount-val { color: var(--grn); }
+
+  .expense-row.status-rejected { border-color: rgba(168, 58, 58, .25); background: var(--red-lt); }
+  .expense-row.status-rejected .expense-icon { background: var(--red); color: white; }
+  .expense-row.status-rejected .expense-amount-val { color: var(--red); }
+  .expense-row.status-rejected .expense-title { color: var(--red); }
+
   /* FILTER PILLS (reports list, planning filters, etc.) */
   .filter-pill {
     padding: .4rem .9rem;
@@ -914,6 +1036,13 @@ h1, h2, h3, h4, h5, h6 {
   }
   .alert-due-date, .alert-due-days { display: inline; }
   .alert-due-days::before { content: ' · '; color: var(--ink3); font-weight: 300; }
+
+  /* Expenses : actions et montant passent sur une seconde ligne sur mobile */
+  .expense-row { flex-wrap: wrap; gap: .6rem .9rem; }
+  .expense-main { flex: 1 1 100%; min-width: 0; order: 1; }
+  .expense-icon { order: 0; }
+  .expense-amount { flex: 1; text-align: left; order: 2; }
+  .expense-actions { order: 3; }
 
   /* Briefing : pas d'icône sur très petit écran */
   .briefing { padding: .9rem 1rem; gap: 10px; }

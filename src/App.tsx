@@ -6,6 +6,7 @@ import { AuthPage } from './pages/AuthPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { AlertesPage } from './pages/AlertesPage'
 import { ClientsPage } from './pages/ClientsPage'
+import { ExpensesPage } from './pages/ExpensesPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { PlanningPage } from './pages/PlanningPage'
@@ -31,6 +32,7 @@ function App() {
           <Route path="/alertes" element={<AlertesPage />} />
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/techniciens" element={<TechniciensPage />} />
+          <Route path="/frais" element={<ExpensesPage />} />
           <Route path="/devis" element={<PlaceholderPage title="Devis" description="Création et suivi des devis clients." />} />
           <Route path="/factures" element={<PlaceholderPage title="Factures" description="Facturation et relances." />} />
           <Route path="/archivage" element={<PlaceholderPage title="Archivage" description="Documents archivés par site et par intervention." />} />
