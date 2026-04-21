@@ -6,6 +6,7 @@ import { listInterventions } from '../features/planning/api'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
 import { InterventionRowActions } from '../features/planning/components/InterventionRowActions'
 import { InterventionStatusBadge } from '../features/planning/components/InterventionStatusBadge'
+import { PlanningWeekView } from '../features/planning/components/PlanningWeekView'
 import type { Intervention } from '../features/planning/schemas'
 import {
   EQUIPMENT_TYPES,
@@ -15,6 +16,8 @@ import type {
   EquipmentType,
   InterventionPriority,
 } from '../shared/constants/interventions'
+
+type ViewMode = 'list' | 'week'
 
 function formatDate(d: string | null) {
   if (!d) return '—'
@@ -31,6 +34,7 @@ export function PlanningPage() {
   const [error, setError] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Intervention | null>(null)
+  const [view, setView] = useState<ViewMode>('list')
 
   async function load() {
     setLoading(true)
@@ -84,6 +88,25 @@ export function PlanningPage() {
         </div>
       </div>
 
+      {total > 0 && (
+        <div style={{ display: 'flex', gap: '.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={`filter-pill${view === 'list' ? ' on' : ''}`}
+            onClick={() => setView('list')}
+          >
+            Liste
+          </button>
+          <button
+            type="button"
+            className={`filter-pill${view === 'week' ? ' on' : ''}`}
+            onClick={() => setView('week')}
+          >
+            Semaine
+          </button>
+        </div>
+      )}
+
       <div className="card">
         {loading && <p className="text-ink-2 text-sm font-light">Chargement…</p>}
 
@@ -105,7 +128,7 @@ export function PlanningPage() {
           </div>
         )}
 
-        {!loading && !error && total > 0 && (
+        {!loading && !error && total > 0 && view === 'list' && (
           <>
             <p className="text-ink-3 text-xs font-light" style={{ marginBottom: '.75rem' }}>
               Clique sur une ligne pour modifier ou supprimer une intervention.
@@ -156,6 +179,13 @@ export function PlanningPage() {
               </tbody>
             </table>
           </>
+        )}
+
+        {!loading && !error && total > 0 && view === 'week' && (
+          <PlanningWeekView
+            interventions={interventions}
+            onClickIntervention={openEdit}
+          />
         )}
       </div>
 
