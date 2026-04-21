@@ -3,7 +3,9 @@ import {
   Bell,
   Building2,
   CalendarDays,
+  Car,
   ClipboardCheck,
+  Clock,
   HardHat,
   LayoutDashboard,
   LogOut,
@@ -19,10 +21,11 @@ import { classifyAlert, computeRegulatoryAlerts } from '../../alertes/api'
 import { signOut } from '../../auth/api'
 import { useAuthStore } from '../../auth/store'
 import { listExpenses } from '../../expenses/api'
+import { listOvertime } from '../../overtime/api'
 import { listInterventions } from '../../planning/api'
 
 type NavItem = { to: string; Icon: LucideIcon; label: string; badgeKey?: BadgeKey }
-type BadgeKey = 'planning' | 'rapports' | 'alertes' | 'frais'
+type BadgeKey = 'planning' | 'rapports' | 'alertes' | 'frais' | 'heures'
 
 type Counts = Record<BadgeKey, number>
 
@@ -35,11 +38,16 @@ const principal: NavItem[] = [
 
 const clients: NavItem[] = [
   { to: '/clients', Icon: Building2, label: 'Fiches clients' },
+]
+
+const rh: NavItem[] = [
   { to: '/techniciens', Icon: HardHat, label: 'Techniciens' },
+  { to: '/vehicules', Icon: Car, label: 'Véhicules' },
+  { to: '/frais', Icon: ReceiptText, label: 'Notes de frais', badgeKey: 'frais' },
+  { to: '/heures-sup', Icon: Clock, label: 'Heures sup', badgeKey: 'heures' },
 ]
 
 const facturation: NavItem[] = [
-  { to: '/frais', Icon: ReceiptText, label: 'Notes de frais', badgeKey: 'frais' },
   { to: '/devis', Icon: Wallet, label: 'Devis' },
   { to: '/factures', Icon: Receipt, label: 'Factures' },
 ]
@@ -85,13 +93,18 @@ export function Sidebar() {
   const location = useLocation()
   const user = useAuthStore((s) => s.user)
   const profile = useAuthStore((s) => s.profile)
-  const [counts, setCounts] = useState<Counts>({ planning: 0, rapports: 0, alertes: 0, frais: 0 })
+  const [counts, setCounts] = useState<Counts>({ planning: 0, rapports: 0, alertes: 0, frais: 0, heures: 0 })
 
   // Refetch counts à chaque changement de route (donc après création / suppression)
   useEffect(() => {
     let alive = true
-    Promise.all([listInterventions(), computeRegulatoryAlerts(), listExpenses()])
-      .then(([all, alerts, expenses]) => {
+    Promise.all([
+      listInterventions(),
+      computeRegulatoryAlerts(),
+      listExpenses(),
+      listOvertime(),
+    ])
+      .then(([all, alerts, expenses, overtime]) => {
         if (!alive) return
         const planning = all.filter((i) => i.status === 'a_planifier' || i.status === 'planifiee').length
         const rapports = all.filter((i) => i.status === 'en_cours').length
@@ -100,7 +113,8 @@ export function Sidebar() {
           return sev === 'overdue' || sev === 'urgent'
         }).length
         const frais = expenses.filter((e) => e.status === 'pending').length
-        setCounts({ planning, rapports, alertes: alertesUrgent, frais })
+        const heures = overtime.filter((o) => o.status === 'pending').length
+        setCounts({ planning, rapports, alertes: alertesUrgent, frais, heures })
       })
       .catch(() => { /* silently ignore — no badge better than crash */ })
     return () => { alive = false }
@@ -127,6 +141,9 @@ export function Sidebar() {
 
       <div className="sb-sec">Clients</div>
       {clients.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
+
+      <div className="sb-sec">RH / Paie</div>
+      {rh.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
       <div className="sb-sec">Facturation</div>
       {facturation.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}

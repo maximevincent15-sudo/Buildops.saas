@@ -8,6 +8,7 @@ import { AlertesPage } from './pages/AlertesPage'
 import { ClientsPage } from './pages/ClientsPage'
 import { ExpensesPage } from './pages/ExpensesPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { OvertimePage } from './pages/OvertimePage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { PlanningPage } from './pages/PlanningPage'
 import { RapportEditorPage } from './pages/RapportEditorPage'
@@ -33,6 +34,8 @@ function App() {
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/techniciens" element={<TechniciensPage />} />
           <Route path="/frais" element={<ExpensesPage />} />
+          <Route path="/heures-sup" element={<OvertimePage />} />
+          <Route path="/vehicules" element={<PlaceholderPage title="Véhicules" description="Gestion du parc véhicules et alertes CT, assurance, vidange." />} />
           <Route path="/devis" element={<PlaceholderPage title="Devis" description="Création et suivi des devis clients." />} />
           <Route path="/factures" element={<PlaceholderPage title="Factures" description="Facturation et relances." />} />
           <Route path="/archivage" element={<PlaceholderPage title="Archivage" description="Documents archivés par site et par intervention." />} />
