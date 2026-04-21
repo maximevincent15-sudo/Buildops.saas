@@ -349,4 +349,165 @@ h1, h2, h3, h4, h5, h6 {
   }
   .filter-pill:hover { background: var(--bg); color: var(--ink); }
   .filter-pill.on { background: var(--ink); color: white; border-color: var(--ink); }
+
+  /* TOPNAV — layout + hamburger + mobile helpers */
+  .topnav-left { display: flex; align-items: center; gap: 10px; }
+  .sb-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 0;
+  }
+  .sb-toggle:hover { background: var(--bg2); }
+  .plan-label { font-size: .82rem; color: var(--ink2); }
+  .logout-btn { display: inline-flex; align-items: center; gap: 5px; }
+  .logout-icon { display: none; }
+
+  /* DAILY BRIEFING (dashboard top card) */
+  .briefing {
+    background: var(--wht);
+    border: .5px solid var(--brd);
+    border-left: 3px solid var(--acc);
+    border-radius: var(--rlg);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.2rem;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .briefing-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--gry-lt);
+    color: var(--acc);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .briefing-body { flex: 1; }
+  .briefing-title {
+    font-family: 'Syne', sans-serif;
+    font-size: .95rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--ink);
+  }
+  .briefing-text {
+    font-size: .86rem;
+    color: var(--ink2);
+    line-height: 1.55;
+    font-weight: 300;
+  }
+  .briefing-text strong { color: var(--ink); font-weight: 500; }
+
+  /* SIDEBAR BACKDROP (mobile only) */
+  .sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 64px 0 0 0;
+    background: rgba(0, 0, 0, .45);
+    z-index: 995;
+    animation: fadeIn .15s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+}
+
+/* ════════════════════════════════════════════════════
+   RESPONSIVE — mobile (< 768px)
+   ════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* TopNav compact */
+  .topnav { padding: .7rem 3.5%; }
+  .sb-toggle { display: inline-flex; }
+  .plan-label { display: none; }
+  .site-btn { display: none; }
+  .logout-label { display: none; }
+  .logout-icon { display: inline-block; }
+  .logout-btn { padding: .48rem .7rem; }
+  .logo-txt { font-size: 1.15rem; }
+
+  /* Sidebar slide-in */
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 64px;
+    height: calc(100vh - 64px);
+    width: 240px;
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+    z-index: 998;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, .15);
+  }
+  .dash-wrap.sidebar-open .sidebar { transform: translateX(0); }
+  .dash-wrap.sidebar-open .sidebar-backdrop { display: block; }
+
+  /* Main padding compact */
+  .dash-main { padding: 1rem .9rem; }
+  .dash-top { margin-bottom: 1.2rem; gap: .6rem; }
+  .dash-title { font-size: 1.2rem; }
+
+  /* Grids single column */
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: .7rem; margin-bottom: 1rem; }
+  .g2, .g3 { grid-template-columns: 1fr; gap: .8rem; }
+
+  /* KPI tighter on mobile */
+  .kpi { padding: .9rem 1rem; }
+  .kpi-val { font-size: 1.45rem; }
+  .kpi-lbl { font-size: .68rem; }
+
+  /* Modal full-width */
+  .modal { max-width: 100%; max-height: 94vh; padding: 1.2rem; border-radius: 12px; }
+  .modal-head { margin-bottom: 1rem; }
+  .modal-title { font-size: 1.05rem; }
+  .mrow { grid-template-columns: 1fr; gap: .9rem; }
+  .modal-foot { flex-direction: column-reverse; }
+  .modal-foot .mf { width: 100%; }
+  .modal-foot .mf.del { margin-right: 0 !important; margin-top: .5rem; }
+
+  /* Tables : scroll horizontal (on préserve les colonnes, pas de refonte) */
+  .card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .dtbl { min-width: 560px; }
+
+  /* Auth : 1 colonne, panneau sombre masqué */
+  .auth-layout { flex-direction: column; min-height: 100vh; }
+  .auth-left { display: none; }
+  .auth-right { padding: 1.5rem 1rem; min-height: 100vh; }
+  .auth-card { padding: 1.6rem 1.3rem; }
+
+  /* Photos grid un peu plus large pour touch */
+  .photos-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+  .photo-thumb { aspect-ratio: 1; }
+
+  /* Checklist : empiler label / boutons si trop serré */
+  .check-row { flex-wrap: wrap; }
+
+  /* Signature pad : hauteur un peu plus grande pour le doigt */
+  .sig-canvas { height: 200px; }
+
+  /* Filter pills : wrap proprement */
+  .filter-pill { padding: .35rem .75rem; font-size: .74rem; }
+
+  /* Briefing : pas d'icône sur très petit écran */
+  .briefing { padding: .9rem 1rem; gap: 10px; }
+  .briefing-icon { width: 28px; height: 28px; }
+  .briefing-title { font-size: .88rem; }
+  .briefing-text { font-size: .82rem; }
+
+  /* Boutons sur les cards top plus compacts */
+  .dash-acts { flex-wrap: wrap; }
+}
+
+/* Tablettes (768 à 1024px) : KPI sur 2 cols au lieu de 4 */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .g3 { grid-template-columns: 1fr; }
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuthStore } from '../features/auth/store'
 import { ActivityFeed } from '../features/dashboard/components/ActivityFeed'
 import { AlertsList } from '../features/dashboard/components/AlertsList'
+import { DailyBriefing } from '../features/dashboard/components/DailyBriefing'
 import { KpiCard } from '../features/dashboard/components/KpiCard'
 import { RecentInterventions } from '../features/dashboard/components/RecentInterventions'
 import { RevenueBars } from '../features/dashboard/components/RevenueBars'
@@ -54,6 +55,8 @@ export function DashboardPage() {
           <button type="button" className="btn-sm acc">+ Nouveau rapport</button>
         </div>
       </div>
+
+      <DailyBriefing key={`br-${refreshKey}`} />
 
       <div className="kpi-grid">
         <KpiCard
