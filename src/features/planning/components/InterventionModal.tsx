@@ -13,6 +13,7 @@ import { createIntervention, deleteIntervention, updateIntervention } from '../a
 import { createInterventionSchema } from '../schemas'
 import type { CreateInterventionInput, Intervention } from '../schemas'
 import { ClientAutocomplete } from './ClientAutocomplete'
+import { TechnicianAutocomplete } from './TechnicianAutocomplete'
 
 type Props = {
   open: boolean
@@ -27,6 +28,7 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
       equipment_type: 'extincteurs',
       priority: 'normale',
       client_id: '',
+      technician_id: '',
     }
   }
   return {
@@ -37,6 +39,7 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
     equipment_type: i.equipment_type as CreateInterventionInput['equipment_type'],
     scheduled_date: i.scheduled_date ?? '',
     technician_name: i.technician_name ?? '',
+    technician_id: i.technician_id ?? '',
     priority: i.priority as CreateInterventionInput['priority'],
     notes: i.notes ?? '',
   }
@@ -184,10 +187,24 @@ export function InterventionModal({ open, onClose, onChanged, intervention }: Pr
             </div>
           </div>
 
+          <input type="hidden" {...register('technician_id')} />
           <div className="mrow">
             <div className="fg">
               <label>Technicien assigné</label>
-              <input type="text" placeholder="Ex: T. Moreau" {...register('technician_name')} />
+              <Controller
+                name="technician_name"
+                control={control}
+                render={({ field }) => (
+                  <TechnicianAutocomplete
+                    value={field.value ?? ''}
+                    onChange={(name, tech) => {
+                      field.onChange(name)
+                      setValue('technician_id', tech?.id ?? '')
+                    }}
+                    placeholder="Tape le nom ou choisis dans tes techniciens"
+                  />
+                )}
+              />
             </div>
             <div className="fg">
               <label>Priorité</label>

@@ -11,6 +11,7 @@ import { PlaceholderPage } from './pages/PlaceholderPage'
 import { PlanningPage } from './pages/PlanningPage'
 import { RapportEditorPage } from './pages/RapportEditorPage'
 import { RapportsListPage } from './pages/RapportsListPage'
+import { TechniciensPage } from './pages/TechniciensPage'
 
 function App() {
   return (
@@ -29,7 +30,7 @@ function App() {
           <Route path="/rapports/:interventionId" element={<RapportEditorPage />} />
           <Route path="/alertes" element={<AlertesPage />} />
           <Route path="/clients" element={<ClientsPage />} />
-          <Route path="/techniciens" element={<PlaceholderPage title="Techniciens" description="Gestion des techniciens et de leurs disponibilités." />} />
+          <Route path="/techniciens" element={<TechniciensPage />} />
           <Route path="/devis" element={<PlaceholderPage title="Devis" description="Création et suivi des devis clients." />} />
           <Route path="/factures" element={<PlaceholderPage title="Factures" description="Facturation et relances." />} />
           <Route path="/archivage" element={<PlaceholderPage title="Archivage" description="Documents archivés par site et par intervention." />} />

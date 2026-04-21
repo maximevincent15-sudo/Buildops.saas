@@ -252,6 +252,8 @@ h1, h2, h3, h4, h5, h6 {
   .client-name { font-family: 'Syne', sans-serif; font-size: .98rem; font-weight: 800; color: var(--ink); margin-bottom: .25rem; }
   .client-line { display: inline-flex; align-items: center; gap: 7px; font-size: .78rem; color: var(--ink2); font-weight: 400; }
   .client-line svg { color: var(--ink3); flex-shrink: 0; }
+  .client-card.inactive { opacity: .55; }
+  .client-card.inactive .client-name { color: var(--ink2); }
 
   /* ADDRESS AUTOCOMPLETE */
   .addr-autocomplete { position: relative; }

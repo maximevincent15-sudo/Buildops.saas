@@ -8,6 +8,7 @@ export const createInterventionSchema = z.object({
   equipment_type: z.enum(['extincteurs', 'ria', 'desenfumage', 'ssi', 'extinction_auto']),
   scheduled_date: z.string().optional(),
   technician_name: z.string().optional(),
+  technician_id: z.string().optional(),
   priority: z.enum(['normale', 'urgente', 'reglementaire']),
   notes: z.string().optional(),
 })
@@ -24,6 +25,7 @@ export type Intervention = {
   address: string | null
   equipment_type: string
   technician_name: string | null
+  technician_id: string | null
   scheduled_date: string | null
   priority: string
   status: string
