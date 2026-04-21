@@ -11,9 +11,23 @@ import type {
   EquipmentType,
   InterventionStatus,
 } from '../../../shared/constants/interventions'
-import { createBlocks, deleteBlock, listBlocksForRange } from '../blocksApi'
+import { createBlocks, deleteBlock, formatBlockTime, listBlocksForRange } from '../blocksApi'
 import type { PlanningBlock } from '../blocksApi'
 import type { Intervention } from '../schemas'
+
+type Range = 'week' | 'twoweeks' | 'month'
+
+const RANGE_DAYS: Record<Range, number> = {
+  week: 7,
+  twoweeks: 14,
+  month: 28,
+}
+
+const RANGE_LABELS: Record<Range, string> = {
+  week: '1 semaine',
+  twoweeks: '2 semaines',
+  month: '1 mois',
+}
 
 type Props = {
   interventions: Intervention[]
@@ -25,7 +39,6 @@ function cap(s: string) {
 }
 
 function toIsoDate(d: Date): string {
-  // YYYY-MM-DD en timezone locale (pas UTC pour éviter les décalages d'un jour)
   const year = d.getFullYear()
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
@@ -34,15 +47,17 @@ function toIsoDate(d: Date): string {
 
 type DayFormProps = {
   date: Date
-  weekDays: Date[]
+  visibleDays: Date[]
   organizationId: string
   onCreated: () => void
   onCancel: () => void
 }
 
-function DayForm({ date, weekDays, organizationId, onCreated, onCancel }: DayFormProps) {
+function DayForm({ date, visibleDays, organizationId, onCreated, onCancel }: DayFormProps) {
   const [label, setLabel] = useState('')
-  const [allWeek, setAllWeek] = useState(false)
+  const [startTime, setStartTime] = useState('')
+  const [endTime, setEndTime] = useState('')
+  const [allVisible, setAllVisible] = useState(false)
   const [saving, setSaving] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -50,8 +65,12 @@ function DayForm({ date, weekDays, organizationId, onCreated, onCancel }: DayFor
     if (!label.trim()) return
     setSaving(true)
     try {
-      const dates = allWeek ? weekDays.map(toIsoDate) : [toIsoDate(date)]
-      await createBlocks(organizationId, dates, label.trim())
+      const dates = allVisible ? visibleDays.map(toIsoDate) : [toIsoDate(date)]
+      await createBlocks(organizationId, dates, {
+        label: label.trim(),
+        startTime: startTime || null,
+        endTime: endTime || null,
+      })
       onCreated()
     } finally {
       setSaving(false)
@@ -68,13 +87,28 @@ function DayForm({ date, weekDays, organizationId, onCreated, onCancel }: DayFor
         onChange={(e) => setLabel(e.target.value)}
         maxLength={60}
       />
+      <div className="block-form-times">
+        <input
+          type="time"
+          value={startTime}
+          onChange={(e) => setStartTime(e.target.value)}
+          title="Heure de début"
+        />
+        <span>→</span>
+        <input
+          type="time"
+          value={endTime}
+          onChange={(e) => setEndTime(e.target.value)}
+          title="Heure de fin"
+        />
+      </div>
       <label className="block-form-check">
         <input
           type="checkbox"
-          checked={allWeek}
-          onChange={(e) => setAllWeek(e.target.checked)}
+          checked={allVisible}
+          onChange={(e) => setAllVisible(e.target.checked)}
         />
-        <span>Tous les jours de cette semaine</span>
+        <span>Tous les jours affichés</span>
       </label>
       <div className="block-form-actions">
         <button type="button" onClick={onCancel} disabled={saving} className="block-form-btn subtle">
@@ -95,13 +129,14 @@ export function PlanningWeekView({ interventions, onClickIntervention }: Props) 
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 }),
   )
+  const [range, setRange] = useState<Range>('week')
   const [blocks, setBlocks] = useState<PlanningBlock[]>([])
   const [formForDay, setFormForDay] = useState<string | null>(null)
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const days = Array.from({ length: RANGE_DAYS[range] }, (_, i) => addDays(weekStart, i))
   const firstDay = days[0]!
-  const lastDay = days[6]!
-  const weekLabel = `${format(firstDay, 'd MMM', { locale: fr })} — ${format(lastDay, 'd MMM yyyy', { locale: fr })}`
+  const lastDay = days[days.length - 1]!
+  const rangeLabel = `${format(firstDay, 'd MMM', { locale: fr })} — ${format(lastDay, 'd MMM yyyy', { locale: fr })}`
 
   async function loadBlocks() {
     try {
@@ -115,7 +150,7 @@ export function PlanningWeekView({ interventions, onClickIntervention }: Props) 
   useEffect(() => {
     void loadBlocks()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart])
+  }, [weekStart, range])
 
   async function handleDeleteBlock(b: PlanningBlock) {
     if (!window.confirm(`Supprimer "${b.label}" ?`)) return
@@ -128,6 +163,7 @@ export function PlanningWeekView({ interventions, onClickIntervention }: Props) 
   }
 
   const withoutDate = interventions.filter((i) => !i.scheduled_date)
+  const stepDays = RANGE_DAYS[range]
 
   return (
     <div className="week-view">
@@ -135,8 +171,8 @@ export function PlanningWeekView({ interventions, onClickIntervention }: Props) 
         <button
           type="button"
           className="act-btn subtle"
-          onClick={() => setWeekStart(subDays(weekStart, 7))}
-          aria-label="Semaine précédente"
+          onClick={() => setWeekStart(subDays(weekStart, stepDays))}
+          aria-label="Période précédente"
         >
           <ChevronLeft size={14} strokeWidth={2} />
         </button>
@@ -145,20 +181,34 @@ export function PlanningWeekView({ interventions, onClickIntervention }: Props) 
           className="act-btn"
           onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
         >
-          Cette semaine
+          Aujourd'hui
         </button>
         <button
           type="button"
           className="act-btn subtle"
-          onClick={() => setWeekStart(addDays(weekStart, 7))}
-          aria-label="Semaine suivante"
+          onClick={() => setWeekStart(addDays(weekStart, stepDays))}
+          aria-label="Période suivante"
         >
           <ChevronRight size={14} strokeWidth={2} />
         </button>
-        <span className="week-label">{weekLabel}</span>
+
+        <div className="range-selector">
+          {(['week', 'twoweeks', 'month'] as const).map((r) => (
+            <button
+              key={r}
+              type="button"
+              className={`range-btn${range === r ? ' on' : ''}`}
+              onClick={() => setRange(r)}
+            >
+              {RANGE_LABELS[r]}
+            </button>
+          ))}
+        </div>
+
+        <span className="week-label">{rangeLabel}</span>
       </div>
 
-      <div className="week-grid">
+      <div className={`week-grid range-${range}`}>
         {days.map((day) => {
           const dayIso = toIsoDate(day)
           const dayInterventions = interventions.filter(
@@ -167,14 +217,16 @@ export function PlanningWeekView({ interventions, onClickIntervention }: Props) 
           const dayBlocks = blocks.filter((b) => b.date === dayIso)
           const isCurrentDay = isToday(day)
           const isFormOpen = formForDay === dayIso
+          const isCompact = range === 'month'
+
           return (
             <div
               key={day.toISOString()}
-              className={`week-day${isCurrentDay ? ' today' : ''}`}
+              className={`week-day${isCurrentDay ? ' today' : ''}${isCompact ? ' compact' : ''}`}
             >
               <div className="week-day-header">
                 <div className="week-day-name">
-                  {cap(format(day, 'EEEE', { locale: fr }))}
+                  {cap(format(day, isCompact ? 'EEE' : 'EEEE', { locale: fr }))}
                 </div>
                 <div className="week-day-date">
                   {format(day, 'd MMM', { locale: fr })}
@@ -195,27 +247,37 @@ export function PlanningWeekView({ interventions, onClickIntervention }: Props) 
                     >
                       <div className="week-item-ref">{i.reference}</div>
                       <div className="week-item-client">{i.client_name}</div>
-                      <div className="week-item-meta">{equipLabel}</div>
-                      {i.technician_name && (
-                        <div className="week-item-meta">{i.technician_name}</div>
+                      {!isCompact && (
+                        <>
+                          <div className="week-item-meta">{equipLabel}</div>
+                          {i.technician_name && (
+                            <div className="week-item-meta">{i.technician_name}</div>
+                          )}
+                        </>
                       )}
                     </button>
                   )
                 })}
 
-                {dayBlocks.map((b) => (
-                  <div key={b.id} className="week-block">
-                    <span className="week-block-label">{b.label}</span>
-                    <button
-                      type="button"
-                      className="week-block-remove"
-                      onClick={() => void handleDeleteBlock(b)}
-                      aria-label="Supprimer ce créneau"
-                    >
-                      <X size={11} strokeWidth={2.5} />
-                    </button>
-                  </div>
-                ))}
+                {dayBlocks.map((b) => {
+                  const timeLabel = formatBlockTime(b.start_time, b.end_time)
+                  return (
+                    <div key={b.id} className="week-block">
+                      <div className="week-block-main">
+                        {timeLabel && <span className="week-block-time">{timeLabel}</span>}
+                        <span className="week-block-label">{b.label}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="week-block-remove"
+                        onClick={() => void handleDeleteBlock(b)}
+                        aria-label="Supprimer ce créneau"
+                      >
+                        <X size={11} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  )
+                })}
 
                 {dayInterventions.length === 0 && dayBlocks.length === 0 && !isFormOpen && (
                   <div className="week-day-empty">—</div>
@@ -227,7 +289,7 @@ export function PlanningWeekView({ interventions, onClickIntervention }: Props) 
                   {isFormOpen ? (
                     <DayForm
                       date={day}
-                      weekDays={days}
+                      visibleDays={days}
                       organizationId={orgId}
                       onCreated={() => {
                         setFormForDay(null)
@@ -242,7 +304,7 @@ export function PlanningWeekView({ interventions, onClickIntervention }: Props) 
                       onClick={() => setFormForDay(dayIso)}
                     >
                       <Plus size={12} strokeWidth={2.2} />
-                      Ajouter
+                      {isCompact ? '' : 'Ajouter'}
                     </button>
                   )}
                 </div>

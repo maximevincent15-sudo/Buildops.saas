@@ -530,6 +530,70 @@ h1, h2, h3, h4, h5, h6 {
   .week-block:hover .week-block-remove { opacity: 1; }
   .week-block-remove:hover { background: var(--red); }
 
+  /* RANGE SELECTOR (1 sem / 2 sem / 1 mois) */
+  .range-selector {
+    display: inline-flex;
+    background: var(--bg2);
+    border-radius: var(--r);
+    padding: 3px;
+    margin-left: .5rem;
+  }
+  .range-btn {
+    padding: .32rem .7rem;
+    border: none;
+    background: transparent;
+    color: var(--ink2);
+    font-size: .72rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .15s;
+  }
+  .range-btn:hover:not(.on) { color: var(--ink); }
+  .range-btn.on { background: var(--wht); color: var(--acc); box-shadow: 0 1px 3px rgba(28, 33, 48, .12); }
+
+  /* Compact view (1 mois : 28 jours) */
+  .week-grid.range-month { gap: 4px; }
+  .week-grid.range-month .week-day { min-height: 120px; padding: .4rem .4rem; }
+  .week-day.compact .week-day-name { font-size: .58rem; }
+  .week-day.compact .week-day-date { font-size: .8rem; }
+  .week-day.compact .week-item,
+  .week-day.compact .week-block {
+    padding: .32rem .42rem;
+    font-size: .7rem;
+  }
+  .week-day.compact .week-item-ref { font-size: .58rem; }
+  .week-day.compact .week-item-client { font-size: .68rem; }
+  .week-day.compact .week-day-add {
+    padding: .25rem;
+    font-size: 0;
+  }
+  .week-day.compact .week-day-add svg { width: 14px; height: 14px; }
+
+  .week-grid.range-twoweeks { gap: 5px; }
+
+  /* BLOCK TIMES */
+  .week-block-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+  .week-block-time { font-size: .64rem; color: var(--ink3); font-weight: 600; letter-spacing: .02em; }
+
+  /* BLOCK FORM — TIMES ROW */
+  .block-form-times { display: flex; align-items: center; gap: 5px; }
+  .block-form-times input[type="time"] {
+    flex: 1;
+    padding: .35rem .4rem;
+    font-size: .74rem;
+    border: 1px solid var(--brd2);
+    border-radius: 5px;
+    outline: none;
+    background: var(--wht);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--ink);
+    min-width: 0;
+  }
+  .block-form-times input[type="time"]:focus { border-color: var(--acc); }
+  .block-form-times span { color: var(--ink3); font-size: .7rem; }
+
   /* ADD BLOCK BUTTON + FORM */
   .week-day-footer { margin-top: auto; padding-top: .4rem; }
   .week-day-add {

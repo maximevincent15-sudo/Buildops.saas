@@ -1,6 +1,8 @@
 import { isToday } from 'date-fns'
 import { Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { formatBlockTime, listBlocksForRange } from '../../planning/blocksApi'
+import type { PlanningBlock } from '../../planning/blocksApi'
 import { listInterventions } from '../../planning/api'
 
 type BriefCounts = {
@@ -61,26 +63,46 @@ function buildMessage(c: BriefCounts): { title: string; text: React.ReactNode } 
 }
 
 function renderParts(parts: string[]): React.ReactNode {
-  // Chaque part peut contenir **X** qu'on remplace par <strong>X</strong>
   const joined = parts.length === 1
     ? parts[0]!
     : parts.length === 2
     ? `${parts[0]} et ${parts[1]}`
     : `${parts.slice(0, -1).join(', ')} et ${parts.at(-1)}`
 
-  // Split sur les ** pour créer <strong>
   const tokens = joined.split('**')
   return tokens.map((t, i) => (i % 2 === 1 ? <strong key={i}>{t}</strong> : <span key={i}>{t}</span>))
 }
 
+function renderBlocksLine(blocks: PlanningBlock[]): React.ReactNode {
+  if (blocks.length === 0) return null
+  const items = blocks.map((b) => {
+    const time = formatBlockTime(b.start_time, b.end_time)
+    return time ? `${b.label} (${time})` : b.label
+  })
+  return (
+    <div style={{ marginTop: 6 }}>
+      <strong>Créneaux :</strong> {items.join(' · ')}
+    </div>
+  )
+}
+
 export function DailyBriefing() {
   const [counts, setCounts] = useState<BriefCounts | null>(null)
+  const [todayBlocks, setTodayBlocks] = useState<PlanningBlock[]>([])
 
   useEffect(() => {
     let alive = true
-    listInterventions()
-      .then((all) => {
-        if (alive) setCounts(computeCounts(all))
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const day = String(today.getDate()).padStart(2, '0')
+    const iso = `${year}-${month}-${day}`
+
+    Promise.all([listInterventions(), listBlocksForRange(iso, iso)])
+      .then(([interventions, blocks]) => {
+        if (!alive) return
+        setCounts(computeCounts(interventions))
+        setTodayBlocks(blocks)
       })
       .catch(() => { /* silencieux */ })
     return () => { alive = false }
@@ -97,7 +119,10 @@ export function DailyBriefing() {
       </div>
       <div className="briefing-body">
         <div className="briefing-title">{title}</div>
-        <div className="briefing-text">{text}</div>
+        <div className="briefing-text">
+          {text}
+          {renderBlocksLine(todayBlocks)}
+        </div>
       </div>
     </div>
   )
