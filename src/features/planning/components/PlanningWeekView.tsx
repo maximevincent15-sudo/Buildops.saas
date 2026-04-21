@@ -15,6 +15,19 @@ import { createBlocks, deleteBlock, formatBlockTime, listBlocksForRange } from '
 import type { PlanningBlock } from '../blocksApi'
 import type { Intervention } from '../schemas'
 
+// Créneaux horaires par pas de 30 min, de 7h à 22h
+const TIME_OPTIONS: { value: string; label: string }[] = (() => {
+  const options: { value: string; label: string }[] = []
+  for (let h = 7; h <= 22; h++) {
+    for (const m of [0, 30]) {
+      const hh = String(h).padStart(2, '0')
+      const mm = String(m).padStart(2, '0')
+      options.push({ value: `${hh}:${mm}`, label: `${h}h${mm}` })
+    }
+  }
+  return options
+})()
+
 type Range = 'week' | 'twoweeks' | 'month'
 
 const RANGE_DAYS: Record<Range, number> = {
@@ -88,19 +101,27 @@ function DayForm({ date, visibleDays, organizationId, onCreated, onCancel }: Day
         maxLength={60}
       />
       <div className="block-form-times">
-        <input
-          type="time"
+        <select
           value={startTime}
           onChange={(e) => setStartTime(e.target.value)}
-          title="Heure de début"
-        />
+          aria-label="Heure de début"
+        >
+          <option value="">Début —</option>
+          {TIME_OPTIONS.map((t) => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
+        </select>
         <span>→</span>
-        <input
-          type="time"
+        <select
           value={endTime}
           onChange={(e) => setEndTime(e.target.value)}
-          title="Heure de fin"
-        />
+          aria-label="Heure de fin"
+        >
+          <option value="">Fin —</option>
+          {TIME_OPTIONS.map((t) => (
+            <option key={t.value} value={t.value}>{t.label}</option>
+          ))}
+        </select>
       </div>
       <label className="block-form-check">
         <input

@@ -577,9 +577,9 @@ h1, h2, h3, h4, h5, h6 {
   .week-block-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
   .week-block-time { font-size: .64rem; color: var(--ink3); font-weight: 600; letter-spacing: .02em; }
 
-  /* BLOCK FORM — TIMES ROW */
+  /* BLOCK FORM — TIMES ROW (dropdowns avec presets 30 min) */
   .block-form-times { display: flex; align-items: center; gap: 5px; }
-  .block-form-times input[type="time"] {
+  .block-form-times select {
     flex: 1;
     padding: .35rem .4rem;
     font-size: .74rem;
@@ -590,8 +590,9 @@ h1, h2, h3, h4, h5, h6 {
     font-family: 'DM Sans', sans-serif;
     color: var(--ink);
     min-width: 0;
+    cursor: pointer;
   }
-  .block-form-times input[type="time"]:focus { border-color: var(--acc); }
+  .block-form-times select:focus { border-color: var(--acc); }
   .block-form-times span { color: var(--ink3); font-size: .7rem; }
 
   /* ADD BLOCK BUTTON + FORM */

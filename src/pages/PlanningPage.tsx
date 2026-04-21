@@ -1,12 +1,15 @@
-import { format } from 'date-fns'
+import { addDays, format, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { MapPin } from 'lucide-react'
+import { CalendarPlus, MapPin } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useAuthStore } from '../features/auth/store'
 import { listInterventions } from '../features/planning/api'
+import { listBlocksForRange } from '../features/planning/blocksApi'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
 import { InterventionRowActions } from '../features/planning/components/InterventionRowActions'
 import { InterventionStatusBadge } from '../features/planning/components/InterventionStatusBadge'
 import { PlanningWeekView } from '../features/planning/components/PlanningWeekView'
+import { buildIcsCalendar, downloadIcs } from '../features/planning/icsExport'
 import type { Intervention } from '../features/planning/schemas'
 import {
   EQUIPMENT_TYPES,
@@ -35,6 +38,8 @@ export function PlanningPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Intervention | null>(null)
   const [view, setView] = useState<ViewMode>('list')
+  const [exporting, setExporting] = useState(false)
+  const profile = useAuthStore((s) => s.profile)
 
   async function load() {
     setLoading(true)
@@ -68,6 +73,31 @@ export function PlanningPage() {
     setEditing(null)
   }
 
+  async function handleExportIcs() {
+    setExporting(true)
+    try {
+      // Exporte les blocs de -30 jours à +180 jours (6 mois à venir)
+      const today = new Date()
+      const start = subDays(today, 30)
+      const end = addDays(today, 180)
+      const toIso = (d: Date) => {
+        const y = d.getFullYear()
+        const m = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        return `${y}-${m}-${day}`
+      }
+      const blocks = await listBlocksForRange(toIso(start), toIso(end))
+      const orgName = profile?.organizations?.name ?? 'BuildOps'
+      const ics = buildIcsCalendar(interventions, blocks, `Planning ${orgName}`)
+      const stamp = format(today, 'yyyyMMdd')
+      downloadIcs(`planning-${stamp}.ics`, ics)
+    } catch (e) {
+      alert(`Erreur lors de l'export : ${e instanceof Error ? e.message : 'inconnue'}`)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const total = interventions.length
 
   return (
@@ -82,6 +112,19 @@ export function PlanningPage() {
           </div>
         </div>
         <div className="dash-acts">
+          {total > 0 && (
+            <button
+              type="button"
+              className="btn-sm"
+              onClick={() => void handleExportIcs()}
+              disabled={exporting}
+              title="Télécharge un fichier .ics à importer dans Google Calendar, Outlook, Apple Calendar, Teams…"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+            >
+              <CalendarPlus size={14} strokeWidth={2} />
+              {exporting ? 'Export…' : 'Exporter (.ics)'}
+            </button>
+          )}
           <button type="button" className="btn-sm acc" onClick={openCreate}>
             + Nouvelle intervention
           </button>
