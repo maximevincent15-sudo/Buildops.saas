@@ -7,6 +7,7 @@ import { useAuthStore } from '../../auth/store'
 import { createTechnician, deleteTechnician, setTechnicianActive, updateTechnician } from '../api'
 import { createTechnicianSchema } from '../schemas'
 import type { CreateTechnicianInput, Technician } from '../schemas'
+import { TechnicianCertifications } from './TechnicianCertifications'
 
 type Props = {
   open: boolean
@@ -164,6 +165,13 @@ export function TechnicianModal({ open, onClose, onChanged, technician }: Props)
             <p className="text-ink-3 text-xs font-light">
               Ce technicien est actuellement <strong>inactif</strong> — il n'apparaît plus dans les listes d'assignation.
             </p>
+          )}
+
+          {isEdit && technician && profile?.organization_id && (
+            <TechnicianCertifications
+              technicianId={technician.id}
+              organizationId={profile.organization_id}
+            />
           )}
 
           {submitError && <span className="ferr on">{submitError}</span>}
