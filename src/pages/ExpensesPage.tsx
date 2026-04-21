@@ -82,8 +82,10 @@ export function ExpensesPage() {
 
   async function handleApprove(e: Expense) {
     if (!e.receipt_url) {
-      alert('Ajoute un justificatif avant de valider cette note. (Ou refuse-la avec la raison "ticket manquant".)')
-      return
+      const ok = window.confirm(
+        `⚠️ Cette note n'a pas de justificatif.\n\nValider quand même ? (Attention : sans justificatif, la TVA ne pourra pas être récupérée en compta.)`,
+      )
+      if (!ok) return
     }
     try {
       await approveExpense(e.id)
@@ -297,8 +299,7 @@ export function ExpensesPage() {
                           type="button"
                           className="exp-act approve"
                           onClick={() => void handleApprove(e)}
-                          disabled={!e.receipt_url}
-                          title={e.receipt_url ? 'Valider' : 'Ajoute un justificatif avant de valider'}
+                          title={e.receipt_url ? 'Valider' : 'Valider (sans justificatif — confirmation demandée)'}
                           aria-label="Valider"
                         >
                           <Check size={14} strokeWidth={2.2} />
