@@ -38,7 +38,7 @@ export function AlertsList() {
 
       {!loading && count === 0 && (
         <p className="text-ink-2 text-sm font-light" style={{ padding: '.5rem 0' }}>
-          Aucune intervention en attente de date. Bien joué ! 🎯
+          Aucune intervention en attente de date.
         </p>
       )}
 

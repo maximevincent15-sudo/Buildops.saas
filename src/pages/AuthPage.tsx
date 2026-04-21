@@ -1,3 +1,4 @@
+import { Bell, CalendarDays, ClipboardCheck, Smartphone } from 'lucide-react'
 import { useState } from 'react'
 import { LoginForm } from '../features/auth/components/LoginForm'
 import { RegisterForm } from '../features/auth/components/RegisterForm'
@@ -21,19 +22,27 @@ export function AuthPage() {
           <p>Conçu pour les entreprises de maintenance incendie de 3 à 20 techniciens.</p>
           <div className="af-list">
             <div className="af-item">
-              <div className="af-dot" style={{ background: 'rgba(58,92,168,.3)' }}>🗓️</div>
+              <div className="af-dot" style={{ background: 'rgba(58,92,168,.3)', color: '#bdd1ff' }}>
+                <CalendarDays size={14} strokeWidth={1.8} />
+              </div>
               <span>Planning des interventions — extincteurs, RIA, SSI, désenfumage</span>
             </div>
             <div className="af-item">
-              <div className="af-dot" style={{ background: 'rgba(58,92,168,.25)' }}>📱</div>
+              <div className="af-dot" style={{ background: 'rgba(58,92,168,.25)', color: '#bdd1ff' }}>
+                <Smartphone size={14} strokeWidth={1.8} />
+              </div>
               <span>Rapports PDF depuis le téléphone du technicien</span>
             </div>
             <div className="af-item">
-              <div className="af-dot" style={{ background: 'rgba(58,92,168,.2)' }}>🔔</div>
+              <div className="af-dot" style={{ background: 'rgba(58,92,168,.2)', color: '#bdd1ff' }}>
+                <Bell size={14} strokeWidth={1.8} />
+              </div>
               <span>Alertes avant chaque échéance réglementaire</span>
             </div>
             <div className="af-item">
-              <div className="af-dot" style={{ background: 'rgba(46,125,94,.25)' }}>📋</div>
+              <div className="af-dot" style={{ background: 'rgba(46,125,94,.25)', color: '#a5d5bf' }}>
+                <ClipboardCheck size={14} strokeWidth={1.8} />
+              </div>
               <span>Traçabilité complète pour les contrôles</span>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { MapPin } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { listInterventions } from '../features/planning/api'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
@@ -138,8 +139,9 @@ export function PlanningPage() {
                         </div>
                       )}
                       {i.address && (
-                        <div style={{ fontSize: '.68rem', color: 'var(--ink3)', marginTop: '2px' }}>
-                          📍 {i.address}
+                        <div style={{ fontSize: '.68rem', color: 'var(--ink3)', marginTop: '2px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <MapPin size={10} strokeWidth={2} />
+                          {i.address}
                         </div>
                       )}
                     </td>

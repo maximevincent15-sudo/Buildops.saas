@@ -44,7 +44,7 @@ export function DashboardPage() {
     <>
       <div className="dash-top">
         <div>
-          <div className="dash-title">Bonjour, {firstName} 👋</div>
+          <div className="dash-title">Bonjour, {firstName}</div>
           <div className="dash-sub">Tableau de bord maintenance incendie</div>
         </div>
         <div className="dash-acts">

@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useForm } from 'react-hook-form'
@@ -177,9 +178,10 @@ export function InterventionModal({ open, onClose, onChanged, intervention }: Pr
                 className="mf del"
                 onClick={handleDelete}
                 disabled={isDeleting || isSubmitting}
-                style={{ marginRight: 'auto' }}
+                style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
-                {isDeleting ? 'Suppression…' : '🗑 Supprimer'}
+                <Trash2 size={14} strokeWidth={1.8} />
+                {isDeleting ? 'Suppression…' : 'Supprimer'}
               </button>
             )}
             <button type="button" className="mf out" onClick={onClose} disabled={isSubmitting || isDeleting}>

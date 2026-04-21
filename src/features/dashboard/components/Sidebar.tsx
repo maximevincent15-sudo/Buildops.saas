@@ -1,32 +1,46 @@
+import {
+  Archive,
+  Bell,
+  Building2,
+  CalendarDays,
+  ClipboardCheck,
+  HardHat,
+  LayoutDashboard,
+  LogOut,
+  Receipt,
+  Settings,
+  Wallet,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { signOut } from '../../auth/api'
 import { useAuthStore } from '../../auth/store'
 
-type NavItem = { to: string; icon: string; label: string; badge?: number }
+type NavItem = { to: string; Icon: LucideIcon; label: string; badge?: number }
 
 const principal: NavItem[] = [
-  { to: '/dashboard', icon: '🏠', label: 'Tableau de bord' },
-  { to: '/planning', icon: '🗓️', label: 'Planning', badge: 5 },
-  { to: '/rapports', icon: '📱', label: 'Rapports', badge: 3 },
-  { to: '/alertes', icon: '🔔', label: 'Alertes', badge: 4 },
+  { to: '/dashboard', Icon: LayoutDashboard, label: 'Tableau de bord' },
+  { to: '/planning', Icon: CalendarDays, label: 'Planning' },
+  { to: '/rapports', Icon: ClipboardCheck, label: 'Rapports' },
+  { to: '/alertes', Icon: Bell, label: 'Alertes' },
 ]
 
 const clients: NavItem[] = [
-  { to: '/clients', icon: '🏢', label: 'Fiches clients' },
-  { to: '/techniciens', icon: '👷', label: 'Techniciens' },
+  { to: '/clients', Icon: Building2, label: 'Fiches clients' },
+  { to: '/techniciens', Icon: HardHat, label: 'Techniciens' },
 ]
 
 const facturation: NavItem[] = [
-  { to: '/devis', icon: '💶', label: 'Devis', badge: 2 },
-  { to: '/factures', icon: '🧾', label: 'Factures' },
+  { to: '/devis', Icon: Wallet, label: 'Devis' },
+  { to: '/factures', Icon: Receipt, label: 'Factures' },
 ]
 
 const documents: NavItem[] = [
-  { to: '/archivage', icon: '🗂️', label: 'Archivage' },
+  { to: '/archivage', Icon: Archive, label: 'Archivage' },
 ]
 
 const compte: NavItem[] = [
-  { to: '/parametres', icon: '⚙️', label: 'Paramètres' },
+  { to: '/parametres', Icon: Settings, label: 'Paramètres' },
 ]
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -34,9 +48,10 @@ function navClass({ isActive }: { isActive: boolean }) {
 }
 
 function SidebarLink({ item }: { item: NavItem }) {
+  const { Icon } = item
   return (
     <NavLink to={item.to} className={navClass} end={item.to === '/dashboard'}>
-      <span className="sb-ico">{item.icon}</span>
+      <span className="sb-ico"><Icon size={16} strokeWidth={1.8} /></span>
       {item.label}
       {item.badge !== undefined && <span className="sb-badge">{item.badge}</span>}
     </NavLink>
@@ -97,7 +112,9 @@ export function Sidebar() {
           <div className="sb-un">{fullName ?? '—'}</div>
           <div className="sb-ur">{orgName ?? 'Compte connecté'}</div>
         </div>
-        <button type="button" onClick={handleSignOut} className="sb-out" title="Déconnexion">⏻</button>
+        <button type="button" onClick={handleSignOut} className="sb-out" title="Déconnexion">
+          <LogOut size={15} strokeWidth={1.8} />
+        </button>
       </div>
     </aside>
   )
