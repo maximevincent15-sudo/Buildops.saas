@@ -577,6 +577,18 @@ h1, h2, h3, h4, h5, h6 {
     gap: 3px;
   }
   .expense-receipt-link:hover { text-decoration: underline; }
+  .expense-no-receipt {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--org);
+    font-weight: 500;
+    margin-left: 6px;
+    padding: 1px 8px;
+    border-radius: 100px;
+    background: var(--org-lt);
+    font-size: .68rem;
+  }
   .expense-reject-reason {
     margin-top: 4px;
     font-style: italic;
@@ -601,11 +613,14 @@ h1, h2, h3, h4, h5, h6 {
     justify-content: center;
     transition: all .15s;
   }
-  .exp-act:hover { transform: translateY(-1px); }
-  .exp-act.approve:hover { background: var(--grn); border-color: var(--grn); color: white; }
-  .exp-act.reject:hover { background: var(--red); border-color: var(--red); color: white; }
-  .exp-act.neutral:hover { background: var(--ink); border-color: var(--ink); color: white; }
-  .exp-act.delete:hover { background: var(--red-lt); border-color: var(--red-lt); color: var(--red); }
+  .exp-act:hover:not(:disabled) { transform: translateY(-1px); }
+  .exp-act:disabled { opacity: .4; cursor: not-allowed; }
+  .exp-act.approve:hover:not(:disabled) { background: var(--grn); border-color: var(--grn); color: white; }
+  .exp-act.reject:hover:not(:disabled) { background: var(--red); border-color: var(--red); color: white; }
+  .exp-act.neutral:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); color: white; }
+  .exp-act.delete:hover:not(:disabled) { background: var(--red-lt); border-color: var(--red-lt); color: var(--red); }
+  .exp-act.attach { background: var(--org-lt); border-color: rgba(196, 90, 26, .3); color: var(--org); }
+  .exp-act.attach:hover:not(:disabled) { background: var(--org); border-color: var(--org); color: white; }
 
   .expense-row.status-approved { border-color: rgba(60, 130, 80, .25); background: var(--grn-lt); }
   .expense-row.status-approved .expense-icon { background: var(--grn); color: white; }

@@ -1,15 +1,19 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { Check, Paperclip, Plus, Trash2, Undo2, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { AlertTriangle, Check, Paperclip, Plus, Trash2, Undo2, Upload, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import type { ChangeEvent } from 'react'
+import { useAuthStore } from '../features/auth/store'
 import { ExpenseModal } from '../features/expenses/components/ExpenseModal'
 import {
   approveExpense,
+  attachReceiptToExpense,
   deleteExpense,
   deleteExpenseReceipt,
   listExpenses,
   rejectExpense,
   resetExpenseToPending,
+  uploadExpenseReceipt,
 } from '../features/expenses/api'
 import {
   EXPENSE_CATEGORY_ICON,
@@ -33,11 +37,15 @@ function startOfMonthIso(): string {
 }
 
 export function ExpensesPage() {
+  const profile = useAuthStore((s) => s.profile)
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<ExpenseStatus>('pending')
   const [modalOpen, setModalOpen] = useState(false)
+  const [attachTargetId, setAttachTargetId] = useState<string | null>(null)
+  const [attaching, setAttaching] = useState(false)
+  const attachInput = useRef<HTMLInputElement>(null)
 
   async function reload() {
     try {
@@ -73,11 +81,42 @@ export function ExpensesPage() {
     .reduce((sum, e) => sum + Number(e.amount_ttc), 0)
 
   async function handleApprove(e: Expense) {
+    if (!e.receipt_url) {
+      alert('Ajoute un justificatif avant de valider cette note. (Ou refuse-la avec la raison "ticket manquant".)')
+      return
+    }
     try {
       await approveExpense(e.id)
       void reload()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erreur lors de la validation')
+    }
+  }
+
+  function handleAttachClick(e: Expense) {
+    setAttachTargetId(e.id)
+    // petit trick : on clique après que le state ait poussé l'id
+    setTimeout(() => attachInput.current?.click(), 0)
+  }
+
+  async function handleAttachFile(ev: ChangeEvent<HTMLInputElement>) {
+    const file = ev.target.files?.[0]
+    if (!file || !profile?.organization_id || !attachTargetId) {
+      if (attachInput.current) attachInput.current.value = ''
+      return
+    }
+    const targetId = attachTargetId
+    setAttaching(true)
+    try {
+      const stored = await uploadExpenseReceipt(file, profile.organization_id)
+      await attachReceiptToExpense(targetId, stored)
+      void reload()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erreur lors de l'upload du justificatif")
+    } finally {
+      setAttaching(false)
+      setAttachTargetId(null)
+      if (attachInput.current) attachInput.current.value = ''
     }
   }
 
@@ -213,7 +252,7 @@ export function ExpensesPage() {
                       {formatDate(e.spent_on)}
                       {e.description && <> · {e.description}</>}
                       {e.vat_rate > 0 && <> · TVA {e.vat_rate}%</>}
-                      {e.receipt_url && (
+                      {e.receipt_url ? (
                         <>
                           {' · '}
                           <a
@@ -225,6 +264,10 @@ export function ExpensesPage() {
                             <Paperclip size={10} strokeWidth={2} /> justificatif
                           </a>
                         </>
+                      ) : (
+                        <span className="expense-no-receipt">
+                          <AlertTriangle size={10} strokeWidth={2} /> Sans justificatif
+                        </span>
                       )}
                       {e.status === 'rejected' && e.rejection_reason && (
                         <div className="expense-reject-reason">Refus : {e.rejection_reason}</div>
@@ -236,13 +279,26 @@ export function ExpensesPage() {
                     <div className="expense-amount-sub">TTC</div>
                   </div>
                   <div className="expense-actions">
+                    {e.status === 'pending' && !e.receipt_url && (
+                      <button
+                        type="button"
+                        className="exp-act attach"
+                        onClick={() => handleAttachClick(e)}
+                        disabled={attaching}
+                        title="Joindre le justificatif"
+                        aria-label="Joindre le justificatif"
+                      >
+                        <Upload size={13} strokeWidth={2} />
+                      </button>
+                    )}
                     {e.status === 'pending' && (
                       <>
                         <button
                           type="button"
                           className="exp-act approve"
                           onClick={() => void handleApprove(e)}
-                          title="Valider"
+                          disabled={!e.receipt_url}
+                          title={e.receipt_url ? 'Valider' : 'Ajoute un justificatif avant de valider'}
                           aria-label="Valider"
                         >
                           <Check size={14} strokeWidth={2.2} />
@@ -290,6 +346,14 @@ export function ExpensesPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onCreated={() => void reload()}
+      />
+
+      <input
+        ref={attachInput}
+        type="file"
+        accept="image/*,application/pdf"
+        hidden
+        onChange={(e) => void handleAttachFile(e)}
       />
     </>
   )

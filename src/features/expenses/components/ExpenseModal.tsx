@@ -290,7 +290,9 @@ export function ExpenseModal({ open, onClose, onCreated }: Props) {
           </div>
 
           <div className="fg">
-            <label>Justificatif (photo ou PDF)</label>
+            <label>
+              Justificatif <span className="text-ink-3 text-xs font-light">(photo du ticket, facture ou reçu CB — PDF accepté)</span>
+            </label>
             {receipt ? (
               <div className="receipt-preview">
                 <a href={receipt.url} target="_blank" rel="noreferrer" className="receipt-thumb">

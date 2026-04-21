@@ -76,6 +76,20 @@ export async function listExpenses(): Promise<Expense[]> {
   return (data ?? []) as Expense[]
 }
 
+export async function attachReceiptToExpense(
+  expenseId: string,
+  receipt: StoredReceipt,
+): Promise<void> {
+  const { error } = await supabase
+    .from('expenses')
+    .update({
+      receipt_url: receipt.url,
+      receipt_path: receipt.path,
+    })
+    .eq('id', expenseId)
+  if (error) throw error
+}
+
 export async function approveExpense(id: string): Promise<void> {
   const { data: userData } = await supabase.auth.getUser()
   const { error } = await supabase
