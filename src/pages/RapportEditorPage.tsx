@@ -1,19 +1,26 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Download, FileText } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
 import { setInterventionStatus } from '../features/planning/api'
 import type { Intervention } from '../features/planning/schemas'
-import { finalizeReport, getReportByIntervention, saveDraftReport } from '../features/rapports/api'
+import {
+  finalizeReport,
+  getReportByIntervention,
+  saveDraftReport,
+  setReportPdfUrl,
+} from '../features/rapports/api'
 import { CHECKLISTS } from '../features/rapports/checklists'
 import { ChecklistSection } from '../features/rapports/components/ChecklistSection'
-import type { ChecklistResponse } from '../features/rapports/schemas'
+import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
+import { ReportPdf } from '../features/rapports/pdf/ReportPdf'
+import type { ChecklistResponse, Report } from '../features/rapports/schemas'
 import { EQUIPMENT_TYPES } from '../shared/constants/interventions'
 import type { EquipmentType } from '../shared/constants/interventions'
-import { supabase } from '../shared/lib/supabase'
 import type { StoredPhoto } from '../shared/lib/storage'
+import { supabase } from '../shared/lib/supabase'
 import { PhotoUploader } from '../shared/ui/PhotoUploader'
 import { SignaturePad } from '../shared/ui/SignaturePad'
 
@@ -30,7 +37,10 @@ export function RapportEditorPage() {
   const [photos, setPhotos] = useState<StoredPhoto[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
   const [completedAt, setCompletedAt] = useState<string | null>(null)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [reportId, setReportId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
 
@@ -52,12 +62,14 @@ export function RapportEditorPage() {
         const report = await getReportByIntervention(interventionId)
         if (!alive) return
         if (report) {
+          setReportId(report.id)
           setChecklist((report.checklist ?? []) as ChecklistResponse[])
           setObservations(report.observations ?? '')
           setSignedBy(report.signed_by_name ?? '')
           setSignature(report.signature_data_url ?? null)
           setPhotos((report.photos ?? []) as StoredPhoto[])
           setCompletedAt(report.completed_at)
+          setPdfUrl(report.pdf_url ?? null)
         }
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : 'Erreur inconnue')
@@ -101,18 +113,50 @@ export function RapportEditorPage() {
   const answeredCount = items.filter((it) => checklist.some((r) => r.id === it.id && r.value !== null)).length
   const orgId = profile.organization_id
   const iid = interventionId
+  const orgName = profile.organizations?.name ?? ''
+
+  function currentReportSnapshot(): Report {
+    return {
+      id: reportId ?? '',
+      intervention_id: iid,
+      organization_id: orgId,
+      checklist,
+      observations: observations || null,
+      signed_by_name: signedBy || null,
+      signature_data_url: signature,
+      photos,
+      pdf_url: pdfUrl,
+      completed_at: completedAt ?? new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+  }
+
+  async function regeneratePdfFromCurrent(): Promise<string> {
+    const snapshot = currentReportSnapshot()
+    const element = (
+      <ReportPdf
+        intervention={intervention!}
+        report={snapshot}
+        checklistItems={items}
+        organizationName={orgName}
+      />
+    )
+    return generateAndUploadReportPdf(element, orgId, iid, intervention!.reference)
+  }
 
   async function handleSaveDraft() {
     setSaving(true)
     setFlash(null)
     try {
-      await saveDraftReport(iid, orgId, {
+      const saved = await saveDraftReport(iid, orgId, {
         checklist,
         observations,
         signed_by_name: signedBy,
         signature_data_url: signature,
         photos,
       })
+      setReportId(saved.id)
       setFlash('Brouillon enregistré.')
       setTimeout(() => setFlash(null), 2500)
     } catch (e) {
@@ -139,19 +183,50 @@ export function RapportEditorPage() {
     setSaving(true)
     setError(null)
     try {
-      await finalizeReport(iid, orgId, {
+      const saved = await finalizeReport(iid, orgId, {
         checklist,
         observations,
         signed_by_name: signedBy,
         signature_data_url: signature,
         photos,
       })
+      setReportId(saved.id)
+      setCompletedAt(saved.completed_at)
+
+      // Génère et upload le PDF en parallèle de la mise à jour du statut
+      try {
+        const newPdfUrl = await regeneratePdfFromCurrent()
+        await setReportPdfUrl(saved.id, newPdfUrl)
+      } catch (pdfErr) {
+        // Le rapport est finalisé même si le PDF échoue — on notifie juste
+        console.error('Génération PDF échouée', pdfErr)
+      }
+
       await setInterventionStatus(iid, 'terminee')
       navigate('/planning')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleRegeneratePdf() {
+    setGeneratingPdf(true)
+    setError(null)
+    setFlash(null)
+    try {
+      const newUrl = await regeneratePdfFromCurrent()
+      if (reportId) {
+        await setReportPdfUrl(reportId, newUrl)
+      }
+      setPdfUrl(newUrl)
+      setFlash('PDF généré.')
+      setTimeout(() => setFlash(null), 2500)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la génération du PDF.')
+    } finally {
+      setGeneratingPdf(false)
     }
   }
 
@@ -177,6 +252,17 @@ export function RapportEditorPage() {
           </div>
         </div>
         <div className="dash-acts">
+          {pdfUrl && (
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-sm acc"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <Download size={14} /> Télécharger PDF
+            </a>
+          )}
           <Link to="/planning" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <ArrowLeft size={14} /> Planning
           </Link>
@@ -261,17 +347,26 @@ export function RapportEditorPage() {
             {saving ? 'Enregistrement…' : 'Enregistrer brouillon'}
           </button>
           <button type="button" className="btn-sm acc" onClick={() => void handleFinalize()} disabled={saving}>
-            {saving ? 'Finalisation…' : 'Finaliser le rapport'}
+            {saving ? 'Finalisation + PDF…' : 'Finaliser + générer PDF'}
           </button>
         </div>
       )}
 
       {isCompleted && (
-        <div style={{ marginTop: '1.5rem' }}>
-          <p className="text-ink-3 text-xs font-light">
+        <div style={{ display: 'flex', gap: '.7rem', marginTop: '1.5rem', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+          <p className="text-ink-3 text-xs font-light" style={{ margin: 0 }}>
             Ce rapport a été finalisé le {format(new Date(completedAt!), 'd MMMM yyyy à HH:mm', { locale: fr })}.
-            L'intervention est marquée "Terminée".
           </p>
+          <button
+            type="button"
+            className="btn-sm"
+            onClick={() => void handleRegeneratePdf()}
+            disabled={generatingPdf}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <FileText size={14} />
+            {generatingPdf ? 'Génération…' : pdfUrl ? 'Régénérer le PDF' : 'Générer le PDF'}
+          </button>
         </div>
       )}
     </>

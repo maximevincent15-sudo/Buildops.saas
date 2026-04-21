@@ -81,3 +81,11 @@ export async function finalizeReport(
   if (existing) return updateExistingReport(existing.id, input, completedAt)
   return insertReport(interventionId, organizationId, input, completedAt)
 }
+
+export async function setReportPdfUrl(reportId: string, pdfUrl: string): Promise<void> {
+  const { error } = await supabase
+    .from('reports')
+    .update({ pdf_url: pdfUrl })
+    .eq('id', reportId)
+  if (error) throw error
+}
