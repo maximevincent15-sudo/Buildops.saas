@@ -20,6 +20,7 @@ import { useAuthStore } from '../../auth/store'
 import { listExpenses } from '../../expenses/api'
 import { listOvertime } from '../../overtime/api'
 import { listInterventions } from '../../planning/api'
+import { computeVehicleAlerts } from '../../vehicles/api'
 
 type NavItem = { to: string; Icon: LucideIcon; label: string; badgeKey?: BadgeKey }
 type BadgeKey = 'planning' | 'rapports' | 'alertes' | 'rh'
@@ -100,15 +101,19 @@ export function Sidebar() {
       computeRegulatoryAlerts(),
       listExpenses(),
       listOvertime(),
+      computeVehicleAlerts(),
     ])
-      .then(([all, alerts, expenses, overtime]) => {
+      .then(([all, alerts, expenses, overtime, vehicleAlerts]) => {
         if (!alive) return
         const planning = all.filter((i) => i.status === 'a_planifier' || i.status === 'planifiee').length
         const rapports = all.filter((i) => i.status === 'en_cours').length
-        const alertesUrgent = alerts.filter((a) => {
-          const sev = classifyAlert(a.daysUntilDue)
+        const urgent = (days: number) => {
+          const sev = classifyAlert(days)
           return sev === 'overdue' || sev === 'urgent'
-        }).length
+        }
+        const alertesUrgent =
+          alerts.filter((a) => urgent(a.daysUntilDue)).length +
+          vehicleAlerts.filter((a) => urgent(a.daysUntilDue)).length
         // Badge RH = somme des pending (frais + heures sup) — un seul chiffre sur "Techniciens"
         const rh =
           expenses.filter((e) => e.status === 'pending').length +

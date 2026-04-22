@@ -631,6 +631,108 @@ h1, h2, h3, h4, h5, h6 {
   .expense-row.status-rejected .expense-amount-val { color: var(--red); }
   .expense-row.status-rejected .expense-title { color: var(--red); }
 
+  /* VÉHICULES — cards + dates colorées */
+  .vehicles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: .8rem;
+  }
+  .vehicle-card {
+    text-align: left;
+    border: .5px solid var(--brd);
+    background: var(--wht);
+    border-radius: var(--r);
+    padding: 1rem;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .15s;
+  }
+  .vehicle-card:hover {
+    border-color: var(--brd2);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(28, 33, 48, .04);
+  }
+  .vehicle-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .vehicle-plate {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 1.05rem;
+    letter-spacing: .5px;
+    color: var(--ink);
+  }
+  .vehicle-tech {
+    font-size: .74rem;
+    color: var(--ink3);
+    font-weight: 400;
+  }
+  .vehicle-model { font-size: .82rem; color: var(--ink2); }
+  .vehicle-year { color: var(--ink3); font-weight: 300; }
+  .vehicle-notes {
+    font-size: .72rem;
+    color: var(--ink3);
+    font-weight: 300;
+    padding-top: .5rem;
+    border-top: .5px dashed var(--brd);
+    line-height: 1.45;
+  }
+
+  .vehicle-checks {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: .4rem;
+  }
+  .vehicle-chk {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: .5rem .55rem;
+    border-radius: calc(var(--r) - 2px);
+    border: .5px solid var(--brd);
+    background: var(--bg);
+    min-width: 0;
+  }
+  .vehicle-chk-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--gry-lt);
+    color: var(--ink2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2px;
+  }
+  .vehicle-chk-label { font-size: .68rem; font-weight: 600; color: var(--ink); }
+  .vehicle-chk-date { font-size: .7rem; color: var(--ink2); font-family: 'Syne', sans-serif; }
+  .vehicle-chk-days { font-size: .65rem; color: var(--ink3); font-weight: 400; }
+
+  .vehicle-chk.chk-overdue { border-color: rgba(168, 58, 58, .35); background: var(--red-lt); }
+  .vehicle-chk.chk-overdue .vehicle-chk-icon { background: var(--red); color: white; }
+  .vehicle-chk.chk-overdue .vehicle-chk-label,
+  .vehicle-chk.chk-overdue .vehicle-chk-date,
+  .vehicle-chk.chk-overdue .vehicle-chk-days { color: var(--red); }
+
+  .vehicle-chk.chk-urgent { border-color: rgba(196, 90, 26, .3); background: var(--org-lt); }
+  .vehicle-chk.chk-urgent .vehicle-chk-icon { background: var(--org); color: white; }
+  .vehicle-chk.chk-urgent .vehicle-chk-date,
+  .vehicle-chk.chk-urgent .vehicle-chk-days { color: var(--org); }
+
+  .vehicle-chk.chk-soon .vehicle-chk-icon { background: var(--gry-lt); color: var(--acc); }
+  .vehicle-chk.chk-soon .vehicle-chk-date { color: var(--acc); }
+
+  .vehicle-chk.chk-ok .vehicle-chk-icon { background: var(--grn-lt); color: var(--grn); }
+  .vehicle-chk.chk-ok .vehicle-chk-date { color: var(--grn); }
+
+  .vehicle-chk.chk-none { opacity: .6; }
+
   /* ONGLETS RH (hub Techniciens / Véhicules / Frais / Heures sup) */
   .rh-tabs {
     display: flex;

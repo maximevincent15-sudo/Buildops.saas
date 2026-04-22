@@ -1,12 +1,15 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { AlertCircle, Award, Calendar, CheckCircle2, Clock, HardHat, Wrench } from 'lucide-react'
+import { AlertCircle, Award, Calendar, Car, CheckCircle2, Clock, HardHat, Wrench } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { classifyAlert, computeRegulatoryAlerts } from '../features/alertes/api'
 import type { AlertSeverity, RegulatoryAlert } from '../features/alertes/api'
 import { INSPECTION_FREQUENCIES_LABEL } from '../features/alertes/frequencies'
 import { computeCertificationAlerts } from '../features/technicians/certificationsApi'
 import type { CertificationAlert } from '../features/technicians/certificationsApi'
+import { computeVehicleAlerts } from '../features/vehicles/api'
+import type { VehicleAlert } from '../features/vehicles/api'
+import { VEHICLE_CHECK_ICON, VEHICLE_CHECK_LABEL, formatPlate } from '../features/vehicles/constants'
 import { EQUIPMENT_TYPES } from '../shared/constants/interventions'
 import type { EquipmentType } from '../shared/constants/interventions'
 
@@ -45,11 +48,12 @@ const SEVERITY_META: Record<AlertSeverity, { label: string; cls: string; icon: t
   ok: { label: 'Dans + de 90 jours', cls: 'sev-ok', icon: CheckCircle2 },
 }
 
-type Category = 'equipment' | 'certifications'
+type Category = 'equipment' | 'certifications' | 'vehicles'
 
 export function AlertesPage() {
   const [regAlerts, setRegAlerts] = useState<RegulatoryAlert[]>([])
   const [certAlerts, setCertAlerts] = useState<CertificationAlert[]>([])
+  const [vehAlerts, setVehAlerts] = useState<VehicleAlert[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [category, setCategory] = useState<Category>('equipment')
@@ -57,11 +61,12 @@ export function AlertesPage() {
 
   useEffect(() => {
     let alive = true
-    Promise.all([computeRegulatoryAlerts(), computeCertificationAlerts()])
-      .then(([reg, certs]) => {
+    Promise.all([computeRegulatoryAlerts(), computeCertificationAlerts(), computeVehicleAlerts()])
+      .then(([reg, certs, veh]) => {
         if (!alive) return
         setRegAlerts(reg)
         setCertAlerts(certs)
+        setVehAlerts(veh)
       })
       .catch((e: unknown) => {
         console.error('Erreur chargement alertes', e)
@@ -89,9 +94,17 @@ export function AlertesPage() {
     soon: certAlerts.filter((a) => classifyAlert(a.daysUntilExpiry) === 'soon').length,
     ok: certAlerts.filter((a) => classifyAlert(a.daysUntilExpiry) === 'ok').length,
   }
+  const vehCounts = {
+    overdue: vehAlerts.filter((a) => classifyAlert(a.daysUntilDue) === 'overdue').length,
+    urgent: vehAlerts.filter((a) => classifyAlert(a.daysUntilDue) === 'urgent').length,
+    soon: vehAlerts.filter((a) => classifyAlert(a.daysUntilDue) === 'soon').length,
+    ok: vehAlerts.filter((a) => classifyAlert(a.daysUntilDue) === 'ok').length,
+  }
 
-  const activeList = category === 'equipment' ? regAlerts : certAlerts
-  const activeCounts = category === 'equipment' ? regCounts : certCounts
+  const activeList =
+    category === 'equipment' ? regAlerts : category === 'certifications' ? certAlerts : vehAlerts
+  const activeCounts =
+    category === 'equipment' ? regCounts : category === 'certifications' ? certCounts : vehCounts
 
   const filteredReg =
     category === 'equipment'
@@ -100,6 +113,10 @@ export function AlertesPage() {
   const filteredCert =
     category === 'certifications'
       ? certAlerts.filter((a) => filter === 'all' || classifyAlert(a.daysUntilExpiry) === filter)
+      : []
+  const filteredVeh =
+    category === 'vehicles'
+      ? vehAlerts.filter((a) => filter === 'all' || classifyAlert(a.daysUntilDue) === filter)
       : []
 
   return (
@@ -134,6 +151,15 @@ export function AlertesPage() {
           <HardHat size={13} strokeWidth={2} />
           Habilitations ({certAlerts.length})
         </button>
+        <button
+          type="button"
+          className={`filter-pill${category === 'vehicles' ? ' on' : ''}`}
+          onClick={() => { setCategory('vehicles'); setFilter('all') }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <Car size={13} strokeWidth={2} />
+          Véhicules ({vehAlerts.length})
+        </button>
       </div>
 
       {/* Filtres par gravité */}
@@ -151,7 +177,7 @@ export function AlertesPage() {
             className={`filter-pill${filter === 'overdue' ? ' on' : ''}`}
             onClick={() => setFilter('overdue')}
           >
-            {category === 'equipment' ? 'En retard' : 'Expirées'} ({activeCounts.overdue})
+            {category === 'equipment' ? 'En retard' : category === 'certifications' ? 'Expirées' : 'Dépassées'} ({activeCounts.overdue})
           </button>
           <button
             type="button"
@@ -275,13 +301,69 @@ export function AlertesPage() {
           </div>
         )}
 
-        {!loading && !error && activeList.length > 0 && (
-          (category === 'equipment' ? filteredReg.length : filteredCert.length) === 0 && (
+        {/* Mode Véhicules */}
+        {!loading && !error && category === 'vehicles' && vehAlerts.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
+            <p className="text-ink-2 font-light" style={{ marginBottom: '.5rem' }}>
+              Aucune alerte véhicule pour le moment.
+            </p>
+            <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 420, margin: '0 auto' }}>
+              Va dans RH → Véhicules et enregistre tes véhicules avec leurs dates clés
+              (contrôle technique, assurance, vidange). Les alertes apparaîtront ici automatiquement.
+            </p>
+          </div>
+        )}
+
+        {!loading && !error && category === 'vehicles' && filteredVeh.length > 0 && (
+          <div className="alerts-list">
+            {filteredVeh.map((a) => {
+              const sev = classifyAlert(a.daysUntilDue)
+              const meta = SEVERITY_META[sev]
+              const Icon = meta.icon
+              const CheckIcon = VEHICLE_CHECK_ICON[a.type]
+              const vehicleLabel = a.brand || a.model
+                ? `${a.brand ?? ''} ${a.model ?? ''}`.trim()
+                : null
+              return (
+                <div key={a.key} className={`alert-row ${meta.cls}`}>
+                  <div className="alert-icon">
+                    <Icon size={18} strokeWidth={2} />
+                  </div>
+                  <div className="alert-main">
+                    <div className="alert-title">
+                      {formatPlate(a.licensePlate)}
+                      {vehicleLabel && <span className="alert-site"> — {vehicleLabel}</span>}
+                    </div>
+                    <div className="alert-meta">
+                      <CheckIcon size={11} strokeWidth={2} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 4 }} />
+                      {VEHICLE_CHECK_LABEL[a.type]}
+                      {a.technicianName ? ` · ${a.technicianName}` : ' · Pool commun'}
+                      {' · '}échéance {formatDate(a.dueDate)}
+                    </div>
+                  </div>
+                  <div className="alert-due">
+                    <div className="alert-due-date">{formatDate(a.dueDate)}</div>
+                    <div className="alert-due-days">{formatExpiryLabel(a.daysUntilDue)}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {!loading && !error && activeList.length > 0 && (() => {
+          const visible =
+            category === 'equipment'
+              ? filteredReg.length
+              : category === 'certifications'
+                ? filteredCert.length
+                : filteredVeh.length
+          return visible === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
               <p className="text-ink-3 text-sm font-light">Aucune alerte dans ce filtre.</p>
             </div>
-          )
-        )}
+          ) : null
+        })()}
       </div>
     </>
   )
