@@ -114,6 +114,40 @@ export function RapportEditorPage() {
     return resolveEquipmentTypes(intervention) as EquipmentType[]
   }, [intervention])
 
+  // Pré-remplit une intervention corrective avec les anomalies.
+  // Ce useMemo DOIT être déclaré avant les early returns pour respecter la règle
+  // des hooks React (même nombre de hooks à chaque render).
+  const correctiveSeed = useMemo(() => {
+    if (!intervention) return null
+    const currentItems = equipmentType ? CHECKLISTS[equipmentType] ?? [] : []
+    const anomaliesForSeed = currentItems.flatMap((it) => {
+      const r = checklist.find((c) => c.id === it.id)
+      if (r?.value !== 'nok') return []
+      return [{ label: it.label, action: r.action, note: r.note }]
+    })
+    const anomaliesText = anomaliesForSeed.length > 0
+      ? 'Anomalies à traiter :\n' +
+        anomaliesForSeed.map((a) =>
+          `• ${a.label}${a.action ? ` (${RECOMMENDED_ACTION_LABEL[a.action]})` : ''}${a.note ? ` — ${a.note}` : ''}`,
+        ).join('\n')
+      : ''
+    const notes =
+      `Intervention corrective suite au rapport ${intervention.reference}` +
+      (anomaliesText ? '\n\n' + anomaliesText : '')
+    return {
+      client_name: intervention.client_name,
+      client_id: intervention.client_id ?? '',
+      site_name: intervention.site_name ?? '',
+      address: intervention.address ?? '',
+      equipment_types: equipmentType ? [equipmentType] : [],
+      technician_name: intervention.technician_name ?? '',
+      technician_id: intervention.technician_id ?? '',
+      scheduled_date: '',
+      priority: 'urgente' as const,
+      notes,
+    }
+  }, [intervention, equipmentType, checklist])
+
   if (loading) {
     return (
       <div className="card">
@@ -302,31 +336,7 @@ export function RapportEditorPage() {
     }
   }
 
-  // Pré-remplit une intervention corrective avec les anomalies
-  const correctiveSeed = useMemo(() => {
-    if (!intervention) return null
-    const anomaliesText = anomalies.length > 0
-      ? 'Anomalies à traiter :\n' +
-        anomalies.map((a) =>
-          `• ${a.label}${a.action ? ` (${RECOMMENDED_ACTION_LABEL[a.action]})` : ''}${a.note ? ` — ${a.note}` : ''}`,
-        ).join('\n')
-      : ''
-    const notes =
-      `Intervention corrective suite au rapport ${intervention.reference}` +
-      (anomaliesText ? '\n\n' + anomaliesText : '')
-    return {
-      client_name: intervention.client_name,
-      client_id: intervention.client_id ?? '',
-      site_name: intervention.site_name ?? '',
-      address: intervention.address ?? '',
-      equipment_types: equipmentType ? [equipmentType] : [],
-      technician_name: intervention.technician_name ?? '',
-      technician_id: intervention.technician_id ?? '',
-      scheduled_date: '',
-      priority: 'urgente' as const,
-      notes,
-    }
-  }, [intervention, anomalies, equipmentType])
+  // correctiveSeed est déclaré plus haut (avant les early returns, règle des hooks)
 
   const scheduledLabel = intervention.scheduled_date
     ? format(new Date(intervention.scheduled_date), 'd MMMM yyyy', { locale: fr })
