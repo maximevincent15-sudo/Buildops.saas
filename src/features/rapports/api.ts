@@ -92,6 +92,28 @@ export async function setReportPdfUrl(reportId: string, pdfUrl: string): Promise
   if (error) throw error
 }
 
+export async function markReportSent(
+  reportId: string,
+  recipientEmail: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('reports')
+    .update({
+      sent_to_email: recipientEmail,
+      sent_at: new Date().toISOString(),
+    })
+    .eq('id', reportId)
+  // Si les colonnes n'existent pas encore (migration 016 pas passée), on ne bloque
+  // pas l'envoi — l'utilisateur peut quand même envoyer son mail, on loguera juste.
+  if (error) {
+    if (/sent_to_email|sent_at/i.test(error.message)) {
+      console.warn('Migration 016 non appliquée — impossible de tracer l\'envoi.')
+      return
+    }
+    throw error
+  }
+}
+
 export type ReportWithIntervention = Report & {
   intervention: {
     id: string

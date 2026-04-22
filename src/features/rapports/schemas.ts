@@ -53,6 +53,8 @@ export type Report = {
   signature_data_url: string | null
   photos: ReportPhoto[]
   pdf_url: string | null
+  sent_to_email: string | null
+  sent_at: string | null
   completed_at: string | null
   created_at: string
   updated_at: string

@@ -59,3 +59,13 @@ export async function deleteClient(id: string): Promise<void> {
     .eq('id', id)
   if (error) throw error
 }
+
+export async function getClient(id: string): Promise<Client | null> {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  return (data as Client | null) ?? null
+}

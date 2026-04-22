@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Download,
   FileText,
+  Mail,
   XCircle,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -24,6 +25,7 @@ import {
 } from '../features/rapports/api'
 import { CHECKLISTS } from '../features/rapports/checklists'
 import { ChecklistSection } from '../features/rapports/components/ChecklistSection'
+import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
 import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
 import { ReportPdf } from '../features/rapports/pdf/ReportPdf'
 import {
@@ -63,6 +65,9 @@ export function RapportEditorPage() {
   const [error, setError] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
   const [correctiveOpen, setCorrectiveOpen] = useState(false)
+  const [sendOpen, setSendOpen] = useState(false)
+  const [sentToEmail, setSentToEmail] = useState<string | null>(null)
+  const [sentAt, setSentAt] = useState<string | null>(null)
 
   useEffect(() => {
     if (!interventionId) return
@@ -95,6 +100,8 @@ export function RapportEditorPage() {
           setPhotos((report.photos ?? []) as StoredPhoto[])
           setCompletedAt(report.completed_at)
           setPdfUrl(report.pdf_url ?? null)
+          setSentToEmail(report.sent_to_email ?? null)
+          setSentAt(report.sent_at ?? null)
           if (report.equipment_type) {
             setEquipmentType(report.equipment_type as EquipmentType)
           }
@@ -215,6 +222,8 @@ export function RapportEditorPage() {
       signature_data_url: signature,
       photos,
       pdf_url: pdfUrl,
+      sent_to_email: sentToEmail,
+      sent_at: sentAt,
       completed_at: completedAt ?? new Date().toISOString(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -580,9 +589,17 @@ export function RapportEditorPage() {
 
       {isCompleted && (
         <div style={{ display: 'flex', gap: '.7rem', marginTop: '1.5rem', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-          <p className="text-ink-3 text-xs font-light" style={{ margin: 0 }}>
-            Ce rapport a été finalisé le {format(new Date(completedAt!), 'd MMMM yyyy à HH:mm', { locale: fr })}.
-          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <p className="text-ink-3 text-xs font-light" style={{ margin: 0 }}>
+              Ce rapport a été finalisé le {format(new Date(completedAt!), 'd MMMM yyyy à HH:mm', { locale: fr })}.
+            </p>
+            {sentAt && sentToEmail && (
+              <p className="text-grn text-xs" style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Mail size={11} strokeWidth={2} />
+                Envoyé à {sentToEmail} le {format(new Date(sentAt), 'd MMMM à HH:mm', { locale: fr })}
+              </p>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
             {summary.isConform === false && (
               <button
@@ -604,6 +621,17 @@ export function RapportEditorPage() {
               <FileText size={14} />
               {generatingPdf ? 'Génération…' : pdfUrl ? 'Régénérer le PDF' : 'Générer le PDF'}
             </button>
+            <button
+              type="button"
+              className="btn-sm acc"
+              onClick={() => setSendOpen(true)}
+              disabled={!pdfUrl}
+              title={pdfUrl ? 'Envoyer le rapport au client' : 'Génère le PDF d\'abord'}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <Mail size={13} strokeWidth={2} />
+              {sentAt ? 'Renvoyer au client' : 'Envoyer au client'}
+            </button>
           </div>
         </div>
       )}
@@ -618,6 +646,42 @@ export function RapportEditorPage() {
             setCorrectiveOpen(false)
             setFlash('Intervention corrective créée.')
             setTimeout(() => setFlash(null), 3000)
+          }}
+        />
+      )}
+
+      {/* Modale envoi au client */}
+      {reportId && intervention && (
+        <SendToClientModal
+          open={sendOpen}
+          onClose={() => setSendOpen(false)}
+          reportId={reportId}
+          pdfUrl={pdfUrl}
+          reference={intervention.reference}
+          clientId={intervention.client_id}
+          clientName={intervention.client_name}
+          equipmentLabel={equipmentType ? EQUIPMENT_TYPES[equipmentType] : formatEquipmentTypes(intervention.equipment_types)}
+          organizationName={orgName}
+          scheduledDate={intervention.scheduled_date}
+          isConform={summary.isConform}
+          nokCount={summary.nokCount}
+          previousEmail={sentToEmail}
+          onSent={() => {
+            setSentToEmail((prev) => prev) // le modal rappelle avec l'email ; on rafraîchit via re-fetch
+            // Simple refresh des infos d'envoi depuis la DB
+            void (async () => {
+              const { data } = await supabase
+                .from('reports')
+                .select('sent_to_email, sent_at')
+                .eq('id', reportId)
+                .maybeSingle()
+              if (data) {
+                setSentToEmail((data as { sent_to_email: string | null }).sent_to_email)
+                setSentAt((data as { sent_at: string | null }).sent_at)
+              }
+            })()
+            setFlash('Rapport marqué comme envoyé.')
+            setTimeout(() => setFlash(null), 2500)
           }}
         />
       )}
