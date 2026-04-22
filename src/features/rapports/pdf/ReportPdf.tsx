@@ -1,10 +1,17 @@
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { EQUIPMENT_TYPES } from '../../../shared/constants/interventions'
+import {
+  EQUIPMENT_TYPES,
+  formatEquipmentTypes,
+} from '../../../shared/constants/interventions'
 import type { EquipmentType } from '../../../shared/constants/interventions'
 import type { Intervention } from '../../planning/schemas'
 import type { ChecklistItem } from '../checklists'
+import {
+  RECOMMENDED_ACTION_LABEL,
+  computeReportSummary,
+} from '../schemas'
 import type { Report } from '../schemas'
 
 const colors = {
@@ -16,6 +23,8 @@ const colors = {
   grnLt: '#D4EDE5',
   red: '#A83A3A',
   redLt: '#F0DADA',
+  org: '#C45A1A',
+  orgLt: '#F4D9BF',
   gry: '#6B7A8D',
   gryLt: '#DDE2EA',
   border: '#E6E8EC',
@@ -61,6 +70,60 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Helvetica-Bold',
     color: colors.acc,
+  },
+  // Tampon Conforme / Non conforme
+  stamp: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderStyle: 'solid',
+    textAlign: 'center',
+    fontFamily: 'Helvetica-Bold',
+    fontSize: 13,
+    letterSpacing: 1.5,
+    marginBottom: 14,
+  },
+  stampConform: {
+    color: colors.grn,
+    borderColor: colors.grn,
+    backgroundColor: colors.grnLt,
+  },
+  stampNonConform: {
+    color: colors.red,
+    borderColor: colors.red,
+    backgroundColor: colors.redLt,
+  },
+  stampPartial: {
+    color: colors.org,
+    borderColor: colors.org,
+    backgroundColor: colors.orgLt,
+  },
+  // Synthèse
+  summaryBox: {
+    backgroundColor: colors.bg,
+    padding: 10,
+    borderRadius: 4,
+    marginBottom: 14,
+    borderLeftWidth: 3,
+    borderLeftStyle: 'solid',
+  },
+  summaryBoxNonConform: {
+    borderLeftColor: colors.red,
+    backgroundColor: colors.redLt,
+  },
+  summaryBoxConform: {
+    borderLeftColor: colors.grn,
+    backgroundColor: colors.grnLt,
+  },
+  summaryTitle: {
+    fontFamily: 'Helvetica-Bold',
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  summaryItem: {
+    fontSize: 9,
+    marginTop: 2,
   },
   section: {
     marginBottom: 16,
@@ -124,6 +187,52 @@ const styles = StyleSheet.create({
   badgeNok: { backgroundColor: colors.redLt, color: colors.red },
   badgeNa: { backgroundColor: colors.gryLt, color: colors.gry },
   badgeEmpty: { backgroundColor: colors.borderLight, color: colors.ink3 },
+  // Détail NOK : action + note + photos
+  nokDetailBlock: {
+    backgroundColor: colors.redLt,
+    borderLeftWidth: 2,
+    borderLeftStyle: 'solid',
+    borderLeftColor: colors.red,
+    padding: 8,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  nokLabel: {
+    fontFamily: 'Helvetica-Bold',
+    fontSize: 9,
+    color: colors.red,
+    marginBottom: 3,
+  },
+  nokText: {
+    fontSize: 9,
+    marginBottom: 2,
+  },
+  nokActionBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.red,
+    color: '#FFFFFF',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 2,
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  nokPhotos: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 4,
+  },
+  nokPhoto: {
+    width: 110,
+    height: 80,
+    objectFit: 'cover',
+    marginRight: 4,
+    marginBottom: 4,
+    borderRadius: 2,
+  },
   observations: {
     fontSize: 10,
     backgroundColor: colors.bg,
@@ -185,8 +294,18 @@ type Props = {
 }
 
 export function ReportPdf({ intervention, report, checklistItems, organizationName }: Props) {
-  const equipmentLabel =
-    EQUIPMENT_TYPES[intervention.equipment_type as EquipmentType] ?? intervention.equipment_type
+  // Type d'équipement contrôlé dans ce rapport (peut différer du type de l'intervention
+  // si l'intervention a plusieurs types)
+  const reportEquip =
+    report.equipment_type ??
+    (intervention.equipment_types && intervention.equipment_types[0]) ??
+    intervention.equipment_type ??
+    null
+  const reportEquipLabel = reportEquip
+    ? EQUIPMENT_TYPES[reportEquip as EquipmentType] ?? reportEquip
+    : '—'
+  const interventionEquipsLabel = formatEquipmentTypes(intervention.equipment_types)
+
   const dateLabel = intervention.scheduled_date
     ? format(new Date(intervention.scheduled_date), 'd MMMM yyyy', { locale: fr })
     : '—'
@@ -195,9 +314,12 @@ export function ReportPdf({ intervention, report, checklistItems, organizationNa
     : '—'
 
   const responseByItemId = new Map(report.checklist.map((r) => [r.id, r]))
-  const okCount = report.checklist.filter((r) => r.value === 'ok').length
-  const nokCount = report.checklist.filter((r) => r.value === 'nok').length
-  const naCount = report.checklist.filter((r) => r.value === 'na').length
+  const summary = computeReportSummary(report.checklist, checklistItems.length)
+  const anomalies = checklistItems.flatMap((it) => {
+    const r = responseByItemId.get(it.id)
+    if (r?.value !== 'nok') return []
+    return [{ label: it.label, action: r.action, note: r.note, photos: r.photos ?? [], reason: r.noPhotoReason }]
+  })
 
   function badgeStyle(value: string | null | undefined) {
     if (value === 'ok') return [styles.badge, styles.badgeOk]
@@ -206,10 +328,14 @@ export function ReportPdf({ intervention, report, checklistItems, organizationNa
     return [styles.badge, styles.badgeEmpty]
   }
 
-  const checklistSummary =
-    `${okCount} conforme${okCount > 1 ? 's' : ''}` +
-    (nokCount > 0 ? ` · ${nokCount} non conforme${nokCount > 1 ? 's' : ''}` : '') +
-    (naCount > 0 ? ` · ${naCount} non applicable${naCount > 1 ? 's' : ''}` : '')
+  const stampLabel =
+    summary.isConform === true ? 'CONFORME' :
+    summary.isConform === false ? 'NON CONFORME' :
+    'INCOMPLET'
+  const stampStyle =
+    summary.isConform === true ? styles.stampConform :
+    summary.isConform === false ? styles.stampNonConform :
+    styles.stampPartial
 
   return (
     <Document>
@@ -222,6 +348,33 @@ export function ReportPdf({ intervention, report, checklistItems, organizationNa
             <Text style={styles.reportRef}>{intervention.reference}</Text>
           </View>
         </View>
+
+        {/* TAMPON CONFORMITÉ */}
+        <View style={[styles.stamp, stampStyle]}>
+          <Text>{stampLabel}</Text>
+        </View>
+
+        {/* SYNTHÈSE */}
+        {summary.isConform === false && anomalies.length > 0 ? (
+          <View style={[styles.summaryBox, styles.summaryBoxNonConform]}>
+            <Text style={styles.summaryTitle}>
+              {summary.nokCount} anomalie{summary.nokCount > 1 ? 's' : ''} détectée{summary.nokCount > 1 ? 's' : ''}
+            </Text>
+            {anomalies.map((a, i) => (
+              <Text key={i} style={styles.summaryItem}>
+                • {a.label}
+                {a.action ? ` — ${RECOMMENDED_ACTION_LABEL[a.action]}` : ''}
+              </Text>
+            ))}
+          </View>
+        ) : summary.isConform === true ? (
+          <View style={[styles.summaryBox, styles.summaryBoxConform]}>
+            <Text style={styles.summaryTitle}>
+              Tous les points de contrôle sont conformes ({summary.okCount} OK
+              {summary.naCount > 0 ? ` · ${summary.naCount} N/A` : ''}).
+            </Text>
+          </View>
+        ) : null}
 
         {/* INTERVENTION INFO */}
         <View style={styles.section}>
@@ -244,13 +397,19 @@ export function ReportPdf({ intervention, report, checklistItems, organizationNa
               </View>
             )}
             <View style={styles.infoItemHalf}>
-              <Text style={styles.infoLabel}>Équipement</Text>
-              <Text style={styles.infoValue}>{equipmentLabel}</Text>
+              <Text style={styles.infoLabel}>Équipement contrôlé</Text>
+              <Text style={styles.infoValue}>{reportEquipLabel}</Text>
             </View>
             <View style={styles.infoItemHalf}>
               <Text style={styles.infoLabel}>Date prévue</Text>
               <Text style={styles.infoValue}>{dateLabel}</Text>
             </View>
+            {interventionEquipsLabel !== reportEquipLabel && interventionEquipsLabel !== '—' && (
+              <View style={styles.infoItemFull}>
+                <Text style={styles.infoLabel}>Périmètre intervention</Text>
+                <Text style={styles.infoValue}>{interventionEquipsLabel}</Text>
+              </View>
+            )}
             {intervention.technician_name && (
               <View style={styles.infoItemHalf}>
                 <Text style={styles.infoLabel}>Technicien</Text>
@@ -262,15 +421,50 @@ export function ReportPdf({ intervention, report, checklistItems, organizationNa
 
         {/* CHECKLIST */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Checklist — {checklistSummary}</Text>
+          <Text style={styles.sectionTitle}>
+            Checklist — {summary.okCount} conforme{summary.okCount > 1 ? 's' : ''}
+            {summary.nokCount > 0 ? ` · ${summary.nokCount} non conforme${summary.nokCount > 1 ? 's' : ''}` : ''}
+            {summary.naCount > 0 ? ` · ${summary.naCount} N/A` : ''}
+          </Text>
           {checklistItems.map((item) => {
             const resp = responseByItemId.get(item.id)
             const value = resp?.value ?? null
             const label = value ? BADGE_LABELS[value] : '—'
+            const isNok = value === 'nok'
             return (
-              <View key={item.id} style={styles.checklistRow} wrap={false}>
-                <Text style={styles.checklistLabel}>{item.label}</Text>
-                <Text style={badgeStyle(value)}>{label}</Text>
+              <View key={item.id}>
+                <View style={styles.checklistRow} wrap={false}>
+                  <Text style={styles.checklistLabel}>{item.label}</Text>
+                  <Text style={badgeStyle(value)}>{label}</Text>
+                </View>
+                {isNok && (resp?.action || resp?.note || (resp?.photos && resp.photos.length > 0) || resp?.noPhotoReason) && (
+                  <View style={styles.nokDetailBlock} wrap={false}>
+                    {resp?.action && (
+                      <Text style={styles.nokActionBadge}>
+                        Action : {RECOMMENDED_ACTION_LABEL[resp.action]}
+                      </Text>
+                    )}
+                    {resp?.note && (
+                      <Text style={styles.nokText}>
+                        <Text style={styles.nokLabel}>Précisions : </Text>
+                        {resp.note}
+                      </Text>
+                    )}
+                    {resp?.noPhotoReason && (
+                      <Text style={styles.nokText}>
+                        <Text style={styles.nokLabel}>Justification sans photo : </Text>
+                        {resp.noPhotoReason}
+                      </Text>
+                    )}
+                    {resp?.photos && resp.photos.length > 0 && (
+                      <View style={styles.nokPhotos}>
+                        {resp.photos.map((p) => (
+                          <Image key={p.path} src={p.url} style={styles.nokPhoto} />
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                )}
               </View>
             )
           })}
@@ -279,16 +473,16 @@ export function ReportPdf({ intervention, report, checklistItems, organizationNa
         {/* OBSERVATIONS */}
         {report.observations ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Observations et anomalies</Text>
+            <Text style={styles.sectionTitle}>Observations générales</Text>
             <Text style={styles.observations}>{report.observations}</Text>
           </View>
         ) : null}
 
-        {/* PHOTOS */}
+        {/* PHOTOS COMPLÉMENTAIRES */}
         {report.photos.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              Photos ({report.photos.length})
+              Photos complémentaires ({report.photos.length})
             </Text>
             <View style={styles.photosGrid}>
               {report.photos.map((photo) => (

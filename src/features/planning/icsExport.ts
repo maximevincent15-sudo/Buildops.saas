@@ -1,7 +1,7 @@
 import type { PlanningBlock } from './blocksApi'
 import type { Intervention } from './schemas'
-import { EQUIPMENT_TYPES, INTERVENTION_STATUSES } from '../../shared/constants/interventions'
-import type { EquipmentType, InterventionStatus } from '../../shared/constants/interventions'
+import { INTERVENTION_STATUSES, formatEquipmentTypes } from '../../shared/constants/interventions'
+import type { InterventionStatus } from '../../shared/constants/interventions'
 
 // Convertit une Date locale en format iCal "YYYYMMDDTHHMMSS" (floating local time)
 function dtLocal(d: Date): string {
@@ -46,7 +46,9 @@ function interventionToEvent(i: Intervention): string | null {
   const date = new Date(i.scheduled_date)
   if (isNaN(date.getTime())) return null
 
-  const equipLabel = EQUIPMENT_TYPES[i.equipment_type as EquipmentType] ?? i.equipment_type
+  const equipLabel = formatEquipmentTypes(i.equipment_types) === '—'
+    ? (i.equipment_type ?? '')
+    : formatEquipmentTypes(i.equipment_types)
   const statusLabel = INTERVENTION_STATUSES[i.status as InterventionStatus] ?? i.status
 
   const summary = `${i.reference} — ${i.client_name} (${equipLabel})`

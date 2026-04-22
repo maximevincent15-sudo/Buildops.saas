@@ -1,5 +1,24 @@
 import { supabase } from '../../shared/lib/supabase'
+import { normalizeIntervention } from './schemas'
 import type { CreateInterventionInput, Intervention } from './schemas'
+
+function toDbPayload(input: CreateInterventionInput) {
+  // equipment_type (legacy) = premier du tableau pour compat arrière
+  const firstEquipment = input.equipment_types[0] ?? null
+  return {
+    client_name: input.client_name,
+    client_id: input.client_id || null,
+    site_name: input.site_name || null,
+    address: input.address || null,
+    equipment_type: firstEquipment,
+    equipment_types: input.equipment_types,
+    technician_name: input.technician_name || null,
+    technician_id: input.technician_id || null,
+    scheduled_date: input.scheduled_date || null,
+    priority: input.priority,
+    notes: input.notes || null,
+  }
+}
 
 export async function createIntervention(
   input: CreateInterventionInput,
@@ -9,22 +28,13 @@ export async function createIntervention(
     .from('interventions')
     .insert({
       organization_id: organizationId,
-      client_name: input.client_name,
-      client_id: input.client_id || null,
-      site_name: input.site_name || null,
-      address: input.address || null,
-      equipment_type: input.equipment_type,
-      technician_name: input.technician_name || null,
-      technician_id: input.technician_id || null,
-      scheduled_date: input.scheduled_date || null,
-      priority: input.priority,
-      notes: input.notes || null,
+      ...toDbPayload(input),
       status: input.scheduled_date ? 'planifiee' : 'a_planifier',
     })
     .select()
     .single()
   if (error) throw error
-  return data as Intervention
+  return normalizeIntervention(data as Intervention)
 }
 
 export async function listInterventions(): Promise<Intervention[]> {
@@ -33,7 +43,7 @@ export async function listInterventions(): Promise<Intervention[]> {
     .select('*')
     .order('created_at', { ascending: false })
   if (error) throw error
-  return (data ?? []) as Intervention[]
+  return ((data ?? []) as Intervention[]).map(normalizeIntervention)
 }
 
 export async function listRecentInterventions(limit = 5): Promise<Intervention[]> {
@@ -43,7 +53,7 @@ export async function listRecentInterventions(limit = 5): Promise<Intervention[]
     .order('created_at', { ascending: false })
     .limit(limit)
   if (error) throw error
-  return (data ?? []) as Intervention[]
+  return ((data ?? []) as Intervention[]).map(normalizeIntervention)
 }
 
 export async function updateIntervention(
@@ -52,23 +62,12 @@ export async function updateIntervention(
 ): Promise<Intervention> {
   const { data, error } = await supabase
     .from('interventions')
-    .update({
-      client_name: input.client_name,
-      client_id: input.client_id || null,
-      site_name: input.site_name || null,
-      address: input.address || null,
-      equipment_type: input.equipment_type,
-      technician_name: input.technician_name || null,
-      technician_id: input.technician_id || null,
-      scheduled_date: input.scheduled_date || null,
-      priority: input.priority,
-      notes: input.notes || null,
-    })
+    .update(toDbPayload(input))
     .eq('id', id)
     .select()
     .single()
   if (error) throw error
-  return data as Intervention
+  return normalizeIntervention(data as Intervention)
 }
 
 export async function deleteIntervention(id: string): Promise<void> {
@@ -87,7 +86,7 @@ export async function setInterventionStatus(id: string, status: string): Promise
     .select()
     .single()
   if (error) throw error
-  return data as Intervention
+  return normalizeIntervention(data as Intervention)
 }
 
 export async function countInterventionsThisMonth(): Promise<number> {
@@ -139,5 +138,5 @@ export async function listInterventionsByStatus(status: string, limit = 4): Prom
     .order('created_at', { ascending: false })
     .limit(limit)
   if (error) throw error
-  return (data ?? []) as Intervention[]
+  return ((data ?? []) as Intervention[]).map(normalizeIntervention)
 }

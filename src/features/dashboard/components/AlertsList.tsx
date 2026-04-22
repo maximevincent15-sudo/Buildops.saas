@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listInterventionsByStatus } from '../../planning/api'
 import type { Intervention } from '../../planning/schemas'
-import { EQUIPMENT_TYPES } from '../../../shared/constants/interventions'
-import type { EquipmentType } from '../../../shared/constants/interventions'
+import { formatEquipmentTypesShort } from '../../../shared/constants/interventions'
 
 export function AlertsList() {
   const [alerts, setAlerts] = useState<Intervention[]>([])
@@ -43,7 +42,7 @@ export function AlertsList() {
       )}
 
       {!loading && count > 0 && alerts.map((a) => {
-        const equip = EQUIPMENT_TYPES[a.equipment_type as EquipmentType] ?? a.equipment_type
+        const equip = formatEquipmentTypesShort(a)
         const isUrgent = a.priority === 'reglementaire' || a.priority === 'urgente'
         return (
           <div key={a.id} className={`al-item${isUrgent ? ' crit' : ''}`}>

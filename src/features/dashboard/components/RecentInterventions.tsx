@@ -5,8 +5,7 @@ import { useEffect, useState } from 'react'
 import { listRecentInterventions } from '../../planning/api'
 import { InterventionStatusBadge } from '../../planning/components/InterventionStatusBadge'
 import type { Intervention } from '../../planning/schemas'
-import { EQUIPMENT_TYPES } from '../../../shared/constants/interventions'
-import type { EquipmentType } from '../../../shared/constants/interventions'
+import { formatEquipmentTypesShort } from '../../../shared/constants/interventions'
 
 function formatShortDate(d: string | null): string {
   if (!d) return '—'
@@ -66,7 +65,7 @@ export function RecentInterventions() {
               <tr key={r.id}>
                 <td>{r.reference}</td>
                 <td>{r.client_name}</td>
-                <td>{EQUIPMENT_TYPES[r.equipment_type as EquipmentType] ?? r.equipment_type}</td>
+                <td>{formatEquipmentTypesShort(r)}</td>
                 <td><InterventionStatusBadge status={r.status} /></td>
                 <td>{formatShortDate(r.scheduled_date ?? r.created_at)}</td>
               </tr>

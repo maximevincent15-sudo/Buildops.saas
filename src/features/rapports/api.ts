@@ -22,6 +22,7 @@ async function insertReport(
     .insert({
       intervention_id: interventionId,
       organization_id: organizationId,
+      equipment_type: input.equipment_type ?? null,
       checklist: input.checklist,
       observations: input.observations || null,
       signed_by_name: input.signed_by_name || null,
@@ -42,6 +43,7 @@ async function updateExistingReport(
 ): Promise<Report> {
   const payload: Record<string, unknown> = {
     checklist: input.checklist,
+    equipment_type: input.equipment_type ?? null,
     observations: input.observations || null,
     signed_by_name: input.signed_by_name || null,
     signature_data_url: input.signature_data_url ?? null,
@@ -95,7 +97,8 @@ export type ReportWithIntervention = Report & {
     id: string
     reference: string
     client_name: string
-    equipment_type: string
+    equipment_type: string | null
+    equipment_types: string[] | null
     scheduled_date: string | null
     technician_name: string | null
     status: string
@@ -108,7 +111,7 @@ export async function listReports(): Promise<ReportWithIntervention[]> {
     .select(`
       *,
       intervention:interventions (
-        id, reference, client_name, equipment_type,
+        id, reference, client_name, equipment_type, equipment_types,
         scheduled_date, technician_name, status
       )
     `)

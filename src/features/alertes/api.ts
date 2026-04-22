@@ -40,19 +40,21 @@ function isoDateOnly(d: Date): string {
 export async function computeRegulatoryAlerts(): Promise<RegulatoryAlert[]> {
   const { data, error } = await supabase
     .from('interventions')
-    .select('id, reference, client_name, site_name, equipment_type, scheduled_date, status, created_at')
+    .select('id, reference, client_name, site_name, equipment_type, equipment_types, scheduled_date, status, created_at')
     .eq('status', 'terminee')
   if (error) throw error
 
-  const rows = (data ?? []) as Array<{
+  type Row = {
     id: string
     reference: string
     client_name: string
     site_name: string | null
-    equipment_type: string
+    equipment_type: string | null
+    equipment_types: string[] | null
     scheduled_date: string | null
     created_at: string
-  }>
+  }
+  const rows = (data ?? []) as Row[]
 
   // Tri client-side descendant (scheduled_date si dispo, sinon created_at)
   rows.sort((a, b) => {
@@ -61,10 +63,26 @@ export async function computeRegulatoryAlerts(): Promise<RegulatoryAlert[]> {
     return dateB.localeCompare(dateA)
   })
 
-  // Groupe par (client, équipement), on garde la plus récente (déjà triée DESC)
-  const groups = new Map<string, (typeof rows)[number]>()
+  // Explose chaque intervention en une entrée par type d'équipement,
+  // puis regroupe par (client, équipement) en gardant la plus récente.
+  type Flat = Row & { equipmentCode: string }
+  const flats: Flat[] = []
   for (const r of rows) {
-    const key = `${r.client_name}::${r.equipment_type}`
+    const types =
+      r.equipment_types && r.equipment_types.length > 0
+        ? r.equipment_types
+        : r.equipment_type
+          ? [r.equipment_type]
+          : []
+    for (const t of types) {
+      flats.push({ ...r, equipmentCode: t })
+    }
+  }
+
+  // Groupe par (client, site, équipement)
+  const groups = new Map<string, Flat>()
+  for (const r of flats) {
+    const key = `${r.client_name}::${r.site_name ?? ''}::${r.equipmentCode}`
     if (!groups.has(key)) groups.set(key, r)
   }
 
@@ -77,7 +95,7 @@ export async function computeRegulatoryAlerts(): Promise<RegulatoryAlert[]> {
     if (!baseDateStr) continue
 
     const freqDays =
-      INSPECTION_FREQUENCIES_DAYS[r.equipment_type as EquipmentType] ?? 365
+      INSPECTION_FREQUENCIES_DAYS[r.equipmentCode as EquipmentType] ?? 365
     const lastDate = new Date(baseDateStr)
     lastDate.setHours(0, 0, 0, 0)
     const nextDate = new Date(lastDate.getTime() + freqDays * 24 * 60 * 60 * 1000)
@@ -89,7 +107,7 @@ export async function computeRegulatoryAlerts(): Promise<RegulatoryAlert[]> {
       key,
       clientName: r.client_name,
       siteName: r.site_name,
-      equipmentType: r.equipment_type,
+      equipmentType: r.equipmentCode,
       lastInterventionId: r.id,
       lastInterventionReference: r.reference,
       lastInterventionDate: isoDateOnly(lastDate),

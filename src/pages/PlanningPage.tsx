@@ -12,13 +12,10 @@ import { PlanningWeekView } from '../features/planning/components/PlanningWeekVi
 import { buildIcsCalendar, downloadIcs } from '../features/planning/icsExport'
 import type { Intervention } from '../features/planning/schemas'
 import {
-  EQUIPMENT_TYPES,
   INTERVENTION_PRIORITIES,
+  formatEquipmentTypesShort,
 } from '../shared/constants/interventions'
-import type {
-  EquipmentType,
-  InterventionPriority,
-} from '../shared/constants/interventions'
+import type { InterventionPriority } from '../shared/constants/interventions'
 
 type ViewMode = 'list' | 'week'
 
@@ -211,7 +208,7 @@ export function PlanningPage() {
                         </div>
                       )}
                     </td>
-                    <td>{EQUIPMENT_TYPES[i.equipment_type as EquipmentType] ?? i.equipment_type}</td>
+                    <td>{formatEquipmentTypesShort(i)}</td>
                     <td>{i.technician_name ?? '—'}</td>
                     <td>{formatDate(i.scheduled_date)}</td>
                     <td>{INTERVENTION_PRIORITIES[i.priority as InterventionPriority] ?? i.priority}</td>

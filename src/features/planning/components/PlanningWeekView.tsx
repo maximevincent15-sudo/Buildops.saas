@@ -4,13 +4,10 @@ import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../../auth/store'
 import {
-  EQUIPMENT_TYPES,
   STATUS_BADGE_CLASSES,
+  formatEquipmentTypesShort,
 } from '../../../shared/constants/interventions'
-import type {
-  EquipmentType,
-  InterventionStatus,
-} from '../../../shared/constants/interventions'
+import type { InterventionStatus } from '../../../shared/constants/interventions'
 import { createBlocks, deleteBlock, formatBlockTime, listBlocksForRange } from '../blocksApi'
 import type { PlanningBlock } from '../blocksApi'
 import type { Intervention } from '../schemas'
@@ -257,8 +254,7 @@ export function PlanningWeekView({ interventions, onClickIntervention }: Props) 
                 {dayInterventions.map((i) => {
                   const statusClass =
                     STATUS_BADGE_CLASSES[i.status as InterventionStatus] ?? 'b-gry'
-                  const equipLabel =
-                    EQUIPMENT_TYPES[i.equipment_type as EquipmentType] ?? i.equipment_type
+                  const equipLabel = formatEquipmentTypesShort(i)
                   return (
                     <button
                       key={i.id}
@@ -344,8 +340,7 @@ export function PlanningWeekView({ interventions, onClickIntervention }: Props) 
             {withoutDate.map((i) => {
               const statusClass =
                 STATUS_BADGE_CLASSES[i.status as InterventionStatus] ?? 'b-gry'
-              const equipLabel =
-                EQUIPMENT_TYPES[i.equipment_type as EquipmentType] ?? i.equipment_type
+              const equipLabel = formatEquipmentTypesShort(i)
               return (
                 <button
                   key={i.id}

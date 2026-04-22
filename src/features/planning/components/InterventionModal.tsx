@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Trash2 } from 'lucide-react'
+import { Check, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
@@ -8,6 +8,7 @@ import {
   EQUIPMENT_TYPES,
   INTERVENTION_PRIORITIES,
 } from '../../../shared/constants/interventions'
+import type { EquipmentType } from '../../../shared/constants/interventions'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { createIntervention, deleteIntervention, updateIntervention } from '../api'
 import { createInterventionSchema } from '../schemas'
@@ -20,23 +21,32 @@ type Props = {
   onClose: () => void
   onChanged?: () => void
   intervention?: Intervention | null
+  /** Valeurs pré-remplies en mode création (ex: intervention corrective depuis un rapport) */
+  seed?: Partial<CreateInterventionInput>
 }
 
 function toFormValues(i: Intervention | null | undefined): Partial<CreateInterventionInput> {
   if (!i) {
     return {
-      equipment_type: 'extincteurs',
+      equipment_types: ['extincteurs'],
       priority: 'normale',
       client_id: '',
       technician_id: '',
     }
   }
+  // Fallback si l'enregistrement n'a que l'ancienne colonne
+  const types =
+    i.equipment_types && i.equipment_types.length > 0
+      ? (i.equipment_types as EquipmentType[])
+      : i.equipment_type
+        ? [i.equipment_type as EquipmentType]
+        : []
   return {
     client_name: i.client_name,
     client_id: i.client_id ?? '',
     site_name: i.site_name ?? '',
     address: i.address ?? '',
-    equipment_type: i.equipment_type as CreateInterventionInput['equipment_type'],
+    equipment_types: types,
     scheduled_date: i.scheduled_date ?? '',
     technician_name: i.technician_name ?? '',
     technician_id: i.technician_id ?? '',
@@ -45,7 +55,7 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
   }
 }
 
-export function InterventionModal({ open, onClose, onChanged, intervention }: Props) {
+export function InterventionModal({ open, onClose, onChanged, intervention, seed }: Props) {
   const isEdit = !!intervention
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -60,16 +70,16 @@ export function InterventionModal({ open, onClose, onChanged, intervention }: Pr
     formState: { errors, isSubmitting },
   } = useForm<CreateInterventionInput>({
     resolver: zodResolver(createInterventionSchema),
-    defaultValues: toFormValues(intervention),
+    defaultValues: { ...toFormValues(intervention), ...(seed ?? {}) },
   })
 
   // Quand on change d'intervention (ou passage create → edit), réinjecte les valeurs
   useEffect(() => {
     if (open) {
-      reset(toFormValues(intervention))
+      reset({ ...toFormValues(intervention), ...(seed ?? {}) })
       setSubmitError(null)
     }
-  }, [open, intervention, reset])
+  }, [open, intervention, seed, reset])
 
   async function onSubmit(data: CreateInterventionInput) {
     if (!profile?.organization_id) {
@@ -172,39 +182,49 @@ export function InterventionModal({ open, onClose, onChanged, intervention }: Pr
             />
           </div>
 
+          <div className="fg">
+            <label>Types d'équipement <span className="text-ink-3 text-xs font-light">(plusieurs possibles)</span></label>
+            <Controller
+              name="equipment_types"
+              control={control}
+              render={({ field }) => {
+                const selected = (field.value ?? []) as EquipmentType[]
+                const toggle = (code: EquipmentType) => {
+                  if (selected.includes(code)) {
+                    field.onChange(selected.filter((c) => c !== code))
+                  } else {
+                    field.onChange([...selected, code])
+                  }
+                }
+                return (
+                  <div className="equip-pills">
+                    {(Object.entries(EQUIPMENT_TYPES) as [EquipmentType, string][]).map(([code, label]) => {
+                      const on = selected.includes(code)
+                      return (
+                        <button
+                          type="button"
+                          key={code}
+                          className={`equip-pill${on ? ' on' : ''}`}
+                          onClick={() => toggle(code)}
+                        >
+                          <span className="equip-pill-check">
+                            {on && <Check size={11} strokeWidth={3} />}
+                          </span>
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              }}
+            />
+            {errors.equipment_types && <span className="ferr on">{errors.equipment_types.message}</span>}
+          </div>
+
           <div className="mrow">
-            <div className="fg">
-              <label>Type d'équipement</label>
-              <select {...register('equipment_type')}>
-                {Object.entries(EQUIPMENT_TYPES).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
-              </select>
-            </div>
             <div className="fg">
               <label>Date prévue</label>
               <input type="date" {...register('scheduled_date')} />
-            </div>
-          </div>
-
-          <input type="hidden" {...register('technician_id')} />
-          <div className="mrow">
-            <div className="fg">
-              <label>Technicien assigné</label>
-              <Controller
-                name="technician_name"
-                control={control}
-                render={({ field }) => (
-                  <TechnicianAutocomplete
-                    value={field.value ?? ''}
-                    onChange={(name, tech) => {
-                      field.onChange(name)
-                      setValue('technician_id', tech?.id ?? '')
-                    }}
-                    placeholder="Tape le nom ou choisis dans tes techniciens"
-                  />
-                )}
-              />
             </div>
             <div className="fg">
               <label>Priorité</label>
@@ -214,6 +234,25 @@ export function InterventionModal({ open, onClose, onChanged, intervention }: Pr
                 ))}
               </select>
             </div>
+          </div>
+
+          <input type="hidden" {...register('technician_id')} />
+          <div className="fg">
+            <label>Technicien assigné</label>
+            <Controller
+              name="technician_name"
+              control={control}
+              render={({ field }) => (
+                <TechnicianAutocomplete
+                  value={field.value ?? ''}
+                  onChange={(name, tech) => {
+                    field.onChange(name)
+                    setValue('technician_id', tech?.id ?? '')
+                  }}
+                  placeholder="Tape le nom ou choisis dans tes techniciens"
+                />
+              )}
+            />
           </div>
 
           <div className="fg">

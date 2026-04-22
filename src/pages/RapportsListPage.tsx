@@ -5,8 +5,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listReports } from '../features/rapports/api'
 import type { ReportWithIntervention } from '../features/rapports/api'
-import { EQUIPMENT_TYPES } from '../shared/constants/interventions'
-import type { EquipmentType } from '../shared/constants/interventions'
+import { formatEquipmentTypesShort } from '../shared/constants/interventions'
 
 function formatDate(d: string | null): string {
   if (!d) return '—'
@@ -133,9 +132,10 @@ export function RapportsListPage() {
               {filtered.map((r) => {
                 const interv = r.intervention
                 if (!interv) return null
-                const equipLabel =
-                  EQUIPMENT_TYPES[interv.equipment_type as EquipmentType] ??
-                  interv.equipment_type
+                const equipLabel = formatEquipmentTypesShort({
+                  equipment_types: interv.equipment_types,
+                  equipment_type: interv.equipment_type,
+                })
                 const isDone = !!r.completed_at
                 return (
                   <tr key={r.id}>
