@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from '../../features/dashboard/components/Sidebar'
 import { TopNav } from '../../features/dashboard/components/TopNav'
+import { ErrorBoundary } from '../../shared/ui/ErrorBoundary'
 
 export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -26,7 +27,9 @@ export function DashboardLayout() {
             />
           )}
           <main className="dash-main">
-            <Outlet />
+            <ErrorBoundary key={location.pathname}>
+              <Outlet />
+            </ErrorBoundary>
           </main>
         </div>
       </div>
