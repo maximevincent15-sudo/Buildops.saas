@@ -4,6 +4,7 @@ import { AlertTriangle, Check, Paperclip, Plus, Trash2, Undo2, Upload, X } from 
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { useAuthStore } from '../features/auth/store'
+import { RhTabs } from '../features/dashboard/components/RhTabs'
 import { ExpenseModal } from '../features/expenses/components/ExpenseModal'
 import {
   approveExpense,
@@ -162,6 +163,7 @@ export function ExpensesPage() {
 
   return (
     <>
+      <RhTabs />
       <div className="dash-top">
         <div>
           <div className="dash-title">Notes de frais</div>

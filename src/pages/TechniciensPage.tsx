@@ -1,5 +1,6 @@
 import { HardHat, Mail, Phone } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { RhTabs } from '../features/dashboard/components/RhTabs'
 import { listTechnicians } from '../features/technicians/api'
 import { TechnicianModal } from '../features/technicians/components/TechnicianModal'
 import type { Technician } from '../features/technicians/schemas'
@@ -51,6 +52,7 @@ export function TechniciensPage() {
 
   return (
     <>
+      <RhTabs />
       <div className="dash-top">
         <div>
           <div className="dash-title">Techniciens</div>

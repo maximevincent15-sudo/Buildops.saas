@@ -2,6 +2,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { Check, Plus, Trash2, Undo2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { RhTabs } from '../features/dashboard/components/RhTabs'
 import { OvertimeModal } from '../features/overtime/components/OvertimeModal'
 import {
   approveOvertime,
@@ -121,6 +122,7 @@ export function OvertimePage() {
 
   return (
     <>
+      <RhTabs />
       <div className="dash-top">
         <div>
           <div className="dash-title">Heures supplémentaires</div>

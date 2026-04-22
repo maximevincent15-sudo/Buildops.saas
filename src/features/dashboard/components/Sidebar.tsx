@@ -3,14 +3,11 @@ import {
   Bell,
   Building2,
   CalendarDays,
-  Car,
   ClipboardCheck,
-  Clock,
   HardHat,
   LayoutDashboard,
   LogOut,
   Receipt,
-  ReceiptText,
   Settings,
   Wallet,
 } from 'lucide-react'
@@ -25,7 +22,7 @@ import { listOvertime } from '../../overtime/api'
 import { listInterventions } from '../../planning/api'
 
 type NavItem = { to: string; Icon: LucideIcon; label: string; badgeKey?: BadgeKey }
-type BadgeKey = 'planning' | 'rapports' | 'alertes' | 'frais' | 'heures'
+type BadgeKey = 'planning' | 'rapports' | 'alertes' | 'rh'
 
 type Counts = Record<BadgeKey, number>
 
@@ -40,11 +37,11 @@ const clients: NavItem[] = [
   { to: '/clients', Icon: Building2, label: 'Fiches clients' },
 ]
 
+// Un seul lien RH dans la sidebar (les 4 onglets Techniciens / Véhicules /
+// Notes de frais / Heures sup sont accessibles via <RhTabs /> à l'intérieur
+// des pages). Le badge agrège les pending (frais + heures sup).
 const rh: NavItem[] = [
-  { to: '/techniciens', Icon: HardHat, label: 'Techniciens' },
-  { to: '/vehicules', Icon: Car, label: 'Véhicules' },
-  { to: '/frais', Icon: ReceiptText, label: 'Notes de frais', badgeKey: 'frais' },
-  { to: '/heures-sup', Icon: Clock, label: 'Heures sup', badgeKey: 'heures' },
+  { to: '/techniciens', Icon: HardHat, label: 'Techniciens', badgeKey: 'rh' },
 ]
 
 const facturation: NavItem[] = [
@@ -93,7 +90,7 @@ export function Sidebar() {
   const location = useLocation()
   const user = useAuthStore((s) => s.user)
   const profile = useAuthStore((s) => s.profile)
-  const [counts, setCounts] = useState<Counts>({ planning: 0, rapports: 0, alertes: 0, frais: 0, heures: 0 })
+  const [counts, setCounts] = useState<Counts>({ planning: 0, rapports: 0, alertes: 0, rh: 0 })
 
   // Refetch counts à chaque changement de route (donc après création / suppression)
   useEffect(() => {
@@ -112,9 +109,11 @@ export function Sidebar() {
           const sev = classifyAlert(a.daysUntilDue)
           return sev === 'overdue' || sev === 'urgent'
         }).length
-        const frais = expenses.filter((e) => e.status === 'pending').length
-        const heures = overtime.filter((o) => o.status === 'pending').length
-        setCounts({ planning, rapports, alertes: alertesUrgent, frais, heures })
+        // Badge RH = somme des pending (frais + heures sup) — un seul chiffre sur "Techniciens"
+        const rh =
+          expenses.filter((e) => e.status === 'pending').length +
+          overtime.filter((o) => o.status === 'pending').length
+        setCounts({ planning, rapports, alertes: alertesUrgent, rh })
       })
       .catch(() => { /* silently ignore — no badge better than crash */ })
     return () => { alive = false }
