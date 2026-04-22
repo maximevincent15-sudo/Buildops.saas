@@ -1,8 +1,9 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { Check, Plus, Trash2, Undo2, X } from 'lucide-react'
+import { Check, Download, Plus, Trash2, Undo2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { RhTabs } from '../features/dashboard/components/RhTabs'
+import { PayrollExportModal } from '../features/export/components/PayrollExportModal'
 import { OvertimeModal } from '../features/overtime/components/OvertimeModal'
 import {
   approveOvertime,
@@ -39,6 +40,7 @@ export function OvertimePage() {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<OvertimeStatus>('pending')
   const [modalOpen, setModalOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
 
   async function reload() {
     try {
@@ -130,10 +132,21 @@ export function OvertimePage() {
             Saisie et validation des heures sup pour préparer la paie. La majoration est appliquée par l'expert-comptable.
           </div>
         </div>
-        <button type="button" className="mf prim" onClick={() => setModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <Plus size={14} strokeWidth={2} />
-          Nouvelle saisie
-        </button>
+        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="mf out"
+            onClick={() => setExportOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={14} strokeWidth={2} />
+            Export paie
+          </button>
+          <button type="button" className="mf prim" onClick={() => setModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={14} strokeWidth={2} />
+            Nouvelle saisie
+          </button>
+        </div>
       </div>
 
       <div className="kpi-grid" style={{ marginBottom: '1rem' }}>
@@ -264,6 +277,11 @@ export function OvertimePage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onCreated={() => void reload()}
+      />
+
+      <PayrollExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
       />
     </>
   )

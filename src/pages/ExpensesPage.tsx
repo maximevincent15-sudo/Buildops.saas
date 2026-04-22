@@ -1,10 +1,11 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { AlertTriangle, Check, Paperclip, Plus, Trash2, Undo2, Upload, X } from 'lucide-react'
+import { AlertTriangle, Check, Download, Paperclip, Plus, Trash2, Undo2, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { useAuthStore } from '../features/auth/store'
 import { RhTabs } from '../features/dashboard/components/RhTabs'
+import { PayrollExportModal } from '../features/export/components/PayrollExportModal'
 import { ExpenseModal } from '../features/expenses/components/ExpenseModal'
 import {
   approveExpense,
@@ -44,6 +45,7 @@ export function ExpensesPage() {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<ExpenseStatus>('pending')
   const [modalOpen, setModalOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [attachTargetId, setAttachTargetId] = useState<string | null>(null)
   const [attaching, setAttaching] = useState(false)
   const attachInput = useRef<HTMLInputElement>(null)
@@ -171,10 +173,21 @@ export function ExpensesPage() {
             Saisie des dépenses des techniciens (repas, achats fournisseur, carburant…) avec justificatif et validation.
           </div>
         </div>
-        <button type="button" className="mf prim" onClick={() => setModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <Plus size={14} strokeWidth={2} />
-          Nouvelle note
-        </button>
+        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="mf out"
+            onClick={() => setExportOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={14} strokeWidth={2} />
+            Export paie
+          </button>
+          <button type="button" className="mf prim" onClick={() => setModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Plus size={14} strokeWidth={2} />
+            Nouvelle note
+          </button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -349,6 +362,11 @@ export function ExpensesPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onCreated={() => void reload()}
+      />
+
+      <PayrollExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
       />
 
       <input
