@@ -38,10 +38,24 @@ function isoDateOnly(d: Date): string {
  * date de contrôle attendue selon la fréquence de l'équipement.
  */
 export async function computeRegulatoryAlerts(): Promise<RegulatoryAlert[]> {
-  const { data, error } = await supabase
+  // Tente avec equipment_types (migration 015). Fallback si absent.
+  let { data, error } = await supabase
     .from('interventions')
     .select('id, reference, client_name, site_name, equipment_type, equipment_types, scheduled_date, status, created_at')
     .eq('status', 'terminee')
+
+  if (error && /equipment_types/i.test(error.message)) {
+    const fallback = await supabase
+      .from('interventions')
+      .select('id, reference, client_name, site_name, equipment_type, scheduled_date, status, created_at')
+      .eq('status', 'terminee')
+    data = (fallback.data ?? []).map((r: Record<string, unknown>) => ({
+      ...r,
+      equipment_types: null,
+    })) as typeof data
+    error = fallback.error
+  }
+
   if (error) throw error
 
   type Row = {

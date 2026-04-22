@@ -106,7 +106,8 @@ export type ReportWithIntervention = Report & {
 }
 
 export async function listReports(): Promise<ReportWithIntervention[]> {
-  const { data, error } = await supabase
+  // On tente d'abord avec equipment_types (migration 015 passée)
+  let { data, error } = await supabase
     .from('reports')
     .select(`
       *,
@@ -116,6 +117,23 @@ export async function listReports(): Promise<ReportWithIntervention[]> {
       )
     `)
     .order('created_at', { ascending: false })
+
+  // Fallback si la migration 015 n'est pas encore passée (colonne absente)
+  if (error && /equipment_types/i.test(error.message)) {
+    const fallback = await supabase
+      .from('reports')
+      .select(`
+        *,
+        intervention:interventions (
+          id, reference, client_name, equipment_type,
+          scheduled_date, technician_name, status
+        )
+      `)
+      .order('created_at', { ascending: false })
+    data = fallback.data
+    error = fallback.error
+  }
+
   if (error) throw error
   return (data ?? []) as unknown as ReportWithIntervention[]
 }
