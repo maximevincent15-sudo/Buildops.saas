@@ -1,6 +1,7 @@
 import { addDays, format, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { CalendarPlus, MapPin } from 'lucide-react'
+import { CalendarPlus, MapPin, Upload } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../features/auth/store'
 import { listInterventions } from '../features/planning/api'
@@ -122,6 +123,14 @@ export function PlanningPage() {
               {exporting ? 'Export…' : 'Exporter (.ics)'}
             </button>
           )}
+          <Link
+            to="/planning/import"
+            className="btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Upload size={13} strokeWidth={2} />
+            Importer
+          </Link>
           <button type="button" className="btn-sm acc" onClick={openCreate}>
             + Nouvelle intervention
           </button>

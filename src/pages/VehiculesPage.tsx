@@ -1,7 +1,8 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { Car, Plus } from 'lucide-react'
+import { Car, Plus, Upload } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { classifyAlert } from '../features/alertes/api'
 import { RhTabs } from '../features/dashboard/components/RhTabs'
 import { listTechnicians } from '../features/technicians/api'
@@ -105,15 +106,25 @@ export function VehiculesPage() {
             {vehicles.length > 1 && `${vehicles.length} véhicules dans le parc`}
           </div>
         </div>
-        <button
-          type="button"
-          className="mf prim"
-          onClick={openCreate}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-        >
-          <Plus size={14} strokeWidth={2} />
-          Nouveau véhicule
-        </button>
+        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+          <Link
+            to="/vehicules/import"
+            className="mf out"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Upload size={13} strokeWidth={2} />
+            Importer
+          </Link>
+          <button
+            type="button"
+            className="mf prim"
+            onClick={openCreate}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Plus size={14} strokeWidth={2} />
+            Nouveau véhicule
+          </button>
+        </div>
       </div>
 
       <div className="card">

@@ -1,5 +1,6 @@
-import { HardHat, Mail, Phone } from 'lucide-react'
+import { HardHat, Mail, Phone, Upload } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { RhTabs } from '../features/dashboard/components/RhTabs'
 import { listTechnicians } from '../features/technicians/api'
 import { TechnicianModal } from '../features/technicians/components/TechnicianModal'
@@ -63,6 +64,14 @@ export function TechniciensPage() {
           </div>
         </div>
         <div className="dash-acts">
+          <Link
+            to="/techniciens/import"
+            className="btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Upload size={13} strokeWidth={2} />
+            Importer
+          </Link>
           <button type="button" className="btn-sm acc" onClick={openCreate}>
             + Nouveau technicien
           </button>
