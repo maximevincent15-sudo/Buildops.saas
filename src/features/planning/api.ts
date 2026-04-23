@@ -60,9 +60,33 @@ export async function updateIntervention(
   id: string,
   input: CreateInterventionInput,
 ): Promise<Intervention> {
+  // Récupère l'état actuel pour transition de statut automatique selon la date
+  const { data: current, error: fetchErr } = await supabase
+    .from('interventions')
+    .select('status, scheduled_date')
+    .eq('id', id)
+    .single()
+  if (fetchErr) throw fetchErr
+
+  const payload = toDbPayload(input) as Record<string, unknown>
+
+  // Transition automatique du statut selon présence/absence de date prévue :
+  //  - "a_planifier" + ajout d'une date → "planifiee"
+  //  - "planifiee" + retrait de la date → "a_planifier"
+  //  - "en_cours" ou "terminee" → on ne touche jamais (workflow métier)
+  const hadDate = !!(current as { scheduled_date: string | null }).scheduled_date
+  const hasDate = !!input.scheduled_date
+  const currentStatus = (current as { status: string }).status
+
+  if (!hadDate && hasDate && currentStatus === 'a_planifier') {
+    payload.status = 'planifiee'
+  } else if (hadDate && !hasDate && currentStatus === 'planifiee') {
+    payload.status = 'a_planifier'
+  }
+
   const { data, error } = await supabase
     .from('interventions')
-    .update(toDbPayload(input))
+    .update(payload)
     .eq('id', id)
     .select()
     .single()

@@ -34,9 +34,15 @@ export function InterventionRowActions({ intervention, onChanged }: Props) {
     e.stopPropagation()
   }
 
-  const { status } = intervention
+  const { status, scheduled_date } = intervention
 
-  if (status === 'planifiee') {
+  // "a_planifier" + date renseignée = état incohérent hérité du legacy.
+  // On considère cette intervention comme "planifiée" pour l'affichage afin
+  // de laisser l'utilisateur enchaîner (démarrer → rapport).
+  const effectiveStatus =
+    status === 'a_planifier' && scheduled_date ? 'planifiee' : status
+
+  if (effectiveStatus === 'planifiee') {
     return (
       <button
         type="button"
@@ -49,7 +55,7 @@ export function InterventionRowActions({ intervention, onChanged }: Props) {
     )
   }
 
-  if (status === 'en_cours') {
+  if (effectiveStatus === 'en_cours') {
     return (
       <Link
         to={`/rapports/${intervention.id}`}
@@ -61,7 +67,7 @@ export function InterventionRowActions({ intervention, onChanged }: Props) {
     )
   }
 
-  if (status === 'terminee') {
+  if (effectiveStatus === 'terminee') {
     return (
       <Link
         to={`/rapports/${intervention.id}`}
@@ -73,7 +79,7 @@ export function InterventionRowActions({ intervention, onChanged }: Props) {
     )
   }
 
-  if (status === 'a_planifier') {
+  if (effectiveStatus === 'a_planifier') {
     return <span className="text-ink-3 text-xs font-light">Ajouter une date</span>
   }
 
