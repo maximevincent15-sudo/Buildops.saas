@@ -1,5 +1,6 @@
-import { Mail, MapPin, Phone, User } from 'lucide-react'
+import { Mail, MapPin, Phone, Upload, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { listClients } from '../features/clients/api'
 import { ClientModal } from '../features/clients/components/ClientModal'
 import type { Client } from '../features/clients/schemas'
@@ -57,6 +58,14 @@ export function ClientsPage() {
           </div>
         </div>
         <div className="dash-acts">
+          <Link
+            to="/clients/import"
+            className="btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Upload size={13} strokeWidth={2} />
+            Importer
+          </Link>
           <button type="button" className="btn-sm acc" onClick={openCreate}>
             + Nouveau client
           </button>
