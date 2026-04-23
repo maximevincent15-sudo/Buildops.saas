@@ -30,9 +30,12 @@ import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateRep
 import { ReportPdf } from '../features/rapports/pdf/ReportPdf'
 import {
   RECOMMENDED_ACTION_LABEL,
+  byTypeToResponses,
+  computeGlobalSummary,
   computeReportSummary,
+  responsesToByType,
 } from '../features/rapports/schemas'
-import type { ChecklistResponse, Report } from '../features/rapports/schemas'
+import type { ChecklistByType, ChecklistResponse, Report } from '../features/rapports/schemas'
 import {
   EQUIPMENT_TYPES,
   formatEquipmentTypes,
@@ -51,7 +54,9 @@ export function RapportEditorPage() {
 
   const [intervention, setIntervention] = useState<Intervention | null>(null)
   const [equipmentType, setEquipmentType] = useState<EquipmentType | null>(null)
-  const [checklist, setChecklist] = useState<ChecklistResponse[]>([])
+  // Checklist par équipement : Record<type, ChecklistResponse[]>
+  // On garde TOUTES les checklists en mémoire pour que changer de type ne perde rien.
+  const [checklistByType, setChecklistByType] = useState<ChecklistByType>({})
   const [observations, setObservations] = useState('')
   const [signedBy, setSignedBy] = useState('')
   const [signature, setSignature] = useState<string | null>(null)
@@ -93,7 +98,12 @@ export function RapportEditorPage() {
         if (!alive) return
         if (report) {
           setReportId(report.id)
-          setChecklist((report.checklist ?? []) as ChecklistResponse[])
+          // Décodage : array plat → Record<type, responses>
+          const byType = responsesToByType(
+            (report.checklist ?? []) as ChecklistResponse[],
+            report.equipment_type ?? null,
+          )
+          setChecklistByType(byType)
           setObservations(report.observations ?? '')
           setSignedBy(report.signed_by_name ?? '')
           setSignature(report.signature_data_url ?? null)
@@ -126,34 +136,50 @@ export function RapportEditorPage() {
   // des hooks React (même nombre de hooks à chaque render).
   const correctiveSeed = useMemo(() => {
     if (!intervention) return null
-    const currentItems = equipmentType ? CHECKLISTS[equipmentType] ?? [] : []
-    const anomaliesForSeed = currentItems.flatMap((it) => {
-      const r = checklist.find((c) => c.id === it.id)
-      if (r?.value !== 'nok') return []
-      return [{ label: it.label, action: r.action, note: r.note }]
-    })
-    const anomaliesText = anomaliesForSeed.length > 0
+    // Parcourt TOUS les types contrôlés et leurs anomalies
+    const allAnomalies: Array<{ label: string; action?: string; note?: string; type: string }> = []
+    for (const [type, responses] of Object.entries(checklistByType)) {
+      const itemsForType = CHECKLISTS[type as EquipmentType] ?? []
+      for (const it of itemsForType) {
+        const r = responses.find((c) => c.id === it.id)
+        if (r?.value === 'nok') {
+          allAnomalies.push({
+            label: it.label,
+            action: r.action,
+            note: r.note,
+            type: EQUIPMENT_TYPES[type as EquipmentType] ?? type,
+          })
+        }
+      }
+    }
+    const affectedTypes = Array.from(new Set(allAnomalies.map((a) => a.type)))
+    const anomaliesText = allAnomalies.length > 0
       ? 'Anomalies à traiter :\n' +
-        anomaliesForSeed.map((a) =>
-          `• ${a.label}${a.action ? ` (${RECOMMENDED_ACTION_LABEL[a.action]})` : ''}${a.note ? ` — ${a.note}` : ''}`,
+        allAnomalies.map((a) =>
+          `• [${a.type}] ${a.label}${a.action ? ` (${RECOMMENDED_ACTION_LABEL[a.action as keyof typeof RECOMMENDED_ACTION_LABEL]})` : ''}${a.note ? ` — ${a.note}` : ''}`,
         ).join('\n')
       : ''
     const notes =
       `Intervention corrective suite au rapport ${intervention.reference}` +
       (anomaliesText ? '\n\n' + anomaliesText : '')
+    // Types d'équipement à contrôler = ceux qui ont des anomalies
+    const interventionTypes = resolveEquipmentTypes(intervention) as EquipmentType[]
+    const seedTypes = interventionTypes.filter((t) =>
+      affectedTypes.includes(EQUIPMENT_TYPES[t] ?? t),
+    )
     return {
       client_name: intervention.client_name,
       client_id: intervention.client_id ?? '',
       site_name: intervention.site_name ?? '',
       address: intervention.address ?? '',
-      equipment_types: equipmentType ? [equipmentType] : [],
+      equipment_types: seedTypes.length > 0 ? seedTypes : (equipmentType ? [equipmentType] : []),
       technician_name: intervention.technician_name ?? '',
       technician_id: intervention.technician_id ?? '',
       scheduled_date: '',
       priority: 'urgente' as const,
       notes,
     }
-  }, [intervention, equipmentType, checklist])
+  }, [intervention, equipmentType, checklistByType])
 
   if (loading) {
     return (
@@ -183,32 +209,64 @@ export function RapportEditorPage() {
     )
   }
 
+  // Items du type actuellement affiché (pour la section checklist visible)
   const items = equipmentType ? CHECKLISTS[equipmentType] ?? [] : []
-  const summary = computeReportSummary(checklist, items.length)
+  // Checklist du type actuellement affiché
+  const currentChecklist: ChecklistResponse[] = equipmentType
+    ? (checklistByType[equipmentType] ?? [])
+    : []
+  // Synthèse du type affiché (pour compteur haut de section)
+  const summary = computeReportSummary(currentChecklist, items.length)
+
+  // Synthèse GLOBALE couvrant tous les types (pour tampon + bouton correctif)
+  const totalByType: Record<string, number> = {}
+  for (const t of availableTypes) {
+    totalByType[t] = (CHECKLISTS[t] ?? []).length
+  }
+  const globalSummary = computeGlobalSummary(checklistByType, totalByType)
+
   const isCompleted = !!completedAt
   const orgId = profile.organization_id
   const iid = interventionId
   const orgName = profile.organizations?.name ?? ''
 
-  // Items NOK sans photo ni justification
-  const nokWithoutPhoto = items.filter((it) => {
-    const r = checklist.find((c) => c.id === it.id)
-    if (!r || r.value !== 'nok') return false
-    const hasPhoto = (r.photos ?? []).length > 0
-    const hasReason = !!r.noPhotoReason && r.noPhotoReason.trim().length > 0
-    return !hasPhoto && !hasReason
-  })
-  const nokWithoutAction = items.filter((it) => {
-    const r = checklist.find((c) => c.id === it.id)
-    return r?.value === 'nok' && !r.action
-  })
+  // Items NOK sans photo ni justification — PARCOURT TOUS LES TYPES
+  const nokWithoutPhoto: Array<{ type: EquipmentType; label: string }> = []
+  const nokWithoutAction: Array<{ type: EquipmentType; label: string }> = []
+  for (const t of availableTypes) {
+    const itemsForType = CHECKLISTS[t] ?? []
+    const responsesForType = checklistByType[t] ?? []
+    for (const it of itemsForType) {
+      const r = responsesForType.find((c) => c.id === it.id)
+      if (r?.value !== 'nok') continue
+      const hasPhoto = (r.photos ?? []).length > 0
+      const hasReason = !!r.noPhotoReason && r.noPhotoReason.trim().length > 0
+      if (!hasPhoto && !hasReason) {
+        nokWithoutPhoto.push({ type: t, label: it.label })
+      }
+      if (!r.action) {
+        nokWithoutAction.push({ type: t, label: it.label })
+      }
+    }
+  }
 
-  // Anomalies pour la synthèse
-  const anomalies = items.flatMap((it) => {
-    const r = checklist.find((c) => c.id === it.id)
-    if (r?.value !== 'nok') return []
-    return [{ label: it.label, action: r.action, note: r.note }]
-  })
+  // Anomalies GLOBALES pour la synthèse (tous types)
+  const anomalies: Array<{ label: string; action?: string; note?: string; typeLabel: string }> = []
+  for (const t of availableTypes) {
+    const itemsForType = CHECKLISTS[t] ?? []
+    const responsesForType = checklistByType[t] ?? []
+    for (const it of itemsForType) {
+      const r = responsesForType.find((c) => c.id === it.id)
+      if (r?.value === 'nok') {
+        anomalies.push({
+          label: it.label,
+          action: r.action,
+          note: r.note,
+          typeLabel: EQUIPMENT_TYPES[t],
+        })
+      }
+    }
+  }
 
   function currentReportSnapshot(): Report {
     return {
@@ -216,7 +274,7 @@ export function RapportEditorPage() {
       intervention_id: iid,
       organization_id: orgId,
       equipment_type: equipmentType,
-      checklist,
+      checklist: byTypeToResponses(checklistByType),
       observations: observations || null,
       signed_by_name: signedBy || null,
       signature_data_url: signature,
@@ -232,11 +290,19 @@ export function RapportEditorPage() {
 
   async function regeneratePdfFromCurrent(): Promise<string> {
     const snapshot = currentReportSnapshot()
+    // Sections PDF : une par type contrôlé (au moins un OK/NOK/NA) OU par type
+    // planifié dans l'intervention — on affiche tout pour être exhaustif.
+    const sections = availableTypes.map((t) => ({
+      type: t,
+      label: EQUIPMENT_TYPES[t] ?? t,
+      items: CHECKLISTS[t] ?? [],
+      responses: checklistByType[t] ?? [],
+    }))
     const element = (
       <ReportPdf
         intervention={intervention!}
         report={snapshot}
-        checklistItems={items}
+        sections={sections}
         organizationName={orgName}
       />
     )
@@ -248,7 +314,7 @@ export function RapportEditorPage() {
     setFlash(null)
     try {
       const saved = await saveDraftReport(iid, orgId, {
-        checklist,
+        checklist: byTypeToResponses(checklistByType),
         equipment_type: equipmentType ?? undefined,
         observations,
         signed_by_name: signedBy,
@@ -266,11 +332,11 @@ export function RapportEditorPage() {
   }
 
   async function handleFinalize() {
-    // Gardes obligatoires avant finalisation
+    // Gardes obligatoires avant finalisation — sur TOUS les types contrôlés
     if (nokWithoutPhoto.length > 0) {
       alert(
         `${nokWithoutPhoto.length} anomalie(s) sans photo ni justification :\n\n` +
-          nokWithoutPhoto.map((it) => `• ${it.label}`).join('\n') +
+          nokWithoutPhoto.map((it) => `• [${EQUIPMENT_TYPES[it.type]}] ${it.label}`).join('\n') +
           `\n\nAjoute une photo ou clique sur "Impossible de prendre une photo ? Justifier" avant de finaliser.`,
       )
       return
@@ -278,15 +344,15 @@ export function RapportEditorPage() {
     if (nokWithoutAction.length > 0) {
       alert(
         `${nokWithoutAction.length} anomalie(s) sans action recommandée :\n\n` +
-          nokWithoutAction.map((it) => `• ${it.label}`).join('\n') +
+          nokWithoutAction.map((it) => `• [${EQUIPMENT_TYPES[it.type]}] ${it.label}`).join('\n') +
           `\n\nChoisis Remplacement / Réparation / Vérification pour chaque anomalie.`,
       )
       return
     }
-    const unanswered = items.length - summary.answered
+    const unanswered = globalSummary.total - globalSummary.answered
     if (unanswered > 0) {
       const ok = window.confirm(
-        `${unanswered} point(s) de contrôle non renseigné(s).\n\nFinaliser quand même ?`,
+        `${unanswered} point(s) de contrôle non renseigné(s) (toutes équipements confondus).\n\nFinaliser quand même ?`,
       )
       if (!ok) return
     }
@@ -300,7 +366,7 @@ export function RapportEditorPage() {
     setError(null)
     try {
       const saved = await finalizeReport(iid, orgId, {
-        checklist,
+        checklist: byTypeToResponses(checklistByType),
         equipment_type: equipmentType ?? undefined,
         observations,
         signed_by_name: signedBy,
@@ -391,54 +457,55 @@ export function RapportEditorPage() {
         <div className="card" style={{ marginBottom: '1rem' }}>
           <div className="card-top">
             <span className="card-title">Équipement contrôlé dans ce rapport</span>
+            <span className="text-ink-3 text-xs font-light">
+              Chaque équipement a sa propre checklist, tes réponses sont conservées.
+            </span>
           </div>
           <div className="equip-pills" style={{ marginTop: '.4rem' }}>
-            {availableTypes.map((t) => (
-              <button
-                key={t}
-                type="button"
-                className={`equip-pill${equipmentType === t ? ' on' : ''}`}
-                onClick={() => {
-                  if (isCompleted) return
-                  if (checklist.length > 0 && t !== equipmentType) {
-                    const ok = window.confirm(
-                      'Changer de type va vider la checklist en cours. Continuer ?',
-                    )
-                    if (!ok) return
-                    setChecklist([])
-                  }
-                  setEquipmentType(t)
-                }}
-                disabled={isCompleted}
-              >
-                {EQUIPMENT_TYPES[t]}
-              </button>
-            ))}
+            {availableTypes.map((t) => {
+              const doneCount = (checklistByType[t] ?? []).filter((r) => r.value).length
+              const totalCount = (CHECKLISTS[t] ?? []).length
+              const hasNok = (checklistByType[t] ?? []).some((r) => r.value === 'nok')
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  className={`equip-pill${equipmentType === t ? ' on' : ''}`}
+                  onClick={() => setEquipmentType(t)}
+                >
+                  {EQUIPMENT_TYPES[t]}
+                  <span className="equip-pill-count">
+                    {doneCount}/{totalCount}
+                  </span>
+                  {hasNok && <span className="equip-pill-dot" title="Anomalie détectée" />}
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
 
-      {/* Bandeau synthèse / conformité */}
-      {items.length > 0 && (
+      {/* Bandeau synthèse / conformité GLOBALE (tous types confondus) */}
+      {globalSummary.total > 0 && (
         <div className={`report-summary ${
-          summary.isConform === true ? 'conform' :
-          summary.isConform === false ? 'non-conform' :
+          globalSummary.isConform === true ? 'conform' :
+          globalSummary.isConform === false ? 'non-conform' :
           'partial'
         }`}>
           <div className="report-summary-badge">
-            {summary.isConform === true && (
+            {globalSummary.isConform === true && (
               <>
                 <CheckCircle2 size={22} strokeWidth={2.2} />
                 <span>CONFORME</span>
               </>
             )}
-            {summary.isConform === false && (
+            {globalSummary.isConform === false && (
               <>
                 <XCircle size={22} strokeWidth={2.2} />
                 <span>NON CONFORME</span>
               </>
             )}
-            {summary.isConform === null && (
+            {globalSummary.isConform === null && (
               <>
                 <AlertTriangle size={22} strokeWidth={2.2} />
                 <span>INCOMPLET</span>
@@ -446,21 +513,21 @@ export function RapportEditorPage() {
             )}
           </div>
           <div className="report-summary-body">
-            {summary.isConform === true && (
+            {globalSummary.isConform === true && (
               <div className="report-summary-title">
-                Tous les points de contrôle sont conformes.
+                Tous les points de contrôle sont conformes ({globalSummary.okCount} OK{globalSummary.naCount > 0 ? ` · ${globalSummary.naCount} N/A` : ''}).
               </div>
             )}
-            {summary.isConform === false && (
+            {globalSummary.isConform === false && (
               <>
                 <div className="report-summary-title">
-                  {summary.nokCount} anomalie{summary.nokCount > 1 ? 's' : ''} détectée{summary.nokCount > 1 ? 's' : ''}
+                  {globalSummary.nokCount} anomalie{globalSummary.nokCount > 1 ? 's' : ''} détectée{globalSummary.nokCount > 1 ? 's' : ''}
                 </div>
                 <ul className="report-summary-list">
                   {anomalies.slice(0, 5).map((a, i) => (
                     <li key={i}>
-                      <strong>{a.label}</strong>
-                      {a.action && <span className="report-anom-action"> · {RECOMMENDED_ACTION_LABEL[a.action]}</span>}
+                      <span className="text-ink-3 text-xs">[{a.typeLabel}]</span> <strong>{a.label}</strong>
+                      {a.action && <span className="report-anom-action"> · {RECOMMENDED_ACTION_LABEL[a.action as keyof typeof RECOMMENDED_ACTION_LABEL]}</span>}
                     </li>
                   ))}
                   {anomalies.length > 5 && (
@@ -469,13 +536,13 @@ export function RapportEditorPage() {
                 </ul>
               </>
             )}
-            {summary.isConform === null && (
+            {globalSummary.isConform === null && (
               <div className="report-summary-title">
-                {summary.answered} / {summary.total} points renseignés
+                {globalSummary.answered} / {globalSummary.total} points renseignés
               </div>
             )}
           </div>
-          {summary.isConform === false && !isCompleted && (
+          {globalSummary.isConform === false && !isCompleted && (
             <button
               type="button"
               className="btn-sm"
@@ -507,8 +574,14 @@ export function RapportEditorPage() {
           </div>
           <ChecklistSection
             items={items}
-            responses={checklist}
-            onChange={setChecklist}
+            responses={currentChecklist}
+            onChange={(newResponses) => {
+              if (!equipmentType) return
+              setChecklistByType((prev) => ({
+                ...prev,
+                [equipmentType]: newResponses,
+              }))
+            }}
             organizationId={orgId}
             interventionId={iid}
             readOnly={isCompleted}

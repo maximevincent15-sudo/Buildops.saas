@@ -11,8 +11,10 @@ import type { ChecklistItem } from '../checklists'
 import {
   RECOMMENDED_ACTION_LABEL,
   computeReportSummary,
+  decodeChecklistId,
+  responsesToByType,
 } from '../schemas'
-import type { Report } from '../schemas'
+import type { ChecklistResponse, Report } from '../schemas'
 
 const colors = {
   ink: '#1C2130',
@@ -286,24 +288,21 @@ const styles = StyleSheet.create({
 
 const BADGE_LABELS: Record<string, string> = { ok: 'OK', nok: 'NOK', na: 'N/A' }
 
+export type ReportPdfSection = {
+  type: string              // 'extincteurs', 'ria', etc.
+  label: string             // 'Extincteurs', 'RIA', etc.
+  items: ChecklistItem[]    // items de checklist du type
+  responses: ChecklistResponse[] // réponses (avec id sans préfixe)
+}
+
 type Props = {
   intervention: Intervention
   report: Report
-  checklistItems: ChecklistItem[]
+  sections: ReportPdfSection[]
   organizationName: string
 }
 
-export function ReportPdf({ intervention, report, checklistItems, organizationName }: Props) {
-  // Type d'équipement contrôlé dans ce rapport (peut différer du type de l'intervention
-  // si l'intervention a plusieurs types)
-  const reportEquip =
-    report.equipment_type ??
-    (intervention.equipment_types && intervention.equipment_types[0]) ??
-    intervention.equipment_type ??
-    null
-  const reportEquipLabel = reportEquip
-    ? EQUIPMENT_TYPES[reportEquip as EquipmentType] ?? reportEquip
-    : '—'
+export function ReportPdf({ intervention, report, sections, organizationName }: Props) {
   const interventionEquipsLabel = formatEquipmentTypes(intervention.equipment_types)
 
   const dateLabel = intervention.scheduled_date
@@ -313,13 +312,58 @@ export function ReportPdf({ intervention, report, checklistItems, organizationNa
     ? format(new Date(report.completed_at), "d MMMM yyyy 'à' HH:mm", { locale: fr })
     : '—'
 
-  const responseByItemId = new Map(report.checklist.map((r) => [r.id, r]))
-  const summary = computeReportSummary(report.checklist, checklistItems.length)
-  const anomalies = checklistItems.flatMap((it) => {
-    const r = responseByItemId.get(it.id)
-    if (r?.value !== 'nok') return []
-    return [{ label: it.label, action: r.action, note: r.note, photos: r.photos ?? [], reason: r.noPhotoReason }]
-  })
+  // Si `sections` est vide (ex: rapport legacy, ou appel direct avec ancien format),
+  // on reconstitue depuis report.checklist.
+  let effectiveSections = sections
+  if (effectiveSections.length === 0 && report.checklist.length > 0) {
+    // Legacy : on essaye de décoder au moins quelque chose
+    const byType = responsesToByType(report.checklist, report.equipment_type)
+    effectiveSections = Object.entries(byType).map(([t, responses]) => ({
+      type: t,
+      label: EQUIPMENT_TYPES[t as EquipmentType] ?? t,
+      items: [], // pas de liste connue — on affiche juste les réponses par id
+      responses,
+    }))
+    // Dans ce cas, on préfère utiliser les id comme labels
+  }
+
+  // Calculs globaux (tous les équipements)
+  let totalItems = 0
+  let okCount = 0
+  let nokCount = 0
+  let naCount = 0
+  type AnomalyLine = { label: string; action?: string; note?: string; photos: { path: string; url: string }[]; reason?: string; typeLabel: string }
+  const anomalies: AnomalyLine[] = []
+  for (const sec of effectiveSections) {
+    totalItems += sec.items.length || sec.responses.length
+    for (const it of sec.items.length > 0 ? sec.items : sec.responses) {
+      const r = sec.items.length > 0
+        ? sec.responses.find((x) => x.id === (it as ChecklistItem).id)
+        : (it as ChecklistResponse)
+      if (!r) continue
+      if (r.value === 'ok') okCount++
+      else if (r.value === 'nok') {
+        nokCount++
+        const label =
+          sec.items.length > 0
+            ? (it as ChecklistItem).label
+            : decodeChecklistId((it as ChecklistResponse).id)[1]
+        anomalies.push({
+          label,
+          action: r.action,
+          note: r.note,
+          photos: r.photos ?? [],
+          reason: r.noPhotoReason,
+          typeLabel: sec.label,
+        })
+      }
+      else if (r.value === 'na') naCount++
+    }
+  }
+  const answered = okCount + nokCount + naCount
+  const isConform = answered === totalItems ? nokCount === 0 : null
+  const summary = { answered, total: totalItems, okCount, nokCount, naCount, isConform }
+  void computeReportSummary // évite l'avertissement lint (on garde l'import pour compat future)
 
   function badgeStyle(value: string | null | undefined) {
     if (value === 'ok') return [styles.badge, styles.badgeOk]
@@ -362,8 +406,8 @@ export function ReportPdf({ intervention, report, checklistItems, organizationNa
             </Text>
             {anomalies.map((a, i) => (
               <Text key={i} style={styles.summaryItem}>
-                • {a.label}
-                {a.action ? ` — ${RECOMMENDED_ACTION_LABEL[a.action]}` : ''}
+                • [{a.typeLabel}] {a.label}
+                {a.action ? ` — ${RECOMMENDED_ACTION_LABEL[a.action as keyof typeof RECOMMENDED_ACTION_LABEL]}` : ''}
               </Text>
             ))}
           </View>
@@ -396,20 +440,14 @@ export function ReportPdf({ intervention, report, checklistItems, organizationNa
                 <Text style={styles.infoValue}>{intervention.address}</Text>
               </View>
             )}
-            <View style={styles.infoItemHalf}>
-              <Text style={styles.infoLabel}>Équipement contrôlé</Text>
-              <Text style={styles.infoValue}>{reportEquipLabel}</Text>
+            <View style={styles.infoItemFull}>
+              <Text style={styles.infoLabel}>Équipements contrôlés</Text>
+              <Text style={styles.infoValue}>{interventionEquipsLabel}</Text>
             </View>
             <View style={styles.infoItemHalf}>
               <Text style={styles.infoLabel}>Date prévue</Text>
               <Text style={styles.infoValue}>{dateLabel}</Text>
             </View>
-            {interventionEquipsLabel !== reportEquipLabel && interventionEquipsLabel !== '—' && (
-              <View style={styles.infoItemFull}>
-                <Text style={styles.infoLabel}>Périmètre intervention</Text>
-                <Text style={styles.infoValue}>{interventionEquipsLabel}</Text>
-              </View>
-            )}
             {intervention.technician_name && (
               <View style={styles.infoItemHalf}>
                 <Text style={styles.infoLabel}>Technicien</Text>
@@ -419,56 +457,76 @@ export function ReportPdf({ intervention, report, checklistItems, organizationNa
           </View>
         </View>
 
-        {/* CHECKLIST */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Checklist — {summary.okCount} conforme{summary.okCount > 1 ? 's' : ''}
-            {summary.nokCount > 0 ? ` · ${summary.nokCount} non conforme${summary.nokCount > 1 ? 's' : ''}` : ''}
-            {summary.naCount > 0 ? ` · ${summary.naCount} N/A` : ''}
-          </Text>
-          {checklistItems.map((item) => {
-            const resp = responseByItemId.get(item.id)
-            const value = resp?.value ?? null
-            const label = value ? BADGE_LABELS[value] : '—'
-            const isNok = value === 'nok'
-            return (
-              <View key={item.id}>
-                <View style={styles.checklistRow} wrap={false}>
-                  <Text style={styles.checklistLabel}>{item.label}</Text>
-                  <Text style={badgeStyle(value)}>{label}</Text>
-                </View>
-                {isNok && (resp?.action || resp?.note || (resp?.photos && resp.photos.length > 0) || resp?.noPhotoReason) && (
-                  <View style={styles.nokDetailBlock} wrap={false}>
-                    {resp?.action && (
-                      <Text style={styles.nokActionBadge}>
-                        Action : {RECOMMENDED_ACTION_LABEL[resp.action]}
-                      </Text>
-                    )}
-                    {resp?.note && (
-                      <Text style={styles.nokText}>
-                        <Text style={styles.nokLabel}>Précisions : </Text>
-                        {resp.note}
-                      </Text>
-                    )}
-                    {resp?.noPhotoReason && (
-                      <Text style={styles.nokText}>
-                        <Text style={styles.nokLabel}>Justification sans photo : </Text>
-                        {resp.noPhotoReason}
-                      </Text>
-                    )}
-                    {resp?.photos && resp.photos.length > 0 && (
-                      <View style={styles.nokPhotos}>
-                        {resp.photos.map((p) => (
-                          <Image key={p.path} src={p.url} style={styles.nokPhoto} />
-                        ))}
+        {/* CHECKLIST — une section par équipement contrôlé */}
+        {effectiveSections.map((section) => {
+          const secOk = section.responses.filter((r) => r.value === 'ok').length
+          const secNok = section.responses.filter((r) => r.value === 'nok').length
+          const secNa = section.responses.filter((r) => r.value === 'na').length
+          const displayItems: Array<{ id: string; label: string; response: ChecklistResponse | undefined }> =
+            section.items.length > 0
+              ? section.items.map((it) => ({
+                  id: it.id,
+                  label: it.label,
+                  response: section.responses.find((r) => r.id === it.id),
+                }))
+              : section.responses.map((r) => ({
+                  id: r.id,
+                  label: decodeChecklistId(r.id)[1],
+                  response: r,
+                }))
+          return (
+            <View key={section.type} style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                Checklist — {section.label}
+                {' · '}{secOk} conforme{secOk > 1 ? 's' : ''}
+                {secNok > 0 ? ` · ${secNok} non conforme${secNok > 1 ? 's' : ''}` : ''}
+                {secNa > 0 ? ` · ${secNa} N/A` : ''}
+              </Text>
+              {displayItems.map((item) => {
+                const resp = item.response
+                const value = resp?.value ?? null
+                const label = value ? BADGE_LABELS[value] : '—'
+                const isNok = value === 'nok'
+                return (
+                  <View key={item.id}>
+                    <View style={styles.checklistRow} wrap={false}>
+                      <Text style={styles.checklistLabel}>{item.label}</Text>
+                      <Text style={badgeStyle(value)}>{label}</Text>
+                    </View>
+                    {isNok && (resp?.action || resp?.note || (resp?.photos && resp.photos.length > 0) || resp?.noPhotoReason) && (
+                      <View style={styles.nokDetailBlock} wrap={false}>
+                        {resp?.action && (
+                          <Text style={styles.nokActionBadge}>
+                            Action : {RECOMMENDED_ACTION_LABEL[resp.action]}
+                          </Text>
+                        )}
+                        {resp?.note && (
+                          <Text style={styles.nokText}>
+                            <Text style={styles.nokLabel}>Précisions : </Text>
+                            {resp.note}
+                          </Text>
+                        )}
+                        {resp?.noPhotoReason && (
+                          <Text style={styles.nokText}>
+                            <Text style={styles.nokLabel}>Justification sans photo : </Text>
+                            {resp.noPhotoReason}
+                          </Text>
+                        )}
+                        {resp?.photos && resp.photos.length > 0 && (
+                          <View style={styles.nokPhotos}>
+                            {resp.photos.map((p) => (
+                              <Image key={p.path} src={p.url} style={styles.nokPhoto} />
+                            ))}
+                          </View>
+                        )}
                       </View>
                     )}
                   </View>
-                )}
-              </View>
-            )
-          })}
-        </View>
+                )
+              })}
+            </View>
+          )
+        })}
 
         {/* OBSERVATIONS */}
         {report.observations ? (

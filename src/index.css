@@ -406,6 +406,28 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--ink);
     border-color: var(--wht);
   }
+  .equip-pill-count {
+    font-family: 'Syne', sans-serif;
+    font-size: .7rem;
+    font-weight: 500;
+    color: var(--ink3);
+    background: var(--bg);
+    padding: 1px 7px;
+    border-radius: 100px;
+    margin-left: 3px;
+  }
+  .equip-pill.on .equip-pill-count {
+    background: rgba(255, 255, 255, .22);
+    color: var(--wht);
+  }
+  .equip-pill-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--red);
+    margin-left: 3px;
+    display: inline-block;
+  }
 
   /* BANDEAU SYNTHÈSE conforme/non-conforme/incomplet */
   .report-summary {

@@ -66,7 +66,6 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
     reset,
     control,
     setValue,
-    getValues,
     formState: { errors, isSubmitting },
   } = useForm<CreateInterventionInput>({
     resolver: zodResolver(createInterventionSchema),
@@ -150,10 +149,9 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                     onChange={(name, client) => {
                       field.onChange(name)
                       setValue('client_id', client?.id ?? '')
-                      // Auto-remplit l'adresse depuis la fiche client si le champ est vide
-                      if (client?.address && !getValues('address')) {
-                        setValue('address', client.address)
-                      }
+                      // NOTE : on ne pré-remplit PAS l'adresse depuis la fiche
+                      // client (c'est le siège social, pas le chantier). Le
+                      // tech saisit l'adresse exacte du site d'intervention.
                     }}
                     placeholder="Tape le nom ou choisis dans tes fiches"
                   />
