@@ -536,6 +536,94 @@ h1, h2, h3, h4, h5, h6 {
     border-left: 3px solid var(--red);
   }
 
+  /* HISTORIQUE DES RAPPORTS (réutilisable) */
+  .history-card { padding: 1rem 1.1rem; }
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    margin-top: .5rem;
+  }
+  .history-row {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    padding: .55rem .75rem;
+    border-radius: calc(var(--r) - 2px);
+    border: .5px solid var(--brd);
+    background: var(--wht);
+    text-decoration: none;
+    color: inherit;
+    transition: all .15s;
+  }
+  .history-row:hover {
+    border-color: var(--ink3);
+    background: var(--bg);
+    transform: translateX(1px);
+  }
+  .history-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gry-lt);
+    color: var(--ink2);
+  }
+  .history-row.conform .history-icon { background: var(--grn-lt); color: var(--grn); }
+  .history-row.non-conform .history-icon { background: var(--red-lt); color: var(--red); }
+  .history-row.draft .history-icon { background: var(--org-lt); color: var(--org); }
+  .history-main { flex: 1; min-width: 0; }
+  .history-title {
+    font-size: .82rem;
+    font-weight: 500;
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+  }
+  .history-equip { color: var(--ink2); font-weight: 400; }
+  .history-meta {
+    font-size: .68rem;
+    color: var(--ink3);
+    font-weight: 300;
+    margin-top: 1px;
+  }
+  .history-anomalies { color: var(--red); font-weight: 600; }
+  .history-draft { color: var(--org); font-style: italic; }
+  .history-pdf {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--bg);
+    color: var(--ink3);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+  }
+  .history-pdf:hover {
+    background: var(--ink);
+    color: white;
+  }
+  .history-arrow {
+    flex-shrink: 0;
+    color: var(--ink3);
+  }
+  .history-show-more {
+    font-size: .72rem;
+    color: var(--acc);
+    background: transparent;
+    border: none;
+    padding: .4rem 0;
+    cursor: pointer;
+    text-align: left;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+  }
+  .history-show-more:hover { text-decoration: underline; }
+
   /* BANDEAU SYNTHÈSE conforme/non-conforme/incomplet */
   .report-summary {
     display: flex;

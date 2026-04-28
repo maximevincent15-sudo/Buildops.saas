@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
+import { ReportHistoryList } from '../../rapports/components/ReportHistoryList'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { createClient, deleteClient, updateClient } from '../api'
 import { createClientSchema } from '../schemas'
@@ -149,6 +150,16 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
             <label>Notes internes</label>
             <input type="text" placeholder="Accès, consignes, infos utiles au technicien" {...register('notes')} />
           </div>
+
+          {/* Historique des rapports — uniquement en édition */}
+          {isEdit && client && (
+            <ReportHistoryList
+              clientId={client.id}
+              clientName={client.name}
+              limit={5}
+              hideIfEmpty
+            />
+          )}
 
           {submitError && <span className="ferr on">{submitError}</span>}
 

@@ -25,6 +25,7 @@ import {
 } from '../features/rapports/api'
 import { CHECKLISTS } from '../features/rapports/checklists'
 import { ChecklistSection } from '../features/rapports/components/ChecklistSection'
+import { ReportHistoryList } from '../features/rapports/components/ReportHistoryList'
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
 import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
 import { ReportPdf } from '../features/rapports/pdf/ReportPdf'
@@ -553,6 +554,23 @@ export function RapportEditorPage() {
               Planifier une intervention corrective
             </button>
           )}
+        </div>
+      )}
+
+      {/* Historique des rapports précédents — utile pour le tech sur place
+          (a-t-on déjà signalé un problème ?) */}
+      {!isCompleted && intervention.client_id && (
+        <div style={{ marginBottom: '1rem' }}>
+          <ReportHistoryList
+            clientId={intervention.client_id}
+            clientName={intervention.client_name}
+            siteName={intervention.site_name}
+            excludeReportId={reportId}
+            limit={3}
+            title={`Rapports précédents${intervention.site_name ? ` sur ${intervention.site_name}` : ` chez ${intervention.client_name}`}`}
+            emptyMessage="Aucun rapport antérieur — c'est la première intervention enregistrée ici."
+            hideIfEmpty
+          />
         </div>
       )}
 
