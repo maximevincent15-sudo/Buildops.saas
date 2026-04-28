@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { listClients } from '../features/clients/api'
 import { ClientModal } from '../features/clients/components/ClientModal'
 import type { Client } from '../features/clients/schemas'
+import { QuickActions } from '../shared/ui/QuickActions'
 
 export function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
@@ -131,6 +132,15 @@ export function ClientsPage() {
                     <div className="client-line">
                       <MapPin size={12} strokeWidth={2} />
                       {c.address}
+                    </div>
+                  )}
+                  {(c.contact_phone || c.contact_email || c.address) && (
+                    <div className="client-actions">
+                      <QuickActions
+                        phone={c.contact_phone}
+                        email={c.contact_email}
+                        address={c.address}
+                      />
                     </div>
                   )}
                 </div>

@@ -2,6 +2,7 @@ import { addDays, format, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { CalendarPlus, MapPin, Upload } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { QuickActions } from '../shared/ui/QuickActions'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../features/auth/store'
 import { listInterventions } from '../features/planning/api'
@@ -10,7 +11,7 @@ import { InterventionModal } from '../features/planning/components/InterventionM
 import { InterventionRowActions } from '../features/planning/components/InterventionRowActions'
 import { InterventionStatusBadge } from '../features/planning/components/InterventionStatusBadge'
 import { PlanningWeekView } from '../features/planning/components/PlanningWeekView'
-import { buildIcsCalendar, downloadIcs } from '../features/planning/icsExport'
+import { buildIcsCalendar, buildIcsForIntervention, downloadIcs } from '../features/planning/icsExport'
 import type { Intervention } from '../features/planning/schemas'
 import {
   INTERVENTION_PRIORITIES,
@@ -214,6 +215,21 @@ export function PlanningPage() {
                         <div style={{ fontSize: '.68rem', color: 'var(--ink3)', marginTop: '2px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           <MapPin size={10} strokeWidth={2} />
                           {i.address}
+                        </div>
+                      )}
+                      {(i.address || i.scheduled_date) && (
+                        <div style={{ marginTop: '4px' }}>
+                          <QuickActions
+                            address={i.address}
+                            onAddToCalendar={
+                              i.scheduled_date
+                                ? () => {
+                                    const ics = buildIcsForIntervention(i)
+                                    downloadIcs(`${i.reference}.ics`, ics)
+                                  }
+                                : undefined
+                            }
+                          />
                         </div>
                       )}
                     </td>

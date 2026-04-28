@@ -141,6 +141,15 @@ export function buildIcsCalendar(
   ].join('\r\n')
 }
 
+/**
+ * Exporte une seule intervention en .ics.
+ * Le fichier .ics téléchargé peut être ouvert direct dans Outlook, Apple Calendar,
+ * Google Calendar (via "Importer") pour ajouter l'événement au calendrier perso.
+ */
+export function buildIcsForIntervention(intervention: Intervention): string {
+  return buildIcsCalendar([intervention], [], `Intervention ${intervention.reference}`)
+}
+
 export function downloadIcs(filename: string, icsContent: string): void {
   const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' })
   const url = URL.createObjectURL(blob)

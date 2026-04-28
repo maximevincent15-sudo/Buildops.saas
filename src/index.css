@@ -624,6 +624,47 @@ h1, h2, h3, h4, h5, h6 {
   }
   .history-show-more:hover { text-decoration: underline; }
 
+  /* QUICK ACTIONS (tel/mail/maps/calendrier) */
+  .quick-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .quick-actions.compact .qa-btn {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    justify-content: center;
+  }
+  .qa-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: .5px solid var(--brd2);
+    background: var(--wht);
+    color: var(--ink2);
+    font-size: .68rem;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all .15s;
+  }
+  .qa-btn:hover {
+    background: var(--ink);
+    color: white;
+    border-color: var(--ink);
+    transform: translateY(-1px);
+  }
+
+  .client-actions {
+    margin-top: .5rem;
+    padding-top: .5rem;
+    border-top: .5px dashed var(--brd);
+  }
+
   /* BANDEAU SYNTHÈSE conforme/non-conforme/incomplet */
   .report-summary {
     display: flex;

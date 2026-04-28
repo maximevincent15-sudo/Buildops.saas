@@ -5,6 +5,7 @@ import { RhTabs } from '../features/dashboard/components/RhTabs'
 import { listTechnicians } from '../features/technicians/api'
 import { TechnicianModal } from '../features/technicians/components/TechnicianModal'
 import type { Technician } from '../features/technicians/schemas'
+import { QuickActions } from '../shared/ui/QuickActions'
 
 export function TechniciensPage() {
   const [technicians, setTechnicians] = useState<Technician[]>([])
@@ -163,6 +164,11 @@ export function TechniciensPage() {
                     <div className="client-line">
                       <Mail size={12} strokeWidth={2} />
                       {t.email}
+                    </div>
+                  )}
+                  {(t.phone || t.email) && (
+                    <div className="client-actions">
+                      <QuickActions phone={t.phone} email={t.email} />
                     </div>
                   )}
                 </div>
