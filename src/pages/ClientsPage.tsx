@@ -1,9 +1,10 @@
-import { Mail, MapPin, Phone, Upload, User } from 'lucide-react'
+import { Bell, Mail, MapPin, Phone, Upload, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listClients } from '../features/clients/api'
 import { ClientModal } from '../features/clients/components/ClientModal'
 import type { Client } from '../features/clients/schemas'
+import { RelanceModal } from '../features/relances/components/RelanceModal'
 import { QuickActions } from '../shared/ui/QuickActions'
 
 export function ClientsPage() {
@@ -12,6 +13,7 @@ export function ClientsPage() {
   const [error, setError] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Client | null>(null)
+  const [relanceClient, setRelanceClient] = useState<Client | null>(null)
 
   async function load() {
     setLoading(true)
@@ -141,6 +143,20 @@ export function ClientsPage() {
                         email={c.contact_email}
                         address={c.address}
                       />
+                      {c.contact_email && (
+                        <button
+                          type="button"
+                          className="qa-btn relance"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setRelanceClient(c)
+                          }}
+                          title="Envoyer une relance par email"
+                          aria-label="Relancer"
+                        >
+                          <Bell size={13} strokeWidth={2} />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -156,6 +172,20 @@ export function ClientsPage() {
         onChanged={() => void load()}
         client={editing}
       />
+
+      {relanceClient && (
+        <RelanceModal
+          open={!!relanceClient}
+          onClose={() => setRelanceClient(null)}
+          recipientEmail={relanceClient.contact_email}
+          initialType="general"
+          context={{
+            clientName: relanceClient.name,
+            contactName: relanceClient.contact_name,
+            address: relanceClient.address,
+          }}
+        />
+      )}
     </>
   )
 }

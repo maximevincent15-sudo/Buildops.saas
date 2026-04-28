@@ -663,7 +663,50 @@ h1, h2, h3, h4, h5, h6 {
     margin-top: .5rem;
     padding-top: .5rem;
     border-top: .5px dashed var(--brd);
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
+  .qa-btn.relance {
+    background: var(--bg2);
+    border-color: var(--brd2);
+    color: var(--ink2);
+  }
+  .qa-btn.relance:hover {
+    background: var(--acc);
+    border-color: var(--acc);
+    color: white;
+  }
+
+  /* RELANCE MODAL — choix de type */
+  .relance-type-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: .5rem;
+  }
+  .relance-type {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: .65rem .85rem;
+    border-radius: var(--r);
+    border: 1px solid var(--brd2);
+    background: var(--wht);
+    color: var(--ink);
+    font-size: .82rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .15s;
+  }
+  .relance-type:hover { background: var(--bg); border-color: var(--ink3); }
+  .relance-type.on {
+    background: var(--ink);
+    color: white;
+    border-color: var(--ink);
+  }
+  .relance-type-emoji { font-size: 1.1rem; line-height: 1; }
 
   /* BANDEAU SYNTHÈSE conforme/non-conforme/incomplet */
   .report-summary {

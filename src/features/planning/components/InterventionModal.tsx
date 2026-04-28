@@ -1,9 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Check, Trash2 } from 'lucide-react'
+import { Bell, Check, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
+import { getClient } from '../../clients/api'
+import { RelanceModal } from '../../relances/components/RelanceModal'
 import {
   EQUIPMENT_TYPES,
   INTERVENTION_PRIORITIES,
@@ -59,7 +61,28 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
   const isEdit = !!intervention
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [relanceOpen, setRelanceOpen] = useState(false)
+  const [clientEmail, setClientEmail] = useState<string | null>(null)
+  const [clientContactName, setClientContactName] = useState<string | null>(null)
   const profile = useAuthStore((s) => s.profile)
+
+  // Charge l'email du client lié pour la relance (uniquement en mode edit)
+  useEffect(() => {
+    if (!intervention?.client_id) {
+      setClientEmail(null)
+      setClientContactName(null)
+      return
+    }
+    let alive = true
+    void getClient(intervention.client_id)
+      .then((c) => {
+        if (!alive) return
+        setClientEmail(c?.contact_email ?? null)
+        setClientContactName(c?.contact_name ?? null)
+      })
+      .catch(() => { /* ignore */ })
+    return () => { alive = false }
+  }, [intervention?.client_id])
   const {
     register,
     handleSubmit,
@@ -273,6 +296,19 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                 {isDeleting ? 'Suppression…' : 'Supprimer'}
               </button>
             )}
+            {isEdit && intervention && clientEmail && (
+              <button
+                type="button"
+                className="mf out"
+                onClick={() => setRelanceOpen(true)}
+                disabled={isSubmitting || isDeleting}
+                title="Envoyer un email de confirmation au client"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <Bell size={13} strokeWidth={2} />
+                Confirmer RDV
+              </button>
+            )}
             <button type="button" className="mf out" onClick={onClose} disabled={isSubmitting || isDeleting}>
               Annuler
             </button>
@@ -284,6 +320,25 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
           </div>
         </form>
       </div>
+
+      {/* Modal de relance — confirmation de RDV */}
+      {isEdit && intervention && (
+        <RelanceModal
+          open={relanceOpen}
+          onClose={() => setRelanceOpen(false)}
+          recipientEmail={clientEmail}
+          initialType="intervention"
+          availableTypes={['intervention', 'general']}
+          context={{
+            clientName: intervention.client_name,
+            contactName: clientContactName,
+            reference: intervention.reference,
+            scheduledDate: intervention.scheduled_date,
+            siteName: intervention.site_name,
+            address: intervention.address,
+          }}
+        />
+      )}
     </div>
   )
 }
