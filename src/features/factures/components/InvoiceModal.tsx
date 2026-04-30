@@ -1,36 +1,38 @@
-import { ArrowRight, CheckCircle2, Download, FileText, Mail, Plus, Trash2, Undo2, X, XCircle } from 'lucide-react'
+import { Ban, CheckCircle2, Download, Edit3, FileText, Mail, Plus, Trash2, Undo2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
+import { VAT_RATES, computeQuoteTotals, formatAmount } from '../../devis/constants'
+import type { QuoteLineInput } from '../../devis/schemas'
 import { getInvoicingSettings } from '../../parametres/api'
 import { ClientAutocomplete } from '../../planning/components/ClientAutocomplete'
 import {
-  createQuote,
-  deleteQuote,
-  getQuote,
-  markQuoteAccepted,
-  markQuoteRefused,
-  markQuoteSent,
-  setQuotePdfUrl,
-  setQuoteStatusDraft,
-  updateQuote,
+  cancelInvoice,
+  createInvoice,
+  deleteInvoice,
+  getInvoice,
+  markInvoiceSent,
+  recordPayment,
+  resetInvoicePayment,
+  setInvoicePdfUrl,
+  updateInvoice,
 } from '../api'
-import { VAT_RATES, computeQuoteTotals, formatAmount } from '../constants'
-import type { QuoteStatus } from '../constants'
-import type { QuoteLineInput, QuoteWithLines, UpsertQuoteInput } from '../schemas'
-import { generateAndUploadQuotePdf } from '../pdf/generateQuotePdf'
-import { QuotePdf } from '../pdf/QuotePdf'
-import { createInvoiceFromQuote } from '../../factures/api'
-import { useNavigate } from 'react-router-dom'
+import {
+  INVOICE_STATUS_LABEL,
+  defaultDueDate,
+  effectiveStatus,
+} from '../constants'
+import type { InvoiceStatus } from '../constants'
+import type { InvoiceWithLines, UpsertInvoiceInput } from '../schemas'
+import { generateAndUploadInvoicePdf } from '../pdf/generateInvoicePdf'
+import { InvoicePdf } from '../pdf/InvoicePdf'
 
 type Props = {
   open: boolean
   onClose: () => void
-  onSaved?: (quoteId: string) => void
-  /** Mode édition : id du devis à charger. Sinon mode création. */
-  quoteId?: string | null
-  /** Pré-remplissage en mode création (ex: depuis un rapport non-conforme) */
-  seed?: Partial<UpsertQuoteInput>
+  onSaved?: (invoiceId: string) => void
+  invoiceId?: string | null
+  seed?: Partial<UpsertInvoiceInput>
 }
 
 const EMPTY_LINE: QuoteLineInput = {
@@ -45,17 +47,9 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-function defaultValidityDate(): string {
-  const d = new Date()
-  d.setDate(d.getDate() + 30)
-  return d.toISOString().slice(0, 10)
-}
-
-export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
+export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props) {
   const profile = useAuthStore((s) => s.profile)
-  const navigate = useNavigate()
-  const isEdit = !!quoteId
-  const [convertingToInvoice, setConvertingToInvoice] = useState(false)
+  const isEdit = !!invoiceId
 
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -63,14 +57,9 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
-  const [currentStatus, setCurrentStatus] = useState<QuoteStatus>('draft')
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
-  const [sentAt, setSentAt] = useState<string | null>(null)
-  const [acceptedAt, setAcceptedAt] = useState<string | null>(null)
-  const [refusedAt, setRefusedAt] = useState<string | null>(null)
-  const [refusedReason, setRefusedReason] = useState<string | null>(null)
-  const [reference, setReference] = useState<string>('')
 
+  // Form
+  const [reference, setReference] = useState('')
   const [clientName, setClientName] = useState('')
   const [clientId, setClientId] = useState('')
   const [clientContact, setClientContact] = useState('')
@@ -79,35 +68,47 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
   const [siteName, setSiteName] = useState('')
   const [siteAddress, setSiteAddress] = useState('')
   const [issueDate, setIssueDate] = useState(todayIso())
-  const [validityDate, setValidityDate] = useState(defaultValidityDate())
+  const [dueDate, setDueDate] = useState(defaultDueDate(todayIso()))
   const [notes, setNotes] = useState('')
   const [lines, setLines] = useState<QuoteLineInput[]>([{ ...EMPTY_LINE }])
 
-  // Charge si édition
+  // Workflow
+  const [status, setStatus] = useState<InvoiceStatus>('draft')
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [sentAt, setSentAt] = useState<string | null>(null)
+  const [paidAt, setPaidAt] = useState<string | null>(null)
+  const [amountPaid, setAmountPaid] = useState(0)
+  const [paymentMethod, setPaymentMethod] = useState<string | null>(null)
+  const [paymentRef, setPaymentRef] = useState<string | null>(null)
+  const [totalTtc, setTotalTtc] = useState(0)
+
+  // Hydratation
   useEffect(() => {
     if (!open) return
     setError(null)
-    if (isEdit && quoteId) {
+    setFlash(null)
+    if (isEdit && invoiceId) {
       setLoading(true)
-      void getQuote(quoteId)
-        .then((q) => {
-          if (!q) {
-            setError('Devis introuvable.')
+      void getInvoice(invoiceId)
+        .then((inv) => {
+          if (!inv) {
+            setError('Facture introuvable')
             return
           }
-          setClientName(q.client_name)
-          setClientId(q.client_id ?? '')
-          setClientContact(q.client_contact_name ?? '')
-          setClientEmail(q.client_email ?? '')
-          setClientAddress(q.client_address ?? '')
-          setSiteName(q.site_name ?? '')
-          setSiteAddress(q.site_address ?? '')
-          setIssueDate(q.issue_date)
-          setValidityDate(q.validity_date ?? '')
-          setNotes(q.notes ?? '')
+          setReference(inv.reference)
+          setClientName(inv.client_name)
+          setClientId(inv.client_id ?? '')
+          setClientContact(inv.client_contact_name ?? '')
+          setClientEmail(inv.client_email ?? '')
+          setClientAddress(inv.client_address ?? '')
+          setSiteName(inv.site_name ?? '')
+          setSiteAddress(inv.site_address ?? '')
+          setIssueDate(inv.issue_date)
+          setDueDate(inv.due_date ?? defaultDueDate(inv.issue_date))
+          setNotes(inv.notes ?? '')
           setLines(
-            q.lines.length > 0
-              ? q.lines.map((l) => ({
+            inv.lines.length > 0
+              ? inv.lines.map((l) => ({
                   id: l.id,
                   position: l.position,
                   description: l.description,
@@ -117,18 +118,20 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                 }))
               : [{ ...EMPTY_LINE }],
           )
-          setReference(q.reference)
-          setCurrentStatus(q.status as QuoteStatus)
-          setPdfUrl(q.pdf_url ?? null)
-          setSentAt(q.sent_at ?? null)
-          setAcceptedAt(q.accepted_at ?? null)
-          setRefusedAt(q.refused_at ?? null)
-          setRefusedReason(q.refused_reason ?? null)
+          setStatus(inv.status)
+          setPdfUrl(inv.pdf_url ?? null)
+          setSentAt(inv.sent_at ?? null)
+          setPaidAt(inv.paid_at ?? null)
+          setAmountPaid(Number(inv.amount_paid ?? 0))
+          setPaymentMethod(inv.payment_method ?? null)
+          setPaymentRef(inv.payment_reference ?? null)
+          setTotalTtc(Number(inv.total_ttc ?? 0))
         })
         .catch((e) => setError(e instanceof Error ? e.message : 'Erreur'))
         .finally(() => setLoading(false))
     } else {
-      // Création : applique le seed si présent
+      // Mode création
+      setReference('')
       setClientName(seed?.client_name ?? '')
       setClientId(seed?.client_id ?? '')
       setClientContact(seed?.client_contact_name ?? '')
@@ -136,24 +139,22 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
       setClientAddress(seed?.client_address ?? '')
       setSiteName(seed?.site_name ?? '')
       setSiteAddress(seed?.site_address ?? '')
-      setIssueDate(seed?.issue_date ?? todayIso())
-      setValidityDate(seed?.validity_date ?? defaultValidityDate())
+      const initIssue = seed?.issue_date ?? todayIso()
+      setIssueDate(initIssue)
+      setDueDate(seed?.due_date ?? defaultDueDate(initIssue))
       setNotes(seed?.notes ?? '')
-      setLines(
-        seed?.lines && seed.lines.length > 0
-          ? seed.lines
-          : [{ ...EMPTY_LINE }],
-      )
-      setReference('')
-      setCurrentStatus('draft')
+      setLines(seed?.lines && seed.lines.length > 0 ? seed.lines : [{ ...EMPTY_LINE }])
+      setStatus('draft')
       setPdfUrl(null)
       setSentAt(null)
-      setAcceptedAt(null)
-      setRefusedAt(null)
-      setRefusedReason(null)
+      setPaidAt(null)
+      setAmountPaid(0)
+      setPaymentMethod(null)
+      setPaymentRef(null)
+      setTotalTtc(0)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, quoteId])
+  }, [open, invoiceId])
 
   function updateLine(index: number, patch: Partial<QuoteLineInput>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)))
@@ -175,6 +176,10 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
     })),
   )
 
+  // Statut effectif (pour gérer le 'overdue' calculé en runtime)
+  const displayStatus = effectiveStatus(status, dueDate || null, amountPaid, totalTtc)
+  const remaining = Math.max(0, totalTtc - amountPaid)
+
   async function handleSubmit() {
     if (!profile?.organization_id) {
       setError('Profil non chargé.')
@@ -184,11 +189,6 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
       setError('Le nom du client est requis.')
       return
     }
-    if (lines.length === 0 || lines.every((l) => !l.description.trim())) {
-      setError('Au moins une ligne avec description requise.')
-      return
-    }
-    // Filtre les lignes vides éventuelles
     const cleanLines = lines.filter((l) => l.description.trim())
     if (cleanLines.length === 0) {
       setError('Au moins une ligne avec description requise.')
@@ -198,7 +198,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
     setSubmitting(true)
     setError(null)
     try {
-      const input: UpsertQuoteInput = {
+      const input: UpsertInvoiceInput = {
         client_id: clientId || undefined,
         client_name: clientName.trim(),
         client_contact_name: clientContact || undefined,
@@ -207,16 +207,16 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
         site_name: siteName || undefined,
         site_address: siteAddress || undefined,
         issue_date: issueDate,
-        validity_date: validityDate || undefined,
+        due_date: dueDate || undefined,
         notes: notes || undefined,
         lines: cleanLines.map((l, i) => ({ ...l, position: i })),
       }
       let savedId: string
-      if (isEdit && quoteId) {
-        await updateQuote(quoteId, input)
-        savedId = quoteId
+      if (isEdit && invoiceId) {
+        await updateInvoice(invoiceId, input)
+        savedId = invoiceId
       } else {
-        const created = await createQuote(input, profile.organization_id)
+        const created = await createInvoice(input, profile.organization_id)
         savedId = created.id
       }
       onSaved?.(savedId)
@@ -229,11 +229,11 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
   }
 
   async function handleDelete() {
-    if (!quoteId) return
-    if (!window.confirm('Supprimer ce devis définitivement ?')) return
+    if (!invoiceId) return
+    if (!window.confirm('Supprimer cette facture définitivement ?\n\n⚠️ En fiscalité française, supprimer une facture émise crée un trou dans la numérotation. Préfère "Annuler" pour conserver la trace.')) return
     setDeleting(true)
     try {
-      await deleteQuote(quoteId)
+      await deleteInvoice(invoiceId)
       onSaved?.('')
       onClose()
     } catch (e) {
@@ -244,26 +244,25 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
   }
 
   async function handleGeneratePdf() {
-    if (!quoteId || !profile?.organization_id) return
+    if (!invoiceId || !profile?.organization_id) return
     setGeneratingPdf(true)
     setError(null)
     setFlash(null)
     try {
-      // Recharge la version la plus à jour du devis
-      const fresh = await getQuote(quoteId)
-      if (!fresh) throw new Error('Devis introuvable')
+      const fresh = await getInvoice(invoiceId)
+      if (!fresh) throw new Error('Facture introuvable')
       const settings = await getInvoicingSettings(profile.organization_id)
       const orgName = profile.organizations?.name ?? 'Maintenance'
       const element = (
-        <QuotePdf quote={fresh as QuoteWithLines} organizationName={orgName} settings={settings} />
+        <InvoicePdf invoice={fresh as InvoiceWithLines} organizationName={orgName} settings={settings} />
       )
-      const url = await generateAndUploadQuotePdf(
+      const url = await generateAndUploadInvoicePdf(
         element,
         profile.organization_id,
-        quoteId,
+        invoiceId,
         fresh.reference,
       )
-      await setQuotePdfUrl(quoteId, url)
+      await setInvoicePdfUrl(invoiceId, url)
       setPdfUrl(url)
       setFlash('PDF généré.')
       setTimeout(() => setFlash(null), 2500)
@@ -275,10 +274,10 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
   }
 
   async function handleMarkSent() {
-    if (!quoteId) return
+    if (!invoiceId) return
     const recipient = clientEmail.trim() || window.prompt('Email du client à enregistrer :') || ''
     if (!recipient) {
-      setError('Email du client requis pour marquer comme envoyé.')
+      setError('Email du client requis.')
       return
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
@@ -286,97 +285,102 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
       return
     }
     try {
-      await markQuoteSent(quoteId, recipient)
-      setCurrentStatus('sent')
+      await markInvoiceSent(invoiceId, recipient)
+      setStatus('sent')
       setSentAt(new Date().toISOString())
-      // Construit l'email mailto: avec le PDF en lien
-      const subject = `Devis ${reference}`.trim()
+      // Construit le mailto:
+      const subject = `Facture ${reference}`.trim()
       const orgName = profile?.organizations?.name ?? 'Maintenance'
       const greet = clientContact ? `Bonjour ${clientContact.trim()},` : 'Bonjour,'
-      const totalsLine = `Montant : ${formatAmount(totals.total_ttc)} TTC.`
+      const dueLine = dueDate
+        ? `\n\nÉchéance de paiement : ${new Date(dueDate).toLocaleDateString('fr-FR')}.`
+        : ''
+      const totalsLine = `Montant à régler : ${formatAmount(totals.total_ttc)} TTC.${dueLine}`
       const pdfLine = pdfUrl
-        ? `\n\n📄 Télécharger le devis (PDF) :\n${pdfUrl}`
+        ? `\n\n📄 Télécharger la facture (PDF) :\n${pdfUrl}`
         : `\n\n(Le PDF est disponible sur demande.)`
       const body =
-        `${greet}\n\nVeuillez trouver ci-après le devis pour la prestation envisagée.\n\n${totalsLine}${pdfLine}\n\nJe reste à ta disposition pour toute question.\n\nCordialement,\n${orgName}`
+        `${greet}\n\nVeuillez trouver ci-après la facture pour la prestation réalisée.\n\n${totalsLine}${pdfLine}\n\nN'hésite pas à me contacter pour toute question.\n\nCordialement,\n${orgName}`
       const params = new URLSearchParams()
       params.set('subject', subject)
       params.set('body', body)
       const qs = params.toString().replace(/\+/g, '%20')
       window.location.href = `mailto:${encodeURIComponent(recipient)}?${qs}`
-      setFlash('Devis marqué comme envoyé.')
+      setFlash('Facture marquée comme envoyée.')
       setTimeout(() => setFlash(null), 2500)
-      onSaved?.(quoteId)
+      onSaved?.(invoiceId)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
     }
   }
 
-  async function handleAccept() {
-    if (!quoteId) return
+  async function handleRecordPayment() {
+    if (!invoiceId) return
+    const remainingNow = totalTtc - amountPaid
+    const amountStr = window.prompt(
+      `Montant du règlement reçu (€) ?\n\nReste à payer : ${formatAmount(remainingNow)}`,
+      remainingNow.toFixed(2),
+    )
+    if (amountStr === null) return
+    const amount = parseFloat(amountStr.replace(',', '.'))
+    if (!Number.isFinite(amount) || amount <= 0) {
+      alert('Montant invalide.')
+      return
+    }
+    const method = window.prompt(
+      'Mode de règlement ?\n(virement, chèque, CB, espèces, prélèvement, autre)',
+      'virement',
+    ) ?? ''
+    const ref = window.prompt('Référence (n° chèque, libellé virement, optionnel) :', '') ?? ''
     try {
-      await markQuoteAccepted(quoteId)
-      setCurrentStatus('accepted')
-      setAcceptedAt(new Date().toISOString())
-      setFlash('Devis marqué comme accepté ✅')
+      await recordPayment(invoiceId, amount, method, ref || null)
+      const newPaid = Math.min(totalTtc, amountPaid + amount)
+      setAmountPaid(newPaid)
+      setPaymentMethod(method || null)
+      setPaymentRef(ref || null)
+      if (newPaid >= totalTtc - 0.01) {
+        setStatus('paid')
+        setPaidAt(new Date().toISOString())
+        setFlash(`Règlement enregistré ✅ Facture soldée.`)
+      } else {
+        setStatus('partially_paid')
+        setFlash(`Règlement enregistré. Reste : ${formatAmount(totalTtc - newPaid)}.`)
+      }
+      setTimeout(() => setFlash(null), 4000)
+      onSaved?.(invoiceId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    }
+  }
+
+  async function handleResetPayment() {
+    if (!invoiceId) return
+    if (!window.confirm('Annuler les règlements et remettre la facture en "Envoyée" ?')) return
+    try {
+      await resetInvoicePayment(invoiceId, sentAt ? 'sent' : 'draft')
+      setStatus(sentAt ? 'sent' : 'draft')
+      setAmountPaid(0)
+      setPaidAt(null)
+      setPaymentMethod(null)
+      setPaymentRef(null)
+      onSaved?.(invoiceId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    }
+  }
+
+  async function handleCancel() {
+    if (!invoiceId) return
+    const reason = window.prompt('Raison de l\'annulation (visible en interne) ?', '')
+    if (reason === null) return
+    try {
+      await cancelInvoice(invoiceId, reason)
+      setStatus('cancelled')
+      setFlash('Facture annulée.')
       setTimeout(() => setFlash(null), 2500)
-      onSaved?.(quoteId)
+      onSaved?.(invoiceId)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
-    }
-  }
-
-  async function handleRefuse() {
-    if (!quoteId) return
-    const reason = window.prompt('Raison du refus (optionnelle) :') ?? ''
-    try {
-      await markQuoteRefused(quoteId, reason.trim())
-      setCurrentStatus('refused')
-      setRefusedAt(new Date().toISOString())
-      setRefusedReason(reason.trim() || null)
-      setFlash('Devis marqué comme refusé.')
-      setTimeout(() => setFlash(null), 2500)
-      onSaved?.(quoteId)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur')
-    }
-  }
-
-  async function handleResetDraft() {
-    if (!quoteId) return
-    if (!window.confirm('Remettre ce devis en brouillon ?')) return
-    try {
-      await setQuoteStatusDraft(quoteId)
-      setCurrentStatus('draft')
-      setSentAt(null)
-      setAcceptedAt(null)
-      setRefusedAt(null)
-      setRefusedReason(null)
-      onSaved?.(quoteId)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur')
-    }
-  }
-
-  async function handleConvertToInvoice() {
-    if (!quoteId || !profile?.organization_id) return
-    if (!window.confirm(
-      'Créer une facture à partir de ce devis ?\n\n' +
-      '• Les lignes seront copiées automatiquement\n' +
-      '• La facture sera créée en brouillon avec une échéance à 30 jours\n' +
-      '• Tu pourras la modifier avant envoi'
-    )) return
-    setConvertingToInvoice(true)
-    setError(null)
-    try {
-      const invoice = await createInvoiceFromQuote(quoteId, profile.organization_id)
-      onClose()
-      // Redirige vers la page Factures et ouvre la nouvelle facture
-      navigate(`/factures?open=${invoice.id}`)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de la transformation')
-    } finally {
-      setConvertingToInvoice(false)
     }
   }
 
@@ -393,7 +397,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
       <div className="modal" style={{ maxWidth: 920 }}>
         <div className="modal-head">
           <span className="modal-title">
-            {isEdit ? `Devis ${reference || ''}`.trim() : 'Nouveau devis'}
+            {isEdit ? `Facture ${reference || ''}`.trim() : 'Nouvelle facture'}
           </span>
           <button type="button" className="modal-x" onClick={onClose} aria-label="Fermer">×</button>
         </div>
@@ -413,7 +417,6 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                     onChange={(name, c) => {
                       setClientName(name)
                       setClientId(c?.id ?? '')
-                      // Pré-remplit les infos du client si dispo
                       if (c) {
                         if (c.contact_name && !clientContact) setClientContact(c.contact_name)
                         if (c.contact_email && !clientEmail) setClientEmail(c.contact_email)
@@ -438,7 +441,6 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                   <label>Email</label>
                   <input
                     type="email"
-                    placeholder="contact@client.fr"
                     value={clientEmail}
                     onChange={(e) => setClientEmail(e.target.value)}
                   />
@@ -462,7 +464,6 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                   <label>Site</label>
                   <input
                     type="text"
-                    placeholder="Bâtiment A"
                     value={siteName}
                     onChange={(e) => setSiteName(e.target.value)}
                   />
@@ -485,22 +486,26 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                 <input
                   type="date"
                   value={issueDate}
-                  onChange={(e) => setIssueDate(e.target.value)}
+                  onChange={(e) => {
+                    setIssueDate(e.target.value)
+                    // Recalcule l'échéance si elle était laissée à default
+                    if (e.target.value) setDueDate(defaultDueDate(e.target.value))
+                  }}
                 />
               </div>
               <div className="fg">
-                <label>Validité jusqu'au</label>
+                <label>Échéance de paiement</label>
                 <input
                   type="date"
-                  value={validityDate}
-                  onChange={(e) => setValidityDate(e.target.value)}
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
                 />
               </div>
             </div>
 
             {/* Lignes */}
             <div className="card-section">
-              <div className="card-section-title">Lignes du devis</div>
+              <div className="card-section-title">Lignes de la facture</div>
               <div className="quote-lines">
                 <div className="quote-line-header">
                   <div className="ql-desc">Description</div>
@@ -517,7 +522,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                       <div className="ql-desc">
                         <input
                           type="text"
-                          placeholder="Ex: Remplacement manomètre extincteur 6kg ABC"
+                          placeholder="Description de la prestation"
                           value={line.description}
                           onChange={(e) => updateLine(i, { description: e.target.value })}
                         />
@@ -566,11 +571,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                     </div>
                   )
                 })}
-                <button
-                  type="button"
-                  className="quote-add-line"
-                  onClick={addLine}
-                >
+                <button type="button" className="quote-add-line" onClick={addLine}>
                   <Plus size={13} strokeWidth={2} /> Ajouter une ligne
                 </button>
               </div>
@@ -602,107 +603,102 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                 onChange={(e) => setNotes(e.target.value)}
                 className="report-textarea"
                 style={{ minHeight: 80 }}
-                placeholder="Précisions sur la prestation, conditions particulières…"
               />
             </div>
 
             {error && <span className="ferr on">{error}</span>}
             {flash && <p className="text-grn text-sm" style={{ margin: 0 }}>✅ {flash}</p>}
 
-            {/* WORKFLOW : visible uniquement en édition */}
+            {/* WORKFLOW PAIEMENT */}
             {isEdit && (
               <div className="quote-workflow">
                 <div className="quote-workflow-status">
-                  Statut actuel :{' '}
-                  <strong>
-                    {currentStatus === 'draft' && 'Brouillon'}
-                    {currentStatus === 'sent' && `Envoyé${sentAt ? ' (' + new Date(sentAt).toLocaleDateString('fr-FR') + ')' : ''}`}
-                    {currentStatus === 'accepted' && `Accepté${acceptedAt ? ' (' + new Date(acceptedAt).toLocaleDateString('fr-FR') + ')' : ''}`}
-                    {currentStatus === 'refused' && `Refusé${refusedAt ? ' (' + new Date(refusedAt).toLocaleDateString('fr-FR') + ')' : ''}`}
+                  Statut :{' '}
+                  <strong className={`status-${displayStatus}`}>
+                    {INVOICE_STATUS_LABEL[displayStatus]}
                   </strong>
-                  {refusedReason && currentStatus === 'refused' && (
-                    <span className="text-ink-3"> · {refusedReason}</span>
+                  {sentAt && status !== 'cancelled' && (
+                    <> · envoyée le {new Date(sentAt).toLocaleDateString('fr-FR')}</>
+                  )}
+                  {amountPaid > 0 && status !== 'cancelled' && (
+                    <>
+                      <br />
+                      Réglé : <strong>{formatAmount(amountPaid)}</strong>
+                      {totalTtc > 0 && amountPaid < totalTtc && (
+                        <> · reste à payer : <strong className="text-red">{formatAmount(remaining)}</strong></>
+                      )}
+                      {paymentMethod && <> · {paymentMethod}{paymentRef ? ` (${paymentRef})` : ''}</>}
+                      {paidAt && <> · soldée le {new Date(paidAt).toLocaleDateString('fr-FR')}</>}
+                    </>
                   )}
                 </div>
-                <div className="quote-workflow-actions">
-                  <button
-                    type="button"
-                    className="btn-sm"
-                    onClick={() => void handleGeneratePdf()}
-                    disabled={generatingPdf || submitting}
-                    title="Régénérer le PDF avec les valeurs actuelles"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                  >
-                    <FileText size={13} strokeWidth={2} />
-                    {generatingPdf ? 'Génération…' : pdfUrl ? 'Régénérer PDF' : 'Générer PDF'}
-                  </button>
-                  {pdfUrl && (
-                    <a
-                      href={pdfUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn-sm"
-                      title="Télécharger le PDF"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                    >
-                      <Download size={13} /> PDF
-                    </a>
-                  )}
-                  {currentStatus === 'draft' && pdfUrl && (
+                {status !== 'cancelled' && (
+                  <div className="quote-workflow-actions">
                     <button
                       type="button"
-                      className="btn-sm acc"
-                      onClick={() => void handleMarkSent()}
+                      className="btn-sm"
+                      onClick={() => void handleGeneratePdf()}
+                      disabled={generatingPdf}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >
-                      <Mail size={13} strokeWidth={2} /> Envoyer au client
+                      <FileText size={13} strokeWidth={2} />
+                      {generatingPdf ? 'Génération…' : pdfUrl ? 'Régénérer PDF' : 'Générer PDF'}
                     </button>
-                  )}
-                  {currentStatus === 'sent' && (
-                    <>
+                    {pdfUrl && (
+                      <a
+                        href={pdfUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <Download size={13} /> PDF
+                      </a>
+                    )}
+                    {status === 'draft' && pdfUrl && (
+                      <button
+                        type="button"
+                        className="btn-sm acc"
+                        onClick={() => void handleMarkSent()}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <Mail size={13} strokeWidth={2} /> Envoyer au client
+                      </button>
+                    )}
+                    {(status === 'sent' || status === 'partially_paid' || displayStatus === 'overdue') && (
                       <button
                         type="button"
                         className="btn-sm done"
-                        onClick={() => void handleAccept()}
+                        onClick={() => void handleRecordPayment()}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       >
-                        <CheckCircle2 size={13} strokeWidth={2} /> Marquer accepté
+                        <CheckCircle2 size={13} strokeWidth={2} />
+                        {amountPaid > 0 ? 'Enregistrer un règlement' : 'Marquer comme payée'}
                       </button>
+                    )}
+                    {(status === 'partially_paid' || status === 'paid') && (
                       <button
                         type="button"
                         className="btn-sm"
-                        onClick={() => void handleRefuse()}
+                        onClick={() => void handleResetPayment()}
+                        title="Annuler les règlements"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       >
-                        <XCircle size={13} strokeWidth={2} /> Refusé
+                        <Undo2 size={13} strokeWidth={2} /> Annuler règlement
                       </button>
-                    </>
-                  )}
-                  {currentStatus === 'accepted' && (
-                    <button
-                      type="button"
-                      className="btn-sm acc"
-                      onClick={() => void handleConvertToInvoice()}
-                      disabled={convertingToInvoice}
-                      title="Créer une facture pré-remplie depuis ce devis"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                    >
-                      <ArrowRight size={13} strokeWidth={2} />
-                      {convertingToInvoice ? 'Création…' : 'Transformer en facture'}
-                    </button>
-                  )}
-                  {(currentStatus === 'sent' || currentStatus === 'accepted' || currentStatus === 'refused') && (
-                    <button
-                      type="button"
-                      className="btn-sm"
-                      onClick={() => void handleResetDraft()}
-                      title="Remettre en brouillon"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                    >
-                      <Undo2 size={13} strokeWidth={2} /> Brouillon
-                    </button>
-                  )}
-                </div>
+                    )}
+                    {status !== 'paid' && (
+                      <button
+                        type="button"
+                        className="btn-sm"
+                        onClick={() => void handleCancel()}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <Ban size={13} strokeWidth={2} /> Annuler la facture
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -714,6 +710,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                   onClick={() => void handleDelete()}
                   disabled={anyLoading}
                   style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  title="Suppression définitive — préfère 'Annuler la facture' pour conserver la trace fiscale"
                 >
                   <Trash2 size={14} strokeWidth={1.8} />
                   {deleting ? 'Suppression…' : 'Supprimer'}
@@ -726,11 +723,24 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                 type="button"
                 className="mf prim"
                 onClick={() => void handleSubmit()}
-                disabled={anyLoading}
+                disabled={anyLoading || (isEdit && (status === 'paid' || status === 'cancelled'))}
+                title={
+                  status === 'paid'
+                    ? 'Facture soldée : ses lignes ne sont plus modifiables'
+                    : status === 'cancelled'
+                      ? 'Facture annulée : ses lignes ne sont plus modifiables'
+                      : ''
+                }
               >
-                {submitting ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer le devis'}
+                {submitting ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer la facture'}
               </button>
             </div>
+
+            {(status === 'paid' || status === 'cancelled') && (
+              <p className="text-ink-3 text-xs font-light" style={{ margin: 0, textAlign: 'right' }}>
+                <Edit3 size={10} style={{ display: 'inline-block', verticalAlign: '-1px' }} /> Pour modifier cette facture, annule d'abord son règlement ou son annulation.
+              </p>
+            )}
           </div>
         )}
       </div>

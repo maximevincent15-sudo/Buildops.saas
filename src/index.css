@@ -908,6 +908,12 @@ h1, h2, h3, h4, h5, h6 {
   }
   .quote-row-pdf:hover { background: var(--ink); color: white; }
 
+  /* Couleurs de statut sur le label dans le workflow */
+  .status-paid { color: var(--grn); }
+  .status-overdue { color: var(--red); }
+  .status-cancelled { color: var(--ink3); text-decoration: line-through; }
+  .status-partially_paid { color: var(--org); }
+
   /* BANDEAU SYNTHÈSE conforme/non-conforme/incomplet */
   .report-summary {
     display: flex;
