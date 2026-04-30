@@ -11,6 +11,8 @@ import { ImportClientsPage } from './pages/ImportClientsPage'
 import { ImportInterventionsPage } from './pages/ImportInterventionsPage'
 import { ImportTechniciansPage } from './pages/ImportTechniciansPage'
 import { ImportVehiclesPage } from './pages/ImportVehiclesPage'
+import { DevisPage } from './pages/DevisPage'
+import { ParametresPage } from './pages/ParametresPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { OvertimePage } from './pages/OvertimePage'
 import { VehiculesPage } from './pages/VehiculesPage'
@@ -45,10 +47,10 @@ function App() {
           <Route path="/frais" element={<ExpensesPage />} />
           <Route path="/heures-sup" element={<OvertimePage />} />
           <Route path="/vehicules" element={<VehiculesPage />} />
-          <Route path="/devis" element={<PlaceholderPage title="Devis" description="Création et suivi des devis clients." />} />
+          <Route path="/devis" element={<DevisPage />} />
           <Route path="/factures" element={<PlaceholderPage title="Factures" description="Facturation et relances." />} />
           <Route path="/archivage" element={<PlaceholderPage title="Archivage" description="Documents archivés par site et par intervention." />} />
-          <Route path="/parametres" element={<PlaceholderPage title="Paramètres" description="Configuration du compte et de l'organisation." />} />
+          <Route path="/parametres" element={<ParametresPage />} />
         </Route>
       </Route>
 

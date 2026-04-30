@@ -708,6 +708,206 @@ h1, h2, h3, h4, h5, h6 {
   }
   .relance-type-emoji { font-size: 1.1rem; line-height: 1; }
 
+  /* DEVIS — sections de modal */
+  .card-section {
+    padding: .9rem 1rem;
+    border: .5px solid var(--brd);
+    border-radius: var(--r);
+    background: var(--wht);
+  }
+  .card-section-title {
+    font-size: .68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--ink3);
+    margin-bottom: .6rem;
+  }
+
+  /* Lignes de devis */
+  .quote-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .quote-line-header,
+  .quote-line {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) 70px 100px 80px 100px 32px;
+    gap: 8px;
+    align-items: center;
+  }
+  .quote-line-header {
+    font-size: .68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--ink3);
+    padding: 0 4px 6px;
+    border-bottom: .5px solid var(--brd);
+  }
+  .quote-line-header .ql-qty,
+  .quote-line-header .ql-pu,
+  .quote-line-header .ql-tot,
+  .quote-line-header .ql-vat {
+    text-align: right;
+  }
+  .quote-line input[type="text"],
+  .quote-line input[type="number"],
+  .quote-line select {
+    width: 100%;
+    padding: .4rem .55rem;
+    border: .5px solid var(--brd2);
+    border-radius: calc(var(--r) - 2px);
+    font-size: .82rem;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--wht);
+  }
+  .quote-line input[type="number"] { text-align: right; }
+  .quote-line .ql-tot {
+    text-align: right;
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    color: var(--ink);
+    font-size: .9rem;
+  }
+  .ql-remove {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: .5px solid var(--brd2);
+    background: var(--wht);
+    color: var(--ink3);
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .ql-remove:hover { background: var(--red-lt); color: var(--red); border-color: var(--red); }
+
+  .quote-add-line {
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: .42rem .85rem;
+    border: 1px dashed var(--brd2);
+    border-radius: 100px;
+    background: transparent;
+    color: var(--ink2);
+    font-size: .76rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    align-self: flex-start;
+  }
+  .quote-add-line:hover { border-color: var(--ink); color: var(--ink); background: var(--bg); }
+
+  /* Totaux devis */
+  .quote-totals {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-self: flex-end;
+    width: 280px;
+    max-width: 100%;
+  }
+  .quote-total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: .4rem .8rem;
+    font-size: .9rem;
+  }
+  .quote-total-row.vat {
+    font-size: .8rem;
+    color: var(--ink3);
+  }
+  .quote-total-row.grand {
+    background: var(--ink);
+    color: white;
+    border-radius: var(--r);
+    font-size: 1rem;
+    margin-top: 4px;
+    padding: .55rem .9rem;
+  }
+
+  /* Workflow devis */
+  .quote-workflow {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    padding: .8rem 1rem;
+    background: var(--bg);
+    border-radius: var(--r);
+    border: .5px solid var(--brd);
+    margin-top: -.3rem;
+  }
+  .quote-workflow-status {
+    font-size: .82rem;
+    color: var(--ink2);
+  }
+  .quote-workflow-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Liste devis */
+  .quotes-list {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+  }
+  .quote-row {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    padding: .7rem .9rem;
+    border-radius: var(--r);
+    border: .5px solid var(--brd);
+    background: var(--wht);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .quote-row:hover {
+    border-color: var(--ink3);
+    transform: translateX(1px);
+  }
+  .quote-row-icon {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .quote-row-icon.b-grn { background: var(--grn-lt); color: var(--grn); }
+  .quote-row-icon.b-org { background: var(--org-lt); color: var(--org); }
+  .quote-row-icon.b-red { background: var(--red-lt); color: var(--red); }
+  .quote-row-icon.b-gry { background: var(--gry-lt); color: var(--ink2); }
+  .quote-row-main { flex: 1; min-width: 0; }
+  .quote-row-title { font-size: .9rem; font-weight: 500; color: var(--ink); }
+  .quote-row-client { color: var(--ink2); font-weight: 400; }
+  .quote-row-meta { font-size: .7rem; color: var(--ink3); margin-top: 2px; font-weight: 300; }
+  .quote-row-amount { text-align: right; flex-shrink: 0; min-width: 100px; }
+  .quote-row-amount-val {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: .98rem;
+    color: var(--ink);
+  }
+  .quote-row-amount-sub {
+    font-size: .65rem;
+    color: var(--ink3);
+    margin-top: 1px;
+  }
+  .quote-row-status { flex-shrink: 0; }
+  .quote-row-pdf {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--bg);
+    color: var(--ink3);
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .quote-row-pdf:hover { background: var(--ink); color: white; }
+
   /* BANDEAU SYNTHÈSE conforme/non-conforme/incomplet */
   .report-summary {
     display: flex;

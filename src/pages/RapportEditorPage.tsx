@@ -29,6 +29,8 @@ import { ReportHistoryList } from '../features/rapports/components/ReportHistory
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
 import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
 import { ReportPdf } from '../features/rapports/pdf/ReportPdf'
+import { QuoteModal } from '../features/devis/components/QuoteModal'
+import type { UpsertQuoteInput } from '../features/devis/schemas'
 import {
   RECOMMENDED_ACTION_LABEL,
   byTypeToResponses,
@@ -71,6 +73,7 @@ export function RapportEditorPage() {
   const [error, setError] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
   const [correctiveOpen, setCorrectiveOpen] = useState(false)
+  const [quoteOpen, setQuoteOpen] = useState(false)
   const [sendOpen, setSendOpen] = useState(false)
   const [sentToEmail, setSentToEmail] = useState<string | null>(null)
   const [sentAt, setSentAt] = useState<string | null>(null)
@@ -181,6 +184,44 @@ export function RapportEditorPage() {
       notes,
     }
   }, [intervention, equipmentType, checklistByType])
+
+  // Seed pour la création d'un devis correctif depuis les anomalies du rapport
+  const quoteSeed = useMemo<Partial<UpsertQuoteInput> | null>(() => {
+    if (!intervention) return null
+    const allAnomalies: Array<{ label: string; action?: string; note?: string; type: string }> = []
+    for (const [type, responses] of Object.entries(checklistByType)) {
+      const itemsForType = CHECKLISTS[type as EquipmentType] ?? []
+      for (const it of itemsForType) {
+        const r = responses.find((c) => c.id === it.id)
+        if (r?.value === 'nok') {
+          allAnomalies.push({
+            label: it.label,
+            action: r.action,
+            note: r.note,
+            type: EQUIPMENT_TYPES[type as EquipmentType] ?? type,
+          })
+        }
+      }
+    }
+    if (allAnomalies.length === 0) return null
+
+    // Une ligne de devis par anomalie : description = "[Type] Anomalie (Action)" + note
+    const lines = allAnomalies.map((a, i) => ({
+      position: i,
+      description: `[${a.type}] ${a.label}${a.action ? ` — ${RECOMMENDED_ACTION_LABEL[a.action as keyof typeof RECOMMENDED_ACTION_LABEL]}` : ''}${a.note ? `\n${a.note}` : ''}`,
+      quantity: 1,
+      unit_price_ht: 0,
+      vat_rate: 20,
+    }))
+    return {
+      client_id: intervention.client_id ?? undefined,
+      client_name: intervention.client_name,
+      site_name: intervention.site_name ?? undefined,
+      site_address: intervention.address ?? undefined,
+      notes: `Suite au rapport ${intervention.reference} — anomalies à corriger.`,
+      lines,
+    }
+  }, [intervention, checklistByType])
 
   if (loading) {
     return (
@@ -543,16 +584,32 @@ export function RapportEditorPage() {
               </div>
             )}
           </div>
-          {globalSummary.isConform === false && !isCompleted && (
-            <button
-              type="button"
-              className="btn-sm"
-              onClick={() => setCorrectiveOpen(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
-            >
-              <CalendarPlus size={13} strokeWidth={2} />
-              Planifier une intervention corrective
-            </button>
+          {globalSummary.isConform === false && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {!isCompleted && (
+                <button
+                  type="button"
+                  className="btn-sm"
+                  onClick={() => setCorrectiveOpen(true)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+                >
+                  <CalendarPlus size={13} strokeWidth={2} />
+                  Planifier une intervention corrective
+                </button>
+              )}
+              {quoteSeed && (
+                <button
+                  type="button"
+                  className="btn-sm acc"
+                  onClick={() => setQuoteOpen(true)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+                  title="Crée un devis pré-rempli avec les anomalies à corriger"
+                >
+                  <FileText size={13} strokeWidth={2} />
+                  Créer un devis correctif
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -773,6 +830,20 @@ export function RapportEditorPage() {
             })()
             setFlash('Rapport marqué comme envoyé.')
             setTimeout(() => setFlash(null), 2500)
+          }}
+        />
+      )}
+
+      {/* Modale création devis correctif (pré-rempli depuis les anomalies) */}
+      {quoteOpen && quoteSeed && (
+        <QuoteModal
+          open={quoteOpen}
+          onClose={() => setQuoteOpen(false)}
+          seed={quoteSeed}
+          onSaved={() => {
+            setQuoteOpen(false)
+            setFlash('Devis correctif créé.')
+            setTimeout(() => setFlash(null), 3000)
           }}
         />
       )}
