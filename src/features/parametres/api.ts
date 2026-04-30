@@ -1,5 +1,19 @@
 import { supabase } from '../../shared/lib/supabase'
 
+/** Met à jour le nom de l'organisation (apparaît partout : sidebar, devis, factures…) */
+export async function updateOrganizationName(
+  organizationId: string,
+  name: string,
+): Promise<void> {
+  const trimmed = name.trim()
+  if (!trimmed) throw new Error('Nom d\'entreprise requis')
+  const { error } = await supabase
+    .from('organizations')
+    .update({ name: trimmed })
+    .eq('id', organizationId)
+  if (error) throw error
+}
+
 export type InvoicingSettings = {
   organization_id: string
   legal_form: string | null

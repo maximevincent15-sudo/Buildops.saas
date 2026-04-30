@@ -1,7 +1,8 @@
 import { Building2, CheckCircle2, FileText, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { fetchProfile } from '../features/auth/api'
 import { useAuthStore } from '../features/auth/store'
-import { getInvoicingSettings, upsertInvoicingSettings } from '../features/parametres/api'
+import { getInvoicingSettings, updateOrganizationName, upsertInvoicingSettings } from '../features/parametres/api'
 import type { UpsertInvoicingInput } from '../features/parametres/api'
 
 const EMPTY: UpsertInvoicingInput = {
@@ -27,13 +28,17 @@ const EMPTY: UpsertInvoicingInput = {
 
 export function ParametresPage() {
   const profile = useAuthStore((s) => s.profile)
+  const setProfile = useAuthStore((s) => s.setProfile)
+  const user = useAuthStore((s) => s.user)
   const [form, setForm] = useState<UpsertInvoicingInput>(EMPTY)
+  const [orgName, setOrgName] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    setOrgName(profile?.organizations?.name ?? '')
     if (!profile?.organization_id) return
     let alive = true
     void getInvoicingSettings(profile.organization_id)
@@ -74,11 +79,28 @@ export function ParametresPage() {
 
   async function handleSave() {
     if (!profile?.organization_id) return
+    if (!orgName.trim()) {
+      setError('Le nom de l\'entreprise est requis.')
+      return
+    }
     setSaving(true)
     setError(null)
     setFlash(null)
     try {
+      // 1. Update du nom de l'orga si modifié
+      const previousName = profile.organizations?.name ?? ''
+      if (orgName.trim() !== previousName) {
+        await updateOrganizationName(profile.organization_id, orgName)
+      }
+      // 2. Upsert des paramètres de facturation
       await upsertInvoicingSettings(profile.organization_id, form)
+      // 3. Refresh du profile pour propager le nouveau nom (sidebar, devis…)
+      if (user?.id) {
+        try {
+          const fresh = await fetchProfile(user.id)
+          setProfile(fresh)
+        } catch { /* ignore */ }
+      }
       setFlash('Paramètres enregistrés.')
       setTimeout(() => setFlash(null), 3000)
     } catch (e) {
@@ -124,6 +146,29 @@ export function ParametresPage() {
         </p>
       )}
       {error && <p className="text-red text-sm" style={{ marginBottom: '1rem' }}>{error}</p>}
+
+      {/* Bloc 0 : nom de l'entreprise */}
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card-top">
+          <span className="card-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <Building2 size={14} strokeWidth={1.8} />
+            Nom de l'entreprise
+          </span>
+          <span className="text-ink-3 text-xs font-light">
+            Apparaît dans la sidebar, sur les devis et les factures.
+          </span>
+        </div>
+        <div className="fg">
+          <label>Nom commercial / raison sociale</label>
+          <input
+            type="text"
+            placeholder="Ex: Maintenance Incendie SARL"
+            value={orgName}
+            onChange={(e) => setOrgName(e.target.value)}
+            maxLength={100}
+          />
+        </div>
+      </div>
 
       {/* Bloc 1 : identité légale */}
       <div className="card" style={{ marginBottom: '1rem' }}>
