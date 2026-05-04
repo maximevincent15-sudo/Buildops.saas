@@ -2,6 +2,7 @@ import { ExternalLink, Mail } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { getClient } from '../../clients/api'
+import { sendDocumentEmail } from '../../email/api'
 import { markReportSent } from '../api'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -133,16 +134,6 @@ export function SendToClientModal({
     if (e.target === e.currentTarget && !sending) onClose()
   }
 
-  function buildMailtoUrl(): string {
-    const params = new URLSearchParams()
-    if (subject) params.set('subject', subject)
-    if (body) params.set('body', body)
-    // encodeURIComponent est automatique avec URLSearchParams. Certains clients
-    // préfèrent "+" remplacé par "%20" pour les espaces — c'est robuste.
-    const qs = params.toString().replace(/\+/g, '%20')
-    return `mailto:${encodeURIComponent(recipient)}?${qs}`
-  }
-
   async function handleSend() {
     if (!recipient.trim()) {
       setError('Indique un destinataire.')
@@ -155,13 +146,28 @@ export function SendToClientModal({
     setSending(true)
     setError(null)
     try {
-      // 1. On marque le rapport comme envoyé en base
+      // 1. Marquer le rapport comme envoyé en base
       await markReportSent(reportId, recipient.trim())
-      // 2. On ouvre la messagerie par défaut de l'user avec tout pré-rempli
-      const url = buildMailtoUrl()
-      window.location.href = url
-      setSentHint(true)
-      // On garde la modal ouverte quelques secondes pour que l'user voie le feedback
+
+      // 2. Tenter l'envoi via Resend (avec PDF en pièce jointe).
+      //    Fallback automatique sur mailto: si Resend n'est pas configuré.
+      const result = await sendDocumentEmail({
+        kind: 'report',
+        documentId: reportId,
+        recipientEmail: recipient.trim(),
+        subject,
+        body,
+        pdfUrl,
+      })
+
+      if (result.mode === 'resend' && result.success) {
+        // Envoi automatique réussi
+        setSentHint(true)
+      } else if (result.mode === 'mailto') {
+        // La messagerie par défaut s'est ouverte
+        setSentHint(true)
+      }
+
       setTimeout(() => {
         onSent?.()
         onClose()

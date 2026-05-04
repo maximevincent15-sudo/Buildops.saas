@@ -21,6 +21,7 @@ import type { QuoteLineInput, QuoteWithLines, UpsertQuoteInput } from '../schema
 import { generateAndUploadQuotePdf } from '../pdf/generateQuotePdf'
 import { QuotePdf } from '../pdf/QuotePdf'
 import { createInvoiceFromQuote } from '../../factures/api'
+import { sendDocumentEmail } from '../../email/api'
 import { useNavigate } from 'react-router-dom'
 
 type Props = {
@@ -289,23 +290,34 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
       await markQuoteSent(quoteId, recipient)
       setCurrentStatus('sent')
       setSentAt(new Date().toISOString())
-      // Construit l'email mailto: avec le PDF en lien
+
+      // Construit le contenu de l'email
       const subject = `Devis ${reference}`.trim()
       const orgName = profile?.organizations?.name ?? 'Maintenance'
       const greet = clientContact ? `Bonjour ${clientContact.trim()},` : 'Bonjour,'
       const totalsLine = `Montant : ${formatAmount(totals.total_ttc)} TTC.`
       const pdfLine = pdfUrl
-        ? `\n\n📄 Télécharger le devis (PDF) :\n${pdfUrl}`
+        ? `\n\n📄 Le devis est joint à ce mail (ou téléchargeable ici : ${pdfUrl})`
         : `\n\n(Le PDF est disponible sur demande.)`
       const body =
         `${greet}\n\nVeuillez trouver ci-après le devis pour la prestation envisagée.\n\n${totalsLine}${pdfLine}\n\nJe reste à ta disposition pour toute question.\n\nCordialement,\n${orgName}`
-      const params = new URLSearchParams()
-      params.set('subject', subject)
-      params.set('body', body)
-      const qs = params.toString().replace(/\+/g, '%20')
-      window.location.href = `mailto:${encodeURIComponent(recipient)}?${qs}`
-      setFlash('Devis marqué comme envoyé.')
-      setTimeout(() => setFlash(null), 2500)
+
+      // Tente Resend, fallback mailto:
+      const result = await sendDocumentEmail({
+        kind: 'quote',
+        documentId: quoteId,
+        recipientEmail: recipient,
+        subject,
+        body,
+        pdfUrl,
+      })
+
+      if (result.mode === 'resend') {
+        setFlash('Devis envoyé automatiquement avec PDF en pièce jointe ✓')
+      } else {
+        setFlash('Devis marqué comme envoyé.')
+      }
+      setTimeout(() => setFlash(null), 3000)
       onSaved?.(quoteId)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')

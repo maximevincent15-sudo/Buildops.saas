@@ -1,8 +1,9 @@
-import { Building2, CheckCircle2, FileText, Save, Sparkles, Users } from 'lucide-react'
+import { Building2, CheckCircle2, FileText, Mail, Save, Sparkles, Users, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchProfile } from '../features/auth/api'
 import { useAuthStore } from '../features/auth/store'
+import { testEmailConfig } from '../features/email/api'
 import { getInvoicingSettings, updateOrganizationName, upsertInvoicingSettings } from '../features/parametres/api'
 import type { UpsertInvoicingInput } from '../features/parametres/api'
 import { loadDemoData } from '../features/parametres/demoData'
@@ -42,6 +43,8 @@ export function ParametresPage() {
   const [error, setError] = useState<string | null>(null)
   const [demoLoading, setDemoLoading] = useState(false)
   const [demoStep, setDemoStep] = useState<{ label: string; current: number; total: number } | null>(null)
+  const [emailTesting, setEmailTesting] = useState(false)
+  const [emailTestResult, setEmailTestResult] = useState<{ ok: boolean; message: string } | null>(null)
 
   useEffect(() => {
     setOrgName(profile?.organizations?.name ?? '')
@@ -83,6 +86,30 @@ export function ParametresPage() {
 
   function setField<K extends keyof UpsertInvoicingInput>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value || null }))
+  }
+
+  async function handleTestEmail() {
+    const recipient = window.prompt(
+      'Email du destinataire pour le test :',
+      profile?.organizations?.name ? '' : '',
+    )
+    if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+      setEmailTestResult({ ok: false, message: 'Email invalide.' })
+      return
+    }
+    setEmailTesting(true)
+    setEmailTestResult(null)
+    try {
+      const r = await testEmailConfig(recipient)
+      setEmailTestResult({ ok: r.ok, message: r.message })
+    } catch (e) {
+      setEmailTestResult({
+        ok: false,
+        message: e instanceof Error ? e.message : 'Erreur',
+      })
+    } finally {
+      setEmailTesting(false)
+    }
   }
 
   async function handleLoadDemo() {
@@ -467,6 +494,83 @@ export function ParametresPage() {
             <Users size={13} strokeWidth={2} />
             Gérer l'équipe
           </Link>
+        </div>
+      )}
+
+      {/* Bloc Configuration email (Resend) — admin only */}
+      {(profile?.user_role ?? 'admin') === 'admin' && (
+        <div className="card" style={{ marginTop: '1rem' }}>
+          <div className="card-top">
+            <span className="card-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <Mail size={14} strokeWidth={1.8} />
+              Envoi automatique des emails (Resend)
+            </span>
+            <span className="text-ink-3 text-xs font-light">Optionnel — version premium</span>
+          </div>
+          <p className="text-ink-2 text-sm font-light" style={{ margin: '0 0 .8rem' }}>
+            Sans configuration, BuildOps utilise <strong>ta messagerie</strong> (mailto:) pour envoyer
+            rapports, devis et factures. Avec Resend activé, les emails partent
+            <strong> automatiquement</strong> avec le PDF en <strong>pièce jointe</strong>, et tu
+            n'as plus besoin de cliquer "Envoyer" dans Gmail.
+          </p>
+
+          <details className="email-help-box">
+            <summary>📖 Étapes d'activation (à faire une fois)</summary>
+            <ol className="email-help-steps">
+              <li>
+                <strong>Crée un compte Resend</strong> sur{' '}
+                <a href="https://resend.com" target="_blank" rel="noreferrer">resend.com</a> (gratuit
+                jusqu'à 3000 emails/mois)
+              </li>
+              <li>
+                <strong>(Recommandé)</strong> Configure ton nom de domaine dans Resend → Domains.
+                Ajoute les enregistrements DNS (SPF / DKIM) chez ton registrar (OVH, Gandi, etc.).
+                <br />
+                <em>Sans domaine, tu peux tester en envoyant à toi-même via{' '}
+                <code>onboarding@resend.dev</code></em>
+              </li>
+              <li>
+                <strong>Récupère la clé API</strong> Resend → Settings → API Keys
+              </li>
+              <li>
+                <strong>Définis les secrets côté Supabase</strong> via la CLI Supabase :
+                <pre className="email-help-code">
+{`supabase secrets set RESEND_API_KEY=re_xxxxx
+supabase secrets set RESEND_FROM_EMAIL=contact@tonentreprise.fr
+supabase secrets set RESEND_FROM_NAME="Maintenance Incendie"`}
+                </pre>
+              </li>
+              <li>
+                <strong>Déploie l'Edge Function</strong> :
+                <pre className="email-help-code">supabase functions deploy send-document-email --no-verify-jwt</pre>
+              </li>
+              <li>
+                <strong>Teste avec le bouton ci-dessous</strong> 👇
+              </li>
+            </ol>
+          </details>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: '.8rem' }}>
+            <button
+              type="button"
+              className="mf out"
+              onClick={() => void handleTestEmail()}
+              disabled={emailTesting}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <Mail size={13} strokeWidth={2} />
+              {emailTesting ? 'Test en cours…' : 'Tester la configuration'}
+            </button>
+            {emailTestResult && (
+              <span
+                className={emailTestResult.ok ? 'text-grn text-sm' : 'text-red text-sm'}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                {emailTestResult.ok ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                {emailTestResult.message}
+              </span>
+            )}
+          </div>
         </div>
       )}
 

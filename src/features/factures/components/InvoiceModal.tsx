@@ -26,6 +26,7 @@ import type { InvoiceStatus } from '../constants'
 import type { InvoiceWithLines, UpsertInvoiceInput } from '../schemas'
 import { generateAndUploadInvoicePdf } from '../pdf/generateInvoicePdf'
 import { InvoicePdf } from '../pdf/InvoicePdf'
+import { sendDocumentEmail } from '../../email/api'
 
 type Props = {
   open: boolean
@@ -288,7 +289,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
       await markInvoiceSent(invoiceId, recipient)
       setStatus('sent')
       setSentAt(new Date().toISOString())
-      // Construit le mailto:
+
       const subject = `Facture ${reference}`.trim()
       const orgName = profile?.organizations?.name ?? 'Maintenance'
       const greet = clientContact ? `Bonjour ${clientContact.trim()},` : 'Bonjour,'
@@ -297,17 +298,27 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
         : ''
       const totalsLine = `Montant à régler : ${formatAmount(totals.total_ttc)} TTC.${dueLine}`
       const pdfLine = pdfUrl
-        ? `\n\n📄 Télécharger la facture (PDF) :\n${pdfUrl}`
+        ? `\n\n📄 La facture est jointe à ce mail (ou téléchargeable ici : ${pdfUrl})`
         : `\n\n(Le PDF est disponible sur demande.)`
       const body =
         `${greet}\n\nVeuillez trouver ci-après la facture pour la prestation réalisée.\n\n${totalsLine}${pdfLine}\n\nN'hésite pas à me contacter pour toute question.\n\nCordialement,\n${orgName}`
-      const params = new URLSearchParams()
-      params.set('subject', subject)
-      params.set('body', body)
-      const qs = params.toString().replace(/\+/g, '%20')
-      window.location.href = `mailto:${encodeURIComponent(recipient)}?${qs}`
-      setFlash('Facture marquée comme envoyée.')
-      setTimeout(() => setFlash(null), 2500)
+
+      // Tente Resend, fallback mailto:
+      const result = await sendDocumentEmail({
+        kind: 'invoice',
+        documentId: invoiceId,
+        recipientEmail: recipient,
+        subject,
+        body,
+        pdfUrl,
+      })
+
+      if (result.mode === 'resend') {
+        setFlash('Facture envoyée automatiquement avec PDF en pièce jointe ✓')
+      } else {
+        setFlash('Facture marquée comme envoyée.')
+      }
+      setTimeout(() => setFlash(null), 3000)
       onSaved?.(invoiceId)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
