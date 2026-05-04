@@ -1,26 +1,39 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { signIn } from '../api'
 import { loginSchema } from '../schemas'
 import type { LoginInput } from '../schemas'
 
-export function LoginForm() {
+type Props = {
+  prefilledEmail?: string
+}
+
+export function LoginForm({ prefilledEmail }: Props = {}) {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
   })
 
+  useEffect(() => {
+    if (prefilledEmail) setValue('email', prefilledEmail)
+  }, [prefilledEmail, setValue])
+
   async function onSubmit(data: LoginInput) {
     setSubmitError(null)
     try {
       await signIn(data)
+      // Si invitation en attente, on reste sur /auth pour que l'effet d'acceptation
+      // se déclenche et redirige proprement après attachement à l'orga.
+      if (searchParams.get('invite')) return
       navigate('/dashboard', { replace: true })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erreur inconnue'

@@ -1,5 +1,6 @@
-import { Building2, CheckCircle2, FileText, Save, Sparkles } from 'lucide-react'
+import { Building2, CheckCircle2, FileText, Save, Sparkles, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchProfile } from '../features/auth/api'
 import { useAuthStore } from '../features/auth/store'
 import { getInvoicingSettings, updateOrganizationName, upsertInvoicingSettings } from '../features/parametres/api'
@@ -443,6 +444,31 @@ export function ParametresPage() {
           />
         </div>
       </div>
+
+      {/* Bloc Équipe (admin uniquement) */}
+      {(profile?.user_role ?? 'admin') === 'admin' && (
+        <div className="card" style={{ marginTop: '1rem' }}>
+          <div className="card-top">
+            <span className="card-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <Users size={14} strokeWidth={1.8} />
+              Équipe
+            </span>
+          </div>
+          <p className="text-ink-2 text-sm font-light" style={{ margin: '0 0 .8rem' }}>
+            Invite tes collaborateurs à rejoindre ton organisation BuildOps. Chaque membre peut avoir
+            son propre compte et son propre accès — utile pour que tes techniciens saisissent leurs
+            notes de frais et heures sup directement.
+          </p>
+          <Link
+            to="/equipe"
+            className="mf out"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Users size={13} strokeWidth={2} />
+            Gérer l'équipe
+          </Link>
+        </div>
+      )}
 
       {/* Bloc Mode démo (tout en bas) */}
       <div className="card" style={{ marginTop: '1rem' }}>

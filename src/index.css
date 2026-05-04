@@ -1111,6 +1111,138 @@ h1, h2, h3, h4, h5, h6 {
     transition: width .25s ease;
   }
 
+  /* ÉQUIPE / membres */
+  .member-list { display: flex; flex-direction: column; gap: 6px; }
+  .member-row {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    padding: .65rem .85rem;
+    border: .5px solid var(--brd);
+    border-radius: var(--r);
+    background: var(--wht);
+  }
+  .member-row.pending { background: var(--bg); border-style: dashed; }
+  .member-icon {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gry-lt);
+    color: var(--ink2);
+  }
+  .member-icon.admin { background: rgba(58, 92, 168, .15); color: var(--acc); }
+  .member-icon.member { background: var(--grn-lt); color: var(--grn); }
+  .member-main { flex: 1; min-width: 0; }
+  .member-name {
+    font-size: .9rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .member-you { color: var(--ink3); font-weight: 400; }
+  .member-meta {
+    font-size: .7rem;
+    color: var(--ink3);
+    font-weight: 300;
+    margin-top: 2px;
+  }
+  .member-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  /* Pills sélection rôle dans modal invitation */
+  .role-pills { display: flex; flex-direction: column; gap: 6px; }
+  .role-pill {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: .7rem .9rem;
+    border: 1px solid var(--brd2);
+    background: var(--wht);
+    border-radius: var(--r);
+    cursor: pointer;
+    text-align: left;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .15s;
+  }
+  .role-pill:hover { border-color: var(--ink3); background: var(--bg); }
+  .role-pill.on {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: white;
+  }
+  .role-pill-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .88rem;
+  }
+  .role-pill-desc {
+    font-size: .7rem;
+    color: var(--ink3);
+    font-weight: 300;
+    margin-left: 22px;
+  }
+  .role-pill.on .role-pill-desc { color: rgba(255, 255, 255, .7); }
+
+  /* AUTH — Bandeau invitation */
+  .invite-banner {
+    display: flex;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: var(--r);
+    background: rgba(58, 92, 168, .08);
+    border: 1px solid rgba(58, 92, 168, .2);
+    margin-bottom: 1rem;
+    align-items: center;
+  }
+  .invite-banner-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--acc);
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .invite-banner-title { font-size: .92rem; color: var(--ink); }
+  .invite-banner-sub { font-size: .75rem; color: var(--ink2); margin-top: 2px; }
+  .invite-banner-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--red);
+    font-size: .85rem;
+  }
+  .invite-banner-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ink3);
+    font-size: .85rem;
+  }
+  .invite-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: var(--r);
+    background: var(--bg);
+    color: var(--ink2);
+    font-size: .82rem;
+    margin-bottom: 1rem;
+  }
+  .invite-status.success { background: var(--grn-lt); color: var(--grn); }
+  .invite-status.error { background: var(--red-lt); color: var(--red); }
+
   /* BANDEAU SYNTHÈSE conforme/non-conforme/incomplet */
   .report-summary {
     display: flex;

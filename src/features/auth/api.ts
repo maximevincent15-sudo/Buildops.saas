@@ -6,6 +6,7 @@ export type Profile = {
   first_name: string
   last_name: string
   organization_id: string
+  user_role?: 'admin' | 'member' | null
   organizations: { id: string; name: string } | null
 }
 
@@ -37,11 +38,25 @@ export async function signOut() {
 }
 
 export async function fetchProfile(userId: string): Promise<Profile> {
-  const { data, error } = await supabase
+  // On tente avec user_role (migration 021). Fallback si pas encore appliquée.
+  let data: unknown = null
+  let err: { message: string } | null = null
+  const r1 = await supabase
     .from('profiles')
-    .select('id, first_name, last_name, organization_id, organizations(id, name)')
+    .select('id, first_name, last_name, organization_id, user_role, organizations(id, name)')
     .eq('id', userId)
     .single()
-  if (error) throw error
-  return data as unknown as Profile
+  data = r1.data
+  err = r1.error as { message: string } | null
+  if (err && /user_role/i.test(err.message)) {
+    const r2 = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, organization_id, organizations(id, name)')
+      .eq('id', userId)
+      .single()
+    data = r2.data
+    err = r2.error as { message: string } | null
+  }
+  if (err) throw err
+  return data as Profile
 }

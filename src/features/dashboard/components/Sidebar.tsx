@@ -153,6 +153,9 @@ export function Sidebar() {
     ? (firstName[0]! + lastName[0]!).toUpperCase()
     : initialsFromEmail(email)
 
+  // Les membres standards n'ont pas accès à la facturation
+  const isAdmin = (profile?.user_role ?? 'admin') === 'admin'
+
   return (
     <aside className="sidebar">
       <div className="sb-sec">Principal</div>
@@ -164,8 +167,12 @@ export function Sidebar() {
       <div className="sb-sec">RH / Paie</div>
       {rh.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
-      <div className="sb-sec">Facturation</div>
-      {facturation.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
+      {isAdmin && (
+        <>
+          <div className="sb-sec">Facturation</div>
+          {facturation.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
+        </>
+      )}
 
       <div className="sb-sec">Documents</div>
       {documents.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}

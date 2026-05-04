@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { signUp } from '../api'
 import { registerSchema } from '../schemas'
 import type { RegisterInput } from '../schemas'
@@ -18,13 +18,20 @@ function passwordStrength(pwd: string): { score: 0 | 1 | 2 | 3 | 4; label: strin
   return { score: score as 0 | 1 | 2 | 3 | 4, label, cls }
 }
 
-export function RegisterForm() {
+type Props = {
+  prefilledEmail?: string
+  hideCompanyField?: boolean
+}
+
+export function RegisterForm({ prefilledEmail, hideCompanyField }: Props = {}) {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const {
     register,
     handleSubmit,
+    setValue,
     watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterInput>({
@@ -34,11 +41,20 @@ export function RegisterForm() {
   const pwdValue = watch('password') ?? ''
   const strength = passwordStrength(pwdValue)
 
+  useEffect(() => {
+    if (prefilledEmail) setValue('email', prefilledEmail)
+    // En mode invitation, on pré-remplit avec une valeur factice — l'orga sera
+    // remplacée par l'invitation après le signup.
+    if (hideCompanyField) setValue('companyName', '(rejoint via invitation)')
+  }, [prefilledEmail, hideCompanyField, setValue])
+
   async function onSubmit(data: RegisterInput) {
     setSubmitError(null)
     try {
       const result = await signUp(data)
       if (result.session) {
+        // Si on a un invite, on reste sur /auth pour l'effet d'acceptation
+        if (searchParams.get('invite')) return
         navigate('/dashboard', { replace: true })
       } else {
         setSuccessMessage(
@@ -85,11 +101,16 @@ export function RegisterForm() {
         </div>
       </div>
 
-      <div className="fg">
-        <label>Entreprise</label>
-        <input type="text" placeholder="Sécurité Pro SARL" autoComplete="organization" {...register('companyName')} />
-        {errors.companyName && <span className="ferr on">{errors.companyName.message}</span>}
-      </div>
+      {!hideCompanyField && (
+        <div className="fg">
+          <label>Entreprise</label>
+          <input type="text" placeholder="Sécurité Pro SARL" autoComplete="organization" {...register('companyName')} />
+          {errors.companyName && <span className="ferr on">{errors.companyName.message}</span>}
+        </div>
+      )}
+      {hideCompanyField && (
+        <input type="hidden" {...register('companyName')} />
+      )}
 
       <div className="fg">
         <label>Email professionnel</label>

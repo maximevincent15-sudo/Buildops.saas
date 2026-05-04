@@ -12,6 +12,7 @@ import { ImportInterventionsPage } from './pages/ImportInterventionsPage'
 import { ImportTechniciansPage } from './pages/ImportTechniciansPage'
 import { ImportVehiclesPage } from './pages/ImportVehiclesPage'
 import { DevisPage } from './pages/DevisPage'
+import { EquipePage } from './pages/EquipePage'
 import { FacturesPage } from './pages/FacturesPage'
 import { ParametresPage } from './pages/ParametresPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -52,6 +53,7 @@ function App() {
           <Route path="/factures" element={<FacturesPage />} />
           <Route path="/archivage" element={<PlaceholderPage title="Archivage" description="Documents archivés par site et par intervention." />} />
           <Route path="/parametres" element={<ParametresPage />} />
+          <Route path="/equipe" element={<EquipePage />} />
         </Route>
       </Route>
 
