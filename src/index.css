@@ -914,6 +914,188 @@ h1, h2, h3, h4, h5, h6 {
   .status-cancelled { color: var(--ink3); text-decoration: line-through; }
   .status-partially_paid { color: var(--org); }
 
+  /* PILOTAGE BUSINESS — Phase 6.C */
+  .biz-section-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 1.8rem 0 .8rem;
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--ink);
+    padding-bottom: .4rem;
+    border-bottom: .5px solid var(--brd);
+  }
+
+  .biz-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: .8rem;
+    margin-bottom: 1rem;
+  }
+  .biz-kpi {
+    display: flex;
+    align-items: flex-start;
+    gap: .8rem;
+    padding: 1rem 1.1rem;
+    background: var(--wht);
+    border: .5px solid var(--brd);
+    border-radius: var(--r);
+  }
+  .biz-kpi-icon {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .biz-kpi-icon.b-grn { background: var(--grn-lt); color: var(--grn); }
+  .biz-kpi-icon.b-org { background: var(--org-lt); color: var(--org); }
+  .biz-kpi-icon.b-red { background: var(--red-lt); color: var(--red); }
+  .biz-kpi-icon.b-acc { background: rgba(58, 92, 168, .15); color: var(--acc); }
+  .biz-kpi-body { flex: 1; min-width: 0; }
+  .biz-kpi-label {
+    font-size: .68rem;
+    color: var(--ink3);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .biz-kpi-value {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1.4rem;
+    color: var(--ink);
+    margin-bottom: 4px;
+    line-height: 1.1;
+  }
+  .biz-kpi-sub {
+    font-size: .7rem;
+    color: var(--ink3);
+    font-weight: 400;
+    line-height: 1.4;
+  }
+  .biz-kpi-trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-weight: 600;
+  }
+  .biz-kpi-trend.up { color: var(--grn); }
+  .biz-kpi-trend.down { color: var(--red); }
+
+  /* Barres horizontales (top clients / top techs) */
+  .top-bars { display: flex; flex-direction: column; gap: .9rem; margin-top: .5rem; }
+  .top-bar-row { display: flex; flex-direction: column; gap: 4px; }
+  .top-bar-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .top-bar-name {
+    font-size: .85rem;
+    font-weight: 500;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+  .top-bar-amount {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: .82rem;
+    color: var(--ink);
+    flex-shrink: 0;
+  }
+  .top-bar-track {
+    height: 8px;
+    background: var(--bg);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .top-bar-fill {
+    height: 100%;
+    background: var(--acc);
+    border-radius: 100px;
+    transition: width .35s ease;
+  }
+  .top-bar-meta {
+    font-size: .68rem;
+    color: var(--ink3);
+    font-weight: 300;
+  }
+
+  /* Barres verticales (évolution mensuelle) */
+  .monthly-chart {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 4px;
+    margin-top: .8rem;
+    height: 180px;
+  }
+  .monthly-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    cursor: default;
+  }
+  .monthly-col-fill-wrap {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    padding: 0 2px;
+  }
+  .monthly-col-fill {
+    width: 100%;
+    background: var(--bg2);
+    border-radius: 4px 4px 0 0;
+    position: relative;
+    transition: height .35s ease;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 2px;
+  }
+  .monthly-col-fill.has-data {
+    background: linear-gradient(to top, var(--acc), var(--acc-lt, #5a78bd));
+  }
+  .monthly-col-amount {
+    font-size: .58rem;
+    color: white;
+    font-weight: 600;
+    font-family: 'Syne', sans-serif;
+    white-space: nowrap;
+    transform: rotate(-90deg);
+    transform-origin: center;
+    margin-bottom: 8px;
+  }
+  .monthly-col-label {
+    font-size: .65rem;
+    color: var(--ink3);
+    margin-top: 4px;
+    font-weight: 500;
+    text-transform: capitalize;
+  }
+  .monthly-col:hover .monthly-col-fill.has-data {
+    background: var(--ink);
+  }
+
+  @media (max-width: 768px) {
+    .monthly-chart { height: 140px; }
+    .monthly-col-amount { display: none; }
+  }
+
   /* BANDEAU SYNTHÈSE conforme/non-conforme/incomplet */
   .report-summary {
     display: flex;

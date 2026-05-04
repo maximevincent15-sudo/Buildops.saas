@@ -2,11 +2,16 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuthStore } from '../features/auth/store'
 import { ActivityFeed } from '../features/dashboard/components/ActivityFeed'
 import { AlertsList } from '../features/dashboard/components/AlertsList'
+import { BusinessKpis } from '../features/dashboard/components/BusinessKpis'
 import { DailyBriefing } from '../features/dashboard/components/DailyBriefing'
 import { KpiCard } from '../features/dashboard/components/KpiCard'
+import { MonthlyRevenueChart } from '../features/dashboard/components/MonthlyRevenueChart'
 import { RecentInterventions } from '../features/dashboard/components/RecentInterventions'
 import { RevenueBars } from '../features/dashboard/components/RevenueBars'
 import { TechsOfDay } from '../features/dashboard/components/TechsOfDay'
+import { TopBarsChart } from '../features/dashboard/components/TopBarsChart'
+import { fetchBusinessStatsSafe } from '../features/dashboard/businessStatsApi'
+import type { BusinessStats } from '../features/dashboard/businessStatsApi'
 import { getInterventionStats } from '../features/planning/api'
 import type { InterventionStats } from '../features/planning/api'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
@@ -27,6 +32,7 @@ export function DashboardPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [stats, setStats] = useState<InterventionStats | null>(null)
+  const [bizStats, setBizStats] = useState<BusinessStats | null>(null)
 
   const loadStats = useCallback(async () => {
     try {
@@ -37,9 +43,19 @@ export function DashboardPage() {
     }
   }, [])
 
+  const loadBizStats = useCallback(async () => {
+    try {
+      const s = await fetchBusinessStatsSafe()
+      setBizStats(s)
+    } catch (err) {
+      console.error('Erreur chargement stats business', err)
+    }
+  }, [])
+
   useEffect(() => {
     void loadStats()
-  }, [loadStats, refreshKey])
+    void loadBizStats()
+  }, [loadStats, loadBizStats, refreshKey])
 
   return (
     <>
@@ -97,6 +113,42 @@ export function DashboardPage() {
         <RevenueBars />
         <AlertsList key={`al-${refreshKey}`} />
       </div>
+
+      {/* SECTION BUSINESS — KPIs CA, top clients, top techs, évolution */}
+      {bizStats && (
+        <>
+          <div className="biz-section-title">
+            <span>Pilotage business</span>
+            <span className="text-ink-3 text-xs font-light">
+              KPIs calculés à partir de tes devis et factures
+            </span>
+          </div>
+
+          <BusinessKpis stats={bizStats} />
+
+          <div className="g2">
+            <TopBarsChart
+              title="Top 5 clients"
+              subtitle="Par CA facturé"
+              items={bizStats.topClients}
+              emptyMessage="Aucune facture émise. Crée une facture pour voir tes meilleurs clients."
+              barColor="var(--acc)"
+            />
+            <TopBarsChart
+              title="Top 5 techniciens"
+              subtitle="Par CA facturé sur leurs interventions"
+              items={bizStats.topTechnicians}
+              emptyMessage="Aucune facture liée à une intervention avec technicien assigné."
+              barColor="var(--grn)"
+            />
+          </div>
+
+          <MonthlyRevenueChart
+            title="Évolution du CA encaissé"
+            data={bizStats.monthlyRevenue}
+          />
+        </>
+      )}
 
       <div className="g3">
         <RecentInterventions key={`ri-${refreshKey}`} />
