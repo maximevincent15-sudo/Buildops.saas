@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
+import { ClientPortalSection } from '../../portail/components/ClientPortalSection'
 import { ReportHistoryList } from '../../rapports/components/ReportHistoryList'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { createClient, deleteClient, updateClient } from '../api'
@@ -158,6 +159,15 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
               clientName={client.name}
               limit={5}
               hideIfEmpty
+            />
+          )}
+
+          {/* Espace client en ligne — uniquement en édition */}
+          {isEdit && client && (
+            <ClientPortalSection
+              clientId={client.id}
+              clientName={client.name}
+              clientEmail={client.contact_email}
             />
           )}
 

@@ -11,6 +11,7 @@ import { ImportClientsPage } from './pages/ImportClientsPage'
 import { ImportInterventionsPage } from './pages/ImportInterventionsPage'
 import { ImportTechniciansPage } from './pages/ImportTechniciansPage'
 import { ImportVehiclesPage } from './pages/ImportVehiclesPage'
+import { ClientPortalPage } from './pages/ClientPortalPage'
 import { DevisPage } from './pages/DevisPage'
 import { EquipePage } from './pages/EquipePage'
 import { FacturesPage } from './pages/FacturesPage'
@@ -32,6 +33,9 @@ function App() {
       <Route element={<PublicLayout />}>
         <Route path="/auth" element={<AuthPage />} />
       </Route>
+
+      {/* Portail client : route publique, pas d'auth requise (auth via token URL) */}
+      <Route path="/client/:token" element={<ClientPortalPage />} />
 
       <Route element={<RequireAuth />}>
         <Route element={<DashboardLayout />}>
