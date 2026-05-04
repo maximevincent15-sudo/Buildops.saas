@@ -33,6 +33,9 @@ export type InvoicingSettings = {
   late_penalty_text: string | null
   no_discount_text: string | null
   logo_url: string | null
+  /** Préfixes de numérotation (Migration 020) */
+  quote_prefix: string | null
+  invoice_prefix: string | null
   updated_at: string
 }
 
@@ -71,6 +74,8 @@ export async function upsertInvoicingSettings(
     late_penalty_text: input.late_penalty_text?.trim() || null,
     no_discount_text: input.no_discount_text?.trim() || null,
     logo_url: input.logo_url?.trim() || null,
+    quote_prefix: input.quote_prefix?.trim().toUpperCase() || null,
+    invoice_prefix: input.invoice_prefix?.trim().toUpperCase() || null,
     updated_at: new Date().toISOString(),
   }
   const { data, error } = await supabase

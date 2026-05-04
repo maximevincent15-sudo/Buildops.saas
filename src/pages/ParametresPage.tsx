@@ -1,9 +1,10 @@
-import { Building2, CheckCircle2, FileText, Save } from 'lucide-react'
+import { Building2, CheckCircle2, FileText, Save, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { fetchProfile } from '../features/auth/api'
 import { useAuthStore } from '../features/auth/store'
 import { getInvoicingSettings, updateOrganizationName, upsertInvoicingSettings } from '../features/parametres/api'
 import type { UpsertInvoicingInput } from '../features/parametres/api'
+import { loadDemoData } from '../features/parametres/demoData'
 
 const EMPTY: UpsertInvoicingInput = {
   legal_form: null,
@@ -24,6 +25,8 @@ const EMPTY: UpsertInvoicingInput = {
     'Tout retard de paiement entraîne des pénalités au taux annuel de 3 fois le taux légal (loi LME 2008), ainsi qu\'une indemnité forfaitaire pour frais de recouvrement de 40 €.',
   no_discount_text: 'Pas d\'escompte pour paiement anticipé.',
   logo_url: null,
+  quote_prefix: 'DEV',
+  invoice_prefix: 'FAC',
 }
 
 export function ParametresPage() {
@@ -36,6 +39,8 @@ export function ParametresPage() {
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [demoLoading, setDemoLoading] = useState(false)
+  const [demoStep, setDemoStep] = useState<{ label: string; current: number; total: number } | null>(null)
 
   useEffect(() => {
     setOrgName(profile?.organizations?.name ?? '')
@@ -63,6 +68,8 @@ export function ParametresPage() {
             late_penalty_text: s.late_penalty_text,
             no_discount_text: s.no_discount_text,
             logo_url: s.logo_url,
+            quote_prefix: s.quote_prefix ?? 'DEV',
+            invoice_prefix: s.invoice_prefix ?? 'FAC',
           })
         }
       })
@@ -75,6 +82,39 @@ export function ParametresPage() {
 
   function setField<K extends keyof UpsertInvoicingInput>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value || null }))
+  }
+
+  async function handleLoadDemo() {
+    if (!profile?.organization_id) return
+    if (!window.confirm(
+      'Charger les données de démo ?\n\n' +
+      'Cela va créer dans ton organisation :\n' +
+      '• 6 clients fictifs\n' +
+      '• 4 techniciens\n' +
+      '• 2 véhicules\n' +
+      '• 12 interventions (passées + à venir)\n' +
+      '• 3 devis et 2 factures\n' +
+      '• 3 notes de frais et 2 heures sup\n\n' +
+      'Tout est marqué [DÉMO] dans les notes pour les retrouver.\n' +
+      'Tu peux les supprimer manuellement après.\n\n' +
+      'Continuer ?'
+    )) return
+    setDemoLoading(true)
+    setError(null)
+    setFlash(null)
+    setDemoStep(null)
+    try {
+      await loadDemoData(profile.organization_id, (label, current, total) => {
+        setDemoStep({ label, current, total })
+      })
+      setFlash('Données de démo chargées avec succès. Explore les pages pour voir le résultat.')
+      setTimeout(() => setFlash(null), 6000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors du chargement de la démo')
+    } finally {
+      setDemoLoading(false)
+      setDemoStep(null)
+    }
   }
 
   async function handleSave() {
@@ -324,6 +364,51 @@ export function ParametresPage() {
         </div>
       </div>
 
+      {/* Bloc préfixes */}
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card-top">
+          <span className="card-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <FileText size={14} strokeWidth={1.8} />
+            Numérotation
+          </span>
+          <span className="text-ink-3 text-xs font-light">
+            Personnalise les préfixes de tes devis et factures.
+          </span>
+        </div>
+        <div className="mrow">
+          <div className="fg">
+            <label>Préfixe Devis</label>
+            <input
+              type="text"
+              placeholder="DEV"
+              value={form.quote_prefix ?? ''}
+              onChange={(e) => setField('quote_prefix', e.target.value.toUpperCase().slice(0, 6))}
+              maxLength={6}
+            />
+            <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
+              Aperçu : <strong>{(form.quote_prefix ?? 'DEV')}-2026-0001</strong>
+            </span>
+          </div>
+          <div className="fg">
+            <label>Préfixe Factures</label>
+            <input
+              type="text"
+              placeholder="FAC"
+              value={form.invoice_prefix ?? ''}
+              onChange={(e) => setField('invoice_prefix', e.target.value.toUpperCase().slice(0, 6))}
+              maxLength={6}
+            />
+            <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
+              Aperçu : <strong>{(form.invoice_prefix ?? 'FAC')}-2026-0001</strong>
+            </span>
+          </div>
+        </div>
+        <p className="text-ink-3 text-xs font-light" style={{ marginTop: '.5rem' }}>
+          ⚠️ Le changement s'applique aux <strong>nouveaux</strong> documents uniquement.
+          Les références existantes ne sont pas renommées.
+        </p>
+      </div>
+
       {/* Bloc 4 : mentions légales devis/factures */}
       <div className="card">
         <div className="card-top">
@@ -357,6 +442,47 @@ export function ParametresPage() {
             onChange={(e) => setField('no_discount_text', e.target.value)}
           />
         </div>
+      </div>
+
+      {/* Bloc Mode démo (tout en bas) */}
+      <div className="card" style={{ marginTop: '1rem' }}>
+        <div className="card-top">
+          <span className="card-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <Sparkles size={14} strokeWidth={1.8} />
+            Charger des données de démo
+          </span>
+        </div>
+        <p className="text-ink-2 text-sm font-light" style={{ margin: '0 0 .8rem' }}>
+          Crée en un clic des clients, techniciens, véhicules, interventions, devis et factures fictifs
+          dans ton organisation. Pratique pour tester le SaaS rapidement ou pour une démo commerciale.
+        </p>
+        <p className="text-ink-3 text-xs font-light" style={{ margin: '0 0 .8rem' }}>
+          Tout est marqué <strong>[DÉMO]</strong> dans les notes — tu pourras les supprimer manuellement après.
+          Cette opération est <strong>additive</strong> (n'efface rien d'existant).
+        </p>
+        <button
+          type="button"
+          className="mf out"
+          onClick={() => void handleLoadDemo()}
+          disabled={demoLoading}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <Sparkles size={13} strokeWidth={2} />
+          {demoLoading ? 'Chargement…' : 'Charger les données de démo'}
+        </button>
+        {demoStep && (
+          <div style={{ marginTop: '1rem' }}>
+            <div className="text-ink-2 text-xs font-light" style={{ marginBottom: 4 }}>
+              {demoStep.current} / {demoStep.total} — {demoStep.label}
+            </div>
+            <div className="demo-progress">
+              <div
+                className="demo-progress-fill"
+                style={{ width: `${(demoStep.current / demoStep.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </>
   )

@@ -21,9 +21,11 @@ import { listExpenses } from '../../expenses/api'
 import { listOvertime } from '../../overtime/api'
 import { listInterventions } from '../../planning/api'
 import { computeVehicleAlerts } from '../../vehicles/api'
+import { listInvoices } from '../../factures/api'
+import { effectiveStatus } from '../../factures/constants'
 
 type NavItem = { to: string; Icon: LucideIcon; label: string; badgeKey?: BadgeKey }
-type BadgeKey = 'planning' | 'rapports' | 'alertes' | 'rh'
+type BadgeKey = 'planning' | 'rapports' | 'alertes' | 'rh' | 'factures'
 
 type Counts = Record<BadgeKey, number>
 
@@ -47,7 +49,7 @@ const rh: NavItem[] = [
 
 const facturation: NavItem[] = [
   { to: '/devis', Icon: Wallet, label: 'Devis' },
-  { to: '/factures', Icon: Receipt, label: 'Factures' },
+  { to: '/factures', Icon: Receipt, label: 'Factures', badgeKey: 'factures' },
 ]
 
 const documents: NavItem[] = [
@@ -91,19 +93,22 @@ export function Sidebar() {
   const location = useLocation()
   const user = useAuthStore((s) => s.user)
   const profile = useAuthStore((s) => s.profile)
-  const [counts, setCounts] = useState<Counts>({ planning: 0, rapports: 0, alertes: 0, rh: 0 })
+  const [counts, setCounts] = useState<Counts>({ planning: 0, rapports: 0, alertes: 0, rh: 0, factures: 0 })
 
   // Refetch counts à chaque changement de route (donc après création / suppression)
   useEffect(() => {
     let alive = true
+    // listInvoices peut crash si migration 019 absente — on l'isole.
+    const safeInvoices = listInvoices().catch(() => [])
     Promise.all([
       listInterventions(),
       computeRegulatoryAlerts(),
       listExpenses(),
       listOvertime(),
       computeVehicleAlerts(),
+      safeInvoices,
     ])
-      .then(([all, alerts, expenses, overtime, vehicleAlerts]) => {
+      .then(([all, alerts, expenses, overtime, vehicleAlerts, invoices]) => {
         if (!alive) return
         const planning = all.filter((i) => i.status === 'a_planifier' || i.status === 'planifiee').length
         const rapports = all.filter((i) => i.status === 'en_cours').length
@@ -118,7 +123,17 @@ export function Sidebar() {
         const rh =
           expenses.filter((e) => e.status === 'pending').length +
           overtime.filter((o) => o.status === 'pending').length
-        setCounts({ planning, rapports, alertes: alertesUrgent, rh })
+        // Badge factures = nombre de factures non payées et non annulées (sent + partial + overdue)
+        const factures = invoices.filter((inv) => {
+          const eff = effectiveStatus(
+            inv.status,
+            inv.due_date,
+            Number(inv.amount_paid ?? 0),
+            Number(inv.total_ttc ?? 0),
+          )
+          return eff === 'sent' || eff === 'partially_paid' || eff === 'overdue'
+        }).length
+        setCounts({ planning, rapports, alertes: alertesUrgent, rh, factures })
       })
       .catch(() => { /* silently ignore — no badge better than crash */ })
     return () => { alive = false }
