@@ -11,6 +11,7 @@ import { ImportClientsPage } from './pages/ImportClientsPage'
 import { ImportInterventionsPage } from './pages/ImportInterventionsPage'
 import { ImportTechniciansPage } from './pages/ImportTechniciansPage'
 import { ImportVehiclesPage } from './pages/ImportVehiclesPage'
+import { ArchivagePage } from './pages/ArchivagePage'
 import { ClientPortalPage } from './pages/ClientPortalPage'
 import { DevisPage } from './pages/DevisPage'
 import { EquipePage } from './pages/EquipePage'
@@ -19,7 +20,6 @@ import { ParametresPage } from './pages/ParametresPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { OvertimePage } from './pages/OvertimePage'
 import { VehiculesPage } from './pages/VehiculesPage'
-import { PlaceholderPage } from './pages/PlaceholderPage'
 import { PlanningPage } from './pages/PlanningPage'
 import { RapportEditorPage } from './pages/RapportEditorPage'
 import { RapportsListPage } from './pages/RapportsListPage'
@@ -55,7 +55,7 @@ function App() {
           <Route path="/vehicules" element={<VehiculesPage />} />
           <Route path="/devis" element={<DevisPage />} />
           <Route path="/factures" element={<FacturesPage />} />
-          <Route path="/archivage" element={<PlaceholderPage title="Archivage" description="Documents archivés par site et par intervention." />} />
+          <Route path="/archivage" element={<ArchivagePage />} />
           <Route path="/parametres" element={<ParametresPage />} />
           <Route path="/equipe" element={<EquipePage />} />
         </Route>
