@@ -98,16 +98,22 @@ export async function testEmailConfig(testRecipient: string): Promise<{
 
     if (error) {
       const status = (error as { status?: number }).status
-      if (status === 404) {
+      const errMsg = (error as { message?: string }).message ?? ''
+      // Cas typique : "Failed to send a request to the Edge Function" = fonction non déployée
+      if (
+        status === 404 ||
+        /failed to send a request|not found|edge function/i.test(errMsg)
+      ) {
         return {
           ok: false,
-          message: 'Edge Function non déployée. Voir instructions dans Paramètres.',
+          message:
+            "Edge Function pas encore déployée sur Supabase. C'est normal ! Suis les étapes d'activation ci-dessus (étape 5 : `supabase functions deploy send-document-email --no-verify-jwt`).",
           mode: 'function_not_deployed',
         }
       }
       return {
         ok: false,
-        message: `Erreur ${status ?? '?'}: ${(error as Error).message ?? 'inconnue'}`,
+        message: `Erreur ${status ?? '?'}: ${errMsg || 'inconnue'}`,
         mode: 'error',
       }
     }
