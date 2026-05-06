@@ -2,6 +2,7 @@ import { Ban, CheckCircle2, Download, Edit3, FileText, Mail, Plus, Trash2, Undo2
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
+import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { VAT_RATES, computeQuoteTotals, formatAmount } from '../../devis/constants'
 import type { QuoteLineInput } from '../../devis/schemas'
 import { getInvoicingSettings } from '../../parametres/api'
@@ -458,10 +459,10 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
                 </div>
                 <div className="fg">
                   <label>Adresse de facturation</label>
-                  <input
-                    type="text"
+                  <AddressAutocomplete
                     value={clientAddress}
-                    onChange={(e) => setClientAddress(e.target.value)}
+                    onChange={setClientAddress}
+                    placeholder="Commence à taper le numéro et la rue…"
                   />
                 </div>
               </div>
@@ -475,16 +476,17 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
                   <label>Site</label>
                   <input
                     type="text"
+                    placeholder="Bâtiment A, hall principal…"
                     value={siteName}
                     onChange={(e) => setSiteName(e.target.value)}
                   />
                 </div>
                 <div className="fg">
                   <label>Adresse du site</label>
-                  <input
-                    type="text"
+                  <AddressAutocomplete
                     value={siteAddress}
-                    onChange={(e) => setSiteAddress(e.target.value)}
+                    onChange={setSiteAddress}
+                    placeholder="Commence à taper le numéro et la rue…"
                   />
                 </div>
               </div>
@@ -505,12 +507,16 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
                 />
               </div>
               <div className="fg">
-                <label>Échéance de paiement</label>
+                <label>Date limite de paiement</label>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
                 />
+                <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
+                  Date à laquelle le client doit avoir payé. Au-delà, la facture passe automatiquement
+                  en "En retard". Par défaut J+30.
+                </span>
               </div>
             </div>
 

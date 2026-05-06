@@ -1,4 +1,5 @@
 import { ArrowRight, CheckCircle2, Download, FileText, Mail, Plus, Trash2, Undo2, X, XCircle } from 'lucide-react'
+import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
@@ -457,10 +458,10 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                 </div>
                 <div className="fg">
                   <label>Adresse de facturation</label>
-                  <input
-                    type="text"
+                  <AddressAutocomplete
                     value={clientAddress}
-                    onChange={(e) => setClientAddress(e.target.value)}
+                    onChange={setClientAddress}
+                    placeholder="Commence à taper le numéro et la rue…"
                   />
                 </div>
               </div>
@@ -481,10 +482,10 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                 </div>
                 <div className="fg">
                   <label>Adresse du site</label>
-                  <input
-                    type="text"
+                  <AddressAutocomplete
                     value={siteAddress}
-                    onChange={(e) => setSiteAddress(e.target.value)}
+                    onChange={setSiteAddress}
+                    placeholder="Commence à taper le numéro et la rue…"
                   />
                 </div>
               </div>
@@ -501,12 +502,16 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                 />
               </div>
               <div className="fg">
-                <label>Validité jusqu'au</label>
+                <label>Date limite d'acceptation par le client</label>
                 <input
                   type="date"
                   value={validityDate}
                   onChange={(e) => setValidityDate(e.target.value)}
                 />
+                <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
+                  Au-delà de cette date, ton client ne pourra plus accepter ce devis au prix proposé.
+                  Mention légale recommandée — par défaut J+30.
+                </span>
               </div>
             </div>
 
