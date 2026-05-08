@@ -17,7 +17,7 @@ function isValidEmail(s: string): boolean {
 export const techniciansImportDefinition: ImportDefinition = {
   entityLabel: 'technicien',
   entityLabelPlural: 'techniciens',
-  templateFilename: 'techniciens-buildops.xlsx',
+  templateFilename: 'techniciens-firovia.xlsx',
   description:
     'Importe la liste de tes techniciens depuis Excel ou CSV. Prénom et nom sont obligatoires, le reste est facultatif.',
   fields: [

@@ -138,10 +138,10 @@ export function EquipePage() {
   function handleSendByEmail(invitation: Invitation) {
     const url = buildInvitationUrl(invitation.token)
     const orgName = profile?.organizations?.name ?? 'notre équipe'
-    const subject = `Invitation à rejoindre ${orgName} sur BuildOps`
+    const subject = `Invitation à rejoindre ${orgName} sur Firovia`
     const body =
       `Bonjour,\n\n` +
-      `Tu es invité(e) à rejoindre l'équipe ${orgName} sur BuildOps en tant que ${ROLE_LABEL[invitation.role].toLowerCase()}.\n\n` +
+      `Tu es invité(e) à rejoindre l'équipe ${orgName} sur Firovia en tant que ${ROLE_LABEL[invitation.role].toLowerCase()}.\n\n` +
       `Clique sur ce lien pour créer ton compte et rejoindre l'équipe :\n${url}\n\n` +
       `Le lien expire le ${formatDate(invitation.expires_at)}.\n\n` +
       `À bientôt,\n${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim()
@@ -210,7 +210,7 @@ export function EquipePage() {
         <div>
           <div className="dash-title">Équipe</div>
           <div className="dash-sub">
-            Invite tes employés à rejoindre ton organisation BuildOps.
+            Invite tes employés à rejoindre ton organisation Firovia.
           </div>
         </div>
         <div className="dash-acts">

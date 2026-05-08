@@ -66,7 +66,7 @@ function interventionToEvent(i: Intervention): string | null {
 
   const lines = [
     'BEGIN:VEVENT',
-    `UID:int-${i.id}@buildops`,
+    `UID:int-${i.id}@firovia`,
     `DTSTAMP:${dtUtcNow()}`,
     `DTSTART;VALUE=DATE:${start}`,
     `DTEND;VALUE=DATE:${end}`,
@@ -109,7 +109,7 @@ function blockToEvent(b: PlanningBlock): string {
 
   const lines = [
     'BEGIN:VEVENT',
-    `UID:blk-${b.id}@buildops`,
+    `UID:blk-${b.id}@firovia`,
     `DTSTAMP:${dtUtcNow()}`,
     dtstartLine,
     dtendLine,
@@ -132,7 +132,7 @@ export function buildIcsCalendar(
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//BuildOps//Planning//FR',
+    'PRODID:-//Firovia//Planning//FR',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${escapeIcs(calendarName)}`,

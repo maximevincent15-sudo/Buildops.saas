@@ -90,8 +90,8 @@ export async function testEmailConfig(testRecipient: string): Promise<{
         kind: 'report',
         documentId: '00000000-0000-0000-0000-000000000000',
         recipientEmail: testRecipient,
-        subject: 'Test BuildOps — configuration email',
-        body: 'Ceci est un test envoyé depuis BuildOps.\nSi tu reçois ce message, ta config Resend est OK ✓',
+        subject: 'Test Firovia — configuration email',
+        body: 'Ceci est un test envoyé depuis Firovia.\nSi tu reçois ce message, ta config Resend est OK ✓',
         pdfUrl: null,
       },
     })

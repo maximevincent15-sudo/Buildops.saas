@@ -171,7 +171,7 @@ export function ClientPortalPage() {
 
       <footer className="portal-footer">
         <p>
-          Espace client sécurisé propulsé par <strong>BuildOps</strong>
+          Espace client sécurisé propulsé par <strong>Firovia</strong>
         </p>
       </footer>
     </div>

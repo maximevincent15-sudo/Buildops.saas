@@ -482,7 +482,7 @@ export function ParametresPage() {
             </span>
           </div>
           <p className="text-ink-2 text-sm font-light" style={{ margin: '0 0 .8rem' }}>
-            Invite tes collaborateurs à rejoindre ton organisation BuildOps. Chaque membre peut avoir
+            Invite tes collaborateurs à rejoindre ton organisation Firovia. Chaque membre peut avoir
             son propre compte et son propre accès — utile pour que tes techniciens saisissent leurs
             notes de frais et heures sup directement.
           </p>
@@ -508,7 +508,7 @@ export function ParametresPage() {
             <span className="text-ink-3 text-xs font-light">Optionnel — version premium</span>
           </div>
           <p className="text-ink-2 text-sm font-light" style={{ margin: '0 0 .8rem' }}>
-            Sans configuration, BuildOps utilise <strong>ta messagerie</strong> (mailto:) pour envoyer
+            Sans configuration, Firovia utilise <strong>ta messagerie</strong> (mailto:) pour envoyer
             rapports, devis et factures. Avec Resend activé, les emails partent
             <strong> automatiquement</strong> avec le PDF en <strong>pièce jointe</strong>, et tu
             n'as plus besoin de cliquer "Envoyer" dans Gmail.

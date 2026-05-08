@@ -34,7 +34,7 @@ export function TopNav({ onToggleSidebar }: Props) {
         <span className="plan-label">
           Plan <strong className="text-acc">Pro</strong>
         </span>
-        <a href="https://buildops-site.vercel.app" className="btn-sm site-btn" target="_blank" rel="noreferrer">
+        <a href="https://firovia.fr" className="btn-sm site-btn" target="_blank" rel="noreferrer">
           ← Site
         </a>
         <button type="button" onClick={handleSignOut} className="btn-sm logout-btn">

@@ -1,6 +1,6 @@
 // @ts-nocheck — Cette fonction tourne dans Deno (Supabase Edge), pas dans le bundle Vite/TS
 //
-// BuildOps — Edge Function : envoi d'un document (rapport / devis / facture)
+// Firovia — Edge Function : envoi d'un document (rapport / devis / facture)
 // par email avec le PDF en pièce jointe via Resend.
 //
 // Setup nécessaire (à faire UNE fois par l'utilisateur) :
@@ -56,7 +56,7 @@ serve(async (req) => {
   try {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
     const RESEND_FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'onboarding@resend.dev'
-    const RESEND_FROM_NAME = Deno.env.get('RESEND_FROM_NAME') ?? 'BuildOps'
+    const RESEND_FROM_NAME = Deno.env.get('RESEND_FROM_NAME') ?? 'Firovia'
 
     if (!RESEND_API_KEY) {
       return new Response(

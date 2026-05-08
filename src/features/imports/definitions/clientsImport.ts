@@ -26,7 +26,7 @@ function isValidEmail(s: string): boolean {
 export const clientsImportDefinition: ImportDefinition = {
   entityLabel: 'client',
   entityLabelPlural: 'clients',
-  templateFilename: 'clients-buildops.xlsx',
+  templateFilename: 'clients-firovia.xlsx',
   description:
     'Importe la liste de tes clients depuis Excel, CSV ou tout autre outil (Google Sheets, Optim-BTP, Batigest…). ' +
     'Exporte simplement en .xlsx ou .csv et colle tes colonnes dans le template.',

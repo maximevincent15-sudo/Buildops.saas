@@ -10,7 +10,7 @@ import type { Expense } from '../expenses/schemas'
 import { OVERTIME_TYPE_LABEL } from '../overtime/constants'
 import type { Overtime } from '../overtime/schemas'
 
-const HEADER_FILL = 'FF1C2130'    // BuildOps ink foncé
+const HEADER_FILL = 'FF1C2130'    // Firovia ink foncé
 const HEADER_FONT = 'FFFFFFFF'
 const SUBTOTAL_FILL = 'FFF4F2EE'  // bg2
 
@@ -292,7 +292,7 @@ function buildOvertimeSheet(wb: ExcelJS.Workbook, input: PayrollInput) {
 
 export async function generatePayrollXlsx(input: PayrollInput): Promise<Blob> {
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'BuildOps'
+  wb.creator = 'Firovia'
   wb.created = new Date()
 
   buildExpensesSheet(wb, input)

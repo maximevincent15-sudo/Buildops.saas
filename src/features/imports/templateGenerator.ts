@@ -13,7 +13,7 @@ export async function generateImportTemplate(
   definition: ImportDefinition,
 ): Promise<Blob> {
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'BuildOps'
+  wb.creator = 'Firovia'
   wb.created = new Date()
 
   const ws = wb.addWorksheet(definition.entityLabelPlural, {
@@ -61,7 +61,7 @@ export async function generateImportTemplate(
     `💡 Commence à remplir à partir de la ligne 4. ` +
     `Les colonnes marquées d'un * sont obligatoires. ` +
     `Les dates au format JJ/MM/AAAA. ` +
-    `Sauvegarde ensuite en .xlsx et utilise "Importer un fichier" sur BuildOps.`
+    `Sauvegarde ensuite en .xlsx et utilise "Importer un fichier" sur Firovia.`
   hintCell.font = { italic: true, color: { argb: 'FF6A7080' }, size: 9 }
   hintCell.alignment = { vertical: 'middle', wrapText: true }
   hintCell.fill = {

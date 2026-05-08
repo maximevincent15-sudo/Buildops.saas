@@ -86,7 +86,7 @@ export function PlanningPage() {
         return `${y}-${m}-${day}`
       }
       const blocks = await listBlocksForRange(toIso(start), toIso(end))
-      const orgName = profile?.organizations?.name ?? 'BuildOps'
+      const orgName = profile?.organizations?.name ?? 'Firovia'
       const ics = buildIcsCalendar(interventions, blocks, `Planning ${orgName}`)
       const stamp = format(today, 'yyyyMMdd')
       downloadIcs(`planning-${stamp}.ics`, ics)

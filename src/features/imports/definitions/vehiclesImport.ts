@@ -14,9 +14,9 @@ function normalizePlate(s: string): string {
 export const vehiclesImportDefinition: ImportDefinition = {
   entityLabel: 'véhicule',
   entityLabelPlural: 'véhicules',
-  templateFilename: 'vehicules-buildops.xlsx',
+  templateFilename: 'vehicules-firovia.xlsx',
   description:
-    "Importe ton parc véhicules. La plaque est obligatoire. Les dates peuvent être au format JJ/MM/AAAA ou AAAA-MM-JJ. Le nom du technicien assigné est optionnel — s'il n'existe pas dans tes techniciens BuildOps, on mettra le véhicule au pool commun.",
+    "Importe ton parc véhicules. La plaque est obligatoire. Les dates peuvent être au format JJ/MM/AAAA ou AAAA-MM-JJ. Le nom du technicien assigné est optionnel — s'il n'existe pas dans tes techniciens Firovia, on mettra le véhicule au pool commun.",
   fields: [
     { key: 'license_plate', label: 'Plaque', required: true, example: 'AB-123-CD' },
     { key: 'brand', label: 'Marque', example: 'Renault' },

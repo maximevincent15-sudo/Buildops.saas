@@ -51,7 +51,7 @@ function parsePriority(input: string | null | undefined): 'normale' | 'urgente' 
 }
 
 /**
- * Parse un statut texte vers un code BuildOps.
+ * Parse un statut texte vers un code Firovia.
  * - "terminé", "fait", "done", "archivé" → terminee
  * - "en cours" → en_cours
  * - "planifié", "prévu" → planifiee (si date renseignée), sinon a_planifier
@@ -85,7 +85,7 @@ function parseStatus(input: string | null | undefined, hasDate: boolean): string
 export const interventionsImportDefinition: ImportDefinition = {
   entityLabel: 'intervention',
   entityLabelPlural: 'interventions',
-  templateFilename: 'interventions-buildops.xlsx',
+  templateFilename: 'interventions-firovia.xlsx',
   description:
     "Importe ton planning (à venir) ET/OU ton historique d'interventions. Les interventions avec statut 'terminée' alimentent directement les alertes réglementaires : tu verras tout de suite les prochains contrôles à planifier.",
   fields: [

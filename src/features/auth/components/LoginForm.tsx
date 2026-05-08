@@ -49,7 +49,7 @@ export function LoginForm({ prefilledEmail }: Props = {}) {
     <form onSubmit={handleSubmit(onSubmit)} className="fp on">
       <div>
         <p className="fp-title">Bon retour 👋</p>
-        <p className="fp-sub">Connectez-vous à votre espace BuildOps</p>
+        <p className="fp-sub">Connectez-vous à votre espace Firovia</p>
       </div>
 
       <div className="fg">
