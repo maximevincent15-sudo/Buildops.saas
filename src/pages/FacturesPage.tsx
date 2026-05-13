@@ -2,7 +2,8 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { AlertTriangle, Bell, Download, FileText, Mail, Plus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import { useAuthStore } from '../features/auth/store'
 import { formatAmount } from '../features/devis/constants'
 import { listInvoices } from '../features/factures/api'
 import { InvoiceModal } from '../features/factures/components/InvoiceModal'
@@ -36,6 +37,9 @@ const TABS: Array<{ key: InvoiceStatus | 'all' | 'unpaid'; label: string }> = [
 ]
 
 export function FacturesPage() {
+  const profile = useAuthStore((s) => s.profile)
+  const isAdmin = (profile?.user_role ?? 'admin') === 'admin'
+
   const [searchParams, setSearchParams] = useSearchParams()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
@@ -130,6 +134,22 @@ export function FacturesPage() {
   function openEdit(id: string) {
     setEditingId(id)
     setModalOpen(true)
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="card" style={{ maxWidth: 560, margin: '2rem auto' }}>
+        <div className="card-top">
+          <span className="card-title">Accès restreint</span>
+        </div>
+        <p className="text-ink-2 text-sm font-light">
+          Seuls les administrateurs peuvent consulter les factures.
+        </p>
+        <Link to="/dashboard" className="btn-sm" style={{ marginTop: '1rem', display: 'inline-block' }}>
+          Retour au tableau de bord
+        </Link>
+      </div>
+    )
   }
 
   return (

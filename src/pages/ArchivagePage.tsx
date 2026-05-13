@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuthStore } from '../features/auth/store'
 import { listArchivedDocuments } from '../features/archivage/api'
 import type { ArchivedDocument } from '../features/archivage/api'
 import { formatAmount } from '../features/devis/constants'
@@ -55,6 +56,9 @@ function getYear(d: string): string {
 }
 
 export function ArchivagePage() {
+  const profile = useAuthStore((s) => s.profile)
+  const isAdmin = (profile?.user_role ?? 'admin') === 'admin'
+
   const [docs, setDocs] = useState<ArchivedDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -134,6 +138,22 @@ export function ArchivagePage() {
     kindFilter !== 'all' ||
     clientFilter !== 'all' ||
     yearFilter !== 'all'
+
+  if (!isAdmin) {
+    return (
+      <div className="card" style={{ maxWidth: 560, margin: '2rem auto' }}>
+        <div className="card-top">
+          <span className="card-title">Accès restreint</span>
+        </div>
+        <p className="text-ink-2 text-sm font-light">
+          Seuls les administrateurs peuvent consulter l'archivage des documents.
+        </p>
+        <Link to="/dashboard" className="btn-sm" style={{ marginTop: '1rem', display: 'inline-block' }}>
+          Retour au tableau de bord
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <>
