@@ -63,14 +63,32 @@ export async function updateMemberRole(profileId: string, role: UserRole): Promi
  *    d'historique
  *  - L'ancien membre n'a plus accès au SaaS jusqu'à nouvelle invitation
  *
- * RLS empêche de retirer un membre d'une autre organisation.
+ * Utilise une RPC SECURITY DEFINER (migration 023) pour contourner les
+ * politiques RLS qui empêchent l'update direct de organization_id.
+ *
+ * Checks de sécurité côté serveur :
+ *  - L'appelant doit être admin de l'organisation
+ *  - Le membre doit être dans la même organisation
+ *  - Impossible de se retirer soi-même
+ *  - Impossible de retirer le dernier admin
  */
 export async function removeMemberFromOrganization(profileId: string): Promise<void> {
-  const { error } = await supabase
-    .from('profiles')
-    .update({ organization_id: null })
-    .eq('id', profileId)
+  const { data, error } = await supabase.rpc('remove_member_from_organization', {
+    member_id: profileId,
+  })
   if (error) throw error
+  if (data?.error) {
+    const messages: Record<string, string> = {
+      not_authenticated: 'Vous devez être connecté(e)',
+      not_admin: "Seuls les administrateurs peuvent retirer un membre",
+      cannot_remove_self: 'Vous ne pouvez pas vous retirer vous-même',
+      member_not_found: 'Membre introuvable',
+      not_same_org: "Ce membre n'appartient pas à votre organisation",
+      last_admin: 'Impossible de retirer le dernier administrateur',
+      caller_no_org: "Vous n'êtes rattaché à aucune organisation",
+    }
+    throw new Error(messages[data.error as string] ?? (data.error as string))
+  }
 }
 
 // ─── Invitations ─────────────────────────────────────────────────────
