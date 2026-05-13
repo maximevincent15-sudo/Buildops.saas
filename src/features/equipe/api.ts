@@ -52,6 +52,27 @@ export async function updateMemberRole(profileId: string, role: UserRole): Promi
   if (error) throw error
 }
 
+/**
+ * Retire un membre de l'organisation (soft remove).
+ *
+ * Comportement :
+ *  - Détache le profile de l'organisation (organization_id = NULL)
+ *  - Le compte auth.users reste intact → l'utilisateur peut être ré-invité
+ *  - Toutes ses données passées (interventions créées, rapports, etc.) restent
+ *    liées à l'organisation (via organization_id sur ces tables) — pas de perte
+ *    d'historique
+ *  - L'ancien membre n'a plus accès au SaaS jusqu'à nouvelle invitation
+ *
+ * RLS empêche de retirer un membre d'une autre organisation.
+ */
+export async function removeMemberFromOrganization(profileId: string): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ organization_id: null })
+    .eq('id', profileId)
+  if (error) throw error
+}
+
 // ─── Invitations ─────────────────────────────────────────────────────
 
 function generateToken(): string {

@@ -25,6 +25,7 @@ import {
   deleteInvitation,
   listInvitations,
   listMembers,
+  removeMemberFromOrganization,
   updateMemberRole,
 } from '../features/equipe/api'
 import type { Invitation, TeamMember, UserRole } from '../features/equipe/api'
@@ -180,6 +181,37 @@ export function EquipePage() {
     if (!window.confirm(`Changer le rôle de ce membre en "${ROLE_LABEL[newRole]}" ?`)) return
     try {
       await updateMemberRole(memberId, newRole)
+      void load()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erreur')
+    }
+  }
+
+  async function handleRemoveMember(member: TeamMember, isCurrentUser: boolean) {
+    if (isCurrentUser) {
+      alert('Tu ne peux pas te retirer toi-même de l\'équipe. Demande à un autre admin de le faire.')
+      return
+    }
+    // Sécurité : empêcher de retirer le dernier admin
+    if (member.user_role === 'admin') {
+      const adminCount = members.filter((m) => m.user_role === 'admin').length
+      if (adminCount <= 1) {
+        alert('Impossible de retirer le dernier administrateur. Promouvoir un autre membre admin avant.')
+        return
+      }
+    }
+    const fullName = `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim() || 'ce membre'
+    const confirmed = window.confirm(
+      `Retirer ${fullName} de l'équipe ?\n\n` +
+      `✓ Son compte ne sera PAS supprimé (il pourra être ré-invité)\n` +
+      `✓ Toutes ses interventions, rapports et autres données passées sont conservés\n` +
+      `✗ Il perd immédiatement l'accès à votre organisation Firovia\n\n` +
+      `Confirmer le retrait ?`
+    )
+    if (!confirmed) return
+    try {
+      await removeMemberFromOrganization(member.id)
+      setFlash(`${fullName} a été retiré(e) de l'équipe.`)
       void load()
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Erreur')
@@ -349,6 +381,23 @@ export function EquipePage() {
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                       >
                         <UserMinus size={11} /> Membre
+                      </button>
+                    )}
+                    {!isCurrentUser && (
+                      <button
+                        type="button"
+                        className="btn-sm"
+                        onClick={() => void handleRemoveMember(m, isCurrentUser)}
+                        title="Retirer de l'équipe (conserve ses données)"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          color: 'var(--red)',
+                          borderColor: 'rgba(168, 58, 58, .3)',
+                        }}
+                      >
+                        <Trash2 size={11} /> Retirer
                       </button>
                     )}
                   </div>
