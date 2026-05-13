@@ -76,7 +76,15 @@ export async function removeMemberFromOrganization(profileId: string): Promise<v
   const { data, error } = await supabase.rpc('remove_member_from_organization', {
     member_id: profileId,
   })
-  if (error) throw error
+
+  // Erreur Supabase / PostgreSQL (fonction inexistante, droits, etc.)
+  if (error) {
+    console.error('[removeMemberFromOrganization] Supabase error:', error)
+    const msg = error.message || error.details || error.hint || JSON.stringify(error)
+    throw new Error(`Erreur base de données : ${msg}`)
+  }
+
+  // Erreur métier renvoyée par la fonction RPC
   if (data?.error) {
     const messages: Record<string, string> = {
       not_authenticated: 'Vous devez être connecté(e)',
@@ -87,7 +95,9 @@ export async function removeMemberFromOrganization(profileId: string): Promise<v
       last_admin: 'Impossible de retirer le dernier administrateur',
       caller_no_org: "Vous n'êtes rattaché à aucune organisation",
     }
-    throw new Error(messages[data.error as string] ?? (data.error as string))
+    const errCode = data.error as string
+    console.error('[removeMemberFromOrganization] Business error:', errCode)
+    throw new Error(messages[errCode] ?? `Erreur : ${errCode}`)
   }
 }
 
