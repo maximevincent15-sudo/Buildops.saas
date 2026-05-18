@@ -1,7 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#1E40AF"/>
-  <g transform="translate(6,5)">
-    <path d="M10 0L2 2.5v6c0 5.25 3.5 9 8 10.5 4.5-1.5 8-5.25 8-10.5V2.5L10 0z" fill="#93C5FD" stroke="#1E40AF" stroke-width="1.5" stroke-linejoin="round"/>
-    <path d="M6.5 9.5l2.5 2.5 5-5" fill="none" stroke="#1E40AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Firovia">
+  <!-- Gradient bleu : #3A5CA8 (haut-gauche) -> #5578C8 (bas-droite). Casse l'effet "plat Facebook" et donne de la profondeur. -->
+  <defs>
+    <linearGradient id="firovia-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3A5CA8"/>
+      <stop offset="100%" stop-color="#5578C8"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#firovia-bg)"/>
+  <!-- Lettre F en blanc, géométrique propre -->
+  <g fill="#FFFFFF">
+    <rect x="10" y="8" width="4.2" height="16.5" rx="0.5"/>
+    <rect x="10" y="8" width="13" height="4.2" rx="0.5"/>
+    <rect x="10" y="14.4" width="9.5" height="3.6" rx="0.5"/>
   </g>
 </svg>
