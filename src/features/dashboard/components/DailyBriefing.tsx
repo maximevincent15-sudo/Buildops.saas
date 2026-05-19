@@ -57,7 +57,7 @@ function buildMessage(c: BriefCounts): { title: string; text: React.ReactNode } 
   }
 
   return {
-    title: 'Ta journée',
+    title: 'Briefing du jour',
     text: <>Tu as {renderParts(parts)}.</>,
   }
 }
@@ -80,12 +80,19 @@ function renderBlocksLine(blocks: PlanningBlock[]): React.ReactNode {
     return time ? `${b.label} (${time})` : b.label
   })
   return (
-    <div style={{ marginTop: 6 }}>
-      <strong>Créneaux :</strong> {items.join(' · ')}
+    <div style={{ marginTop: 8 }}>
+      <strong>Créneaux : </strong>{items.join(' · ')}
     </div>
   )
 }
 
+/**
+ * DailyBriefing v2 — Dark card (point focal du dashboard B).
+ *
+ * Style « Mercury briefing » : card sombre charcoal avec icône en cartouche,
+ * titre Syne + description en typo body. Aucun gradient inutile, focus sur
+ * la lisibilité immédiate des chiffres importants du jour.
+ */
 export function DailyBriefing() {
   const [counts, setCounts] = useState<BriefCounts | null>(null)
   const [todayBlocks, setTodayBlocks] = useState<PlanningBlock[]>([])
@@ -113,13 +120,13 @@ export function DailyBriefing() {
   const { title, text } = buildMessage(counts)
 
   return (
-    <div className="briefing">
-      <div className="briefing-icon">
-        <Sparkles size={16} strokeWidth={2} />
+    <div className="b-briefing">
+      <div className="b-briefing-ico">
+        <Sparkles size={20} strokeWidth={1.8} />
       </div>
-      <div className="briefing-body">
-        <div className="briefing-title">{title}</div>
-        <div className="briefing-text">
+      <div>
+        <div className="b-briefing-t">{title}</div>
+        <div className="b-briefing-d">
           {text}
           {renderBlocksLine(todayBlocks)}
         </div>

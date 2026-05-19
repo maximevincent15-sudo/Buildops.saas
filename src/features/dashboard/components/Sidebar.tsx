@@ -24,7 +24,7 @@ import { computeVehicleAlerts } from '../../vehicles/api'
 import { listInvoices } from '../../factures/api'
 import { effectiveStatus } from '../../factures/constants'
 
-type NavItem = { to: string; Icon: LucideIcon; label: string; badgeKey?: BadgeKey }
+type NavItem = { to: string; Icon: LucideIcon; label: string; badgeKey?: BadgeKey; danger?: boolean }
 type BadgeKey = 'planning' | 'rapports' | 'alertes' | 'rh' | 'factures'
 
 type Counts = Record<BadgeKey, number>
@@ -33,16 +33,13 @@ const principal: NavItem[] = [
   { to: '/dashboard', Icon: LayoutDashboard, label: 'Tableau de bord' },
   { to: '/planning', Icon: CalendarDays, label: 'Planning', badgeKey: 'planning' },
   { to: '/rapports', Icon: ClipboardCheck, label: 'Rapports', badgeKey: 'rapports' },
-  { to: '/alertes', Icon: Bell, label: 'Alertes', badgeKey: 'alertes' },
+  { to: '/alertes', Icon: Bell, label: 'Alertes', badgeKey: 'alertes', danger: true },
 ]
 
 const clients: NavItem[] = [
   { to: '/clients', Icon: Building2, label: 'Fiches clients' },
 ]
 
-// Un seul lien RH dans la sidebar (les 4 onglets Techniciens / Véhicules /
-// Notes de frais / Heures sup sont accessibles via <RhTabs /> à l'intérieur
-// des pages). Le badge agrège les pending (frais + heures sup).
 const rh: NavItem[] = [
   { to: '/techniciens', Icon: HardHat, label: 'Techniciens', badgeKey: 'rh' },
 ]
@@ -61,7 +58,7 @@ const compte: NavItem[] = [
 ]
 
 function navClass({ isActive }: { isActive: boolean }) {
-  return `sb-a${isActive ? ' on' : ''}`
+  return `b-sb-a${isActive ? ' on' : ''}`
 }
 
 function SidebarLink({ item, counts }: { item: NavItem; counts: Counts }) {
@@ -69,9 +66,11 @@ function SidebarLink({ item, counts }: { item: NavItem; counts: Counts }) {
   const badge = item.badgeKey ? counts[item.badgeKey] : 0
   return (
     <NavLink to={item.to} className={navClass} end={item.to === '/dashboard'}>
-      <span className="sb-ico"><Icon size={16} strokeWidth={1.8} /></span>
+      <Icon size={17} strokeWidth={1.8} />
       {item.label}
-      {badge > 0 && <span className="sb-badge">{badge}</span>}
+      {badge > 0 && (
+        <span className={`b-sb-badge${item.danger ? ' r' : ''}`}>{badge}</span>
+      )}
     </NavLink>
   )
 }
@@ -95,10 +94,8 @@ export function Sidebar() {
   const profile = useAuthStore((s) => s.profile)
   const [counts, setCounts] = useState<Counts>({ planning: 0, rapports: 0, alertes: 0, rh: 0, factures: 0 })
 
-  // Refetch counts à chaque changement de route (donc après création / suppression)
   useEffect(() => {
     let alive = true
-    // listInvoices peut crash si migration 019 absente — on l'isole.
     const safeInvoices = listInvoices().catch(() => [])
     Promise.all([
       listInterventions(),
@@ -119,11 +116,9 @@ export function Sidebar() {
         const alertesUrgent =
           alerts.filter((a) => urgent(a.daysUntilDue)).length +
           vehicleAlerts.filter((a) => urgent(a.daysUntilDue)).length
-        // Badge RH = somme des pending (frais + heures sup) — un seul chiffre sur "Techniciens"
         const rh =
           expenses.filter((e) => e.status === 'pending').length +
           overtime.filter((o) => o.status === 'pending').length
-        // Badge factures = nombre de factures non payées et non annulées (sent + partial + overdue)
         const factures = invoices.filter((inv) => {
           const eff = effectiveStatus(
             inv.status,
@@ -135,7 +130,7 @@ export function Sidebar() {
         }).length
         setCounts({ planning, rapports, alertes: alertesUrgent, rh, factures })
       })
-      .catch(() => { /* silently ignore — no badge better than crash */ })
+      .catch(() => { /* silent ignore */ })
     return () => { alive = false }
   }, [location.pathname])
 
@@ -153,40 +148,39 @@ export function Sidebar() {
     ? (firstName[0]! + lastName[0]!).toUpperCase()
     : initialsFromEmail(email)
 
-  // Les membres standards n'ont pas accès à la facturation
   const isAdmin = (profile?.user_role ?? 'admin') === 'admin'
 
   return (
-    <aside className="sidebar">
-      <div className="sb-sec">Principal</div>
+    <aside className="b-sidebar">
+      <div className="b-sb-sec">Principal</div>
       {principal.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
-      <div className="sb-sec">Clients</div>
+      <div className="b-sb-sec">Clients</div>
       {clients.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
-      <div className="sb-sec">RH / Paie</div>
+      <div className="b-sb-sec">RH / Paie</div>
       {rh.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
       {isAdmin && (
         <>
-          <div className="sb-sec">Facturation</div>
+          <div className="b-sb-sec">Facturation</div>
           {facturation.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
         </>
       )}
 
-      <div className="sb-sec">Documents</div>
+      <div className="b-sb-sec">Documents</div>
       {documents.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
-      <div className="sb-sec">Compte</div>
+      <div className="b-sb-sec">Compte</div>
       {compte.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
-      <div className="sb-user">
-        <div className="sb-av">{initials}</div>
-        <div>
-          <div className="sb-un">{fullName ?? '—'}</div>
-          <div className="sb-ur">{orgName ?? 'Compte connecté'}</div>
+      <div className="b-sb-foot">
+        <div className="b-sb-av">{initials}</div>
+        <div className="b-sb-uinfo">
+          <div className="b-sb-un">{fullName ?? '—'}</div>
+          <div className="b-sb-ur">{orgName ?? 'Compte connecté'}</div>
         </div>
-        <button type="button" onClick={handleSignOut} className="sb-out" title="Déconnexion">
+        <button type="button" onClick={handleSignOut} className="b-sb-out" title="Déconnexion">
           <LogOut size={15} strokeWidth={1.8} />
         </button>
       </div>

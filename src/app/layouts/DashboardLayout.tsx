@@ -16,23 +16,19 @@ export function DashboardLayout() {
   return (
     <>
       <TopNav onToggleSidebar={() => setSidebarOpen((v) => !v)} />
-      <div className="dash-page">
-        <div className={`dash-wrap${sidebarOpen ? ' sidebar-open' : ''}`}>
-          <Sidebar />
-          {sidebarOpen && (
-            <div
-              className="sidebar-backdrop"
-              onClick={() => setSidebarOpen(false)}
-              aria-hidden="true"
-            />
-          )}
-          <main className="dash-main">
-            <ErrorBoundary key={location.pathname}>
-              <Outlet />
-            </ErrorBoundary>
-          </main>
-        </div>
-      </div>
+      <Sidebar />
+      {sidebarOpen && (
+        <div
+          className={`b-sidebar-backdrop${sidebarOpen ? ' show' : ''}`}
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <main className="b-main">
+        <ErrorBoundary key={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
+      </main>
     </>
   )
 }

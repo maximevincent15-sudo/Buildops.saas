@@ -1,4 +1,4 @@
-import { LogOut, Menu } from 'lucide-react'
+import { LogOut, Menu, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { signOut } from '../../auth/api'
 import { Logo } from '../../../shared/ui/Logo'
@@ -16,12 +16,12 @@ export function TopNav({ onToggleSidebar }: Props) {
   }
 
   return (
-    <nav className="topnav">
-      <div className="topnav-left">
+    <nav className="b-topnav">
+      <div className="b-topnav-l">
         {onToggleSidebar && (
           <button
             type="button"
-            className="sb-toggle"
+            className="b-sb-toggle"
             onClick={onToggleSidebar}
             aria-label="Ouvrir le menu"
           >
@@ -29,17 +29,20 @@ export function TopNav({ onToggleSidebar }: Props) {
           </button>
         )}
         <Logo />
+        <div className="b-search">
+          <Search size={14} strokeWidth={2} />
+          <span>Rechercher…</span>
+          <kbd>⌘ K</kbd>
+        </div>
       </div>
-      <div className="nav-r">
-        <span className="plan-label">
-          Plan <strong className="text-acc">Pro</strong>
-        </span>
-        <a href="https://firovia.fr" className="btn-sm site-btn" target="_blank" rel="noreferrer">
+      <div className="b-topnav-r">
+        <span className="b-plan-pill">Plan Pro</span>
+        <a href="https://firovia.fr" className="b-btn" target="_blank" rel="noreferrer">
           ← Site
         </a>
-        <button type="button" onClick={handleSignOut} className="btn-sm logout-btn">
+        <button type="button" onClick={handleSignOut} className="b-btn">
           <span className="logout-label">Déconnexion</span>
-          <LogOut size={15} strokeWidth={1.8} className="logout-icon" />
+          <LogOut size={14} strokeWidth={1.8} className="logout-icon" />
         </button>
       </div>
     </nav>

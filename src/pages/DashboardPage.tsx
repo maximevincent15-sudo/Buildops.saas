@@ -1,13 +1,13 @@
+import { Plus, FileText } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useAuthStore } from '../features/auth/store'
 import { ActivityFeed } from '../features/dashboard/components/ActivityFeed'
 import { AlertsList } from '../features/dashboard/components/AlertsList'
-import { BusinessKpis } from '../features/dashboard/components/BusinessKpis'
 import { DailyBriefing } from '../features/dashboard/components/DailyBriefing'
+import { HeroStats } from '../features/dashboard/components/HeroStats'
 import { KpiCard } from '../features/dashboard/components/KpiCard'
 import { MonthlyRevenueChart } from '../features/dashboard/components/MonthlyRevenueChart'
 import { RecentInterventions } from '../features/dashboard/components/RecentInterventions'
-import { RevenueBars } from '../features/dashboard/components/RevenueBars'
 import { TechsOfDay } from '../features/dashboard/components/TechsOfDay'
 import { TopBarsChart } from '../features/dashboard/components/TopBarsChart'
 import { fetchBusinessStatsSafe } from '../features/dashboard/businessStatsApi'
@@ -20,12 +20,25 @@ function capitalize(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
 }
 
-function visualPct(value: number): number {
-  // Remplissage visuel de la barre : 10% minimum, 100% à partir de 10 interv.
-  if (value <= 0) return 10
-  return Math.min(100, value * 10)
-}
+const todayLabel = (() => {
+  const d = new Date()
+  return d.toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+})()
 
+/**
+ * DashboardPage — Direction B "Premium aéré" (Mercury vibe).
+ *
+ * Structure :
+ *  1. Header (greeting + date + actions)
+ *  2. DailyBriefing (dark card, point focal)
+ *  3. HeroStats (banner banking-style avec CA en hero)
+ *  4. Section "Activité du jour" (4 KPIs interventions)
+ *  5. Section grid-2 (interventions récentes + alertes)
+ *  6. Section "Pilotage business" (BusinessKpis + Top clients/techs + Chart)
+ *  7. Section grid-2 (Techs of day + Activity feed)
+ */
 export function DashboardPage() {
   const profile = useAuthStore((s) => s.profile)
   const firstName = capitalize(profile?.first_name ?? '') || 'là'
@@ -59,74 +72,111 @@ export function DashboardPage() {
 
   return (
     <>
-      <div className="dash-top">
+      {/* ─── HEADER ─── */}
+      <div className="b-h-row">
         <div>
-          <div className="dash-title">Bonjour, {firstName}</div>
-          <div className="dash-sub">Tableau de bord maintenance incendie</div>
+          <div className="b-h-greet">{capitalize(todayLabel)}</div>
+          <div className="b-h-title">Bonjour, {firstName}</div>
+          <div className="b-h-sub">
+            {stats && (
+              <>
+                {stats.aPlanifier > 0
+                  ? `${stats.aPlanifier} intervention${stats.aPlanifier > 1 ? 's' : ''} à planifier · `
+                  : 'Tout est planifié · '}
+                {stats.enCours} sur le terrain · {stats.thisMonth} intervention{stats.thisMonth > 1 ? 's' : ''} ce mois
+              </>
+            )}
+          </div>
         </div>
-        <div className="dash-acts">
-          <button type="button" className="btn-sm" onClick={() => setModalOpen(true)}>
-            + Nouvelle intervention
+        <div className="b-h-acts">
+          <button type="button" className="b-btn" onClick={() => setModalOpen(true)}>
+            <Plus size={14} strokeWidth={2} />
+            Nouvelle intervention
           </button>
-          <button type="button" className="btn-sm acc">+ Nouveau rapport</button>
+          <button type="button" className="b-btn acc">
+            <FileText size={14} strokeWidth={2} />
+            Nouveau rapport
+          </button>
         </div>
       </div>
 
+      {/* ─── BRIEFING (dark card) ─── */}
       <DailyBriefing key={`br-${refreshKey}`} />
 
-      <div className="kpi-grid">
-        <KpiCard
-          label="Interventions ce mois"
-          value={stats ? String(stats.thisMonth) : '…'}
-          sub="Créées depuis le 1er du mois"
-          subVariant="nu"
-          barPct={stats ? visualPct(stats.thisMonth) : 10}
-          barColor="acc"
-        />
-        <KpiCard
-          label="À planifier"
-          value={stats ? String(stats.aPlanifier) : '…'}
-          sub={stats && stats.aPlanifier > 0 ? 'Interventions sans date' : 'Tout est planifié'}
-          subVariant={stats && stats.aPlanifier > 0 ? 'dn' : 'up'}
-          barPct={stats ? visualPct(stats.aPlanifier) : 10}
-          barColor={stats && stats.aPlanifier > 0 ? 'red' : 'grn'}
-        />
-        <KpiCard
-          label="En cours"
-          value={stats ? String(stats.enCours) : '…'}
-          sub="Sur le terrain"
-          subVariant="nu"
-          barPct={stats ? visualPct(stats.enCours) : 10}
-          barColor="acc"
-        />
-        <KpiCard
-          label="Terminées ce mois"
-          value={stats ? String(stats.termineeThisMonth) : '…'}
-          sub="Rapports clôturés"
-          subVariant="up"
-          barPct={stats ? visualPct(stats.termineeThisMonth) : 10}
-          barColor="grn"
-        />
-      </div>
+      {/* ─── HERO STATS (banking banner) ─── */}
+      {bizStats && <HeroStats stats={bizStats} />}
 
-      <div className="g2">
-        <RevenueBars />
-        <AlertsList key={`al-${refreshKey}`} />
-      </div>
-
-      {/* SECTION BUSINESS — KPIs CA, top clients, top techs, évolution */}
-      {bizStats && (
-        <>
-          <div className="biz-section-title">
-            <span>Pilotage business</span>
-            <span className="text-ink-3 text-xs font-light">
-              KPIs calculés à partir de tes devis et factures
-            </span>
+      {/* ─── ACTIVITÉ DU JOUR (4 KPIs interventions) ─── */}
+      <div className="b-section">
+        <div className="b-section-head">
+          <div>
+            <div className="b-section-h">Activité du jour</div>
+            <div className="b-section-s">Vue d'ensemble des interventions</div>
           </div>
+        </div>
 
-          <BusinessKpis stats={bizStats} />
+        <div className="b-kpi-grid">
+          <KpiCard
+            label="Interventions ce mois"
+            value={stats ? String(stats.thisMonth) : '…'}
+            numericValue={stats?.thisMonth}
+            delay={0}
+            sub="Créées depuis le 1er"
+          />
+          <KpiCard
+            label="À planifier"
+            value={stats ? String(stats.aPlanifier) : '…'}
+            numericValue={stats?.aPlanifier}
+            delay={0.05}
+            sub={stats && stats.aPlanifier > 0 ? 'Sans date' : '✓ Tout est planifié'}
+            subVariant={stats && stats.aPlanifier > 0 ? 'dn' : 'up'}
+          />
+          <KpiCard
+            label="En cours"
+            value={stats ? String(stats.enCours) : '…'}
+            numericValue={stats?.enCours}
+            delay={0.1}
+            sub="Sur le terrain"
+          />
+          <KpiCard
+            label="Terminées (mois)"
+            value={stats ? String(stats.termineeThisMonth) : '…'}
+            numericValue={stats?.termineeThisMonth}
+            delay={0.15}
+            sub="Rapports clôturés"
+            subVariant="up"
+          />
+        </div>
+      </div>
 
-          <div className="g2">
+      {/* ─── INTERVENTIONS RÉCENTES + ALERTES ─── */}
+      <div className="b-section">
+        <div className="b-grid-2">
+          <RecentInterventions key={`ri-${refreshKey}`} />
+          <AlertsList key={`al-${refreshKey}`} />
+        </div>
+      </div>
+
+      {/* ─── ÉVOLUTION DU CA (chart full-width) ─── */}
+      {bizStats && (
+        <div className="b-section">
+          <MonthlyRevenueChart
+            title="Évolution du CA encaissé"
+            data={bizStats.monthlyRevenue}
+          />
+        </div>
+      )}
+
+      {/* ─── PILOTAGE BUSINESS — Top clients + Top techs ─── */}
+      {bizStats && (
+        <div className="b-section">
+          <div className="b-section-head">
+            <div>
+              <div className="b-section-h">Pilotage business</div>
+              <div className="b-section-s">Top clients et top techniciens par CA facturé</div>
+            </div>
+          </div>
+          <div className="b-grid-2">
             <TopBarsChart
               title="Top 5 clients"
               subtitle="Par CA facturé"
@@ -142,20 +192,16 @@ export function DashboardPage() {
               barColor="var(--grn)"
             />
           </div>
-
-          <MonthlyRevenueChart
-            title="Évolution du CA encaissé"
-            data={bizStats.monthlyRevenue}
-          />
-        </>
+        </div>
       )}
 
-      <div className="g3">
-        <RecentInterventions key={`ri-${refreshKey}`} />
-        <TechsOfDay key={`td-${refreshKey}`} />
+      {/* ─── ÉQUIPE + ACTIVITÉ RÉCENTE ─── */}
+      <div className="b-section">
+        <div className="b-grid-2">
+          <TechsOfDay key={`td-${refreshKey}`} />
+          <ActivityFeed />
+        </div>
       </div>
-
-      <ActivityFeed />
 
       <InterventionModal
         open={modalOpen}

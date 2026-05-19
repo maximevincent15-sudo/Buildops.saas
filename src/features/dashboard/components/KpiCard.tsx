@@ -1,24 +1,50 @@
+import { AnimatedCounter } from './AnimatedCounter'
+
 type Props = {
   label: string
   value: string
+  /** Si fournie, anime le compteur de 0 vers cette valeur. Sinon, affiche `value` brut. */
+  numericValue?: number
+  /** Suffixe pour le count-up (ex: " €", " %"). */
+  numericSuffix?: string
+  /** Délai avant l'animation (effet cascade). */
+  delay?: number
   sub: string
   subVariant?: 'up' | 'dn' | 'nu'
-  barPct: number
-  barColor: 'acc' | 'red' | 'grn' | 'brn'
+  /** Anciennement utilisé : on garde l'API pour compat. */
+  barPct?: number
+  /** Anciennement utilisé : on garde l'API pour compat. */
+  barColor?: 'acc' | 'red' | 'grn' | 'brn'
 }
 
-export function KpiCard({ label, value, sub, subVariant = 'nu', barPct, barColor }: Props) {
+/**
+ * KpiCard v2 — Direction B Premium aéré.
+ *
+ * Gros chiffres aérés (38px Syne ExtraBold), labels en uppercase tracking,
+ * sub avec icônes ↗/↘ pour évolution. Pas de barre de progression (épuré).
+ *
+ * Animations : count-up smooth si `numericValue` fourni.
+ */
+export function KpiCard({
+  label,
+  value,
+  numericValue,
+  numericSuffix,
+  delay,
+  sub,
+  subVariant = 'nu',
+}: Props) {
   return (
-    <div className="kpi">
-      <div className="kpi-lbl">{label}</div>
-      <div className="kpi-val">{value}</div>
-      <div className={`kpi-sub ${subVariant}`}>{sub}</div>
-      <div className="kpi-bar">
-        <div
-          className="kpi-fill"
-          style={{ width: `${barPct}%`, background: `var(--${barColor})` }}
-        />
+    <div className="b-kpi">
+      <div className="b-kpi-lbl">{label}</div>
+      <div className="b-kpi-val">
+        {typeof numericValue === 'number' ? (
+          <AnimatedCounter value={numericValue} delay={delay} suffix={numericSuffix} />
+        ) : (
+          value
+        )}
       </div>
+      <div className={`b-kpi-sub${subVariant !== 'nu' ? ' ' + subVariant : ''}`}>{sub}</div>
     </div>
   )
 }
