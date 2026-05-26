@@ -13,7 +13,10 @@ type Tab = 'login' | 'register'
 export function AuthPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const inviteToken = searchParams.get('invite')
-  const [tab, setTab] = useState<Tab>(inviteToken ? 'register' : 'login')
+  const tabParam = searchParams.get('tab')
+  const [tab, setTab] = useState<Tab>(
+    inviteToken || tabParam === 'register' ? 'register' : 'login',
+  )
   const [preview, setPreview] = useState<InvitationPreview | null>(null)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [acceptError, setAcceptError] = useState<string | null>(null)
