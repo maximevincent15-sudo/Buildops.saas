@@ -3,6 +3,8 @@ import { DashboardLayout } from './app/layouts/DashboardLayout'
 import { PublicLayout } from './app/layouts/PublicLayout'
 import { RequireAuth } from './app/RequireAuth'
 import { AuthPage } from './pages/AuthPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { AlertesPage } from './pages/AlertesPage'
 import { ClientsPage } from './pages/ClientsPage'
@@ -32,6 +34,8 @@ function App() {
 
       <Route element={<PublicLayout />}>
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
       </Route>
 
       {/* Portail client : route publique, pas d'auth requise (auth via token URL) */}

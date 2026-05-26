@@ -58,7 +58,7 @@ export function RegisterForm({ prefilledEmail, hideCompanyField }: Props = {}) {
         navigate('/dashboard', { replace: true })
       } else {
         setSuccessMessage(
-          'Compte créé. Vérifie ta boîte mail pour confirmer ton adresse, puis connecte-toi.',
+          'Compte créé. Vérifiez votre boîte mail pour confirmer votre adresse, puis connectez-vous.',
         )
       }
     } catch (e) {

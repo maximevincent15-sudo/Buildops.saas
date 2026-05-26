@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { signIn } from '../api'
 import { loginSchema } from '../schemas'
 import type { LoginInput } from '../schemas'
@@ -59,7 +59,15 @@ export function LoginForm({ prefilledEmail }: Props = {}) {
       </div>
 
       <div className="fg">
-        <label>Mot de passe</label>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+          <label style={{ marginBottom: 0 }}>Mot de passe</label>
+          <Link
+            to="/forgot-password"
+            style={{ fontSize: 12, color: 'var(--acc, #3A5CA8)', textDecoration: 'none', fontWeight: 500 }}
+          >
+            Mot de passe oublié ?
+          </Link>
+        </div>
         <div className="pw-wrap">
           <input type="password" placeholder="••••••••" autoComplete="current-password" {...register('password')} />
         </div>

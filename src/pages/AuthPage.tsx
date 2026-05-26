@@ -57,7 +57,7 @@ export function AuthPage() {
         if ('error' in res) {
           if (res.error === 'email_mismatch') {
             setAcceptError(
-              'Cette invitation a été envoyée à une autre adresse email. Connecte-toi avec le bon compte.',
+              'Cette invitation a été envoyée à une autre adresse email. Connectez-vous avec le bon compte.',
             )
           } else if (res.error === 'invalid_or_expired') {
             setAcceptError('Cette invitation est invalide ou a expiré.')
@@ -142,6 +142,21 @@ export function AuthPage() {
 
       <section className="auth-right">
         <div className="auth-card">
+          {/* Logo Firovia (wordmark) — cohérence avec la vitrine */}
+          <div style={{ textAlign: 'center', marginBottom: 20 }}>
+            <span
+              style={{
+                fontFamily: "'Syne', sans-serif",
+                fontWeight: 800,
+                fontSize: '1.55rem',
+                letterSpacing: '-1px',
+                color: 'var(--ink)',
+              }}
+            >
+              <span style={{ color: 'var(--acc, #3A5CA8)' }}>Fir</span>ovia
+            </span>
+          </div>
+
           {/* Bandeau invitation */}
           {inviteToken && (
             <div className="invite-banner">
