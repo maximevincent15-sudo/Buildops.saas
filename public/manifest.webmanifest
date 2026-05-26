@@ -1,0 +1,44 @@
+{
+  "name": "Firovia — Gestion sécurité incendie",
+  "short_name": "Firovia",
+  "description": "Gestion des interventions, rapports terrain et conformité réglementaire pour les PME de maintenance en sécurité incendie.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F2F3F5",
+  "theme_color": "#3A5CA8",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Tableau de bord",
+      "url": "/dashboard",
+      "description": "Vue d'ensemble de l'activité"
+    },
+    {
+      "name": "Planning",
+      "url": "/planning",
+      "description": "Voir les interventions à venir"
+    },
+    {
+      "name": "Nouvelle intervention",
+      "url": "/planning?new=1",
+      "description": "Créer une intervention"
+    }
+  ]
+}

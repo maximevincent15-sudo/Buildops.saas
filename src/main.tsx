@@ -14,3 +14,14 @@ createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+// Enregistrement du Service Worker pour la PWA (production uniquement)
+// Pourquoi pas en dev : le SW interfère avec le HMR Vite et peut servir
+// d'anciennes versions cachées.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('Service Worker registration failed:', err)
+    })
+  })
+}
