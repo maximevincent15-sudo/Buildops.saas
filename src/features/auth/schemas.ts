@@ -10,7 +10,12 @@ export const registerSchema = z.object({
   lastName: z.string().min(1, 'Nom requis'),
   companyName: z.string().min(1, "Nom d'entreprise requis"),
   email: z.string().min(1, 'Email requis').email('Email valide requis'),
-  password: z.string().min(8, '8 caractères minimum'),
+  password: z
+    .string()
+    .min(10, 'Au moins 10 caractères')
+    .regex(/[A-Z]/, 'Au moins 1 majuscule')
+    .regex(/[0-9]/, 'Au moins 1 chiffre')
+    .regex(/[^A-Za-z0-9]/, 'Au moins 1 caractère spécial (!@#$...)'),
 })
 
 export type LoginInput = z.infer<typeof loginSchema>

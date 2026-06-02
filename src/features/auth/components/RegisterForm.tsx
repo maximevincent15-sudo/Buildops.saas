@@ -3,20 +3,10 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { signUp } from '../api'
+import { validatePassword } from '../passwordRules'
 import { registerSchema } from '../schemas'
 import type { RegisterInput } from '../schemas'
-
-function passwordStrength(pwd: string): { score: 0 | 1 | 2 | 3 | 4; label: string; cls: 'w' | 'm' | 's' | '' } {
-  if (!pwd) return { score: 0, label: 'Saisissez un mot de passe', cls: '' }
-  let score = 0
-  if (pwd.length >= 8) score++
-  if (/[A-Z]/.test(pwd)) score++
-  if (/[0-9]/.test(pwd)) score++
-  if (/[^A-Za-z0-9]/.test(pwd)) score++
-  const cls = score <= 1 ? 'w' : score <= 2 ? 'm' : 's'
-  const label = ['', 'Faible', 'Faible', 'Moyen', 'Fort'][score] ?? ''
-  return { score: score as 0 | 1 | 2 | 3 | 4, label, cls }
-}
+import { PasswordChecklist } from './PasswordChecklist'
 
 type Props = {
   prefilledEmail?: string
@@ -39,7 +29,7 @@ export function RegisterForm({ prefilledEmail, hideCompanyField }: Props = {}) {
   })
 
   const pwdValue = watch('password') ?? ''
-  const strength = passwordStrength(pwdValue)
+  const pwdValid = validatePassword(pwdValue).ok
 
   useEffect(() => {
     if (prefilledEmail) setValue('email', prefilledEmail)
@@ -121,23 +111,14 @@ export function RegisterForm({ prefilledEmail, hideCompanyField }: Props = {}) {
       <div className="fg">
         <label>Mot de passe</label>
         <div className="pw-wrap">
-          <input type="password" placeholder="8 caractères minimum" autoComplete="new-password" {...register('password')} />
+          <input type="password" placeholder="Mot de passe sécurisé" autoComplete="new-password" {...register('password')} />
         </div>
-        <div className="str-row">
-          {[1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className={`str-s${strength.score >= i && strength.cls ? ' ' + strength.cls : ''}`}
-            />
-          ))}
-        </div>
-        <div className="str-lbl">{strength.label}</div>
-        {errors.password && <span className="ferr on">{errors.password.message}</span>}
+        <PasswordChecklist password={pwdValue} />
       </div>
 
       {submitError && <span className="ferr on">{submitError}</span>}
 
-      <button type="submit" className="sub-btn" disabled={isSubmitting}>
+      <button type="submit" className="sub-btn" disabled={isSubmitting || !pwdValid}>
         {isSubmitting ? 'Création…' : 'Créer mon compte →'}
       </button>
 

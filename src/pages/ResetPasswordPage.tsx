@@ -2,19 +2,9 @@ import { CheckCircle2, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { updatePassword } from '../features/auth/api'
+import { PasswordChecklist } from '../features/auth/components/PasswordChecklist'
+import { validatePassword } from '../features/auth/passwordRules'
 import { useAuthStore } from '../features/auth/store'
-
-function passwordStrength(pwd: string): { score: 0 | 1 | 2 | 3 | 4; label: string; cls: 'w' | 'm' | 's' | '' } {
-  if (!pwd) return { score: 0, label: 'Saisissez un nouveau mot de passe', cls: '' }
-  let score = 0
-  if (pwd.length >= 8) score++
-  if (/[A-Z]/.test(pwd)) score++
-  if (/[0-9]/.test(pwd)) score++
-  if (/[^A-Za-z0-9]/.test(pwd)) score++
-  const cls = score <= 1 ? 'w' : score <= 2 ? 'm' : 's'
-  const label = ['', 'Faible', 'Faible', 'Moyen', 'Fort'][score] ?? ''
-  return { score: score as 0 | 1 | 2 | 3 | 4, label, cls }
-}
 
 export function ResetPasswordPage() {
   const navigate = useNavigate()
@@ -35,13 +25,13 @@ export function ResetPasswordPage() {
     return () => clearTimeout(t)
   }, [session])
 
-  const strength = passwordStrength(password)
+  const pwdValid = validatePassword(password).ok
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    if (password.length < 8) {
-      setError('Le mot de passe doit contenir au moins 8 caractères.')
+    if (!pwdValid) {
+      setError('Le mot de passe ne respecte pas toutes les règles de sécurité.')
       return
     }
     if (password !== confirm) {
@@ -104,7 +94,7 @@ export function ResetPasswordPage() {
                   <ShieldCheck size={20} strokeWidth={2} style={{ verticalAlign: -4, marginRight: 6 }} />
                   Nouveau mot de passe
                 </p>
-                <p className="fp-sub">Choisissez un mot de passe sécurisé d'au moins 8 caractères.</p>
+                <p className="fp-sub">Choisissez un mot de passe sécurisé en respectant les 4 règles ci-dessous.</p>
               </div>
 
               <div className="fg">
@@ -112,22 +102,14 @@ export function ResetPasswordPage() {
                 <div className="pw-wrap">
                   <input
                     type="password"
-                    placeholder="8 caractères minimum"
+                    placeholder="Mot de passe sécurisé"
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
                 </div>
-                <div className="str-row">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div
-                      key={i}
-                      className={`str-s${strength.score >= i && strength.cls ? ' ' + strength.cls : ''}`}
-                    />
-                  ))}
-                </div>
-                <div className="str-lbl">{strength.label}</div>
+                <PasswordChecklist password={password} />
               </div>
 
               <div className="fg">
@@ -149,7 +131,7 @@ export function ResetPasswordPage() {
               <button
                 type="submit"
                 className="sub-btn"
-                disabled={loading || !password || !confirm}
+                disabled={loading || !pwdValid || !confirm}
               >
                 {loading ? 'Modification…' : 'Mettre à jour mon mot de passe'}
               </button>

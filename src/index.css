@@ -205,12 +205,10 @@ h1, h2, h3, h4, h5, h6 {
   .sub-btn:hover:not(:disabled) { background: var(--acc2); transform: translateY(-1px); }
   .sub-btn:disabled { opacity: .6; cursor: not-allowed; }
   .hint { font-size: .73rem; color: var(--ink3); text-align: center; line-height: 1.6; }
-  .str-row { display: flex; gap: 3px; margin-top: 5px; }
-  .str-s { flex: 1; height: 3px; border-radius: 2px; background: var(--bg2); transition: background .3s; }
-  .str-s.w { background: #C45A1A; }
-  .str-s.m { background: #C88C1E; }
-  .str-s.s { background: var(--acc); }
-  .str-lbl { font-size: .68rem; color: var(--ink3); margin-top: 3px; }
+  .pw-check { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .pw-check li { display: flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--ink3); transition: color .2s; }
+  .pw-check li.on { color: var(--acc); font-weight: 500; }
+  .pw-check li svg { flex-shrink: 0; }
   .ferr { font-size: .74rem; color: var(--red); display: none; margin-top: 2px; }
   .ferr.on { display: block; }
   .suc-scr { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .85rem; padding: .5rem 0; }
