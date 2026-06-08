@@ -97,6 +97,15 @@ serve(async (req) => {
 
     const payload: RequestBody = await req.json()
 
+    // Mode test : on accepte un UUID tout-zéros pour vérifier que la fonction
+    // tourne (auth OK + secrets présents) sans envoyer de vrai email.
+    if (payload.documentId === '00000000-0000-0000-0000-000000000000') {
+      return new Response(
+        JSON.stringify({ success: true, test: true, message: 'Edge Function opérationnelle. Resend configuré.' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     // Vérification simple : l'utilisateur a bien accès au document via RLS
     const tableMap = { report: 'reports', quote: 'quotes', invoice: 'invoices' }
     const table = tableMap[payload.kind]
