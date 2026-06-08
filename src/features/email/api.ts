@@ -96,14 +96,31 @@ export async function testEmailConfig(testRecipient: string): Promise<{
       },
     })
 
+    // On regarde d'abord le corps de la réponse : si la fonction a renvoyé
+    // une erreur métier connue (ex: document_not_found_or_no_access), c'est
+    // qu'elle est bien déployée et que la chaîne fonctionne.
+    if (data?.error === 'resend_not_configured') {
+      return {
+        ok: false,
+        message: 'La clé API Resend n\'est pas configurée côté Supabase.',
+        mode: 'not_configured',
+      }
+    }
+
+    if (data?.error === 'document_not_found_or_no_access') {
+      return {
+        ok: true,
+        message: 'Edge Function déployée. Test complet possible en envoyant un vrai document.',
+        mode: 'resend',
+      }
+    }
+
     if (error) {
       const status = (error as { status?: number }).status
       const errMsg = (error as { message?: string }).message ?? ''
-      // Cas typique : "Failed to send a request to the Edge Function" = fonction non déployée
-      if (
-        status === 404 ||
-        /failed to send a request|not found|edge function/i.test(errMsg)
-      ) {
+      // Vraie fonction non déployée : Supabase renvoie un message du type
+      // "Failed to send a request to the Edge Function".
+      if (/failed to send a request|edge function not found|not found/i.test(errMsg)) {
         return {
           ok: false,
           message:
@@ -115,26 +132,6 @@ export async function testEmailConfig(testRecipient: string): Promise<{
         ok: false,
         message: `Erreur ${status ?? '?'}: ${errMsg || 'inconnue'}`,
         mode: 'error',
-      }
-    }
-
-    if (data?.error === 'resend_not_configured') {
-      return {
-        ok: false,
-        message: 'La clé API Resend n\'est pas configurée côté Supabase.',
-        mode: 'not_configured',
-      }
-    }
-
-    if (data?.error === 'document_not_found_or_no_access') {
-      // Normal en mode test : on passe un faux ID. Si on arrive ici, ça veut
-      // dire que la chaîne fonctionne (Resend serait appelé sur un vrai doc).
-      // En réalité, on ne peut pas vraiment tester sans vrai document — donc
-      // on signale juste que la fonction est bien déployée.
-      return {
-        ok: true,
-        message: 'Edge Function déployée. Test complet possible en envoyant un vrai document.',
-        mode: 'resend',
       }
     }
 
