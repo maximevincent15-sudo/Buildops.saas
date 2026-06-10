@@ -7,6 +7,7 @@ import { validatePassword } from '../passwordRules'
 import { registerSchema } from '../schemas'
 import type { RegisterInput } from '../schemas'
 import { PasswordChecklist } from './PasswordChecklist'
+import { TurnstileWidget } from './TurnstileWidget'
 
 type Props = {
   prefilledEmail?: string
@@ -18,6 +19,7 @@ export function RegisterForm({ prefilledEmail, hideCompanyField }: Props = {}) {
   const [searchParams] = useSearchParams()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const {
     register,
     handleSubmit,
@@ -41,7 +43,7 @@ export function RegisterForm({ prefilledEmail, hideCompanyField }: Props = {}) {
   async function onSubmit(data: RegisterInput) {
     setSubmitError(null)
     try {
-      const result = await signUp(data)
+      const result = await signUp(data, captchaToken ?? undefined)
       if (result.session) {
         // Si on a un invite, on reste sur /auth pour l'effet d'acceptation
         if (searchParams.get('invite')) return
@@ -116,9 +118,11 @@ export function RegisterForm({ prefilledEmail, hideCompanyField }: Props = {}) {
         <PasswordChecklist password={pwdValue} />
       </div>
 
+      <TurnstileWidget onToken={setCaptchaToken} />
+
       {submitError && <span className="ferr on">{submitError}</span>}
 
-      <button type="submit" className="sub-btn" disabled={isSubmitting || !pwdValid}>
+      <button type="submit" className="sub-btn" disabled={isSubmitting || !pwdValid || !captchaToken}>
         {isSubmitting ? 'Création…' : 'Créer mon compte →'}
       </button>
 

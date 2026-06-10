@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { signIn } from '../api'
 import { loginSchema } from '../schemas'
 import type { LoginInput } from '../schemas'
+import { TurnstileWidget } from './TurnstileWidget'
 
 type Props = {
   prefilledEmail?: string
@@ -14,6 +15,7 @@ export function LoginForm({ prefilledEmail }: Props = {}) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const {
     register,
     handleSubmit,
@@ -30,7 +32,7 @@ export function LoginForm({ prefilledEmail }: Props = {}) {
   async function onSubmit(data: LoginInput) {
     setSubmitError(null)
     try {
-      await signIn(data)
+      await signIn(data, captchaToken ?? undefined)
       // Si invitation en attente, on reste sur /auth pour que l'effet d'acceptation
       // se déclenche et redirige proprement après attachement à l'orga.
       if (searchParams.get('invite')) return
@@ -74,9 +76,11 @@ export function LoginForm({ prefilledEmail }: Props = {}) {
         {errors.password && <span className="ferr on">{errors.password.message}</span>}
       </div>
 
+      <TurnstileWidget onToken={setCaptchaToken} />
+
       {submitError && <span className="ferr on">{submitError}</span>}
 
-      <button type="submit" className="sub-btn" disabled={isSubmitting}>
+      <button type="submit" className="sub-btn" disabled={isSubmitting || !captchaToken}>
         {isSubmitting ? 'Connexion…' : 'Se connecter →'}
       </button>
     </form>

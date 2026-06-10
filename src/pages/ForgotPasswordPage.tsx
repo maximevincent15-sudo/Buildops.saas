@@ -2,12 +2,14 @@ import { ArrowLeft, CheckCircle2, Mail } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { requestPasswordReset } from '../features/auth/api'
+import { TurnstileWidget } from '../features/auth/components/TurnstileWidget'
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -15,7 +17,7 @@ export function ForgotPasswordPage() {
     setError(null)
     setLoading(true)
     try {
-      await requestPasswordReset(email.trim())
+      await requestPasswordReset(email.trim(), captchaToken ?? undefined)
       setSent(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
@@ -79,9 +81,11 @@ export function ForgotPasswordPage() {
                 />
               </div>
 
+              <TurnstileWidget onToken={setCaptchaToken} />
+
               {error && <span className="ferr on">{error}</span>}
 
-              <button type="submit" className="sub-btn" disabled={loading || !email.trim()}>
+              <button type="submit" className="sub-btn" disabled={loading || !email.trim() || !captchaToken}>
                 {loading ? 'Envoi en cours…' : (
                   <>
                     <Mail size={14} strokeWidth={2} style={{ marginRight: 6 }} />

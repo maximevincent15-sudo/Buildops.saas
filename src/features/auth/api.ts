@@ -10,13 +10,20 @@ export type Profile = {
   organizations: { id: string; name: string } | null
 }
 
-export async function signIn({ email, password }: LoginInput) {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+export async function signIn({ email, password }: LoginInput, captchaToken?: string) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+    options: captchaToken ? { captchaToken } : undefined,
+  })
   if (error) throw error
   return data
 }
 
-export async function signUp({ firstName, lastName, companyName, email, password }: RegisterInput) {
+export async function signUp(
+  { firstName, lastName, companyName, email, password }: RegisterInput,
+  captchaToken?: string,
+) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -26,6 +33,7 @@ export async function signUp({ firstName, lastName, companyName, email, password
         last_name: lastName,
         company_name: companyName,
       },
+      ...(captchaToken ? { captchaToken } : {}),
     },
   })
   if (error) throw error
@@ -37,9 +45,10 @@ export async function signOut() {
   if (error) throw error
 }
 
-export async function requestPasswordReset(email: string) {
+export async function requestPasswordReset(email: string, captchaToken?: string) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/reset-password`,
+    ...(captchaToken ? { captchaToken } : {}),
   })
   if (error) throw error
 }
