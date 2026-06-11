@@ -21,7 +21,7 @@ export async function signIn({ email, password }: LoginInput, captchaToken?: str
 }
 
 export async function signUp(
-  { firstName, lastName, companyName, email, password }: RegisterInput,
+  { firstName, lastName, siret, companyName, email, password }: RegisterInput,
   captchaToken?: string,
 ) {
   const { data, error } = await supabase.auth.signUp({
@@ -32,6 +32,7 @@ export async function signUp(
         first_name: firstName,
         last_name: lastName,
         company_name: companyName,
+        siret,
       },
       ...(captchaToken ? { captchaToken } : {}),
     },

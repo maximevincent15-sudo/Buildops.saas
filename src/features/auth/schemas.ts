@@ -8,6 +8,10 @@ export const loginSchema = z.object({
 export const registerSchema = z.object({
   firstName: z.string().min(1, 'Prénom requis'),
   lastName: z.string().min(1, 'Nom requis'),
+  siret: z
+    .string()
+    .min(1, 'SIRET requis')
+    .regex(/^\d{14}$/, 'SIRET = 14 chiffres'),
   companyName: z.string().min(1, "Nom d'entreprise requis"),
   email: z.string().min(1, 'Email requis').email('Email valide requis'),
   password: z

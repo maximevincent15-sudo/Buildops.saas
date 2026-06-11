@@ -1,11 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Building2, CheckCircle2, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { signUp } from '../api'
 import { validatePassword } from '../passwordRules'
 import { registerSchema } from '../schemas'
 import type { RegisterInput } from '../schemas'
+import { normalizeSiret } from '../siret'
+import { useSiretLookup } from '../useSiretLookup'
 import { PasswordChecklist } from './PasswordChecklist'
 import { TurnstileWidget } from './TurnstileWidget'
 
@@ -28,24 +31,35 @@ export function RegisterForm({ prefilledEmail, hideCompanyField }: Props = {}) {
     formState: { errors, isSubmitting },
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
+    defaultValues: hideCompanyField
+      ? { siret: 'INVITATION', companyName: '(rejoint via invitation)' }
+      : undefined,
   })
 
   const pwdValue = watch('password') ?? ''
   const pwdValid = validatePassword(pwdValue).ok
 
+  const siretValue = watch('siret') ?? ''
+  const siretLookup = useSiretLookup(hideCompanyField ? '' : siretValue)
+
+  // Auto-fill du nom d'entreprise quand le lookup SIRET réussit
+  useEffect(() => {
+    if (siretLookup.status === 'ok' && siretLookup.companyName) {
+      setValue('companyName', siretLookup.companyName, { shouldValidate: true })
+    }
+  }, [siretLookup, setValue])
+
   useEffect(() => {
     if (prefilledEmail) setValue('email', prefilledEmail)
-    // En mode invitation, on pré-remplit avec une valeur factice — l'orga sera
-    // remplacée par l'invitation après le signup.
-    if (hideCompanyField) setValue('companyName', '(rejoint via invitation)')
-  }, [prefilledEmail, hideCompanyField, setValue])
+  }, [prefilledEmail, setValue])
+
+  const siretOk = hideCompanyField || siretLookup.status === 'ok' || siretLookup.status === 'notFound'
 
   async function onSubmit(data: RegisterInput) {
     setSubmitError(null)
     try {
       const result = await signUp(data, captchaToken ?? undefined)
       if (result.session) {
-        // Si on a un invite, on reste sur /auth pour l'effet d'acceptation
         if (searchParams.get('invite')) return
         navigate('/dashboard', { replace: true })
       } else {
@@ -55,11 +69,16 @@ export function RegisterForm({ prefilledEmail, hideCompanyField }: Props = {}) {
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erreur inconnue'
-      setSubmitError(
-        msg.includes('already registered')
-          ? 'Un compte existe déjà avec cet email'
-          : msg,
-      )
+      const lower = msg.toLowerCase()
+      if (lower.includes('already registered')) {
+        setSubmitError('Un compte existe déjà avec cet email')
+      } else if (lower.includes('siret') || lower.includes('organizations_siret_unique')) {
+        setSubmitError(
+          'Cette entreprise a déjà bénéficié de son essai gratuit. Connectez-vous ou contactez-nous pour ajouter un nouvel utilisateur.',
+        )
+      } else {
+        setSubmitError(msg)
+      }
     }
   }
 
@@ -95,14 +114,46 @@ export function RegisterForm({ prefilledEmail, hideCompanyField }: Props = {}) {
 
       {!hideCompanyField && (
         <div className="fg">
-          <label>Entreprise</label>
-          <input type="text" placeholder="Sécurité Pro SARL" autoComplete="organization" {...register('companyName')} />
+          <label>
+            SIRET de votre entreprise
+            <span style={{ color: 'var(--ink3)', fontWeight: 400, marginLeft: 6 }}>
+              (14 chiffres)
+            </span>
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="123 456 789 00012"
+            autoComplete="off"
+            maxLength={20}
+            {...register('siret', {
+              onChange: (e) => {
+                const normalized = normalizeSiret(e.target.value)
+                e.target.value = normalized
+              },
+            })}
+          />
+          <SiretFeedback state={siretLookup} rawValue={siretValue} />
+          {errors.siret && siretLookup.status === 'idle' && (
+            <span className="ferr on">{errors.siret.message}</span>
+          )}
+        </div>
+      )}
+      {hideCompanyField && <input type="hidden" {...register('siret')} />}
+
+      {!hideCompanyField && (
+        <div className="fg">
+          <label>Nom de l'entreprise</label>
+          <input
+            type="text"
+            placeholder="Sécurité Pro SARL"
+            autoComplete="organization"
+            {...register('companyName')}
+          />
           {errors.companyName && <span className="ferr on">{errors.companyName.message}</span>}
         </div>
       )}
-      {hideCompanyField && (
-        <input type="hidden" {...register('companyName')} />
-      )}
+      {hideCompanyField && <input type="hidden" {...register('companyName')} />}
 
       <div className="fg">
         <label>Email professionnel</label>
@@ -122,7 +173,11 @@ export function RegisterForm({ prefilledEmail, hideCompanyField }: Props = {}) {
 
       {submitError && <span className="ferr on">{submitError}</span>}
 
-      <button type="submit" className="sub-btn" disabled={isSubmitting || !pwdValid || !captchaToken}>
+      <button
+        type="submit"
+        className="sub-btn"
+        disabled={isSubmitting || !pwdValid || !captchaToken || !siretOk}
+      >
         {isSubmitting ? 'Création…' : 'Créer mon compte →'}
       </button>
 
@@ -131,4 +186,82 @@ export function RegisterForm({ prefilledEmail, hideCompanyField }: Props = {}) {
       </p>
     </form>
   )
+}
+
+// ───────── Sous-composant feedback SIRET ─────────
+function SiretFeedback({
+  state,
+  rawValue,
+}: {
+  state: ReturnType<typeof useSiretLookup>
+  rawValue: string
+}) {
+  const normalized = normalizeSiret(rawValue)
+  if (normalized.length === 0) {
+    return (
+      <span className="hint" style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 4 }}>
+        Le SIRET nous sert à vérifier votre entreprise et à pré-remplir vos infos.
+      </span>
+    )
+  }
+
+  if (state.status === 'loading') {
+    return (
+      <span className="hint" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink2)', fontSize: 12, marginTop: 4 }}>
+        <Loader2 size={12} className="spin" /> Vérification…
+      </span>
+    )
+  }
+
+  if (state.status === 'invalid') {
+    return <span className="ferr on">{state.reason}</span>
+  }
+
+  if (state.status === 'taken') {
+    return (
+      <span className="ferr on" style={{ lineHeight: 1.5 }}>
+        Ce SIRET a déjà été utilisé pour créer un compte Firovia.{' '}
+        <Link to="/auth" style={{ color: 'var(--acc)', textDecoration: 'underline' }}>
+          Se connecter
+        </Link>
+      </span>
+    )
+  }
+
+  if (state.status === 'notFound') {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink2)', fontSize: 12, marginTop: 4 }}>
+        <Building2 size={12} /> SIRET non trouvé dans l'annuaire — vous pouvez quand même continuer.
+      </span>
+    )
+  }
+
+  if (state.status === 'ok') {
+    return (
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'flex-start',
+          gap: 6,
+          color: 'var(--grn, #1e7a3e)',
+          fontSize: 12,
+          marginTop: 4,
+          lineHeight: 1.4,
+        }}
+      >
+        <CheckCircle2 size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+        <span>
+          <strong>{state.companyName}</strong>
+          {state.address && (
+            <>
+              <br />
+              <span style={{ color: 'var(--ink3)' }}>{state.address}</span>
+            </>
+          )}
+        </span>
+      </span>
+    )
+  }
+
+  return null
 }

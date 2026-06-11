@@ -205,6 +205,8 @@ h1, h2, h3, h4, h5, h6 {
   .sub-btn:hover:not(:disabled) { background: var(--acc2); transform: translateY(-1px); }
   .sub-btn:disabled { opacity: .6; cursor: not-allowed; }
   .hint { font-size: .73rem; color: var(--ink3); text-align: center; line-height: 1.6; }
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
   .pw-check { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
   .pw-check li { display: flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--ink3); transition: color .2s; }
   .pw-check li.on { color: var(--acc); font-weight: 500; }
