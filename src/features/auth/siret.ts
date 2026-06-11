@@ -23,8 +23,11 @@ function luhnCheck(siret: string): boolean {
   let sum = 0
   for (let i = 0; i < 14; i++) {
     let digit = Number(siret[i])
-    // Sur les positions paires (index 1, 3, 5...) on multiplie par 2
-    if (i % 2 === 1) {
+    // Sur un SIRET, le dernier chiffre est la clé de contrôle. En partant de
+    // la droite, on double 1 chiffre sur 2 (positions 2, 4, 6... depuis la
+    // droite). Pour un nombre de 14 chiffres, ça correspond aux INDEX PAIRS
+    // (0, 2, 4...) en partant de la gauche.
+    if (i % 2 === 0) {
       digit *= 2
       if (digit > 9) digit -= 9
     }
