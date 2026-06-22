@@ -203,7 +203,31 @@ export function PlanningPage() {
                     onClick={() => openEdit(i)}
                     style={{ cursor: 'pointer' }}
                   >
-                    <td><strong>{i.reference}</strong></td>
+                    <td>
+                      <strong>{i.reference}</strong>
+                      {i.auto_generated && (
+                        <span
+                          title="Visite récurrente générée automatiquement"
+                          style={{
+                            marginLeft: 6,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            fontSize: '.62rem',
+                            fontWeight: 700,
+                            color: 'var(--acc)',
+                            background: 'var(--acc-lt, #E8EEF8)',
+                            border: '1px solid var(--acc)',
+                            borderRadius: 999,
+                            padding: '1px 6px',
+                            verticalAlign: 'middle',
+                            letterSpacing: '.4px',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          Auto
+                        </span>
+                      )}
+                    </td>
                     <td>
                       <div>{i.client_name}</div>
                       {i.site_name && (

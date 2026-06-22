@@ -80,8 +80,20 @@ export async function finalizeReport(
 ): Promise<Report> {
   const completedAt = new Date().toISOString()
   const existing = await getReportByIntervention(interventionId)
-  if (existing) return updateExistingReport(existing.id, input, completedAt)
-  return insertReport(interventionId, organizationId, input, completedAt)
+  const report = existing
+    ? await updateExistingReport(existing.id, input, completedAt)
+    : await insertReport(interventionId, organizationId, input, completedAt)
+
+  // Maintenance préventive automatique : tente de créer la prochaine visite
+  // récurrente. N'échoue jamais (best-effort, ne doit pas bloquer la clôture).
+  try {
+    const { createNextScheduledIntervention } = await import('../planning/api')
+    await createNextScheduledIntervention(interventionId)
+  } catch (e) {
+    console.warn('[finalizeReport] auto-recurrence ignorée', e)
+  }
+
+  return report
 }
 
 export async function setReportPdfUrl(reportId: string, pdfUrl: string): Promise<void> {

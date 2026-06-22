@@ -45,6 +45,10 @@ export type Intervention = {
   notes: string | null
   created_at: string
   created_by: string | null
+  /** Référence vers l'intervention dont celle-ci est la suite automatique (visite récurrente). */
+  parent_intervention_id: string | null
+  /** true si l'intervention a été créée automatiquement par le système de maintenance préventive. */
+  auto_generated: boolean
 }
 
 // Helper : normalise une intervention venant de Supabase (gère le cas legacy
