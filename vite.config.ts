@@ -1,9 +1,23 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Polyfills Node.js (Buffer, process, etc.) requis par
+    // @react-pdf/renderer pour la génération de PDF côté navigateur.
+    // Sans ces polyfills, "Buffer is not defined" plante tout PDF.
+    nodePolyfills({
+      include: ['buffer', 'process', 'stream', 'util'],
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+    }),
+  ],
   build: {
     // Sépare les libs lourdes en chunks dédiés. Le navigateur les charge en
     // parallèle, les met en cache, et le bundle initial est plus léger.

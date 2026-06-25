@@ -1,23 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { Buffer } from 'buffer'
 import { AuthProvider } from './app/providers'
 import App from './App.tsx'
 import './index.css'
 
-// Polyfill Buffer pour le navigateur — requis par @react-pdf/renderer
-// qui dépend de cette API Node.js pour générer les PDF. Sans ce polyfill,
-// "Buffer is not defined" plante la génération de tous les PDF (rapports,
-// devis, factures).
-if (typeof window !== 'undefined' && !window.Buffer) {
-  // @ts-expect-error - Window n'a pas Buffer par défaut
-  window.Buffer = Buffer
-}
-if (typeof globalThis !== 'undefined' && !globalThis.Buffer) {
-  // @ts-expect-error - globalThis n'a pas Buffer par défaut
-  globalThis.Buffer = Buffer
-}
+// Note : les polyfills Node.js (Buffer, process, etc.) requis par
+// @react-pdf/renderer sont fournis par vite-plugin-node-polyfills
+// (configuré dans vite.config.ts).
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
