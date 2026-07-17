@@ -29,19 +29,31 @@ export const QUOTE_STATUS_ICON: Record<QuoteStatus, LucideIcon> = {
 
 export const VAT_RATES = [0, 5.5, 10, 20] as const
 
+// Les espaces insécables (  narrow no-break space et   no-break space)
+// utilisés par défaut par Intl 'fr-FR' ne sont pas rendus par la police
+// Helvetica embarquée dans @react-pdf/renderer (affichés comme "/" dans les PDF).
+// On les remplace par un espace normal.
+function normalizeSpaces(str: string): string {
+  return str.replace(/[  ]/g, ' ')
+}
+
 export function formatAmount(value: number): string {
-  return value.toLocaleString('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-  })
+  return normalizeSpaces(
+    value.toLocaleString('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2,
+    }),
+  )
 }
 
 export function formatNumber(value: number, digits = 2): string {
-  return value.toLocaleString('fr-FR', {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  })
+  return normalizeSpaces(
+    value.toLocaleString('fr-FR', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }),
+  )
 }
 
 /**

@@ -30,10 +30,28 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+// Liste blanche d'origines autorisées à appeler cette fonction.
+// Un site tiers ne peut pas appeler la fonction avec un JWT volé.
+const ALLOWED_ORIGINS = [
+  'https://app.firovia.fr',
+  'https://firovia.fr',
+  'http://localhost:5173',
+  'http://localhost:4173',
+]
+
+function buildCorsHeaders(origin) {
+  const allowedOrigin = origin && (
+    ALLOWED_ORIGINS.includes(origin) ||
+    /^https:\/\/[a-z0-9-]+-firovia[a-z0-9-]*\.vercel\.app$/.test(origin) ||
+    /^https:\/\/buildops-saas[a-z0-9-]*\.vercel\.app$/.test(origin)
+  ) ? origin : ALLOWED_ORIGINS[0]
+
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  }
 }
 
 type DocumentKind = 'report' | 'quote' | 'invoice'
@@ -49,6 +67,8 @@ interface RequestBody {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req.headers.get('Origin'))
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
