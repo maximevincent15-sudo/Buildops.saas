@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from '../../features/dashboard/components/Sidebar'
 import { TopNav } from '../../features/dashboard/components/TopNav'
+import { TrialBanner } from '../../features/billing/components/TrialBanner'
 import { ErrorBoundary } from '../../shared/ui/ErrorBoundary'
 
 export function DashboardLayout() {
@@ -16,6 +17,7 @@ export function DashboardLayout() {
   return (
     <>
       <TopNav onToggleSidebar={() => setSidebarOpen((v) => !v)} />
+      <TrialBanner />
       <Sidebar />
       {sidebarOpen && (
         <div

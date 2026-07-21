@@ -4,6 +4,7 @@ import {
   Building2,
   CalendarDays,
   ClipboardCheck,
+  CreditCard,
   HardHat,
   LayoutDashboard,
   LogOut,
@@ -54,6 +55,7 @@ const documents: NavItem[] = [
 ]
 
 const compte: NavItem[] = [
+  { to: '/abonnement', Icon: CreditCard, label: 'Abonnement' },
   { to: '/parametres', Icon: Settings, label: 'Paramètres' },
 ]
 
