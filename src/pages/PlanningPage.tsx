@@ -10,6 +10,7 @@ import { listBlocksForRange } from '../features/planning/blocksApi'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
 import { InterventionRowActions } from '../features/planning/components/InterventionRowActions'
 import { InterventionStatusBadge } from '../features/planning/components/InterventionStatusBadge'
+import { PlanningDayView } from '../features/planning/components/PlanningDayView'
 import { PlanningWeekView } from '../features/planning/components/PlanningWeekView'
 import { buildIcsCalendar, buildIcsForIntervention, downloadIcs } from '../features/planning/icsExport'
 import type { Intervention } from '../features/planning/schemas'
@@ -19,7 +20,7 @@ import {
 } from '../shared/constants/interventions'
 import type { InterventionPriority } from '../shared/constants/interventions'
 
-type ViewMode = 'list' | 'week'
+type ViewMode = 'list' | 'day' | 'week'
 
 function formatDate(d: string | null) {
   if (!d) return '—'
@@ -146,6 +147,14 @@ export function PlanningPage() {
             onClick={() => setView('list')}
           >
             Liste
+          </button>
+          <button
+            type="button"
+            className={`filter-pill${view === 'day' ? ' on' : ''}`}
+            onClick={() => setView('day')}
+            title="Vue par technicien pour la journée"
+          >
+            Journée
           </button>
           <button
             type="button"
@@ -290,6 +299,13 @@ export function PlanningPage() {
               </tbody>
             </table>
           </>
+        )}
+
+        {!loading && !error && total > 0 && view === 'day' && (
+          <PlanningDayView
+            interventions={interventions}
+            onClickIntervention={openEdit}
+          />
         )}
 
         {!loading && !error && total > 0 && view === 'week' && (
