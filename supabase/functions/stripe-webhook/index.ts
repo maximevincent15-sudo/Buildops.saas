@@ -52,6 +52,23 @@ function toIso(unixSeconds: number | null | undefined): string | null {
   return new Date(unixSeconds * 1000).toISOString()
 }
 
+/**
+ * Fire-and-forget : envoie une notif email interne à contact@firovia.fr
+ * sur les événements de cycle de vie subscription. N'attend pas la réponse
+ * pour ne pas bloquer le webhook (Stripe attend un 200 rapide).
+ */
+function notifyLifecycle(kind: string, organizationId: string): void {
+  const url = `${Deno.env.get('SUPABASE_URL')}/functions/v1/notify-lifecycle`
+  fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+    },
+    body: JSON.stringify({ kind, organization_id: organizationId }),
+  }).catch((e) => console.warn('[stripe-webhook] notify-lifecycle failed', e))
+}
+
 serve(async (req) => {
   const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')
   const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')
@@ -107,6 +124,14 @@ serve(async (req) => {
           break
         }
 
+        // Récupère l'état AVANT update pour détecter la transition trial → active
+        const { data: prevSub } = await supabase
+          .from('subscriptions')
+          .select('status')
+          .eq('organization_id', orgId)
+          .single()
+        const prevStatus = prevSub?.status ?? null
+
         await supabase
           .from('subscriptions')
           .update({
@@ -121,6 +146,12 @@ serve(async (req) => {
             trial_ends_at:          toIso(subscription.trial_end),
           })
           .eq('organization_id', orgId)
+
+        // Notif "nouveau client payant" si on passe à 'active' depuis un
+        // autre état (évite les doublons de notif à chaque webhook Stripe).
+        if (subscription.status === 'active' && prevStatus !== 'active') {
+          notifyLifecycle('subscription_activated', orgId)
+        }
         break
       }
 
@@ -134,6 +165,7 @@ serve(async (req) => {
             .from('subscriptions')
             .update({ status: 'canceled' })
             .eq('organization_id', orgId)
+          notifyLifecycle('subscription_canceled', orgId)
         }
         break
       }
@@ -146,6 +178,8 @@ serve(async (req) => {
             .from('subscriptions')
             .update({ status: 'past_due' })
             .eq('stripe_customer_id', customerId)
+          const orgId = await resolveOrgFromCustomer(supabase, customerId)
+          if (orgId) notifyLifecycle('payment_failed', orgId)
         }
         break
       }
