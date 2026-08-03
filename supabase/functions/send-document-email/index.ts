@@ -29,6 +29,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
+import { checkRateLimit } from '../_shared/rateLimit.ts'
 
 // Liste blanche d'origines autorisées à appeler cette fonction.
 // Un site tiers ne peut pas appeler la fonction avec un JWT volé.
@@ -112,6 +113,37 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'unauthenticated' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // ─── Rate limit envoi email : 20/min/user, 100/heure/user ───
+    // Un tech qui envoie 10 rapports d'affilée = OK. Un compte compromis
+    // qui essaie de spammer 500 emails = bloqué. Double fenêtre pour
+    // couvrir les 2 patterns d'abus (burst vs longue durée).
+    const adminClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    )
+    const rlMin = await checkRateLimit(adminClient, {
+      bucket: `send-email:user:${user.id}:1m`,
+      limit: 20,
+      windowSeconds: 60,
+    })
+    if (!rlMin.ok) {
+      return new Response(
+        JSON.stringify({ error: 'rate_limited', retry_after_s: rlMin.retryAfterS }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rlMin.retryAfterS ?? 60) } },
+      )
+    }
+    const rlHour = await checkRateLimit(adminClient, {
+      bucket: `send-email:user:${user.id}:1h`,
+      limit: 100,
+      windowSeconds: 3600,
+    })
+    if (!rlHour.ok) {
+      return new Response(
+        JSON.stringify({ error: 'rate_limited_hourly', retry_after_s: rlHour.retryAfterS }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rlHour.retryAfterS ?? 3600) } },
       )
     }
 

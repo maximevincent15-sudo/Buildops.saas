@@ -16,6 +16,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 import Stripe from 'https://esm.sh/stripe@17.5.0?target=deno'
+import { checkRateLimit } from '../_shared/rateLimit.ts'
 
 // Liste blanche d'origines autorisées à appeler cette fonction.
 const ALLOWED_ORIGINS = [
@@ -70,6 +71,24 @@ serve(async (req) => {
 
     const { data: { user }, error: userErr } = await userClient.auth.getUser()
     if (userErr || !user) return jsonResponse({ error: 'unauthenticated' }, 401, corsHeaders)
+
+    // ─── Rate limit : 10 ouvertures / min / user ─────
+    const adminClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    )
+    const rl = await checkRateLimit(adminClient, {
+      bucket: `stripe-portal:user:${user.id}`,
+      limit: 10,
+      windowSeconds: 60,
+    })
+    if (!rl.ok) {
+      return jsonResponse(
+        { error: 'rate_limited', retry_after_s: rl.retryAfterS },
+        429,
+        { ...corsHeaders, 'Retry-After': String(rl.retryAfterS ?? 60) },
+      )
+    }
 
     const { data: profile } = await userClient
       .from('profiles')

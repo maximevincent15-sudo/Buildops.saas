@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from '../../features/dashboard/components/Sidebar'
 import { TopNav } from '../../features/dashboard/components/TopNav'
 import { TrialBanner } from '../../features/billing/components/TrialBanner'
+import { IdleLogout } from '../../features/auth/components/IdleLogout'
 import { ErrorBoundary } from '../../shared/ui/ErrorBoundary'
 
 export function DashboardLayout() {
@@ -31,6 +32,7 @@ export function DashboardLayout() {
           <Outlet />
         </ErrorBoundary>
       </main>
+      <IdleLogout />
     </>
   )
 }

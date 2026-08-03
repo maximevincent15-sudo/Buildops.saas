@@ -22,6 +22,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 import Stripe from 'https://esm.sh/stripe@17.5.0?target=deno'
+import { checkRateLimit, getClientIp } from '../_shared/rateLimit.ts'
 
 // Liste blanche d'origines autorisées à appeler cette fonction.
 // Un attaquant sur un site tiers ne peut PAS appeler cette fonction
@@ -103,6 +104,22 @@ serve(async (req) => {
       supabaseUrl,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
+
+    // ─── Rate limit : 5 tentatives / min / user ────────────
+    // Un checkout n'est jamais massif : 5 essais/min est très large mais
+    // bloque un compte compromis qui tenterait de spammer.
+    const rl = await checkRateLimit(adminClient, {
+      bucket: `stripe-checkout:user:${user.id}`,
+      limit: 5,
+      windowSeconds: 60,
+    })
+    if (!rl.ok) {
+      return jsonResponse(
+        { error: 'rate_limited', retry_after_s: rl.retryAfterS },
+        429,
+        { ...corsHeaders, 'Retry-After': String(rl.retryAfterS ?? 60) },
+      )
+    }
 
     const { data: sub } = await adminClient
       .from('subscriptions')
