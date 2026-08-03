@@ -10,6 +10,7 @@ import {
   LogOut,
   Receipt,
   Settings,
+  Users,
   Wallet,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -58,6 +59,13 @@ const compte: NavItem[] = [
   { to: '/abonnement', Icon: CreditCard, label: 'Abonnement' },
   { to: '/parametres', Icon: Settings, label: 'Paramètres' },
 ]
+
+// Section visible uniquement pour les emails Firovia (founder + associés).
+// Cohérent avec la whitelist de la RPC admin_list_prospects().
+const founder: NavItem[] = [
+  { to: '/admin/prospects', Icon: Users, label: 'Prospects' },
+]
+const FOUNDER_EMAILS = new Set(['contact@firovia.fr', 'maximevincent15@gmail.com'])
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `b-sb-a${isActive ? ' on' : ''}`
@@ -175,6 +183,13 @@ export function Sidebar() {
 
       <div className="b-sb-sec">Compte</div>
       {compte.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
+
+      {email && FOUNDER_EMAILS.has(email) && (
+        <>
+          <div className="b-sb-sec">Firovia</div>
+          {founder.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
+        </>
+      )}
 
       <div className="b-sb-foot">
         <div className="b-sb-av">{initials}</div>

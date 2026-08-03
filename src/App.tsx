@@ -20,6 +20,7 @@ import { EquipePage } from './pages/EquipePage'
 import { FacturesPage } from './pages/FacturesPage'
 import { ParametresPage } from './pages/ParametresPage'
 import { AbonnementPage } from './pages/AbonnementPage'
+import { AdminProspectsPage } from './pages/AdminProspectsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { OvertimePage } from './pages/OvertimePage'
 import { VehiculesPage } from './pages/VehiculesPage'
@@ -63,6 +64,7 @@ function App() {
           <Route path="/archivage" element={<ArchivagePage />} />
           <Route path="/parametres" element={<ParametresPage />} />
           <Route path="/abonnement" element={<AbonnementPage />} />
+          <Route path="/admin/prospects" element={<AdminProspectsPage />} />
           <Route path="/equipe" element={<EquipePage />} />
         </Route>
       </Route>
