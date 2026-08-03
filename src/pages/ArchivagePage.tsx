@@ -9,6 +9,7 @@ import {
   FileText,
   Receipt,
   Search,
+  Upload,
   X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -16,6 +17,7 @@ import { Link } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
 import { listArchivedDocuments } from '../features/archivage/api'
 import type { ArchivedDocument } from '../features/archivage/api'
+import { LegacyImportModal } from '../features/archivage/components/LegacyImportModal'
 import { formatAmount } from '../features/devis/constants'
 
 type KindFilter = 'all' | 'report' | 'quote' | 'invoice'
@@ -68,6 +70,8 @@ export function ArchivagePage() {
   const [kindFilter, setKindFilter] = useState<KindFilter>('all')
   const [clientFilter, setClientFilter] = useState<string>('all')
   const [yearFilter, setYearFilter] = useState<string>('all')
+
+  const [importOpen, setImportOpen] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -169,7 +173,25 @@ export function ArchivagePage() {
             {docs.length > 1 && `${docs.length} documents · ${counts.report} rapports, ${counts.quote} devis, ${counts.invoice} factures`}
           </div>
         </div>
+        <div className="dash-acts">
+          <button
+            type="button"
+            className="btn-sm acc"
+            onClick={() => setImportOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            title="Uploader des PDF historiques (rapports/devis/factures d'avant Firovia)"
+          >
+            <Upload size={13} strokeWidth={2} />
+            Importer des PDF
+          </button>
+        </div>
       </div>
+
+      <LegacyImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => void load()}
+      />
 
       {/* Filtres */}
       <div className="card" style={{ marginBottom: '1rem' }}>
@@ -320,6 +342,26 @@ export function ArchivagePage() {
                       <div className="archive-title">
                         <span className="archive-kind">{KIND_LABEL[d.kind]}</span>
                         <strong>{d.reference}</strong>
+                        {d.is_legacy && (
+                          <span
+                            title="Document PDF importé depuis un système externe"
+                            style={{
+                              marginLeft: 6,
+                              fontSize: '.6rem',
+                              fontWeight: 700,
+                              color: '#8A4A00',
+                              background: '#FFF4E5',
+                              border: '1px solid #F5C88F',
+                              borderRadius: 999,
+                              padding: '1px 6px',
+                              letterSpacing: '.3px',
+                              textTransform: 'uppercase',
+                              verticalAlign: 'middle',
+                            }}
+                          >
+                            Importé
+                          </span>
+                        )}
                         <span className="archive-light"> — {d.client_name}</span>
                         {d.site_name && <span className="text-ink-3"> · {d.site_name}</span>}
                       </div>

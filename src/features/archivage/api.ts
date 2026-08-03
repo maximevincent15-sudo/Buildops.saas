@@ -20,6 +20,8 @@ export type ArchivedDocument = {
   status: string
   /** Montant TTC (devis/factures uniquement) */
   amount_ttc?: number
+  /** true si le document a été importé depuis un PDF externe (legacy) */
+  is_legacy?: boolean
 }
 
 /**
@@ -155,6 +157,43 @@ export async function listArchivedDocuments(): Promise<ArchivedDocument[]> {
     }
   } catch (e) {
     console.warn('Erreur chargement factures archivées:', e)
+  }
+
+  // ─── Documents legacy (PDF importés) ───────────────────────────────
+  try {
+    const { data: legacy, error: lErr } = await supabase
+      .from('legacy_documents')
+      .select('id, kind, reference, document_date, client_name, site_name, pdf_url, amount_ttc')
+      .order('document_date', { ascending: false })
+
+    if (!lErr && legacy) {
+      for (const l of legacy as unknown as Array<{
+        id: string
+        kind: 'report' | 'quote' | 'invoice'
+        reference: string
+        document_date: string
+        client_name: string
+        site_name: string | null
+        pdf_url: string
+        amount_ttc: number | null
+      }>) {
+        docs.push({
+          id: l.id,
+          kind: l.kind,
+          reference: l.reference,
+          date: l.document_date,
+          client_name: l.client_name,
+          client_id: null,
+          site_name: l.site_name,
+          pdf_url: l.pdf_url,
+          status: 'imported',
+          amount_ttc: l.amount_ttc ?? undefined,
+          is_legacy: true,
+        })
+      }
+    }
+  } catch (e) {
+    console.warn('Erreur chargement documents legacy:', e)
   }
 
   // Tri unifié par date descendante
