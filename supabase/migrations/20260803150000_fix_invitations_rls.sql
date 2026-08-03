@@ -1,0 +1,21 @@
+-- ═══════════════════════════════════════════════════════════
+-- Firovia — Fix RLS trop permissive sur organization_invitations
+-- ═══════════════════════════════════════════════════════════
+-- Audit sécu du 17/07/2026 (P2) :
+-- La policy "invitations_select_by_token" utilisait `using (true)`
+-- pour permettre de lire une invitation par son token depuis le front
+-- (aperçu "vous rejoignez XYZ" avant signup).
+--
+-- Problème : n'importe quel user authentifié pouvait SELECT * sur toute
+-- la table organization_invitations, y compris les invitations d'autres
+-- organisations. Un attaquant curieux pouvait enrichir sa reconnaissance.
+--
+-- Vérification faite : aucun appel `.eq('token', ...)` côté client.
+-- L'aperçu invitation passe EXCLUSIVEMENT par la RPC
+-- `get_invitation_preview` (SECURITY DEFINER, bypass RLS propre).
+--
+-- Fix : suppression de la policy inutile. La policy "invitations_select_org"
+-- (filtre par current_user_organization_id) suffit pour les managers.
+-- La RPC continue de servir le cas token.
+
+drop policy if exists "invitations_select_by_token" on public.organization_invitations;
