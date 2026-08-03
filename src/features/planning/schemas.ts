@@ -21,6 +21,8 @@ export const createInterventionSchema = z.object({
   technician_id: z.string().optional(),
   priority: z.enum(['normale', 'urgente', 'reglementaire']),
   notes: z.string().optional(),
+  // Optional côté form (checkbox non contrôlée). Default true géré dans toDbPayload.
+  recurrence_active: z.boolean().optional(),
 })
 
 export type CreateInterventionInput = z.infer<typeof createInterventionSchema>
@@ -49,6 +51,8 @@ export type Intervention = {
   parent_intervention_id: string | null
   /** true si l'intervention a été créée automatiquement par le système de maintenance préventive. */
   auto_generated: boolean
+  /** Si true, la clôture du rapport de cette intervention crée automatiquement la prochaine visite. Passer à false pour un one-shot. */
+  recurrence_active: boolean
 }
 
 // Helper : normalise une intervention venant de Supabase (gère le cas legacy

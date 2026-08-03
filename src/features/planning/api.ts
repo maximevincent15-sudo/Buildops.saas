@@ -19,6 +19,7 @@ function toDbPayload(input: CreateInterventionInput) {
     scheduled_date: input.scheduled_date || null,
     priority: input.priority,
     notes: input.notes || null,
+    recurrence_active: input.recurrence_active ?? true,
   }
 }
 
@@ -233,7 +234,13 @@ export async function createNextScheduledIntervention(
   }
   const parentInter = normalizeIntervention(parent as Intervention)
 
-  // 2) Idempotence : si un enfant existe déjà, on ne recrée pas
+  // 2) Si la récurrence est désactivée sur ce parent (one-shot,
+  // contrat résilié…), on ne crée pas la suite.
+  if (parentInter.recurrence_active === false) {
+    return null
+  }
+
+  // 3) Idempotence : si un enfant existe déjà, on ne recrée pas
   const { data: existing } = await supabase
     .from('interventions')
     .select('id')
@@ -273,6 +280,9 @@ export async function createNextScheduledIntervention(
       status: 'planifiee',
       parent_intervention_id: parentInter.id,
       auto_generated: true,
+      // Hérite du flag parent : un contrat récurrent le reste sur toute
+      // sa durée. Passer à false stoppe la chaîne au niveau désiré.
+      recurrence_active: parentInter.recurrence_active,
     })
     .select()
     .single()

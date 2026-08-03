@@ -227,6 +227,28 @@ export function PlanningPage() {
                           Auto
                         </span>
                       )}
+                      {i.recurrence_active === false && (
+                        <span
+                          title="Intervention ponctuelle : ne créera pas de prochaine visite à la clôture"
+                          style={{
+                            marginLeft: 6,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            fontSize: '.62rem',
+                            fontWeight: 700,
+                            color: '#8A4A00',
+                            background: '#FFF4E5',
+                            border: '1px solid #F5C88F',
+                            borderRadius: 999,
+                            padding: '1px 6px',
+                            verticalAlign: 'middle',
+                            letterSpacing: '.4px',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          One-shot
+                        </span>
+                      )}
                     </td>
                     <td>
                       <div>{i.client_name}</div>

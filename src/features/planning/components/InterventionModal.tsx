@@ -34,6 +34,7 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
       priority: 'normale',
       client_id: '',
       technician_id: '',
+      recurrence_active: true,
     }
   }
   // Fallback si l'enregistrement n'a que l'ancienne colonne
@@ -54,6 +55,7 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
     technician_id: i.technician_id ?? '',
     priority: i.priority as CreateInterventionInput['priority'],
     notes: i.notes ?? '',
+    recurrence_active: i.recurrence_active ?? true,
   }
 }
 
@@ -279,6 +281,36 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
           <div className="fg">
             <label>Notes pour le technicien</label>
             <input type="text" placeholder="Ex: Accès parking sous-sol, demander M. Dupont" {...register('notes')} />
+          </div>
+
+          <div className="fg">
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 10,
+                cursor: 'pointer',
+                padding: '10px 12px',
+                background: 'var(--wht, #F8F9FB)',
+                border: '1px solid var(--brd, #E1E5EA)',
+                borderRadius: 8,
+                userSelect: 'none',
+              }}
+            >
+              <input
+                type="checkbox"
+                {...register('recurrence_active')}
+                style={{ marginTop: 3, flexShrink: 0, cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '.85rem', lineHeight: 1.45 }}>
+                <strong style={{ color: 'var(--ink, #1C2130)' }}>Contrat de maintenance récurrent</strong>
+                <br />
+                <span style={{ color: 'var(--ink2, #5A6070)', fontWeight: 400 }}>
+                  À la clôture du rapport, la prochaine visite est créée automatiquement
+                  selon la fréquence réglementaire. Décochez pour une intervention ponctuelle (dépannage, urgence, one-shot).
+                </span>
+              </span>
+            </label>
           </div>
 
           {submitError && <span className="ferr on">{submitError}</span>}
