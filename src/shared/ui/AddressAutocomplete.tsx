@@ -1,19 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 
-type Suggestion = {
+export type AddressSuggestion = {
   label: string
   context: string
+  postcode: string | null
+  city: string | null
 }
 
 type ApiFeature = {
   properties: {
     label: string
     context: string
+    postcode?: string
+    city?: string
   }
 }
 
-async function searchAddress(query: string, signal: AbortSignal): Promise<Suggestion[]> {
+async function searchAddress(query: string, signal: AbortSignal): Promise<AddressSuggestion[]> {
   if (query.trim().length < 3) return []
   const url = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5&autocomplete=1`
   const res = await fetch(url, { signal })
@@ -22,18 +26,25 @@ async function searchAddress(query: string, signal: AbortSignal): Promise<Sugges
   return (data.features ?? []).map((f) => ({
     label: f.properties.label,
     context: f.properties.context,
+    postcode: f.properties.postcode ?? null,
+    city: f.properties.city ?? null,
   }))
 }
 
 type Props = {
   value: string
   onChange: (value: string) => void
+  /**
+   * Optionnel : appelé quand l'utilisateur clique une suggestion.
+   * Permet à l'appelant de récupérer aussi le code postal et la ville extraits.
+   */
+  onPicked?: (suggestion: AddressSuggestion) => void
   placeholder?: string
   id?: string
 }
 
-export function AddressAutocomplete({ value, onChange, placeholder, id }: Props) {
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+export function AddressAutocomplete({ value, onChange, onPicked, placeholder, id }: Props) {
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -61,8 +72,9 @@ export function AddressAutocomplete({ value, onChange, placeholder, id }: Props)
     }
   }, [value])
 
-  function pick(s: Suggestion) {
+  function pick(s: AddressSuggestion) {
     onChange(s.label)
+    onPicked?.(s)
     setSuggestions([])
     setIsOpen(false)
     setHighlight(-1)

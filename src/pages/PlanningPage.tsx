@@ -11,7 +11,8 @@ import { InterventionModal } from '../features/planning/components/InterventionM
 import { InterventionRowActions } from '../features/planning/components/InterventionRowActions'
 import { InterventionStatusBadge } from '../features/planning/components/InterventionStatusBadge'
 import { PlanningDayView } from '../features/planning/components/PlanningDayView'
-import { PlanningWeekView } from '../features/planning/components/PlanningWeekView'
+import { PlanningMonthView } from '../features/planning/components/PlanningMonthView'
+import { PlanningWeekGridView } from '../features/planning/components/PlanningWeekGridView'
 import { buildIcsCalendar, buildIcsForIntervention, downloadIcs } from '../features/planning/icsExport'
 import type { Intervention } from '../features/planning/schemas'
 import {
@@ -20,7 +21,7 @@ import {
 } from '../shared/constants/interventions'
 import type { InterventionPriority } from '../shared/constants/interventions'
 
-type ViewMode = 'list' | 'day' | 'week'
+type ViewMode = 'week' | 'day' | 'month'
 
 function formatDate(d: string | null) {
   if (!d) return '—'
@@ -37,7 +38,7 @@ export function PlanningPage() {
   const [error, setError] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Intervention | null>(null)
-  const [view, setView] = useState<ViewMode>('list')
+  const [view, setView] = useState<ViewMode>('week')
   const [exporting, setExporting] = useState(false)
   const profile = useAuthStore((s) => s.profile)
 
@@ -139,41 +140,11 @@ export function PlanningPage() {
         </div>
       </div>
 
-      {total > 0 && (
-        <div style={{ display: 'flex', gap: '.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className={`filter-pill${view === 'list' ? ' on' : ''}`}
-            onClick={() => setView('list')}
-          >
-            Liste
-          </button>
-          <button
-            type="button"
-            className={`filter-pill${view === 'day' ? ' on' : ''}`}
-            onClick={() => setView('day')}
-            title="Vue par technicien pour la journée"
-          >
-            Journée
-          </button>
-          <button
-            type="button"
-            className={`filter-pill${view === 'week' ? ' on' : ''}`}
-            onClick={() => setView('week')}
-          >
-            Semaine
-          </button>
-        </div>
-      )}
+      {loading && <p className="text-ink-2 text-sm font-light">Chargement…</p>}
+      {error && !loading && <p className="text-red text-sm">Erreur : {error}</p>}
 
-      <div className="card">
-        {loading && <p className="text-ink-2 text-sm font-light">Chargement…</p>}
-
-        {error && !loading && (
-          <p className="text-red text-sm">Erreur : {error}</p>
-        )}
-
-        {!loading && !error && total === 0 && (
+      {!loading && !error && total === 0 && (
+        <div className="card">
           <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
             <p className="text-ink-2 font-light" style={{ marginBottom: '.5rem' }}>
               Aucune intervention pour le moment.
@@ -185,13 +156,66 @@ export function PlanningPage() {
               + Créer une intervention
             </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {!loading && !error && total > 0 && view === 'list' && (
-          <>
-            <p className="text-ink-3 text-xs font-light" style={{ marginBottom: '.75rem' }}>
-              Clique sur une ligne pour modifier ou supprimer une intervention.
-            </p>
+      {!loading && !error && total > 0 && (
+        <>
+          {/* ═══ Calendrier (en haut) ═══ */}
+          <div style={{ display: 'flex', gap: '.5rem', marginBottom: '.75rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className={`filter-pill${view === 'week' ? ' on' : ''}`}
+              onClick={() => setView('week')}
+            >
+              Semaine
+            </button>
+            <button
+              type="button"
+              className={`filter-pill${view === 'day' ? ' on' : ''}`}
+              onClick={() => setView('day')}
+              title="Vue par technicien pour la journée"
+            >
+              Journée
+            </button>
+            <button
+              type="button"
+              className={`filter-pill${view === 'month' ? ' on' : ''}`}
+              onClick={() => setView('month')}
+            >
+              Mois
+            </button>
+          </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            {view === 'week' && (
+              <PlanningWeekGridView
+                interventions={interventions}
+                onClickIntervention={openEdit}
+              />
+            )}
+            {view === 'day' && (
+              <PlanningDayView
+                interventions={interventions}
+                onClickIntervention={openEdit}
+              />
+            )}
+            {view === 'month' && (
+              <PlanningMonthView
+                interventions={interventions}
+                onClickIntervention={openEdit}
+              />
+            )}
+          </div>
+
+          {/* ═══ Liste des interventions (en bas, toujours visible) ═══ */}
+          <div className="card">
+            <div className="card-top">
+              <span className="card-title">Toutes les interventions ({total})</span>
+              <span className="text-ink-3 text-xs font-light">
+                Clique sur une ligne pour modifier
+              </span>
+            </div>
             <table className="dtbl">
               <thead>
                 <tr>
@@ -298,23 +322,9 @@ export function PlanningPage() {
                 ))}
               </tbody>
             </table>
-          </>
-        )}
-
-        {!loading && !error && total > 0 && view === 'day' && (
-          <PlanningDayView
-            interventions={interventions}
-            onClickIntervention={openEdit}
-          />
-        )}
-
-        {!loading && !error && total > 0 && view === 'week' && (
-          <PlanningWeekView
-            interventions={interventions}
-            onClickIntervention={openEdit}
-          />
-        )}
-      </div>
+          </div>
+        </>
+      )}
 
       <InterventionModal
         open={modalOpen}

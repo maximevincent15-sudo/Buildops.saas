@@ -55,6 +55,7 @@ export function SiteModal({
     handleSubmit,
     reset,
     control,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateSiteInput>({
     resolver: zodResolver(createSiteSchema),
@@ -160,6 +161,10 @@ export function SiteModal({
                 <AddressAutocomplete
                   value={field.value ?? ''}
                   onChange={field.onChange}
+                  onPicked={(s) => {
+                    if (s.postcode) setValue('postal_code', s.postcode)
+                    if (s.city) setValue('city', s.city)
+                  }}
                   placeholder="Commence à taper le numéro et la rue…"
                 />
               )}
