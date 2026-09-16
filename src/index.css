@@ -2907,7 +2907,8 @@ h1, h2, h3, h4, h5, h6 {
 
   /* ──── BRIEFING dark card (point focal) ──── */
   .b-briefing {
-    background: var(--ink); color: white;
+    background: linear-gradient(135deg, #253148 0%, #1E2A44 100%);
+    color: white;
     border-radius: 18px; padding: 24px 28px;
     display: flex; align-items: flex-start; gap: 18px;
     margin-bottom: 32px;
