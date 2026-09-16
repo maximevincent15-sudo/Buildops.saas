@@ -1,6 +1,8 @@
 import { Building2, Layers, Plus, Search, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { listClients } from '../features/clients/api'
+import type { Client } from '../features/clients/schemas'
 import { listEquipmentUnits, listSites } from '../features/equipment/api'
 import { BatchAddUnitsModal } from '../features/equipment/components/BatchAddUnitsModal'
 import { EquipmentUnitModal } from '../features/equipment/components/EquipmentUnitModal'
@@ -32,6 +34,7 @@ const STATUS_BADGE: Record<EquipmentStatus, string> = {
 export function EquipementsPage() {
   const [units, setUnits] = useState<EquipmentUnit[]>([])
   const [sites, setSites] = useState<Site[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -51,9 +54,14 @@ export function EquipementsPage() {
     setLoading(true)
     setError(null)
     try {
-      const [u, s] = await Promise.all([listEquipmentUnits(), listSites()])
+      const [u, s, c] = await Promise.all([
+        listEquipmentUnits(),
+        listSites(),
+        listClients(),
+      ])
       setUnits(u)
       setSites(s)
+      setClients(c)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
     } finally {
@@ -70,6 +78,12 @@ export function EquipementsPage() {
     for (const s of sites) map.set(s.id, s)
     return map
   }, [sites])
+
+  const clientsById = useMemo(() => {
+    const map = new Map<string, Client>()
+    for (const c of clients) map.set(c.id, c)
+    return map
+  }, [clients])
 
   // Compteurs par famille (pour les pills)
   const familyCounts = useMemo(() => {
@@ -352,7 +366,7 @@ export function EquipementsPage() {
               <thead>
                 <tr>
                   <th style={{ width: 60 }}>N°</th>
-                  <th>Site · Zone</th>
+                  <th>Client · Site</th>
                   <th>Famille</th>
                   <th>Type</th>
                   <th>Marque</th>
@@ -364,6 +378,7 @@ export function EquipementsPage() {
               <tbody>
                 {filtered.map((u) => {
                   const site = sitesById.get(u.site_id)
+                  const client = clientsById.get(u.client_id)
                   const nextYear =
                     u.next_replacement_year ??
                     computeNextReplacementYear(u.family, u.install_year)
@@ -382,7 +397,12 @@ export function EquipementsPage() {
                         {u.serial_number}
                       </td>
                       <td>
-                        <div style={{ fontSize: 13 }}>{site?.name ?? '—'}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+                          {client?.name ?? '—'}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--ink2)' }}>
+                          {site?.name ?? '—'}
+                        </div>
                       </td>
                       <td>
                         <span className="b-gry">{EQUIPMENT_FAMILY_LABELS[u.family]}</span>
