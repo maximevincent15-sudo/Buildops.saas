@@ -1,6 +1,6 @@
-import { Camera, Check } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import type { MouseEvent } from 'react'
+import { Camera, Check, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ChangeEvent, MouseEvent } from 'react'
 import {
   getFamilyTemplate,
   listChecksByIntervention,
@@ -14,12 +14,14 @@ import {
 } from '../../equipment/schemas'
 import type {
   CheckItemValue,
+  CheckPhoto,
   CheckVerdict,
   EquipmentCheck,
   EquipmentUnit,
   FamilyTemplate,
   Zone,
 } from '../../equipment/schemas'
+import { deleteReportPhoto, uploadReportPhoto } from '../../../shared/lib/storage'
 
 type Props = {
   interventionId: string
@@ -121,6 +123,7 @@ export function UnitBasedControls({
     checklist: Record<string, CheckItemValue>
     observation: string | null
     verdict: CheckVerdict
+    photos: CheckPhoto[]
   }) {
     if (!editingUnit) return
     try {
@@ -133,7 +136,7 @@ export function UnitBasedControls({
           checklist: patch.checklist,
           observation: patch.observation,
           verdict: patch.verdict,
-          photos: [],
+          photos: patch.photos,
         },
         organizationId,
         { technicianId, technicianName },
@@ -277,6 +280,8 @@ export function UnitBasedControls({
           onClose={() => setEditingUnitId(null)}
           onSave={handleSaveCheck}
           readOnly={readOnly}
+          organizationId={organizationId}
+          interventionId={interventionId}
         />
       )}
     </div>
@@ -294,17 +299,27 @@ type ModalProps = {
     checklist: Record<string, CheckItemValue>
     observation: string | null
     verdict: CheckVerdict
+    photos: CheckPhoto[]
   }) => Promise<void> | void
   readOnly?: boolean
+  organizationId: string
+  interventionId: string
 }
 
-function UnitCheckModal({ unit, template, existing, onClose, onSave, readOnly }: ModalProps) {
+function UnitCheckModal({
+  unit, template, existing, onClose, onSave, readOnly,
+  organizationId, interventionId,
+}: ModalProps) {
   const [checklist, setChecklist] = useState<Record<string, CheckItemValue>>(
     existing?.checklist ?? {},
   )
   const [observation, setObservation] = useState(existing?.observation ?? '')
   const [verdict, setVerdict] = useState<CheckVerdict>(existing?.verdict ?? 'non_verifie')
+  const [photos, setPhotos] = useState<CheckPhoto[]>(existing?.photos ?? [])
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   function toggleItem(itemId: string, val: CheckItemValue) {
     setChecklist((prev) => {
@@ -315,6 +330,36 @@ function UnitCheckModal({ unit, template, existing, onClose, onSave, readOnly }:
     })
   }
 
+  async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    setUploadError(null)
+    setUploading(true)
+    try {
+      const uploaded: CheckPhoto[] = []
+      for (const file of Array.from(files)) {
+        const p = await uploadReportPhoto(file, organizationId, interventionId)
+        uploaded.push(p)
+      }
+      setPhotos((prev) => [...prev, ...uploaded])
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Erreur upload photo')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  async function removePhoto(photo: CheckPhoto) {
+    // Optimiste : retire tout de suite de l'UI, puis nettoie storage
+    setPhotos((prev) => prev.filter((p) => p.path !== photo.path))
+    try {
+      await deleteReportPhoto(photo.path)
+    } catch {
+      // silent — orpheline pas critique
+    }
+  }
+
   async function handleSave() {
     setSaving(true)
     try {
@@ -322,6 +367,7 @@ function UnitCheckModal({ unit, template, existing, onClose, onSave, readOnly }:
         checklist,
         observation: observation.trim() || null,
         verdict,
+        photos,
       })
     } finally {
       setSaving(false)
@@ -462,10 +508,67 @@ function UnitCheckModal({ unit, template, existing, onClose, onSave, readOnly }:
             </div>
           </div>
 
-          {/* TODO photos : phase suivante */}
-          <div style={photoTeaser}>
-            <Camera size={14} strokeWidth={1.8} />
-            Ajout de photos par unité — bientôt disponible.
+          {/* Photos horodatées */}
+          <div>
+            <div style={sectionTitleStyle}>
+              <span>Photos ({photos.length})</span>
+              <span style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 500 }}>
+                Preuves horodatées
+              </span>
+            </div>
+            {photos.length > 0 && (
+              <div style={photoGridStyle}>
+                {photos.map((p) => (
+                  <div key={p.path} style={photoThumbStyle}>
+                    <a href={p.url} target="_blank" rel="noreferrer">
+                      <img
+                        src={p.url}
+                        alt=""
+                        loading="lazy"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }}
+                      />
+                    </a>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => void removePhoto(p)}
+                        style={photoRemoveStyle}
+                        aria-label="Retirer la photo"
+                      >
+                        <X size={11} strokeWidth={2.5} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {!readOnly && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  style={photoAddBtnStyle}
+                >
+                  <Camera size={14} strokeWidth={1.8} />
+                  {uploading ? 'Envoi…' : photos.length === 0 ? 'Ajouter une photo' : '+ Ajouter'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  multiple
+                  hidden
+                  onChange={(e) => void handleFileChange(e)}
+                />
+                {uploadError && (
+                  <div style={{ fontSize: 11.5, color: 'var(--red, #A83A3A)', marginTop: 4 }}>
+                    ⚠ {uploadError}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 
@@ -653,15 +756,49 @@ function verdictBtnOnStyle(v: CheckVerdict): React.CSSProperties {
   }
 }
 
-const photoTeaser: React.CSSProperties = {
-  padding: '8px 12px',
+const photoGridStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+  gap: 6,
+  marginBottom: 8,
+}
+
+const photoThumbStyle: React.CSSProperties = {
+  position: 'relative',
+  aspectRatio: '1',
+  borderRadius: 6,
+  overflow: 'hidden',
+  border: '1px solid var(--brd, #E1E5EA)',
+}
+
+const photoRemoveStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 3,
+  right: 3,
+  width: 20,
+  height: 20,
+  background: 'rgba(0, 0, 0, 0.6)',
+  color: 'white',
+  border: 0,
+  borderRadius: '50%',
+  display: 'grid',
+  placeItems: 'center',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+}
+
+const photoAddBtnStyle: React.CSSProperties = {
+  padding: '8px 14px',
   background: 'var(--wht, #F8F9FB)',
-  border: '1px dashed var(--brd, #E1E5EA)',
+  border: '1.5px dashed var(--brd, #E1E5EA)',
   borderRadius: 8,
-  fontSize: 11.5,
-  color: 'var(--ink3)',
+  fontSize: 12.5,
+  color: 'var(--ink2, #5A6070)',
+  cursor: 'pointer',
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
+  fontFamily: 'inherit',
+  fontWeight: 500,
 }
 
