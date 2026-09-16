@@ -1,4 +1,4 @@
-import { Plus, FileText } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useAuthStore } from '../features/auth/store'
 import { ActivityFeed } from '../features/dashboard/components/ActivityFeed'
@@ -89,13 +89,9 @@ export function DashboardPage() {
           </div>
         </div>
         <div className="b-h-acts">
-          <button type="button" className="b-btn" onClick={() => setModalOpen(true)}>
+          <button type="button" className="b-btn acc" onClick={() => setModalOpen(true)}>
             <Plus size={14} strokeWidth={2} />
             Nouvelle intervention
-          </button>
-          <button type="button" className="b-btn acc">
-            <FileText size={14} strokeWidth={2} />
-            Nouveau rapport
           </button>
         </div>
       </div>

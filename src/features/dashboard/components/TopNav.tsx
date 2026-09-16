@@ -1,4 +1,4 @@
-import { LogOut, Menu, Search } from 'lucide-react'
+import { LogOut, Menu } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { signOut } from '../../auth/api'
 import { useSubscription } from '../../billing/hooks'
@@ -48,11 +48,6 @@ export function TopNav({ onToggleSidebar }: Props) {
           </button>
         )}
         <Logo />
-        <div className="b-search">
-          <Search size={14} strokeWidth={2} />
-          <span>Rechercher…</span>
-          <kbd>⌘ K</kbd>
-        </div>
       </div>
       <div className="b-topnav-r">
         {planLabel && (
