@@ -129,13 +129,29 @@ export function BatchAddUnitsModal({ open, onClose, onCreated }: Props) {
       onClose()
       onCreated?.()
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Erreur inconnue'
+      // Supabase renvoie souvent des PostgrestError (pas des vraies Error).
+      // On extrait le message de manière robuste.
+      const err = e as { message?: string; details?: string; hint?: string; code?: string } | Error
+      const msg =
+        (typeof err === 'object' && err !== null && 'message' in err && err.message) ||
+        (typeof err === 'object' && err !== null && 'details' in err && err.details) ||
+        String(e)
+      const lowerMsg = String(msg).toLowerCase()
       // Détection du cas doublon (contrainte unique site_id, family, serial_number)
-      if (msg.includes('duplicate') || msg.includes('unique')) {
-        setError('Certains N° existent déjà pour cette famille sur ce site. Change le N° de départ.')
+      if (
+        lowerMsg.includes('duplicate') ||
+        lowerMsg.includes('unique') ||
+        lowerMsg.includes('23505') // Postgres error code pour unique_violation
+      ) {
+        setError(
+          `Certains N° existent déjà pour cette famille sur ce site (par ex. N°12 semble présent). ` +
+          `Change le N° de départ ou supprime les unités existantes d'abord.`,
+        )
       } else {
-        setError(msg)
+        setError(`${msg}`)
       }
+      // Log en console pour debug
+      console.error('Batch create error:', e)
     } finally {
       setCreating(false)
     }
