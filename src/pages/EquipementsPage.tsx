@@ -1,4 +1,4 @@
-import { Building2, Layers, Plus, Search, Upload, X } from 'lucide-react'
+import { Building2, Layers, Pencil, Plus, Search, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listClients } from '../features/clients/api'
@@ -42,6 +42,7 @@ export function EquipementsPage() {
   const [unitModalOpen, setUnitModalOpen] = useState(false)
   const [editingUnit, setEditingUnit] = useState<EquipmentUnit | null>(null)
   const [siteModalOpen, setSiteModalOpen] = useState(false)
+  const [editingSite, setEditingSite] = useState<Site | null>(null)
   const [batchModalOpen, setBatchModalOpen] = useState(false)
 
   // Filtres
@@ -165,7 +166,10 @@ export function EquipementsPage() {
             type="button"
             className="btn-sm"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            onClick={() => setSiteModalOpen(true)}
+            onClick={() => {
+              setEditingSite(null)
+              setSiteModalOpen(true)
+            }}
           >
             <Building2 size={13} strokeWidth={2} />
             Nouveau site
@@ -278,6 +282,24 @@ export function EquipementsPage() {
             </option>
           ))}
         </select>
+        {siteFilter !== 'all' && (
+          <button
+            type="button"
+            className="btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            onClick={() => {
+              const s = sitesById.get(siteFilter)
+              if (s) {
+                setEditingSite(s)
+                setSiteModalOpen(true)
+              }
+            }}
+            title="Modifier le site sélectionné (adresse, contact, lien de partage du registre)"
+          >
+            <Pencil size={13} strokeWidth={2} />
+            Modifier ce site
+          </button>
+        )}
         <select
           className="input-sm"
           value={statusFilter}
@@ -331,7 +353,10 @@ export function EquipementsPage() {
                 <button
                   type="button"
                   className="btn-sm acc"
-                  onClick={() => setSiteModalOpen(true)}
+                  onClick={() => {
+                    setEditingSite(null)
+                    setSiteModalOpen(true)
+                  }}
                 >
                   Créer un premier site
                 </button>
@@ -439,8 +464,12 @@ export function EquipementsPage() {
 
       <SiteModal
         open={siteModalOpen}
-        onClose={() => setSiteModalOpen(false)}
+        onClose={() => {
+          setSiteModalOpen(false)
+          setEditingSite(null)
+        }}
         onChanged={() => void load()}
+        site={editingSite}
       />
 
       <BatchAddUnitsModal
