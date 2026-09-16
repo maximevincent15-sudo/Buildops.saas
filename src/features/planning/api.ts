@@ -11,6 +11,7 @@ function toDbPayload(input: CreateInterventionInput) {
     client_name: input.client_name,
     client_id: input.client_id || null,
     site_name: input.site_name || null,
+    site_id: input.site_id || null,
     address: input.address || null,
     equipment_type: firstEquipment,
     equipment_types: input.equipment_types,
@@ -20,6 +21,25 @@ function toDbPayload(input: CreateInterventionInput) {
     priority: input.priority,
     notes: input.notes || null,
     recurrence_active: input.recurrence_active ?? true,
+    // Localisation chantier
+    chantier_address: input.chantier_address || null,
+    chantier_postal_code: input.chantier_postal_code || null,
+    chantier_city: input.chantier_city || null,
+    chantier_contact_name: input.chantier_contact_name || null,
+    chantier_contact_phone: input.chantier_contact_phone || null,
+    // Modalités d'accès
+    chantier_access_parking: input.chantier_access_parking || null,
+    chantier_access_digicode: input.chantier_access_digicode || null,
+    chantier_access_building: input.chantier_access_building || null,
+    chantier_access_hours: input.chantier_access_hours || null,
+    // Planning détaillé
+    slot: input.slot || null,
+    start_time: input.start_time || null,
+    duration_minutes: input.duration_minutes ?? null,
+    // Zones + matériel + recommandations
+    zone_ids: input.zone_ids && input.zone_ids.length > 0 ? input.zone_ids : null,
+    material_needed: input.material_needed ?? [],
+    recommendations: input.recommendations || null,
   }
 }
 

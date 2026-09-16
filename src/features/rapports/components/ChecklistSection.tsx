@@ -127,20 +127,29 @@ export function ChecklistSection({
                 </button>
                 <button
                   type="button"
-                  className={`check-btn nok${value === 'nok' ? ' on' : ''}`}
-                  onClick={() => setValue(item.id, 'nok')}
-                  disabled={readOnly}
-                >
-                  NOK
-                </button>
-                <button
-                  type="button"
                   className={`check-btn na${value === 'na' ? ' on' : ''}`}
                   onClick={() => setValue(item.id, 'na')}
                   disabled={readOnly}
                 >
                   N/A
                 </button>
+                {/*
+                  Le bouton NOK a été retiré : le défaut d'un équipement se
+                  gère désormais au niveau de l'unité (verdict "surveiller" /
+                  "reformer" + observation), pas au niveau de l'item.
+                  Les rapports existants avec des items NOK restent affichés
+                  en lecture (badge "NOK ancien") mais on ne peut plus en
+                  créer de nouveaux.
+                */}
+                {value === 'nok' && (
+                  <span
+                    className="check-btn nok on"
+                    style={{ cursor: 'default', opacity: 0.7 }}
+                    title="NOK enregistré avant la refonte — remplace par OK ou N/A pour clore l'item"
+                  >
+                    NOK (ancien)
+                  </span>
+                )}
               </div>
             </div>
 

@@ -1,6 +1,7 @@
 import {
   Archive,
   Bell,
+  Boxes,
   Building2,
   CalendarDays,
   ClipboardCheck,
@@ -40,6 +41,7 @@ const principal: NavItem[] = [
 
 const clients: NavItem[] = [
   { to: '/clients', Icon: Building2, label: 'Fiches clients' },
+  { to: '/equipements', Icon: Boxes, label: 'Équipements' },
 ]
 
 const rh: NavItem[] = [

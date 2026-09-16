@@ -15,8 +15,11 @@ import { ImportTechniciansPage } from './pages/ImportTechniciansPage'
 import { ImportVehiclesPage } from './pages/ImportVehiclesPage'
 import { ArchivagePage } from './pages/ArchivagePage'
 import { ClientPortalPage } from './pages/ClientPortalPage'
+import { PublicRegistryPage } from './pages/PublicRegistryPage'
 import { DevisPage } from './pages/DevisPage'
 import { EquipePage } from './pages/EquipePage'
+import { EquipementsPage } from './pages/EquipementsPage'
+import { ImportEquipementsPage } from './pages/ImportEquipementsPage'
 import { FacturesPage } from './pages/FacturesPage'
 import { ParametresPage } from './pages/ParametresPage'
 import { AbonnementPage } from './pages/AbonnementPage'
@@ -42,6 +45,8 @@ function App() {
 
       {/* Portail client : route publique, pas d'auth requise (auth via token URL) */}
       <Route path="/client/:token" element={<ClientPortalPage />} />
+      {/* Registre APSAD public : URL partageable par site (accès sans auth). */}
+      <Route path="/registre/:token" element={<PublicRegistryPage />} />
 
       <Route element={<RequireAuth />}>
         <Route element={<DashboardLayout />}>
@@ -52,6 +57,8 @@ function App() {
           <Route path="/alertes" element={<AlertesPage />} />
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/clients/import" element={<ImportClientsPage />} />
+          <Route path="/equipements" element={<EquipementsPage />} />
+          <Route path="/equipements/import" element={<ImportEquipementsPage />} />
           <Route path="/techniciens/import" element={<ImportTechniciansPage />} />
           <Route path="/vehicules/import" element={<ImportVehiclesPage />} />
           <Route path="/planning/import" element={<ImportInterventionsPage />} />

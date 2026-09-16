@@ -25,10 +25,12 @@ import {
 } from '../features/rapports/api'
 import { CHECKLISTS } from '../features/rapports/checklists'
 import { ChecklistSection } from '../features/rapports/components/ChecklistSection'
+import { UnitBasedControls } from '../features/rapports/components/UnitBasedControls'
 import { ReportHistoryList } from '../features/rapports/components/ReportHistoryList'
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
 import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
 import { ReportPdf } from '../features/rapports/pdf/ReportPdf'
+import { buildUnitEntriesForIntervention } from '../features/equipment/reportHelpers'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
 import type { UpsertQuoteInput } from '../features/devis/schemas'
 import {
@@ -340,12 +342,21 @@ export function RapportEditorPage() {
       items: CHECKLISTS[t] ?? [],
       responses: checklistByType[t] ?? [],
     }))
+    // Registre APSAD nominatif (Slice E) — chargé si le site a des équipements
+    // avec des contrôles enregistrés pour cette intervention.
+    let unitEntries: Awaited<ReturnType<typeof buildUnitEntriesForIntervention>> = []
+    try {
+      unitEntries = await buildUnitEntriesForIntervention(iid, intervention!.site_id)
+    } catch {
+      unitEntries = []
+    }
     const element = (
       <ReportPdf
         intervention={intervention!}
         report={snapshot}
         sections={sections}
         organizationName={orgName}
+        unitEntries={unitEntries}
       />
     )
     return generateAndUploadReportPdf(element, orgId, iid, intervention!.reference)
@@ -639,10 +650,20 @@ export function RapportEditorPage() {
         </div>
       )}
 
+      {/* Contrôle par unité — n'apparaît que si le site a des équipements dans l'inventaire */}
+      <UnitBasedControls
+        interventionId={iid}
+        siteId={intervention.site_id}
+        organizationId={orgId}
+        technicianId={intervention.technician_id}
+        technicianName={intervention.technician_name}
+        readOnly={isCompleted}
+      />
+
       {items.length > 0 && (
         <div className="card">
           <div className="card-top">
-            <span className="card-title">Checklist de contrôle — {equipmentType ? EQUIPMENT_TYPES[equipmentType] : ''}</span>
+            <span className="card-title">Checklist globale — {equipmentType ? EQUIPMENT_TYPES[equipmentType] : ''}</span>
             <span className="text-ink-3 text-xs font-light">
               {summary.answered}/{summary.total} renseignés
             </span>
