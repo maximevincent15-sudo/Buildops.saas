@@ -6,8 +6,8 @@ import {
   listChecksByIntervention,
   listEquipmentUnits,
   listZones,
-  upsertCheck,
 } from '../../equipment/api'
+import { upsertCheckSmart } from '../../equipment/offlineQueue'
 import {
   CHECK_VERDICT_LABELS,
   EQUIPMENT_FAMILY_LABELS,
@@ -128,7 +128,7 @@ export function UnitBasedControls({
     if (!editingUnit) return
     try {
       const template = templateCache.get(editingUnit.family) ?? null
-      const saved = await upsertCheck(
+      const saved = await upsertCheckSmart(
         {
           intervention_id: interventionId,
           equipment_unit_id: editingUnit.id,

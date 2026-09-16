@@ -5,6 +5,7 @@ import { TopNav } from '../../features/dashboard/components/TopNav'
 import { TrialBanner } from '../../features/billing/components/TrialBanner'
 import { IdleLogout } from '../../features/auth/components/IdleLogout'
 import { ErrorBoundary } from '../../shared/ui/ErrorBoundary'
+import { OfflineBanner } from '../../shared/ui/OfflineBanner'
 
 export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -17,6 +18,7 @@ export function DashboardLayout() {
 
   return (
     <>
+      <OfflineBanner />
       <TopNav onToggleSidebar={() => setSidebarOpen((v) => !v)} />
       <TrialBanner />
       <Sidebar />
