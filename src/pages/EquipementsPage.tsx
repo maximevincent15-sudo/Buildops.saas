@@ -1,7 +1,8 @@
-import { Building2, Plus, Search, Upload, X } from 'lucide-react'
+import { Building2, Layers, Plus, Search, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listEquipmentUnits, listSites } from '../features/equipment/api'
+import { BatchAddUnitsModal } from '../features/equipment/components/BatchAddUnitsModal'
 import { EquipmentUnitModal } from '../features/equipment/components/EquipmentUnitModal'
 import { SiteModal } from '../features/equipment/components/SiteModal'
 import {
@@ -38,6 +39,7 @@ export function EquipementsPage() {
   const [unitModalOpen, setUnitModalOpen] = useState(false)
   const [editingUnit, setEditingUnit] = useState<EquipmentUnit | null>(null)
   const [siteModalOpen, setSiteModalOpen] = useState(false)
+  const [batchModalOpen, setBatchModalOpen] = useState(false)
 
   // Filtres
   const [search, setSearch] = useState('')
@@ -153,6 +155,15 @@ export function EquipementsPage() {
           >
             <Building2 size={13} strokeWidth={2} />
             Nouveau site
+          </button>
+          <button
+            type="button"
+            className="btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            onClick={() => setBatchModalOpen(true)}
+          >
+            <Layers size={13} strokeWidth={2} />
+            Ajout en lot
           </button>
           <button
             type="button"
@@ -410,6 +421,12 @@ export function EquipementsPage() {
         open={siteModalOpen}
         onClose={() => setSiteModalOpen(false)}
         onChanged={() => void load()}
+      />
+
+      <BatchAddUnitsModal
+        open={batchModalOpen}
+        onClose={() => setBatchModalOpen(false)}
+        onCreated={() => void load()}
       />
 
       <EquipmentUnitModal
