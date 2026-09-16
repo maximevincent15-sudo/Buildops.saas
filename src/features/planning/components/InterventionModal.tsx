@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Bell, Check, ChevronLeft, ChevronRight, Minus, Plus, Trash2 } from 'lucide-react'
+import { Bell, Check, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
@@ -115,15 +115,6 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
   }
 }
 
-function formatDuration(m: number | null | undefined): string {
-  if (!m) return '—'
-  const h = Math.floor(m / 60)
-  const min = m % 60
-  if (h === 0) return `${min} min`
-  if (min === 0) return `${h} h`
-  return `${h} h ${min < 10 ? '0' + min : min}`
-}
-
 // ─── Composant ─────────────────────────────────────────────
 
 export function InterventionModal({ open, onClose, onChanged, intervention, seed }: Props) {
@@ -159,7 +150,6 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
   const siteId = watch('site_id')
   const scheduledDate = watch('scheduled_date')
   const slot = watch('slot')
-  const durationMinutes = watch('duration_minutes')
   const materialNeeded = watch('material_needed') ?? []
   const zoneIds = watch('zone_ids') ?? []
 
@@ -303,12 +293,6 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
       setValue('material_needed', [...current, trimmed])
     }
     setCustomMaterial('')
-  }
-
-  function bumpDuration(delta: number) {
-    const current = getValues('duration_minutes') ?? 120
-    const next = Math.max(30, Math.min(12 * 60, current + delta))
-    setValue('duration_minutes', next)
   }
 
   function toggleZone(id: string) {
@@ -648,40 +632,13 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                 </div>
               </div>
 
-              <div className="mrow">
-                <div className="fg">
-                  <label>Durée estimée</label>
-                  <div style={durStepperStyle}>
-                    <button
-                      type="button"
-                      onClick={() => bumpDuration(-30)}
-                      style={durBtnStyle}
-                      aria-label="Réduire de 30 min"
-                    >
-                      <Minus size={14} strokeWidth={2.5} />
-                    </button>
-                    <div style={durValStyle}>{formatDuration(durationMinutes)}</div>
-                    <button
-                      type="button"
-                      onClick={() => bumpDuration(30)}
-                      style={durBtnStyle}
-                      aria-label="Augmenter de 30 min"
-                    >
-                      <Plus size={14} strokeWidth={2.5} />
-                    </button>
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 3 }}>
-                    Pas de 30 min (min 30, max 12 h)
-                  </div>
-                </div>
-                <div className="fg">
-                  <label>Priorité</label>
-                  <select {...register('priority')}>
-                    {Object.entries(INTERVENTION_PRIORITIES).map(([val, label]) => (
-                      <option key={val} value={val}>{label}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="fg">
+                <label>Priorité</label>
+                <select {...register('priority')}>
+                  {Object.entries(INTERVENTION_PRIORITIES).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="fg">
@@ -811,13 +768,9 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                   v={slot ? SLOT_LABEL[slot] : '—'}
                 />
                 <RecapLine
-                  k="Date · heure · durée"
+                  k="Date · heure"
                   v={
-                    [
-                      scheduledDate,
-                      watch('start_time'),
-                      formatDuration(durationMinutes),
-                    ]
+                    [scheduledDate, watch('start_time')]
                       .filter(Boolean)
                       .join(' · ') || '—'
                   }
@@ -1060,39 +1013,6 @@ const slotBtnActiveStyle: React.CSSProperties = {
   background: 'var(--acc-lt, #E8EEF8)',
   borderColor: 'var(--acc, #3A5CA8)',
   color: 'var(--acc, #3A5CA8)',
-}
-
-const durStepperStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '40px 1fr 40px',
-  alignItems: 'stretch',
-  border: '1px solid var(--brd, #E1E5EA)',
-  borderRadius: 8,
-  overflow: 'hidden',
-  background: 'var(--bg, #fff)',
-}
-
-const durBtnStyle: React.CSSProperties = {
-  background: 'var(--wht, #F8F9FB)',
-  border: 0,
-  color: 'var(--acc, #3A5CA8)',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  display: 'grid',
-  placeItems: 'center',
-}
-
-const durValStyle: React.CSSProperties = {
-  padding: '10px 8px',
-  textAlign: 'center',
-  fontWeight: 700,
-  fontSize: 14,
-  color: 'var(--ink, #1C2130)',
-  display: 'grid',
-  placeItems: 'center',
-  borderLeft: '1px solid var(--brd, #E1E5EA)',
-  borderRight: '1px solid var(--brd, #E1E5EA)',
-  fontVariantNumeric: 'tabular-nums',
 }
 
 const recapBoxStyle: React.CSSProperties = {

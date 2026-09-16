@@ -25,6 +25,7 @@ import {
 } from '../features/rapports/api'
 import { CHECKLISTS } from '../features/rapports/checklists'
 import { ChecklistSection } from '../features/rapports/components/ChecklistSection'
+import { UnitBasedControls } from '../features/rapports/components/UnitBasedControls'
 import { ReportHistoryList } from '../features/rapports/components/ReportHistoryList'
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
 import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
@@ -639,10 +640,20 @@ export function RapportEditorPage() {
         </div>
       )}
 
+      {/* Contrôle par unité — n'apparaît que si le site a des équipements dans l'inventaire */}
+      <UnitBasedControls
+        interventionId={iid}
+        siteId={intervention.site_id}
+        organizationId={orgId}
+        technicianId={intervention.technician_id}
+        technicianName={intervention.technician_name}
+        readOnly={isCompleted}
+      />
+
       {items.length > 0 && (
         <div className="card">
           <div className="card-top">
-            <span className="card-title">Checklist de contrôle — {equipmentType ? EQUIPMENT_TYPES[equipmentType] : ''}</span>
+            <span className="card-title">Checklist globale — {equipmentType ? EQUIPMENT_TYPES[equipmentType] : ''}</span>
             <span className="text-ink-3 text-xs font-light">
               {summary.answered}/{summary.total} renseignés
             </span>

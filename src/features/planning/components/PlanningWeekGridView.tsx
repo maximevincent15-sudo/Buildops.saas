@@ -29,14 +29,22 @@ function parseTime(t: string | null): { h: number; m: number } | null {
   return { h: parseInt(match[1]!, 10), m: parseInt(match[2]!, 10) }
 }
 
-// Retourne { top, height } en pixels pour une intervention avec start_time et duration
+// Durée par défaut (en minutes) selon le créneau
+function defaultDurationForSlot(slot: string | null): number {
+  if (slot === 'morning' || slot === 'afternoon') return 240 // 4h
+  if (slot === 'fullday') return 8 * 60 // 8h30 → 17h ~= 8h30
+  if (slot === 'multiday') return 240 // symbolique, 4h
+  return 120 // défaut 2h si aucun slot
+}
+
+// Retourne { top, height } en pixels pour une intervention avec start_time et slot
 function computeSlotBox(
   startTime: string | null,
   durationMinutes: number | null,
   slot: string | null,
 ): { top: number; height: number } | null {
   const parsed = parseTime(startTime)
-  const duration = durationMinutes ?? 120 // défaut 2h
+  const duration = durationMinutes ?? defaultDurationForSlot(slot)
 
   // Défauts par créneau si pas d'heure précise
   let sh: number

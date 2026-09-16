@@ -161,6 +161,63 @@ export type FamilyTemplate = {
   created_at: string
 }
 
+// ─── Equipment checks (contrôles unitaires) ──────────────
+
+export const CHECK_ITEM_VALUES = ['ok', 'na'] as const
+export type CheckItemValue = (typeof CHECK_ITEM_VALUES)[number]
+
+export const CHECK_VERDICTS = ['non_verifie', 'conforme', 'surveiller', 'reformer'] as const
+export type CheckVerdict = (typeof CHECK_VERDICTS)[number]
+
+export const CHECK_VERDICT_LABELS: Record<CheckVerdict, string> = {
+  non_verifie: 'Non vérifié',
+  conforme: 'Conforme',
+  surveiller: 'À surveiller',
+  reformer: 'À réformer',
+}
+
+// Map verdict → statut d'unité correspondant (pour mise à jour de l'unité)
+export const VERDICT_TO_UNIT_STATUS: Record<CheckVerdict, EquipmentStatus | null> = {
+  non_verifie: null,
+  conforme: 'active',
+  surveiller: 'to_watch',
+  reformer: 'to_replace',
+}
+
+export type CheckPhoto = { path: string; url: string }
+
+/** Contrôle unitaire d'un équipement lors d'une intervention. */
+export type EquipmentCheck = {
+  id: string
+  organization_id: string
+  intervention_id: string
+  equipment_unit_id: string
+  family_template_id: string | null
+  /** { "<itemId>": "ok" | "na" } */
+  checklist: Record<string, CheckItemValue>
+  observation: string | null
+  verdict: CheckVerdict
+  photos: CheckPhoto[]
+  technician_id: string | null
+  technician_name: string | null
+  checked_at: string
+  created_at: string
+  updated_at: string
+  created_by: string | null
+}
+
+export type UpsertEquipmentCheckInput = {
+  intervention_id: string
+  equipment_unit_id: string
+  family_template_id?: string | null
+  checklist?: Record<string, CheckItemValue>
+  observation?: string | null
+  verdict?: CheckVerdict
+  photos?: CheckPhoto[]
+  technician_id?: string | null
+  technician_name?: string | null
+}
+
 // ─── Helper : calcul année de réforme ────────────────────
 
 export function computeNextReplacementYear(

@@ -8,7 +8,10 @@ import type {
   CreateEquipmentUnitInput,
   FamilyTemplate,
   EquipmentFamily,
+  EquipmentCheck,
+  UpsertEquipmentCheckInput,
 } from './schemas'
+import { VERDICT_TO_UNIT_STATUS } from './schemas'
 
 // ─── Sites ───────────────────────────────────────────────
 
@@ -275,4 +278,85 @@ export async function getFamilyTemplate(
     .maybeSingle()
   if (error) throw error
   return (data as FamilyTemplate | null) ?? null
+}
+
+// ─── Equipment checks (contrôles unitaires) ──────────────
+
+export async function listChecksByIntervention(
+  interventionId: string,
+): Promise<EquipmentCheck[]> {
+  const { data, error } = await supabase
+    .from('equipment_checks')
+    .select('*')
+    .eq('intervention_id', interventionId)
+    .order('checked_at', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as EquipmentCheck[]
+}
+
+export async function getCheck(
+  interventionId: string,
+  equipmentUnitId: string,
+): Promise<EquipmentCheck | null> {
+  const { data, error } = await supabase
+    .from('equipment_checks')
+    .select('*')
+    .eq('intervention_id', interventionId)
+    .eq('equipment_unit_id', equipmentUnitId)
+    .maybeSingle()
+  if (error) throw error
+  return (data as EquipmentCheck | null) ?? null
+}
+
+/**
+ * Insère ou met à jour un contrôle unitaire.
+ * Si `updateUnitStatus` est true (défaut), synchronise aussi le statut de
+ * l'unité (equipment_units.status) en fonction du verdict.
+ */
+export async function upsertCheck(
+  input: UpsertEquipmentCheckInput,
+  organizationId: string,
+  options: { updateUnitStatus?: boolean; technicianName?: string | null; technicianId?: string | null } = {},
+): Promise<EquipmentCheck> {
+  const row = {
+    organization_id: organizationId,
+    intervention_id: input.intervention_id,
+    equipment_unit_id: input.equipment_unit_id,
+    family_template_id: input.family_template_id ?? null,
+    checklist: input.checklist ?? {},
+    observation: input.observation ?? null,
+    verdict: input.verdict ?? 'non_verifie',
+    photos: input.photos ?? [],
+    technician_id: input.technician_id ?? options.technicianId ?? null,
+    technician_name: input.technician_name ?? options.technicianName ?? null,
+    checked_at: new Date().toISOString(),
+  }
+
+  const { data, error } = await supabase
+    .from('equipment_checks')
+    .upsert(row, { onConflict: 'intervention_id,equipment_unit_id' })
+    .select()
+    .single()
+  if (error) throw error
+
+  const check = data as EquipmentCheck
+
+  // Synchro statut d'unité
+  if (options.updateUnitStatus !== false && check.verdict !== 'non_verifie') {
+    const newStatus = VERDICT_TO_UNIT_STATUS[check.verdict]
+    if (newStatus) {
+      const patch: Record<string, unknown> = { status: newStatus, last_check_date: new Date().toISOString().slice(0, 10) }
+      await supabase
+        .from('equipment_units')
+        .update(patch)
+        .eq('id', input.equipment_unit_id)
+    }
+  }
+
+  return check
+}
+
+export async function deleteCheck(id: string): Promise<void> {
+  const { error } = await supabase.from('equipment_checks').delete().eq('id', id)
+  if (error) throw error
 }
