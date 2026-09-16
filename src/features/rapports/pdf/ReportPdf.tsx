@@ -284,6 +284,70 @@ const styles = StyleSheet.create({
     borderTopStyle: 'solid',
     borderTopColor: colors.border,
   },
+  // ─── Registre APSAD nominatif ───
+  unitStatsRow: {
+    flexDirection: 'row',
+    marginBottom: 10,
+    gap: 6,
+  },
+  unitStatChip: {
+    flexGrow: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    borderWidth: 0.5,
+    borderStyle: 'solid',
+  },
+  unitStatLabel: {
+    fontSize: 7,
+    color: colors.ink3,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  unitStatValue: {
+    fontSize: 14,
+    fontFamily: 'Helvetica-Bold',
+    marginTop: 2,
+  },
+  regTable: {
+    borderWidth: 0.5,
+    borderStyle: 'solid',
+    borderColor: colors.border,
+  },
+  regRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 0.5,
+    borderBottomStyle: 'solid',
+    borderBottomColor: colors.border,
+  },
+  regRowLast: {
+    borderBottomWidth: 0,
+  },
+  regRowHead: {
+    backgroundColor: colors.bg,
+  },
+  regCell: {
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    borderRightWidth: 0.5,
+    borderRightStyle: 'solid',
+    borderRightColor: colors.border,
+    fontSize: 8,
+  },
+  regCellHead: {
+    fontFamily: 'Helvetica-Bold',
+    fontSize: 7,
+    color: colors.ink2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  regCellLast: {
+    borderRightWidth: 0,
+  },
+  regVerdictConforme: { color: colors.grn },
+  regVerdictSurveiller: { color: colors.org },
+  regVerdictReformer: { color: colors.red, fontFamily: 'Helvetica-Bold' },
+  regVerdictNonVerifie: { color: colors.ink3, fontStyle: 'italic' },
 })
 
 const BADGE_LABELS: Record<string, string> = { ok: 'OK', nok: 'NOK', na: 'N/A' }
@@ -295,14 +359,31 @@ export type ReportPdfSection = {
   responses: ChecklistResponse[] // réponses (avec id sans préfixe)
 }
 
+/** Une ligne du registre APSAD nominatif. Préparée par le caller. */
+export type UnitReportEntry = {
+  unitSerial: string
+  zoneName: string | null
+  parentZone: string | null
+  implantation: string | null
+  familyLabel: string
+  subtype: string | null
+  brand: string | null
+  installYear: number | null
+  verdict: 'non_verifie' | 'conforme' | 'surveiller' | 'reformer'
+  verdictLabel: string
+  observation: string | null
+}
+
 type Props = {
   intervention: Intervention
   report: Report
   sections: ReportPdfSection[]
   organizationName: string
+  /** Contrôles unitaires (Slice E). Optionnel : si vide, la section n'apparaît pas. */
+  unitEntries?: UnitReportEntry[]
 }
 
-export function ReportPdf({ intervention, report, sections, organizationName }: Props) {
+export function ReportPdf({ intervention, report, sections, organizationName, unitEntries }: Props) {
   const interventionEquipsLabel = formatEquipmentTypes(intervention.equipment_types)
 
   const dateLabel = intervention.scheduled_date
@@ -457,6 +538,82 @@ export function ReportPdf({ intervention, report, sections, organizationName }: 
           </View>
         </View>
 
+        {/* REGISTRE APSAD NOMINATIF (si contrôles unitaires) */}
+        {unitEntries && unitEntries.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Registre nominatif — {unitEntries.length} équipement{unitEntries.length > 1 ? 's' : ''} contrôlé{unitEntries.length > 1 ? 's' : ''}
+            </Text>
+
+            {/* Compteurs par verdict */}
+            {(() => {
+              const cnt = { conforme: 0, surveiller: 0, reformer: 0, non_verifie: 0 }
+              for (const e of unitEntries) cnt[e.verdict]++
+              return (
+                <View style={styles.unitStatsRow}>
+                  <View style={[styles.unitStatChip, { borderColor: colors.grn, backgroundColor: colors.grnLt }]}>
+                    <Text style={styles.unitStatLabel}>Conformes</Text>
+                    <Text style={[styles.unitStatValue, { color: colors.grn }]}>{cnt.conforme}</Text>
+                  </View>
+                  <View style={[styles.unitStatChip, { borderColor: colors.org, backgroundColor: colors.orgLt }]}>
+                    <Text style={styles.unitStatLabel}>À surveiller</Text>
+                    <Text style={[styles.unitStatValue, { color: colors.org }]}>{cnt.surveiller}</Text>
+                  </View>
+                  <View style={[styles.unitStatChip, { borderColor: colors.red, backgroundColor: colors.redLt }]}>
+                    <Text style={styles.unitStatLabel}>À réformer</Text>
+                    <Text style={[styles.unitStatValue, { color: colors.red }]}>{cnt.reformer}</Text>
+                  </View>
+                  {cnt.non_verifie > 0 && (
+                    <View style={[styles.unitStatChip, { borderColor: colors.border, backgroundColor: colors.bg }]}>
+                      <Text style={styles.unitStatLabel}>Non vérifiés</Text>
+                      <Text style={[styles.unitStatValue, { color: colors.ink3 }]}>{cnt.non_verifie}</Text>
+                    </View>
+                  )}
+                </View>
+              )
+            })()}
+
+            {/* Tableau nominatif */}
+            <View style={styles.regTable}>
+              {/* En-tête */}
+              <View style={[styles.regRow, styles.regRowHead]}>
+                <View style={[styles.regCell, { width: '7%' }]}><Text style={styles.regCellHead}>N°</Text></View>
+                <View style={[styles.regCell, { width: '15%' }]}><Text style={styles.regCellHead}>Niv / Zone</Text></View>
+                <View style={[styles.regCell, { width: '18%' }]}><Text style={styles.regCellHead}>Implantation</Text></View>
+                <View style={[styles.regCell, { width: '12%' }]}><Text style={styles.regCellHead}>Type</Text></View>
+                <View style={[styles.regCell, { width: '12%' }]}><Text style={styles.regCellHead}>Marque</Text></View>
+                <View style={[styles.regCell, { width: '7%' }]}><Text style={styles.regCellHead}>Année</Text></View>
+                <View style={[styles.regCell, styles.regCellLast, { width: '29%' }]}><Text style={styles.regCellHead}>Verdict · Observation</Text></View>
+              </View>
+
+              {/* Lignes */}
+              {unitEntries.map((e, i) => {
+                const verdictStyle =
+                  e.verdict === 'conforme' ? styles.regVerdictConforme
+                  : e.verdict === 'surveiller' ? styles.regVerdictSurveiller
+                  : e.verdict === 'reformer' ? styles.regVerdictReformer
+                  : styles.regVerdictNonVerifie
+                const zoneLabel = [e.parentZone, e.zoneName].filter(Boolean).join(' · ') || '—'
+                const verdictText = `${e.verdictLabel}${e.observation ? ` — ${e.observation}` : ''}`
+                const isLast = i === unitEntries.length - 1
+                return (
+                  <View key={i} style={isLast ? [styles.regRow, styles.regRowLast] : styles.regRow}>
+                    <View style={[styles.regCell, { width: '7%' }]}><Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8 }}>{e.unitSerial}</Text></View>
+                    <View style={[styles.regCell, { width: '15%' }]}><Text style={{ fontSize: 8 }}>{zoneLabel}</Text></View>
+                    <View style={[styles.regCell, { width: '18%' }]}><Text style={{ fontSize: 8 }}>{e.implantation ?? '—'}</Text></View>
+                    <View style={[styles.regCell, { width: '12%' }]}><Text style={{ fontSize: 8 }}>{e.subtype ?? e.familyLabel}</Text></View>
+                    <View style={[styles.regCell, { width: '12%' }]}><Text style={{ fontSize: 8 }}>{e.brand ?? '—'}</Text></View>
+                    <View style={[styles.regCell, { width: '7%' }]}><Text style={{ fontSize: 8 }}>{e.installYear ?? '—'}</Text></View>
+                    <View style={[styles.regCell, styles.regCellLast, { width: '29%' }]}>
+                      <Text style={[{ fontSize: 8 }, verdictStyle]}>{verdictText}</Text>
+                    </View>
+                  </View>
+                )
+              })}
+            </View>
+          </View>
+        )}
+
         {/* CHECKLIST — une section par équipement contrôlé */}
         {effectiveSections.map((section) => {
           const secOk = section.responses.filter((r) => r.value === 'ok').length
@@ -550,22 +707,78 @@ export function ReportPdf({ intervention, report, sections, organizationName }: 
           </View>
         ) : null}
 
-        {/* SIGNATURE */}
+        {/* SIGNATURES — technicien + client */}
         <View style={styles.section} wrap={false}>
-          <Text style={styles.sectionTitle}>Validation client</Text>
-          <View style={styles.signatureBox}>
-            {report.signed_by_name ? (
+          <Text style={styles.sectionTitle}>Signatures</Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {/* Technicien */}
+            <View style={[styles.signatureBox, { flexGrow: 1, flexBasis: '50%' }]}>
+              <Text style={{ fontSize: 7, color: colors.ink3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Technicien qualifié
+              </Text>
               <Text style={styles.signatureName}>
-                Signé par : {report.signed_by_name}
+                {intervention.technician_name ?? '—'}
               </Text>
-            ) : null}
-            {report.signature_data_url ? (
-              <Image src={report.signature_data_url} style={styles.signatureImage} />
-            ) : (
-              <Text style={{ color: colors.ink3, fontSize: 9 }}>
-                Aucune signature électronique enregistrée.
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <View style={{ paddingVertical: 2, paddingHorizontal: 6, backgroundColor: colors.grnLt, borderRadius: 3 }}>
+                  <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: colors.grn }}>
+                    ✓ Signé électroniquement
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 7, color: colors.ink3, marginTop: 4 }}>
+                Le {completedLabel} — Firovia
               </Text>
-            )}
+            </View>
+
+            {/* Client */}
+            <View style={[styles.signatureBox, { flexGrow: 1, flexBasis: '50%' }]}>
+              <Text style={{ fontSize: 7, color: colors.ink3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Représentant client
+              </Text>
+              <Text style={styles.signatureName}>
+                {report.signed_by_name ?? '—'}
+              </Text>
+              {report.signature_data_url ? (
+                <>
+                  <Image src={report.signature_data_url} style={styles.signatureImage} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    <View style={{ paddingVertical: 2, paddingHorizontal: 6, backgroundColor: colors.grnLt, borderRadius: 3 }}>
+                      <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: colors.grn }}>
+                        ✓ Signé électroniquement
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={{ fontSize: 7, color: colors.ink3, marginTop: 4 }}>
+                    Le {completedLabel}
+                  </Text>
+                </>
+              ) : (
+                <Text style={{ color: colors.ink3, fontSize: 9, marginTop: 6 }}>
+                  Aucune signature enregistrée.
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* Mention eIDAS */}
+          <View
+            style={{
+              marginTop: 10,
+              padding: 6,
+              backgroundColor: '#F0F5FF',
+              borderWidth: 0.5,
+              borderStyle: 'solid',
+              borderColor: '#C8D6EF',
+              borderRadius: 3,
+            }}
+          >
+            <Text style={{ fontSize: 7, color: '#3A4E7A', lineHeight: 1.4 }}>
+              Signatures électroniques conformes au règlement eIDAS (UE 910/2014).
+              Rapport horodaté et scellé par Firovia Trust Service. Toute
+              modification postérieure invalide le sceau et rend le document
+              contestable.
+            </Text>
           </View>
         </View>
 

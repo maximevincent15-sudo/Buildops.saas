@@ -219,6 +219,56 @@ export function SiteModal({
             />
           </div>
 
+          {isEdit && site?.public_token && (
+            <div
+              style={{
+                padding: '10px 14px',
+                background: 'var(--acc-lt, #E8EEF8)',
+                border: '1px solid var(--acc, #3A5CA8)',
+                borderRadius: 8,
+                fontSize: 12.5,
+                color: 'var(--acc, #3A5CA8)',
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                🔗 Registre APSAD partageable
+              </div>
+              <div style={{ marginBottom: 8, color: 'var(--ink2)' }}>
+                Transmets ce lien à ton client ou à la commission de sécurité — il affiche l'inventaire à jour du site, sans authentification.
+              </div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input
+                  type="text"
+                  readOnly
+                  value={`${window.location.origin}/registre/${site.public_token}`}
+                  style={{ flex: 1, fontFamily: 'monospace', fontSize: 11.5, padding: 6 }}
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+                <button
+                  type="button"
+                  className="btn-sm"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(
+                      `${window.location.origin}/registre/${site.public_token}`,
+                    )
+                    alert('Lien copié dans le presse-papier')
+                  }}
+                >
+                  Copier
+                </button>
+                <a
+                  href={`/registre/${site.public_token}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-sm"
+                  style={{ textDecoration: 'none' }}
+                >
+                  Ouvrir
+                </a>
+              </div>
+            </div>
+          )}
+
           {submitError && <span className="ferr on">{submitError}</span>}
 
           <div className="modal-foot">

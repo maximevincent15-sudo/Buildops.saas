@@ -30,6 +30,7 @@ import { ReportHistoryList } from '../features/rapports/components/ReportHistory
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
 import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
 import { ReportPdf } from '../features/rapports/pdf/ReportPdf'
+import { buildUnitEntriesForIntervention } from '../features/equipment/reportHelpers'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
 import type { UpsertQuoteInput } from '../features/devis/schemas'
 import {
@@ -341,12 +342,21 @@ export function RapportEditorPage() {
       items: CHECKLISTS[t] ?? [],
       responses: checklistByType[t] ?? [],
     }))
+    // Registre APSAD nominatif (Slice E) — chargé si le site a des équipements
+    // avec des contrôles enregistrés pour cette intervention.
+    let unitEntries: Awaited<ReturnType<typeof buildUnitEntriesForIntervention>> = []
+    try {
+      unitEntries = await buildUnitEntriesForIntervention(iid, intervention!.site_id)
+    } catch {
+      unitEntries = []
+    }
     const element = (
       <ReportPdf
         intervention={intervention!}
         report={snapshot}
         sections={sections}
         organizationName={orgName}
+        unitEntries={unitEntries}
       />
     )
     return generateAndUploadReportPdf(element, orgId, iid, intervention!.reference)

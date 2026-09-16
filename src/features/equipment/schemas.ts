@@ -76,6 +76,8 @@ export type Site = {
   created_at: string
   updated_at: string
   created_by: string | null
+  /** Token unique pour l'URL publique /registre/:token (Slice H). */
+  public_token: string | null
 }
 
 // ─── Zones ───────────────────────────────────────────────

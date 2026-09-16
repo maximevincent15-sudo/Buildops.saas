@@ -15,6 +15,7 @@ import { ImportTechniciansPage } from './pages/ImportTechniciansPage'
 import { ImportVehiclesPage } from './pages/ImportVehiclesPage'
 import { ArchivagePage } from './pages/ArchivagePage'
 import { ClientPortalPage } from './pages/ClientPortalPage'
+import { PublicRegistryPage } from './pages/PublicRegistryPage'
 import { DevisPage } from './pages/DevisPage'
 import { EquipePage } from './pages/EquipePage'
 import { EquipementsPage } from './pages/EquipementsPage'
@@ -44,6 +45,8 @@ function App() {
 
       {/* Portail client : route publique, pas d'auth requise (auth via token URL) */}
       <Route path="/client/:token" element={<ClientPortalPage />} />
+      {/* Registre APSAD public : URL partageable par site (accès sans auth). */}
+      <Route path="/registre/:token" element={<PublicRegistryPage />} />
 
       <Route element={<RequireAuth />}>
         <Route element={<DashboardLayout />}>
