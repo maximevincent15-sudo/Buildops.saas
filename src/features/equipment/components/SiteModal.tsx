@@ -231,7 +231,7 @@ export function SiteModal({
               }}
             >
               <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                🔗 Registre APSAD partageable
+                🔗 Registre équipements partageable
               </div>
               <div style={{ marginBottom: 8, color: 'var(--ink2)' }}>
                 Transmets ce lien à ton client ou à la commission de sécurité — il affiche l'inventaire à jour du site, sans authentification.

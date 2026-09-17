@@ -22,7 +22,7 @@ export const PLAN_OFFERS: PlanOffer[] = [
       'Jusqu\'à 5 techniciens',
       'Planning centralisé',
       'Rapports terrain mobile',
-      'Registre APSAD automatique',
+      'Registre équipements format APSAD',
       'Devis & factures illimités',
       'Envoi email automatique',
       'Support par email',

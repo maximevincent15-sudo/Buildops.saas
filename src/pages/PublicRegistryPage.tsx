@@ -118,7 +118,7 @@ export function PublicRegistryPage() {
                 Firovia
               </div>
               <div style={{ fontSize: 11, color: '#5A6070' }}>
-                Registre APSAD partageable · maintenance sécurité incendie
+                Registre équipements partageable · maintenance sécurité incendie
               </div>
             </div>
           </div>
@@ -170,7 +170,7 @@ export function PublicRegistryPage() {
               Inventaire nominatif ({units.length} équipements)
             </div>
             <div style={{ fontSize: 12, color: '#5A6070', marginTop: 2 }}>
-              Registre APSAD à jour. Généré et scellé par Firovia.
+              Registre à jour · Généré avec Firovia
             </div>
           </div>
 

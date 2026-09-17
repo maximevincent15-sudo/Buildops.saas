@@ -2,10 +2,17 @@ import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/render
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
+  ANOMALY_ACTION_LABELS,
+  ANOMALY_PRIORITY_LABELS,
+  ANOMALY_STATUS_LABELS,
+} from '../../anomalies/schemas'
+import type { Anomaly } from '../../anomalies/schemas'
+import {
   EQUIPMENT_TYPES,
   formatEquipmentTypes,
 } from '../../../shared/constants/interventions'
 import type { EquipmentType } from '../../../shared/constants/interventions'
+import type { InvoicingSettings } from '../../parametres/api'
 import type { Intervention } from '../../planning/schemas'
 import type { ChecklistItem } from '../checklists'
 import {
@@ -359,6 +366,16 @@ export type ReportPdfSection = {
   responses: ChecklistResponse[] // réponses (avec id sans préfixe)
 }
 
+/** Une anomalie enrichie pour le PDF, avec les infos d'unité résolues. */
+export type AnomalyPdfEntry = {
+  anomaly: Anomaly
+  unitSerial: string | null
+  unitFamilyLabel: string | null
+  unitSubtype: string | null
+  unitImplantation: string | null
+  unitZoneName: string | null
+}
+
 /** Une ligne du registre APSAD nominatif. Préparée par le caller. */
 export type UnitReportEntry = {
   unitSerial: string
@@ -381,9 +398,21 @@ type Props = {
   organizationName: string
   /** Contrôles unitaires (Slice E). Optionnel : si vide, la section n'apparaît pas. */
   unitEntries?: UnitReportEntry[]
+  /** Identité juridique de l'entreprise intervenante (SIRET, adresse, etc.). Optionnel. */
+  settings?: InvoicingSettings | null
+  /** Anomalies persistantes (Slice M6) — remplace le résumé auto si fourni. */
+  anomalyEntries?: AnomalyPdfEntry[]
+  /** Type d'intervention affiché dans le bandeau (Préventive/Corrective/…). */
+  interventionType?: string | null
+  /** Date de la prochaine intervention planifiée (ISO date). */
+  nextInterventionDate?: string | null
 }
 
-export function ReportPdf({ intervention, report, sections, organizationName, unitEntries }: Props) {
+export function ReportPdf({
+  intervention, report, sections, organizationName,
+  unitEntries, settings, anomalyEntries,
+  interventionType, nextInterventionDate,
+}: Props) {
   const interventionEquipsLabel = formatEquipmentTypes(intervention.equipment_types)
 
   const dateLabel = intervention.scheduled_date
@@ -462,6 +491,52 @@ export function ReportPdf({ intervention, report, sections, organizationName, un
     summary.isConform === false ? styles.stampNonConform :
     styles.stampPartial
 
+  // ─── Slice M6 : map "label du contrôle NOK" → [serials d'unités] ──────
+  // Permet de préfixer chaque NOK dans la checklist par l'équipement précis
+  // (ex : "EXT-07 — Date de péremption non dépassée")
+  const nokUnitMap = new Map<string, string[]>()
+  if (anomalyEntries) {
+    for (const e of anomalyEntries) {
+      const key = e.anomaly.checklist_item_label
+      if (!key || !e.unitSerial) continue
+      const prefix =
+        e.unitFamilyLabel === 'Extincteurs' ? 'EXT'
+        : e.unitFamilyLabel === 'RIA' ? 'RIA'
+        : e.unitFamilyLabel === 'Désenfumage' ? 'DES'
+        : e.unitFamilyLabel === 'BAES' ? 'BAES'
+        : e.unitFamilyLabel === 'Portes coupe-feu' ? 'PCF'
+        : e.unitFamilyLabel === 'Détection incendie' ? 'DET'
+        : e.unitFamilyLabel === 'Colonnes sèches' ? 'COL'
+        : 'EQP'
+      const serial = e.unitSerial.padStart(2, '0')
+      const arr = nokUnitMap.get(key) ?? []
+      arr.push(`${prefix}-${serial}`)
+      nokUnitMap.set(key, arr)
+    }
+  }
+
+  // ─── Identité entreprise intervenante (P0 #2) ─────────────────────────
+  const companyAddressLine = [
+    settings?.legal_address?.trim(),
+    [settings?.legal_postal_code, settings?.legal_city].filter(Boolean).join(' ').trim(),
+  ]
+    .filter(Boolean)
+    .join(', ')
+  const companyContactLine = [
+    settings?.legal_phone?.trim(),
+    settings?.legal_email?.trim(),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const companyLegalLine = [
+    settings?.siret ? `SIRET ${settings.siret}` : null,
+    settings?.vat_number ? `TVA ${settings.vat_number}` : null,
+    settings?.ape_code ? `APE ${settings.ape_code}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const hasCompanyBlock = companyAddressLine || companyContactLine || companyLegalLine
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -474,23 +549,76 @@ export function ReportPdf({ intervention, report, sections, organizationName, un
           </View>
         </View>
 
+        {/* IDENTITÉ ENTREPRISE INTERVENANTE (P0 #2) */}
+        {hasCompanyBlock && (
+          <View
+            style={{
+              marginBottom: 10,
+              paddingBottom: 8,
+              borderBottomWidth: 0.5,
+              borderBottomStyle: 'solid',
+              borderBottomColor: colors.border,
+            }}
+          >
+            {companyAddressLine && (
+              <Text style={{ fontSize: 9, color: colors.ink2, marginBottom: 2 }}>
+                {companyAddressLine}
+              </Text>
+            )}
+            {companyContactLine && (
+              <Text style={{ fontSize: 9, color: colors.ink2, marginBottom: 2 }}>
+                {companyContactLine}
+              </Text>
+            )}
+            {companyLegalLine && (
+              <Text style={{ fontSize: 8, color: colors.ink3 }}>
+                {companyLegalLine}
+              </Text>
+            )}
+          </View>
+        )}
+
         {/* TAMPON CONFORMITÉ */}
         <View style={[styles.stamp, stampStyle]}>
           <Text>{stampLabel}</Text>
         </View>
 
-        {/* SYNTHÈSE */}
-        {summary.isConform === false && anomalies.length > 0 ? (
+        {/* SYNTHÈSE — Slice M6 : si anomalyEntries fourni, on ne montre PAS le
+            résumé auto-calculé (les blocs anomalies persistantes sont mieux) */}
+        {(!anomalyEntries || anomalyEntries.length === 0)
+          && summary.isConform === false
+          && anomalies.length > 0 ? (
           <View style={[styles.summaryBox, styles.summaryBoxNonConform]}>
             <Text style={styles.summaryTitle}>
               {summary.nokCount} anomalie{summary.nokCount > 1 ? 's' : ''} détectée{summary.nokCount > 1 ? 's' : ''}
             </Text>
-            {anomalies.map((a, i) => (
-              <Text key={i} style={styles.summaryItem}>
-                • [{a.typeLabel}] {a.label}
-                {a.action ? ` — ${RECOMMENDED_ACTION_LABEL[a.action as keyof typeof RECOMMENDED_ACTION_LABEL]}` : ''}
-              </Text>
-            ))}
+            {anomalies.map((a, i) => {
+              const anomalyText = a.note?.trim() || a.label
+              const actionLabel = a.action
+                ? RECOMMENDED_ACTION_LABEL[a.action as keyof typeof RECOMMENDED_ACTION_LABEL]
+                : null
+              const showControlLabel = a.note?.trim() && a.note.trim() !== a.label
+              return (
+                <View key={i} style={{ marginBottom: 4 }}>
+                  <Text style={styles.summaryItem}>
+                    • [{a.typeLabel}] {anomalyText}
+                    {actionLabel ? ` — Action : ${actionLabel}` : ''}
+                  </Text>
+                  {showControlLabel && (
+                    <Text
+                      style={{
+                        fontSize: 8,
+                        color: colors.ink3,
+                        marginLeft: 8,
+                        marginTop: 1,
+                      }}
+                    >
+                      Point de contrôle : {a.label}
+                    </Text>
+                  )}
+                </View>
+              )
+            })}
           </View>
         ) : summary.isConform === true ? (
           <View style={[styles.summaryBox, styles.summaryBoxConform]}>
@@ -501,10 +629,65 @@ export function ReportPdf({ intervention, report, sections, organizationName, un
           </View>
         ) : null}
 
+        {/* Slice M6 — Petites stats compactes remplaçant le bloc rose redondant */}
+        {anomalyEntries && anomalyEntries.length > 0 && (
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: 8,
+              marginTop: 6,
+              marginBottom: 4,
+            }}
+          >
+            <View style={{ flex: 1, padding: 6, backgroundColor: '#F3F5F7', borderRadius: 4 }}>
+              <Text style={{ fontSize: 7, color: colors.ink3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Contrôlés
+              </Text>
+              <Text style={{ fontSize: 13, fontFamily: 'Helvetica-Bold', color: colors.ink, marginTop: 1 }}>
+                {(unitEntries?.length ?? summary.total) || summary.total}
+              </Text>
+            </View>
+            <View style={{ flex: 1, padding: 6, backgroundColor: '#FDECEC', borderRadius: 4 }}>
+              <Text style={{ fontSize: 7, color: colors.red, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Anomalies
+              </Text>
+              <Text style={{ fontSize: 13, fontFamily: 'Helvetica-Bold', color: colors.red, marginTop: 1 }}>
+                {anomalyEntries.length}
+              </Text>
+            </View>
+            <View style={{ flex: 1, padding: 6, backgroundColor: '#FDF3E0', borderRadius: 4 }}>
+              <Text style={{ fontSize: 7, color: colors.org, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Actions ouvertes
+              </Text>
+              <Text style={{ fontSize: 13, fontFamily: 'Helvetica-Bold', color: colors.org, marginTop: 1 }}>
+                {anomalyEntries.filter((e) => e.anomaly.status === 'open' || e.anomaly.status === 'planned').length}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* ANOMALIES PERSISTANTES (Slice M6) — bloc par unité avec toutes les infos */}
+        {anomalyEntries && anomalyEntries.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Anomalies détectées et enregistrées ({anomalyEntries.length})
+            </Text>
+            {anomalyEntries.map((entry, i) => (
+              <AnomalyBlock key={entry.anomaly.id ?? i} entry={entry} />
+            ))}
+          </View>
+        )}
+
         {/* INTERVENTION INFO */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Intervention</Text>
           <View style={styles.infoGrid}>
+            {interventionType && (
+              <View style={styles.infoItemHalf}>
+                <Text style={styles.infoLabel}>Type d'intervention</Text>
+                <Text style={styles.infoValue}>{interventionType}</Text>
+              </View>
+            )}
             <View style={styles.infoItemHalf}>
               <Text style={styles.infoLabel}>Client</Text>
               <Text style={styles.infoValue}>{intervention.client_name}</Text>
@@ -533,6 +716,48 @@ export function ReportPdf({ intervention, report, sections, organizationName, un
               <View style={styles.infoItemHalf}>
                 <Text style={styles.infoLabel}>Technicien</Text>
                 <Text style={styles.infoValue}>{intervention.technician_name}</Text>
+              </View>
+            )}
+            {/* P1 — Bandeau enrichi : horaires réels + contact site */}
+            {intervention.start_time && (
+              <View style={styles.infoItemHalf}>
+                <Text style={styles.infoLabel}>Début d'intervention</Text>
+                <Text style={styles.infoValue}>
+                  {format(new Date(intervention.start_time), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
+                </Text>
+              </View>
+            )}
+            {intervention.start_time && intervention.duration_minutes && (
+              <View style={styles.infoItemHalf}>
+                <Text style={styles.infoLabel}>Fin d'intervention</Text>
+                <Text style={styles.infoValue}>
+                  {format(
+                    new Date(new Date(intervention.start_time).getTime()
+                      + intervention.duration_minutes * 60000),
+                    "HH:mm",
+                    { locale: fr },
+                  )}
+                  {' '}({intervention.duration_minutes} min)
+                </Text>
+              </View>
+            )}
+            {intervention.chantier_contact_name && (
+              <View style={styles.infoItemHalf}>
+                <Text style={styles.infoLabel}>Contact sur site</Text>
+                <Text style={styles.infoValue}>
+                  {intervention.chantier_contact_name}
+                  {intervention.chantier_contact_phone
+                    ? ` · ${intervention.chantier_contact_phone}`
+                    : ''}
+                </Text>
+              </View>
+            )}
+            {nextInterventionDate && (
+              <View style={styles.infoItemFull}>
+                <Text style={styles.infoLabel}>Prochaine intervention prévue</Text>
+                <Text style={[styles.infoValue, { color: colors.acc, fontFamily: 'Helvetica-Bold' }]}>
+                  {format(new Date(`${nextInterventionDate}T00:00:00`), 'd MMMM yyyy', { locale: fr })}
+                </Text>
               </View>
             )}
           </View>
@@ -597,7 +822,11 @@ export function ReportPdf({ intervention, report, sections, organizationName, un
                 const verdictText = `${e.verdictLabel}${e.observation ? ` — ${e.observation}` : ''}`
                 const isLast = i === unitEntries.length - 1
                 return (
-                  <View key={i} style={isLast ? [styles.regRow, styles.regRowLast] : styles.regRow}>
+                  <View
+                    key={i}
+                    style={isLast ? [styles.regRow, styles.regRowLast] : styles.regRow}
+                    wrap={false}
+                  >
                     <View style={[styles.regCell, { width: '7%' }]}><Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8 }}>{e.unitSerial}</Text></View>
                     <View style={[styles.regCell, { width: '15%' }]}><Text style={{ fontSize: 8 }}>{zoneLabel}</Text></View>
                     <View style={[styles.regCell, { width: '18%' }]}><Text style={{ fontSize: 8 }}>{e.implantation ?? '—'}</Text></View>
@@ -644,10 +873,18 @@ export function ReportPdf({ intervention, report, sections, organizationName, un
                 const value = resp?.value ?? null
                 const label = value ? BADGE_LABELS[value] : '—'
                 const isNok = value === 'nok'
+                const nokUnits = isNok ? nokUnitMap.get(item.label) : null
                 return (
                   <View key={item.id}>
                     <View style={styles.checklistRow} wrap={false}>
-                      <Text style={styles.checklistLabel}>{item.label}</Text>
+                      <Text style={styles.checklistLabel}>
+                        {nokUnits && nokUnits.length > 0 && (
+                          <Text style={{ fontFamily: 'Helvetica-Bold', color: colors.red }}>
+                            {nokUnits.join(', ')} —{' '}
+                          </Text>
+                        )}
+                        {item.label}
+                      </Text>
                       <Text style={badgeStyle(value)}>{label}</Text>
                     </View>
                     {isNok && (resp?.action || resp?.note || (resp?.photos && resp.photos.length > 0) || resp?.noPhotoReason) && (
@@ -761,7 +998,7 @@ export function ReportPdf({ intervention, report, sections, organizationName, un
             </View>
           </View>
 
-          {/* Mention eIDAS */}
+          {/* Mention technique (P0 #14 : plus de déclaration eIDAS non justifiée) */}
           <View
             style={{
               marginTop: 10,
@@ -774,19 +1011,170 @@ export function ReportPdf({ intervention, report, sections, organizationName, un
             }}
           >
             <Text style={{ fontSize: 7, color: '#3A4E7A', lineHeight: 1.4 }}>
-              Signatures électroniques conformes au règlement eIDAS (UE 910/2014).
-              Rapport horodaté et scellé par Firovia Trust Service. Toute
-              modification postérieure invalide le sceau et rend le document
-              contestable.
+              Rapport généré électroniquement le {completedLabel}.
+              Identifiant unique : {intervention.reference}.
+              La signature apposée par le représentant client atteste de la
+              prise de connaissance du présent rapport et de ses constats.
             </Text>
           </View>
         </View>
 
-        {/* FOOTER */}
+        {/* FOOTER — mention discrète Firovia (P0 #2) */}
         <Text style={styles.footer} fixed>
           {organizationName ? `${organizationName} — ` : ''}Rapport {intervention.reference} finalisé le {completedLabel}
+          {'  ·  '}Généré avec Firovia
         </Text>
       </Page>
     </Document>
+  )
+}
+
+// ─── Slice M6 — Bloc rendu d'une anomalie dans le PDF ─────────────────
+
+function AnomalyBlock({ entry }: { entry: AnomalyPdfEntry }) {
+  const {
+    anomaly,
+    unitSerial,
+    unitFamilyLabel,
+    unitSubtype,
+    unitImplantation,
+    unitZoneName,
+  } = entry
+
+  // Palette selon priorité
+  const prioBg =
+    anomaly.priority === 'high' ? '#FDECEC'
+    : anomaly.priority === 'normal' ? '#FDF3E0'
+    : '#F3F5F7'
+  const prioBorder =
+    anomaly.priority === 'high' ? '#F0BFBF'
+    : anomaly.priority === 'normal' ? '#F0D9A6'
+    : colors.border
+  const prioIcon =
+    anomaly.priority === 'high' ? '●'
+    : anomaly.priority === 'normal' ? '●'
+    : '○'
+  const prioColor =
+    anomaly.priority === 'high' ? colors.red
+    : anomaly.priority === 'normal' ? colors.org
+    : colors.gry
+
+  const dueLabel = anomaly.due_date
+    ? format(new Date(`${anomaly.due_date}T00:00:00`), 'd MMM yyyy', { locale: fr })
+    : null
+
+  const unitHeader = [
+    unitSerial ? `N°${unitSerial}` : null,
+    unitFamilyLabel,
+    unitSubtype,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  const locationLine = [
+    unitZoneName ? `Zone ${unitZoneName}` : null,
+    unitImplantation,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  return (
+    <View
+      style={{
+        marginTop: 8,
+        padding: 10,
+        backgroundColor: prioBg,
+        borderWidth: 0.5,
+        borderStyle: 'solid',
+        borderColor: prioBorder,
+        borderRadius: 4,
+        borderLeftWidth: 3,
+        borderLeftColor: prioColor,
+      }}
+      wrap={false}
+    >
+      {/* Header : équipement + statut */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+        <Text style={{ fontSize: 10, fontFamily: 'Helvetica-Bold', color: colors.ink }}>
+          <Text style={{ color: prioColor }}>{prioIcon} </Text>
+          {unitHeader || 'Équipement'}
+        </Text>
+        <Text
+          style={{
+            fontSize: 7,
+            fontFamily: 'Helvetica-Bold',
+            color: prioColor,
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+          }}
+        >
+          {ANOMALY_STATUS_LABELS[anomaly.status]}
+        </Text>
+      </View>
+
+      {/* Localisation */}
+      {locationLine && (
+        <Text style={{ fontSize: 8.5, color: colors.ink3, marginBottom: 3 }}>
+          {locationLine}
+        </Text>
+      )}
+
+      {/* Titre + description */}
+      <Text style={{ fontSize: 9.5, color: colors.ink, marginTop: 3 }}>
+        <Text style={{ fontFamily: 'Helvetica-Bold' }}>Anomalie : </Text>
+        {anomaly.title}
+      </Text>
+      {anomaly.description && (
+        <Text style={{ fontSize: 9, color: colors.ink2, marginTop: 2, fontStyle: 'italic' }}>
+          {anomaly.description}
+        </Text>
+      )}
+
+      {/* Meta ligne : action + priorité + échéance */}
+      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 5 }}>
+        {anomaly.action && (
+          <Text style={{ fontSize: 8, color: colors.ink2 }}>
+            <Text style={{ fontFamily: 'Helvetica-Bold' }}>Action : </Text>
+            {ANOMALY_ACTION_LABELS[anomaly.action]}
+          </Text>
+        )}
+        <Text style={{ fontSize: 8, color: colors.ink2 }}>
+          <Text style={{ fontFamily: 'Helvetica-Bold' }}>Priorité : </Text>
+          {ANOMALY_PRIORITY_LABELS[anomaly.priority]}
+        </Text>
+        {dueLabel && (
+          <Text style={{ fontSize: 8, color: colors.ink2 }}>
+            <Text style={{ fontFamily: 'Helvetica-Bold' }}>Échéance : </Text>
+            {dueLabel}
+          </Text>
+        )}
+      </View>
+
+      {/* Photos (jusqu'à 3) */}
+      {anomaly.photos.length > 0 && (
+        <View style={{ flexDirection: 'row', gap: 4, marginTop: 6 }}>
+          {anomaly.photos.slice(0, 3).map((p, i) => (
+            <Image
+              key={`${p.path}-${i}`}
+              src={p.url}
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: 3,
+                objectFit: 'cover',
+                borderWidth: 0.5,
+                borderStyle: 'solid',
+                borderColor: colors.border,
+              }}
+            />
+          ))}
+          {anomaly.photos.length > 3 && (
+            <Text style={{ fontSize: 8, color: colors.ink3, alignSelf: 'center', marginLeft: 4 }}>
+              + {anomaly.photos.length - 3}
+            </Text>
+          )}
+        </View>
+      )}
+    </View>
   )
 }

@@ -30,7 +30,12 @@ import { ReportHistoryList } from '../features/rapports/components/ReportHistory
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
 import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
 import { ReportPdf } from '../features/rapports/pdf/ReportPdf'
+import type { AnomalyPdfEntry } from '../features/rapports/pdf/ReportPdf'
 import { buildUnitEntriesForIntervention } from '../features/equipment/reportHelpers'
+import { getInvoicingSettings } from '../features/parametres/api'
+import { listAnomaliesForIntervention } from '../features/anomalies/api'
+import { listEquipmentUnits, listZones } from '../features/equipment/api'
+import { EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
 import type { UpsertQuoteInput } from '../features/devis/schemas'
 import {
@@ -342,13 +347,53 @@ export function RapportEditorPage() {
       items: CHECKLISTS[t] ?? [],
       responses: checklistByType[t] ?? [],
     }))
-    // Registre APSAD nominatif (Slice E) — chargé si le site a des équipements
+    // Registre nominatif (Slice E) — chargé si le site a des équipements
     // avec des contrôles enregistrés pour cette intervention.
     let unitEntries: Awaited<ReturnType<typeof buildUnitEntriesForIntervention>> = []
     try {
       unitEntries = await buildUnitEntriesForIntervention(iid, intervention!.site_id)
     } catch {
       unitEntries = []
+    }
+    // Identité juridique de l'entreprise (SIRET, adresse, tél…) pour l'encart
+    // "entreprise intervenante" du PDF. Optionnel : si l'org n'a rien
+    // configuré, on n'affiche pas l'encart.
+    let invoicingSettings: Awaited<ReturnType<typeof getInvoicingSettings>> = null
+    try {
+      invoicingSettings = await getInvoicingSettings(orgId)
+    } catch {
+      invoicingSettings = null
+    }
+    // Slice M6 — Anomalies persistantes détectées pendant cette intervention.
+    // Enrichies avec les infos d'unité (N°, famille, implantation, zone).
+    let anomalyEntries: AnomalyPdfEntry[] = []
+    try {
+      const anomalies = await listAnomaliesForIntervention(iid)
+      if (anomalies.length > 0) {
+        const siteId = intervention!.site_id
+        const [allUnits, allZones] = await Promise.all([
+          listEquipmentUnits(),
+          siteId ? listZones(siteId) : Promise.resolve([]),
+        ])
+        const unitById = new Map(allUnits.map((u) => [u.id, u]))
+        const zoneById = new Map(allZones.map((z) => [z.id, z]))
+        anomalyEntries = anomalies.map((anomaly) => {
+          const unit = anomaly.equipment_unit_id
+            ? unitById.get(anomaly.equipment_unit_id) ?? null
+            : null
+          const zone = unit?.zone_id ? zoneById.get(unit.zone_id) ?? null : null
+          return {
+            anomaly,
+            unitSerial: unit?.serial_number ?? null,
+            unitFamilyLabel: unit ? EQUIPMENT_FAMILY_LABELS[unit.family] : null,
+            unitSubtype: unit?.subtype ?? null,
+            unitImplantation: unit?.implantation ?? null,
+            unitZoneName: zone?.name ?? null,
+          }
+        })
+      }
+    } catch {
+      anomalyEntries = []
     }
     const element = (
       <ReportPdf
@@ -357,6 +402,8 @@ export function RapportEditorPage() {
         sections={sections}
         organizationName={orgName}
         unitEntries={unitEntries}
+        settings={invoicingSettings}
+        anomalyEntries={anomalyEntries}
       />
     )
     return generateAndUploadReportPdf(element, orgId, iid, intervention!.reference)
