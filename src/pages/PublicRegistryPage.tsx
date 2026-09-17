@@ -1,4 +1,4 @@
-import { Boxes, Shield } from 'lucide-react'
+import { Boxes } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { fetchPublicRegistry } from '../features/equipment/publicApi'
@@ -109,16 +109,20 @@ export function PublicRegistryPage() {
   return (
     <div style={pageStyle}>
       <div style={{ maxWidth: 980, margin: '0 auto', padding: '24px 20px' }}>
-        {/* Header Firovia */}
+        {/* Header Firovia — logo officiel */}
         <div style={brandHeaderStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Shield size={22} strokeWidth={2} color="#3A5CA8" />
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#3A5CA8', letterSpacing: '-.01em' }}>
-                Firovia
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <img
+              src="/firovia-logo.png"
+              alt="Firovia"
+              style={{ height: 36, width: 'auto', display: 'block' }}
+            />
+            <div style={{ borderLeft: '1px solid #E6E8EC', paddingLeft: 12, height: 32, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{ fontSize: 12, color: '#5A6070', lineHeight: 1.3 }}>
+                Registre équipements partageable
               </div>
-              <div style={{ fontSize: 11, color: '#5A6070' }}>
-                Registre équipements partageable · maintenance sécurité incendie
+              <div style={{ fontSize: 11, color: '#9AA0AE', lineHeight: 1.3 }}>
+                Maintenance sécurité incendie
               </div>
             </div>
           </div>
