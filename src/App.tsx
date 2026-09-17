@@ -24,6 +24,7 @@ import { FacturesPage } from './pages/FacturesPage'
 import { ParametresPage } from './pages/ParametresPage'
 import { AbonnementPage } from './pages/AbonnementPage'
 import { AdminProspectsPage } from './pages/AdminProspectsPage'
+import { AnomaliesPage } from './pages/AnomaliesPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { OvertimePage } from './pages/OvertimePage'
 import { VehiculesPage } from './pages/VehiculesPage'
@@ -55,6 +56,7 @@ function App() {
           <Route path="/rapports" element={<RapportsListPage />} />
           <Route path="/rapports/:interventionId" element={<RapportEditorPage />} />
           <Route path="/alertes" element={<AlertesPage />} />
+          <Route path="/anomalies" element={<AnomaliesPage />} />
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/clients/import" element={<ImportClientsPage />} />
           <Route path="/equipements" element={<EquipementsPage />} />

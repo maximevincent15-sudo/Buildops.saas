@@ -1,6 +1,22 @@
-import { Camera, Check, X } from 'lucide-react'
+import { AlertTriangle, Camera, Check, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, MouseEvent } from 'react'
+import {
+  createAnomaly,
+  listActiveAnomaliesForUnit,
+  resolveAnomaly,
+} from '../../anomalies/api'
+import {
+  ANOMALY_ACTIONS,
+  ANOMALY_ACTION_LABELS,
+  ANOMALY_PRIORITIES,
+  ANOMALY_PRIORITY_LABELS,
+} from '../../anomalies/schemas'
+import type {
+  Anomaly,
+  AnomalyAction,
+  AnomalyPriority,
+} from '../../anomalies/schemas'
 import {
   getFamilyTemplate,
   listChecksByIntervention,
@@ -282,6 +298,7 @@ export function UnitBasedControls({
           readOnly={readOnly}
           organizationId={organizationId}
           interventionId={interventionId}
+          technicianName={technicianName}
         />
       )}
     </div>
@@ -304,11 +321,12 @@ type ModalProps = {
   readOnly?: boolean
   organizationId: string
   interventionId: string
+  technicianName?: string | null
 }
 
 function UnitCheckModal({
   unit, template, existing, onClose, onSave, readOnly,
-  organizationId, interventionId,
+  organizationId, interventionId, technicianName,
 }: ModalProps) {
   const [checklist, setChecklist] = useState<Record<string, CheckItemValue>>(
     existing?.checklist ?? {},
@@ -320,6 +338,45 @@ function UnitCheckModal({
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // ─── Anomalies (Slice M3) ─────────────────────────────────
+  // Historique d'anomalies actives sur cette unité (Ouverte / Planifiée)
+  const [existingAnomalies, setExistingAnomalies] = useState<Anomaly[]>([])
+  // Mini-formulaire d'anomalie affiché quand le verdict n'est pas conforme
+  const [anomalyTitle, setAnomalyTitle] = useState('')
+  const [anomalyAction, setAnomalyAction] = useState<AnomalyAction | ''>('')
+  const [anomalyPriority, setAnomalyPriority] = useState<AnomalyPriority>('normal')
+  const [anomalyDueDate, setAnomalyDueDate] = useState('')
+
+  // Chargement des anomalies déjà ouvertes sur cette unité
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const list = await listActiveAnomaliesForUnit(unit.id)
+        if (!cancelled) setExistingAnomalies(list)
+      } catch {
+        if (!cancelled) setExistingAnomalies([])
+      }
+    })()
+    return () => { cancelled = true }
+  }, [unit.id])
+
+  // Défaut priorité selon verdict
+  useEffect(() => {
+    if (verdict === 'reformer') setAnomalyPriority('high')
+    else if (verdict === 'surveiller') setAnomalyPriority('normal')
+  }, [verdict])
+
+  const needsAnomalyForm = verdict === 'surveiller' || verdict === 'reformer'
+  const anomalyFormValid = !needsAnomalyForm
+    || (anomalyTitle.trim().length >= 3 && anomalyAction !== '')
+
+  // Slice M5 : quand le verdict est "conforme" ET qu'il y a des anomalies actives,
+  // on propose de les résoudre automatiquement à l'enregistrement.
+  const canResolveExisting =
+    verdict === 'conforme' && existingAnomalies.length > 0
+  const [resolveExistingOnSave, setResolveExistingOnSave] = useState(true)
 
   function toggleItem(itemId: string, val: CheckItemValue) {
     setChecklist((prev) => {
@@ -369,6 +426,40 @@ function UnitCheckModal({
         verdict,
         photos,
       })
+      // Si le verdict signale une anomalie (surveiller/reformer),
+      // on crée l'entité `anomalies` liée à l'unité + intervention.
+      if (needsAnomalyForm && anomalyTitle.trim().length >= 3 && anomalyAction !== '') {
+        try {
+          await createAnomaly(
+            {
+              equipment_unit_id: unit.id,
+              intervention_id: interventionId,
+              equipment_check_id: null,
+              title: anomalyTitle.trim(),
+              description: observation.trim() || undefined,
+              action: anomalyAction,
+              priority: anomalyPriority,
+              due_date: anomalyDueDate || null,
+              photos,
+              detected_by_name: technicianName ?? undefined,
+            },
+            organizationId,
+            { name: technicianName ?? null },
+          )
+        } catch (err) {
+          // Non bloquant : le check est déjà sauvegardé.
+          // On log dans la console mais on ne bloque pas la fermeture.
+          console.error('createAnomaly failed:', err)
+        }
+      }
+      // Slice M5 : verdict conforme + case cochée + anomalies existantes actives
+      //   → on les résout automatiquement.
+      if (canResolveExisting && resolveExistingOnSave && existingAnomalies.length > 0) {
+        const note = `Résolue automatiquement lors de l'intervention ${interventionId} (verdict conforme).`
+        await Promise.allSettled(
+          existingAnomalies.map((a) => resolveAnomaly(a.id, note)),
+        )
+      }
     } finally {
       setSaving(false)
     }
@@ -401,6 +492,60 @@ function UnitCheckModal({
             <MetaLine k="Année" v={unit.install_year?.toString() ?? '—'} />
             <MetaLine k="Implantation" v={unit.implantation ?? '—'} />
           </div>
+
+          {/* Anomalies déjà ouvertes sur cette unité (Slice M3 + M5) */}
+          {existingAnomalies.length > 0 && (
+            <div style={existingAnomaliesBoxStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <AlertTriangle size={14} strokeWidth={2.2} color="#B36510" />
+                <span style={{ fontWeight: 700, color: '#B36510', fontSize: 12.5 }}>
+                  {existingAnomalies.length} anomalie{existingAnomalies.length > 1 ? 's' : ''}{' '}
+                  déjà ouverte{existingAnomalies.length > 1 ? 's' : ''} sur cette unité
+                </span>
+              </div>
+              {existingAnomalies.slice(0, 3).map((a) => (
+                <div key={a.id} style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 2 }}>
+                  • {a.title}
+                  {a.action ? ` — ${ANOMALY_ACTION_LABELS[a.action]}` : ''}
+                  {a.due_date ? ` · échéance ${a.due_date}` : ''}
+                </div>
+              ))}
+              {existingAnomalies.length > 3 && (
+                <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 4 }}>
+                  + {existingAnomalies.length - 3} autre{existingAnomalies.length - 3 > 1 ? 's' : ''}
+                </div>
+              )}
+
+              {/* Slice M5 — reprise auto quand verdict = conforme */}
+              {canResolveExisting && (
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginTop: 10,
+                    padding: '8px 10px',
+                    background: 'white',
+                    border: '1px solid #E6E8EC',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    color: 'var(--ink)',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={resolveExistingOnSave}
+                    onChange={(e) => setResolveExistingOnSave(e.target.checked)}
+                  />
+                  <span>
+                    Marquer ces {existingAnomalies.length} anomalie{existingAnomalies.length > 1 ? 's' : ''}{' '}
+                    comme <strong>résolue{existingAnomalies.length > 1 ? 's' : ''}</strong> (verdict conforme)
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
 
           {/* Checklist */}
           {items.length > 0 && (
@@ -508,6 +653,84 @@ function UnitCheckModal({
             </div>
           </div>
 
+          {/* Détails de l'anomalie (obligatoire si verdict ≠ conforme) — Slice M3 */}
+          {needsAnomalyForm && (
+            <div style={anomalyFormBoxStyle}>
+              <div style={{ ...sectionTitleStyle, color: '#B02A1E' }}>
+                <span>⚠ Détails de l'anomalie</span>
+                <span style={{ fontSize: 10.5, color: 'var(--ink3)', fontWeight: 500, textTransform: 'none' }}>
+                  * champs obligatoires
+                </span>
+              </div>
+
+              {/* Résumé */}
+              <div style={{ marginBottom: 10 }}>
+                <label style={anomalyLabelStyle}>Résumé de l'anomalie *</label>
+                <input
+                  type="text"
+                  value={anomalyTitle}
+                  onChange={(e) => setAnomalyTitle(e.target.value)}
+                  placeholder="Ex : Manomètre proche zone rouge"
+                  disabled={readOnly}
+                  style={{ width: '100%', padding: '.55rem .8rem', fontSize: 13, fontFamily: 'inherit' }}
+                />
+              </div>
+
+              {/* Action recommandée */}
+              <div style={{ marginBottom: 10 }}>
+                <label style={anomalyLabelStyle}>Action recommandée *</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {ANOMALY_ACTIONS.map((act) => (
+                    <button
+                      key={act}
+                      type="button"
+                      className={`filter-pill${anomalyAction === act ? ' on' : ''}`}
+                      onClick={() => setAnomalyAction(act)}
+                      disabled={readOnly}
+                    >
+                      {ANOMALY_ACTION_LABELS[act]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Priorité */}
+              <div style={{ marginBottom: 10 }}>
+                <label style={anomalyLabelStyle}>Priorité</label>
+                <div style={{ display: 'flex', gap: 5 }}>
+                  {ANOMALY_PRIORITIES.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      className={`filter-pill${anomalyPriority === p ? ' on' : ''}`}
+                      onClick={() => setAnomalyPriority(p)}
+                      disabled={readOnly}
+                    >
+                      {ANOMALY_PRIORITY_LABELS[p]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Échéance */}
+              <div>
+                <label style={anomalyLabelStyle}>Échéance (optionnel)</label>
+                <input
+                  type="date"
+                  value={anomalyDueDate}
+                  onChange={(e) => setAnomalyDueDate(e.target.value)}
+                  disabled={readOnly}
+                  style={{ padding: '.5rem .7rem', fontSize: 13, fontFamily: 'inherit' }}
+                />
+              </div>
+
+              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 8, lineHeight: 1.5 }}>
+                Cette anomalie sera enregistrée dans Firovia et suivie jusqu'à sa résolution.
+                Elle apparaîtra automatiquement à la prochaine intervention sur cette unité.
+              </div>
+            </div>
+          )}
+
           {/* Photos horodatées */}
           <div>
             <div style={sectionTitleStyle}>
@@ -580,9 +803,15 @@ function UnitCheckModal({
             type="button"
             className="mf prim"
             onClick={() => void handleSave()}
-            disabled={saving || readOnly || verdict === 'non_verifie'}
+            disabled={saving || readOnly || verdict === 'non_verifie' || !anomalyFormValid}
           >
-            {saving ? 'Enregistrement…' : verdict === 'non_verifie' ? 'Choisis un verdict' : 'Enregistrer'}
+            {saving
+              ? 'Enregistrement…'
+              : verdict === 'non_verifie'
+                ? 'Choisis un verdict'
+                : !anomalyFormValid
+                  ? 'Complète les détails d\'anomalie'
+                  : 'Enregistrer'}
           </button>
         </div>
       </div>
@@ -800,5 +1029,31 @@ const photoAddBtnStyle: React.CSSProperties = {
   gap: 6,
   fontFamily: 'inherit',
   fontWeight: 500,
+}
+
+// ─── Slice M3 — Styles anomalies ─────────────────────────
+
+const existingAnomaliesBoxStyle: React.CSSProperties = {
+  padding: '10px 14px',
+  background: '#FDF3E0',
+  border: '1px solid #F0D9A6',
+  borderRadius: 8,
+}
+
+const anomalyFormBoxStyle: React.CSSProperties = {
+  padding: '12px 14px',
+  background: '#FDECEC',
+  border: '1px solid #F0BFBF',
+  borderRadius: 8,
+}
+
+const anomalyLabelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: 11.5,
+  fontWeight: 600,
+  color: 'var(--ink2, #5A6070)',
+  marginBottom: 5,
+  textTransform: 'uppercase',
+  letterSpacing: 0.3,
 }
 

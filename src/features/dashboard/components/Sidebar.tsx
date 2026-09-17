@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   Archive,
   Bell,
   Boxes,
@@ -18,6 +19,7 @@ import type { LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { classifyAlert, computeRegulatoryAlerts } from '../../alertes/api'
+import { countActiveAnomalies } from '../../anomalies/api'
 import { signOut } from '../../auth/api'
 import { useAuthStore } from '../../auth/store'
 import { listExpenses } from '../../expenses/api'
@@ -28,7 +30,7 @@ import { listInvoices } from '../../factures/api'
 import { effectiveStatus } from '../../factures/constants'
 
 type NavItem = { to: string; Icon: LucideIcon; label: string; badgeKey?: BadgeKey; danger?: boolean }
-type BadgeKey = 'planning' | 'rapports' | 'alertes' | 'rh' | 'factures'
+type BadgeKey = 'planning' | 'rapports' | 'alertes' | 'anomalies' | 'rh' | 'factures'
 
 type Counts = Record<BadgeKey, number>
 
@@ -36,6 +38,7 @@ const principal: NavItem[] = [
   { to: '/dashboard', Icon: LayoutDashboard, label: 'Tableau de bord' },
   { to: '/planning', Icon: CalendarDays, label: 'Planning', badgeKey: 'planning' },
   { to: '/rapports', Icon: ClipboardCheck, label: 'Rapports', badgeKey: 'rapports' },
+  { to: '/anomalies', Icon: AlertTriangle, label: 'Anomalies', badgeKey: 'anomalies', danger: true },
   { to: '/alertes', Icon: Bell, label: 'Alertes', badgeKey: 'alertes', danger: true },
 ]
 
@@ -104,11 +107,12 @@ export function Sidebar() {
   const location = useLocation()
   const user = useAuthStore((s) => s.user)
   const profile = useAuthStore((s) => s.profile)
-  const [counts, setCounts] = useState<Counts>({ planning: 0, rapports: 0, alertes: 0, rh: 0, factures: 0 })
+  const [counts, setCounts] = useState<Counts>({ planning: 0, rapports: 0, alertes: 0, anomalies: 0, rh: 0, factures: 0 })
 
   useEffect(() => {
     let alive = true
     const safeInvoices = listInvoices().catch(() => [])
+    const safeAnomalies = countActiveAnomalies().catch(() => 0)
     Promise.all([
       listInterventions(),
       computeRegulatoryAlerts(),
@@ -116,8 +120,9 @@ export function Sidebar() {
       listOvertime(),
       computeVehicleAlerts(),
       safeInvoices,
+      safeAnomalies,
     ])
-      .then(([all, alerts, expenses, overtime, vehicleAlerts, invoices]) => {
+      .then(([all, alerts, expenses, overtime, vehicleAlerts, invoices, anomaliesCount]) => {
         if (!alive) return
         const planning = all.filter((i) => i.status === 'a_planifier' || i.status === 'planifiee').length
         const rapports = all.filter((i) => i.status === 'en_cours').length
@@ -140,7 +145,7 @@ export function Sidebar() {
           )
           return eff === 'sent' || eff === 'partially_paid' || eff === 'overdue'
         }).length
-        setCounts({ planning, rapports, alertes: alertesUrgent, rh, factures })
+        setCounts({ planning, rapports, alertes: alertesUrgent, anomalies: anomaliesCount, rh, factures })
       })
       .catch(() => { /* silent ignore */ })
     return () => { alive = false }
