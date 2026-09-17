@@ -87,20 +87,21 @@ function na(id: string, note?: string): ChecklistResponse {
 
 // ─── Sections par famille ─────────────────────────────────────────────────
 
-const extResponses: ChecklistResponse[] = CHECKLISTS.extincteurs.map((it, idx) => {
-  // 1 NOK au milieu pour illustrer l'anomalie
-  if (idx === 3) return nok(it.id, 'verification', 'Manomètre proche zone rouge, à revérifier sous 3 mois.')
-  if (idx === 5) return nok(it.id, 'replacement', 'Péremption dépassée sur l\'extincteur N°07 (2024). Remplacement planifié.')
+// NOK ciblés par ID d'item — robuste aux changements d'index dans les
+// checklists (checklists v2 avec 15 items par famille au lieu de 5-8).
+const extResponses: ChecklistResponse[] = CHECKLISTS.extincteurs.map((it) => {
+  if (it.id === 'manometre') return nok(it.id, 'verification', 'Manomètre en limite haute de la zone verte, à revérifier au prochain passage.')
+  if (it.id === 'date_epreuve') return nok(it.id, 'replacement', 'Épreuve décennale dépassée sur l\'extincteur N°07. À remplacer.')
   return ok(it.id)
 })
 
-const riaResponses: ChecklistResponse[] = CHECKLISTS.ria.map((it, idx) => {
-  if (idx === 2) return nok(it.id, 'repair', 'Raccord légèrement corrodé sur RIA N°02, à changer.')
+const riaResponses: ChecklistResponse[] = CHECKLISTS.ria.map((it) => {
+  if (it.id === 'raccord') return nok(it.id, 'repair', 'Raccord corrodé sur RIA N°02. Pas de fuite constatée.')
   return ok(it.id)
 })
 
-const desResponses: ChecklistResponse[] = CHECKLISTS.desenfumage.map((it, idx) => {
-  if (idx === 4) return na(it.id, 'Ventilateurs non installés sur ce site.')
+const desResponses: ChecklistResponse[] = CHECKLISTS.desenfumage.map((it) => {
+  if (it.id === 'ventilateurs') return na(it.id, 'Ventilateurs non installés sur ce site (désenfumage naturel).')
   return ok(it.id)
 })
 
@@ -314,9 +315,9 @@ const anomalyEntries: AnomalyPdfEntry[] = [
   {
     anomaly: makeAnomaly({
       id: 'anom-1',
-      title: 'Date de péremption dépassée',
-      description: 'Date indiquée sur l\'étiquette : janvier 2024.',
-      checklist_item_label: 'Date de péremption non dépassée',
+      title: 'Épreuve décennale dépassée',
+      description: 'Date de mise en service : 2015. Réforme requise.',
+      checklist_item_label: "Épreuve décennale à jour (à réformer à 10 ans si eau/pré-mélange)",
       action: 'replacement',
       priority: 'high',
       due_date: '2026-10-31',
@@ -335,7 +336,7 @@ const anomalyEntries: AnomalyPdfEntry[] = [
       id: 'anom-2',
       title: 'Manomètre en limite haute de la zone verte',
       description: 'À revérifier au prochain passage.',
-      checklist_item_label: 'Manomètre en zone verte',
+      checklist_item_label: 'Manomètre en zone verte (pression conforme)',
       action: 'verification',
       priority: 'normal',
       due_date: '2026-12-16',
@@ -354,7 +355,7 @@ const anomalyEntries: AnomalyPdfEntry[] = [
       id: 'anom-3',
       title: 'Raccord corrodé',
       description: 'Corrosion visible côté RIA. Pas de fuite constatée.',
-      checklist_item_label: 'Raccord en bon état',
+      checklist_item_label: 'Raccord robinet-tuyau étanche, joints en état',
       action: 'repair',
       priority: 'normal',
       due_date: '2026-09-30',
