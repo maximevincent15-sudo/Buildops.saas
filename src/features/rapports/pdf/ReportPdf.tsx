@@ -969,69 +969,7 @@ export function ReportPdf({
             </View>
 
             {/* Client — P1 : gestion des cas absence / refus / non requis */}
-            <View style={[styles.signatureBox, { flexGrow: 1, flexBasis: '50%' }]}>
-              <Text style={{ fontSize: 7, color: colors.ink3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Représentant client
-              </Text>
-              {(() => {
-                const status = report.signature_status ?? 'pending'
-                const note = report.signature_note
-
-                // Cas signé (comportement historique)
-                if (status === 'signed' || (status === 'pending' && report.signature_data_url)) {
-                  return (
-                    <>
-                      <Text style={styles.signatureName}>{report.signed_by_name ?? '—'}</Text>
-                      {report.signature_data_url ? (
-                        <>
-                          <Image src={report.signature_data_url} style={styles.signatureImage} />
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                            <View style={{ paddingVertical: 2, paddingHorizontal: 6, backgroundColor: colors.grnLt, borderRadius: 3 }}>
-                              <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: colors.grn }}>
-                                ✓ Signé électroniquement
-                              </Text>
-                            </View>
-                          </View>
-                          <Text style={{ fontSize: 7, color: colors.ink3, marginTop: 4 }}>Le {completedLabel}</Text>
-                        </>
-                      ) : (
-                        <Text style={{ color: colors.ink3, fontSize: 9, marginTop: 6 }}>
-                          Aucune signature enregistrée.
-                        </Text>
-                      )}
-                    </>
-                  )
-                }
-
-                // Cas alternatifs — badge + motif
-                const cfg =
-                  status === 'client_absent'
-                    ? { label: 'Client absent', bg: colors.orgLt, fg: colors.org, icon: '⊘' }
-                    : status === 'client_refused'
-                      ? { label: 'Refus de signature', bg: colors.redLt, fg: colors.red, icon: '✗' }
-                      : status === 'not_required'
-                        ? { label: 'Signature non requise', bg: colors.gryLt, fg: colors.gry, icon: '–' }
-                        : { label: 'En attente', bg: colors.gryLt, fg: colors.gry, icon: '⏳' }
-
-                return (
-                  <>
-                    <View style={{ paddingVertical: 3, paddingHorizontal: 8, backgroundColor: cfg.bg, borderRadius: 3, marginTop: 4, alignSelf: 'flex-start' }}>
-                      <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: cfg.fg }}>
-                        {cfg.icon} {cfg.label}
-                      </Text>
-                    </View>
-                    {note && (
-                      <Text style={{ fontSize: 9, color: colors.ink, marginTop: 8, lineHeight: 1.4 }}>
-                        {note}
-                      </Text>
-                    )}
-                    <Text style={{ fontSize: 7, color: colors.ink3, marginTop: 6 }}>
-                      Constaté sur site par le technicien le {completedLabel}.
-                    </Text>
-                  </>
-                )
-              })()}
-            </View>
+            <ClientSignatureBox report={report} completedLabel={completedLabel} />
           </View>
 
           {/* Mention technique (P0 #14 : plus de déclaration eIDAS non justifiée) */}
@@ -1062,6 +1000,85 @@ export function ReportPdf({
         </Text>
       </Page>
     </Document>
+  )
+}
+
+// ─── P1 — Bloc signature client (statuts signed / absent / refused / not_required)
+// Refactor : plus d'IIFE, composant classique qui retourne un View unique.
+// ────────────────────────────────────────────────────────────────────────
+
+function ClientSignatureBox({
+  report,
+  completedLabel,
+}: {
+  report: Report
+  completedLabel: string
+}) {
+  const status = report.signature_status ?? 'pending'
+  const hasSignature = !!report.signature_data_url
+
+  // Cas 1 — Signé électroniquement (avec dessin)
+  if (hasSignature && (status === 'signed' || status === 'pending')) {
+    return (
+      <View style={[styles.signatureBox, { flexGrow: 1, flexBasis: '50%' }]}>
+        <Text style={{ fontSize: 7, color: colors.ink3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Représentant client
+        </Text>
+        <Text style={styles.signatureName}>{report.signed_by_name ?? '—'}</Text>
+        <Image src={report.signature_data_url as string} style={styles.signatureImage} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+          <View style={{ paddingVertical: 2, paddingHorizontal: 6, backgroundColor: colors.grnLt, borderRadius: 3 }}>
+            <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: colors.grn }}>
+              ✓ Signé électroniquement
+            </Text>
+          </View>
+        </View>
+        <Text style={{ fontSize: 7, color: colors.ink3, marginTop: 4 }}>Le {completedLabel}</Text>
+      </View>
+    )
+  }
+
+  // Cas 2 — Alternatifs (absent / refus / non requis / en attente)
+  const cfg: { label: string; bg: string; fg: string; icon: string } =
+    status === 'client_absent'
+      ? { label: 'Client absent', bg: colors.orgLt, fg: colors.org, icon: '⊘' }
+      : status === 'client_refused'
+        ? { label: 'Refus de signature', bg: colors.redLt, fg: colors.red, icon: '✗' }
+        : status === 'not_required'
+          ? { label: 'Signature non requise', bg: colors.gryLt, fg: colors.gry, icon: '–' }
+          : { label: 'En attente de signature', bg: colors.gryLt, fg: colors.gry, icon: '·' }
+
+  return (
+    <View style={[styles.signatureBox, { flexGrow: 1, flexBasis: '50%' }]}>
+      <Text style={{ fontSize: 7, color: colors.ink3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        Représentant client
+      </Text>
+      {report.signed_by_name && (
+        <Text style={styles.signatureName}>{report.signed_by_name}</Text>
+      )}
+      <View
+        style={{
+          paddingVertical: 3,
+          paddingHorizontal: 8,
+          backgroundColor: cfg.bg,
+          borderRadius: 3,
+          marginTop: 6,
+          alignSelf: 'flex-start',
+        }}
+      >
+        <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: cfg.fg }}>
+          {cfg.icon} {cfg.label}
+        </Text>
+      </View>
+      {report.signature_note && (
+        <Text style={{ fontSize: 9, color: colors.ink, marginTop: 8, lineHeight: 1.4 }}>
+          {report.signature_note}
+        </Text>
+      )}
+      <Text style={{ fontSize: 7, color: colors.ink3, marginTop: 6 }}>
+        Constaté sur site par le technicien le {completedLabel}.
+      </Text>
+    </View>
   )
 }
 
