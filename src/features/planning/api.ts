@@ -19,6 +19,7 @@ function toDbPayload(input: CreateInterventionInput) {
     technician_id: input.technician_id || null,
     scheduled_date: input.scheduled_date || null,
     priority: input.priority,
+    intervention_type: input.intervention_type ?? 'preventive',
     notes: input.notes || null,
     recurrence_active: input.recurrence_active ?? true,
     // Localisation chantier

@@ -15,7 +15,7 @@ import {
 import type { EquipmentType } from '../../../shared/constants/interventions'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { createIntervention, deleteIntervention, updateIntervention } from '../api'
-import { createInterventionSchema } from '../schemas'
+import { INTERVENTION_TYPE_LABELS, createInterventionSchema } from '../schemas'
 import type { CreateInterventionInput, Intervention, Slot } from '../schemas'
 import { ClientAutocomplete } from './ClientAutocomplete'
 import { TechnicianAutocomplete } from './TechnicianAutocomplete'
@@ -70,6 +70,7 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
     return {
       equipment_types: ['extincteurs'],
       priority: 'normale',
+      intervention_type: 'preventive',
       client_id: '',
       technician_id: '',
       recurrence_active: true,
@@ -95,6 +96,7 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
     technician_name: i.technician_name ?? '',
     technician_id: i.technician_id ?? '',
     priority: i.priority as CreateInterventionInput['priority'],
+    intervention_type: i.intervention_type ?? 'preventive',
     notes: i.notes ?? '',
     recurrence_active: i.recurrence_active ?? true,
     chantier_address: i.chantier_address ?? '',
@@ -636,6 +638,15 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                 <label>Priorité</label>
                 <select {...register('priority')}>
                   {Object.entries(INTERVENTION_PRIORITIES).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="fg">
+                <label>Type d'intervention</label>
+                <select {...register('intervention_type')}>
+                  {Object.entries(INTERVENTION_TYPE_LABELS).map(([val, label]) => (
                     <option key={val} value={val}>{label}</option>
                   ))}
                 </select>

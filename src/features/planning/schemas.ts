@@ -11,6 +11,25 @@ export const equipmentTypeEnum = z.enum([
 export const slotEnum = z.enum(['morning', 'afternoon', 'fullday', 'multiday'])
 export type Slot = z.infer<typeof slotEnum>
 
+export const INTERVENTION_TYPES = [
+  'preventive',
+  'corrective',
+  'installation',
+  'depannage',
+  'verification_contrat',
+  'autre',
+] as const
+export type InterventionType = (typeof INTERVENTION_TYPES)[number]
+
+export const INTERVENTION_TYPE_LABELS: Record<InterventionType, string> = {
+  preventive: 'Maintenance préventive',
+  corrective: 'Maintenance corrective',
+  installation: 'Installation',
+  depannage: 'Dépannage',
+  verification_contrat: 'Vérification contractuelle',
+  autre: 'Autre',
+}
+
 export const createInterventionSchema = z.object({
   client_name: z.string().min(1, 'Client requis'),
   client_id: z.string().optional(),
@@ -24,6 +43,7 @@ export const createInterventionSchema = z.object({
   technician_name: z.string().optional(),
   technician_id: z.string().optional(),
   priority: z.enum(['normale', 'urgente', 'reglementaire']),
+  intervention_type: z.enum(INTERVENTION_TYPES).optional(),
   notes: z.string().optional(),
   // Optional côté form (checkbox non contrôlée). Default true géré dans toDbPayload.
   recurrence_active: z.boolean().optional(),
@@ -74,6 +94,7 @@ export type Intervention = {
   scheduled_date: string | null
   priority: string
   status: string
+  intervention_type: InterventionType
   notes: string | null
   created_at: string
   created_by: string | null
@@ -116,5 +137,15 @@ export function normalizeIntervention(raw: Intervention): Intervention {
   }
   // material_needed peut être null pour les anciennes lignes ; default = []
   const material = Array.isArray(raw.material_needed) ? raw.material_needed : []
-  return { ...raw, equipment_types: types, material_needed: material }
+  // intervention_type peut être null pour les anciennes lignes → 'preventive' par défaut
+  const type: InterventionType =
+    (raw.intervention_type && INTERVENTION_TYPES.includes(raw.intervention_type))
+      ? raw.intervention_type
+      : 'preventive'
+  return {
+    ...raw,
+    equipment_types: types,
+    material_needed: material,
+    intervention_type: type,
+  }
 }
