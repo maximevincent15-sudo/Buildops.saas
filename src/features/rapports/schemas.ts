@@ -29,6 +29,23 @@ export const checklistResponseSchema = z.object({
 
 export type ChecklistResponse = z.infer<typeof checklistResponseSchema>
 
+export const SIGNATURE_STATUSES = [
+  'pending',
+  'signed',
+  'client_absent',
+  'client_refused',
+  'not_required',
+] as const
+export type SignatureStatus = (typeof SIGNATURE_STATUSES)[number]
+
+export const SIGNATURE_STATUS_LABELS: Record<SignatureStatus, string> = {
+  pending: 'En attente de signature',
+  signed: 'Signé électroniquement',
+  client_absent: 'Client absent',
+  client_refused: 'Refus de signature',
+  not_required: 'Signature non requise',
+}
+
 export const upsertReportSchema = z.object({
   // Stockage : un array par équipement contrôlé, sous la forme d'un array plat
   // (compat DB / legacy). On sérialise/désérialise via les helpers ci-dessous.
@@ -38,6 +55,8 @@ export const upsertReportSchema = z.object({
   observations: z.string().optional(),
   signed_by_name: z.string().optional(),
   signature_data_url: z.string().nullable().optional(),
+  signature_status: z.enum(SIGNATURE_STATUSES).optional(),
+  signature_note: z.string().optional(),
   photos: z.array(photoSchema).optional(),
 })
 
@@ -65,6 +84,8 @@ export type Report = {
   observations: string | null
   signed_by_name: string | null
   signature_data_url: string | null
+  signature_status: SignatureStatus
+  signature_note: string | null
   photos: ReportPhoto[]
   pdf_url: string | null
   sent_to_email: string | null

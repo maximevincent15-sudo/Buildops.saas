@@ -27,6 +27,8 @@ async function insertReport(
       observations: input.observations || null,
       signed_by_name: input.signed_by_name || null,
       signature_data_url: input.signature_data_url ?? null,
+      signature_status: input.signature_status ?? 'pending',
+      signature_note: input.signature_note || null,
       photos: input.photos ?? [],
       completed_at: completedAt,
     })
@@ -49,6 +51,12 @@ async function updateExistingReport(
     signature_data_url: input.signature_data_url ?? null,
     photos: input.photos ?? [],
     updated_at: new Date().toISOString(),
+  }
+  if (input.signature_status !== undefined) {
+    payload.signature_status = input.signature_status
+  }
+  if (input.signature_note !== undefined) {
+    payload.signature_note = input.signature_note || null
   }
   if (completedAt !== undefined) {
     payload.completed_at = completedAt

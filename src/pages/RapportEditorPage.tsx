@@ -15,7 +15,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
 import { setInterventionStatus } from '../features/planning/api'
-import { normalizeIntervention } from '../features/planning/schemas'
+import { INTERVENTION_TYPE_LABELS, normalizeIntervention } from '../features/planning/schemas'
 import type { Intervention } from '../features/planning/schemas'
 import {
   finalizeReport,
@@ -40,12 +40,18 @@ import { QuoteModal } from '../features/devis/components/QuoteModal'
 import type { UpsertQuoteInput } from '../features/devis/schemas'
 import {
   RECOMMENDED_ACTION_LABEL,
+  SIGNATURE_STATUS_LABELS,
   byTypeToResponses,
   computeGlobalSummary,
   computeReportSummary,
   responsesToByType,
 } from '../features/rapports/schemas'
-import type { ChecklistByType, ChecklistResponse, Report } from '../features/rapports/schemas'
+import type {
+  ChecklistByType,
+  ChecklistResponse,
+  Report,
+  SignatureStatus,
+} from '../features/rapports/schemas'
 import {
   EQUIPMENT_TYPES,
   formatEquipmentTypes,
@@ -70,6 +76,8 @@ export function RapportEditorPage() {
   const [observations, setObservations] = useState('')
   const [signedBy, setSignedBy] = useState('')
   const [signature, setSignature] = useState<string | null>(null)
+  const [signatureStatus, setSignatureStatus] = useState<SignatureStatus>('pending')
+  const [signatureNote, setSignatureNote] = useState('')
   const [photos, setPhotos] = useState<StoredPhoto[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -118,6 +126,8 @@ export function RapportEditorPage() {
           setObservations(report.observations ?? '')
           setSignedBy(report.signed_by_name ?? '')
           setSignature(report.signature_data_url ?? null)
+          setSignatureStatus(report.signature_status ?? 'pending')
+          setSignatureNote(report.signature_note ?? '')
           setPhotos((report.photos ?? []) as StoredPhoto[])
           setCompletedAt(report.completed_at)
           setPdfUrl(report.pdf_url ?? null)
@@ -327,6 +337,8 @@ export function RapportEditorPage() {
       observations: observations || null,
       signed_by_name: signedBy || null,
       signature_data_url: signature,
+      signature_status: signatureStatus,
+      signature_note: signatureNote || null,
       photos,
       pdf_url: pdfUrl,
       sent_to_email: sentToEmail,
@@ -404,6 +416,11 @@ export function RapportEditorPage() {
         unitEntries={unitEntries}
         settings={invoicingSettings}
         anomalyEntries={anomalyEntries}
+        interventionType={
+          intervention?.intervention_type
+            ? INTERVENTION_TYPE_LABELS[intervention.intervention_type]
+            : null
+        }
       />
     )
     return generateAndUploadReportPdf(element, orgId, iid, intervention!.reference)
@@ -419,6 +436,8 @@ export function RapportEditorPage() {
         observations,
         signed_by_name: signedBy,
         signature_data_url: signature,
+        signature_status: signatureStatus,
+        signature_note: signatureNote,
         photos,
       })
       setReportId(saved.id)
@@ -456,9 +475,26 @@ export function RapportEditorPage() {
       )
       if (!ok) return
     }
-    if (!signedBy.trim()) {
+    // Le nom du signataire n'est requis que si le rapport doit être signé.
+    // Pas nécessaire si le client est absent, a refusé, ou si la signature
+    // n'est pas requise (régie interne, contrat cadre).
+    if (signatureStatus === 'pending' || signatureStatus === 'signed') {
+      if (!signedBy.trim()) {
+        const ok = window.confirm(
+          "Aucun nom de signataire renseigné.\n\nFinaliser quand même ?",
+        )
+        if (!ok) return
+      }
+    }
+    // Un motif est fortement recommandé pour un refus ou une absence,
+    // pour couvrir juridiquement le mainteneur.
+    if ((signatureStatus === 'client_refused' || signatureStatus === 'client_absent')
+        && !signatureNote.trim()) {
       const ok = window.confirm(
-        `Aucun nom de signataire renseigné.\n\nFinaliser quand même ?`,
+        `${SIGNATURE_STATUS_LABELS[signatureStatus]} sans motif renseigné.\n\n`
+        + 'Il est conseillé d\'ajouter un motif ou une observation dans le champ '
+        + '"Motif / observations" pour couvrir un éventuel litige avec le client.\n\n'
+        + 'Finaliser quand même ?',
       )
       if (!ok) return
     }
@@ -471,6 +507,8 @@ export function RapportEditorPage() {
         observations,
         signed_by_name: signedBy,
         signature_data_url: signature,
+        signature_status: signatureStatus,
+        signature_note: signatureNote,
         photos,
       })
       setReportId(saved.id)
@@ -747,22 +785,97 @@ export function RapportEditorPage() {
 
       <div className="card" style={{ marginTop: '1rem' }}>
         <div className="card-top">
-          <span className="card-title">Client qui valide sur place</span>
+          <span className="card-title">Signature client sur place</span>
         </div>
-        <input
-          type="text"
-          value={signedBy}
-          onChange={(e) => setSignedBy(e.target.value)}
-          placeholder="Nom du responsable signataire"
-          disabled={isCompleted}
-          className="report-input"
-          style={{ marginBottom: '1rem' }}
-        />
-        <SignaturePad
-          value={signature}
-          onChange={setSignature}
-          readOnly={isCompleted}
-        />
+
+        {/* Choix du statut signature (P1) */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: '0.9rem' }}>
+          {(['signed', 'client_absent', 'client_refused', 'not_required'] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={`filter-pill${signatureStatus === s ? ' on' : ''}`}
+              onClick={() => setSignatureStatus(s)}
+              disabled={isCompleted}
+            >
+              {s === 'signed' && '✓ '}
+              {s === 'client_absent' && '⊘ '}
+              {s === 'client_refused' && '✗ '}
+              {s === 'not_required' && '– '}
+              {SIGNATURE_STATUS_LABELS[s]}
+            </button>
+          ))}
+        </div>
+
+        {/* Cas normal : nom + pad de signature */}
+        {(signatureStatus === 'signed' || signatureStatus === 'pending') && (
+          <>
+            <input
+              type="text"
+              value={signedBy}
+              onChange={(e) => setSignedBy(e.target.value)}
+              placeholder="Nom du responsable signataire"
+              disabled={isCompleted}
+              className="report-input"
+              style={{ marginBottom: '1rem' }}
+            />
+            <SignaturePad
+              value={signature}
+              onChange={setSignature}
+              readOnly={isCompleted}
+            />
+          </>
+        )}
+
+        {/* Cas alternatif : motif obligatoire (refus / absence / non requis) */}
+        {(signatureStatus === 'client_absent'
+          || signatureStatus === 'client_refused'
+          || signatureStatus === 'not_required') && (
+          <div>
+            <label
+              style={{
+                display: 'block',
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: 'var(--ink2)',
+                marginBottom: 6,
+              }}
+            >
+              {signatureStatus === 'client_absent' && 'Motif d\'absence du client'}
+              {signatureStatus === 'client_refused' && 'Motif du refus de signature'}
+              {signatureStatus === 'not_required' && 'Raison de non-requérence'}
+              {(signatureStatus === 'client_absent' || signatureStatus === 'client_refused') && (
+                <span style={{ color: 'var(--red, #A83A3A)', marginLeft: 4 }}>*</span>
+              )}
+            </label>
+            <textarea
+              rows={3}
+              value={signatureNote}
+              onChange={(e) => setSignatureNote(e.target.value)}
+              placeholder={
+                signatureStatus === 'client_absent'
+                  ? 'Ex : client parti avant la fin de l\'intervention, absent au poste convenu, injoignable au téléphone…'
+                  : signatureStatus === 'client_refused'
+                    ? 'Ex : refus verbal du représentant client (motif à préciser). Un exemplaire du rapport lui a été laissé.'
+                    : 'Ex : contrat cadre annuel, régie interne, intervention sur site sans représentant.'
+              }
+              disabled={isCompleted}
+              className="report-textarea"
+            />
+            <div
+              style={{
+                fontSize: 11.5,
+                color: 'var(--ink3)',
+                marginTop: 6,
+                lineHeight: 1.4,
+              }}
+            >
+              Ce texte apparaîtra dans le PDF à la place de la signature. Il vaut
+              trace formelle du contexte pour couvrir une éventuelle contestation
+              ultérieure du client.
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ marginTop: '1rem' }}>
