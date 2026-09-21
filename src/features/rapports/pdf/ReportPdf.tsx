@@ -23,6 +23,57 @@ import {
 } from '../schemas'
 import type { ChecklistResponse, Report } from '../schemas'
 
+// ─── Helpers date safe ───────────────────────────────────────────────
+// Un rapport peut contenir des dates mal formées (start_time "HH:MM" seul,
+// scheduled_date null, due_date invalide). new Date(bad) donne Invalid Date
+// puis date-fns format() lance RangeError "Invalid time value" qui crash tout
+// le PDF. Ces helpers filtrent les cas invalides pour toujours retourner un
+// Date valide ou null.
+
+function safeParseDate(input: string | null | undefined): Date | null {
+  if (!input) return null
+  const s = String(input).trim()
+  if (!s) return null
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return null
+  return d
+}
+
+/**
+ * Combine intervention.scheduled_date (YYYY-MM-DD ou ISO) et
+ * intervention.start_time (HH:MM ou ISO) pour produire des Date valides.
+ */
+function safeInterventionTimings(intervention: Intervention): {
+  start: Date
+  end: Date | null
+} | null {
+  if (!intervention.start_time) return null
+  const st = String(intervention.start_time).trim()
+  if (!st) return null
+
+  let start: Date | null = null
+
+  // Cas 1 : format "HH:MM" ou "HH:MM:SS" seul → combiner avec scheduled_date
+  if (/^\d{2}:\d{2}(:\d{2})?$/.test(st)) {
+    const dateStr =
+      intervention.scheduled_date?.split('T')[0]
+      ?? new Date().toISOString().split('T')[0]
+    const timeStr = st.length === 5 ? `${st}:00` : st
+    start = safeParseDate(`${dateStr}T${timeStr}`)
+  } else {
+    // Cas 2 : format ISO complet
+    start = safeParseDate(st)
+  }
+
+  if (!start) return null
+
+  const end = intervention.duration_minutes
+    ? new Date(start.getTime() + intervention.duration_minutes * 60_000)
+    : null
+
+  return { start, end }
+}
+
 const colors = {
   ink: '#1C2130',
   ink2: '#5A6070',
@@ -415,12 +466,14 @@ export function ReportPdf({
 }: Props) {
   const interventionEquipsLabel = formatEquipmentTypes(intervention.equipment_types)
 
-  const dateLabel = intervention.scheduled_date
-    ? format(new Date(intervention.scheduled_date), 'd MMMM yyyy', { locale: fr })
-    : '—'
-  const completedLabel = report.completed_at
-    ? format(new Date(report.completed_at), "d MMMM yyyy 'à' HH:mm", { locale: fr })
-    : '—'
+  const dateLabel = (() => {
+    const d = safeParseDate(intervention.scheduled_date)
+    return d ? format(d, 'd MMMM yyyy', { locale: fr }) : '—'
+  })()
+  const completedLabel = (() => {
+    const d = safeParseDate(report.completed_at)
+    return d ? format(d, "d MMMM yyyy 'à' HH:mm", { locale: fr }) : '—'
+  })()
 
   // Si `sections` est vide (ex: rapport legacy, ou appel direct avec ancien format),
   // on reconstitue depuis report.checklist.
@@ -719,28 +772,29 @@ export function ReportPdf({
               </View>
             )}
             {/* P1 — Bandeau enrichi : horaires réels + contact site */}
-            {intervention.start_time && (
-              <View style={styles.infoItemHalf}>
-                <Text style={styles.infoLabel}>Début d'intervention</Text>
-                <Text style={styles.infoValue}>
-                  {format(new Date(intervention.start_time), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
-                </Text>
-              </View>
-            )}
-            {intervention.start_time && intervention.duration_minutes && (
-              <View style={styles.infoItemHalf}>
-                <Text style={styles.infoLabel}>Fin d'intervention</Text>
-                <Text style={styles.infoValue}>
-                  {format(
-                    new Date(new Date(intervention.start_time).getTime()
-                      + intervention.duration_minutes * 60000),
-                    "HH:mm",
-                    { locale: fr },
+            {(() => {
+              const timings = safeInterventionTimings(intervention)
+              if (!timings) return null
+              return (
+                <>
+                  <View style={styles.infoItemHalf}>
+                    <Text style={styles.infoLabel}>Début d'intervention</Text>
+                    <Text style={styles.infoValue}>
+                      {format(timings.start, "d MMMM yyyy 'à' HH:mm", { locale: fr })}
+                    </Text>
+                  </View>
+                  {timings.end && intervention.duration_minutes && (
+                    <View style={styles.infoItemHalf}>
+                      <Text style={styles.infoLabel}>Fin d'intervention</Text>
+                      <Text style={styles.infoValue}>
+                        {format(timings.end, 'HH:mm', { locale: fr })}
+                        {' '}({intervention.duration_minutes} min)
+                      </Text>
+                    </View>
                   )}
-                  {' '}({intervention.duration_minutes} min)
-                </Text>
-              </View>
-            )}
+                </>
+              )
+            })()}
             {intervention.chantier_contact_name && (
               <View style={styles.infoItemHalf}>
                 <Text style={styles.infoLabel}>Contact sur site</Text>
@@ -752,14 +806,18 @@ export function ReportPdf({
                 </Text>
               </View>
             )}
-            {nextInterventionDate && (
-              <View style={styles.infoItemFull}>
-                <Text style={styles.infoLabel}>Prochaine intervention prévue</Text>
-                <Text style={[styles.infoValue, { color: colors.acc, fontFamily: 'Helvetica-Bold' }]}>
-                  {format(new Date(`${nextInterventionDate}T00:00:00`), 'd MMMM yyyy', { locale: fr })}
-                </Text>
-              </View>
-            )}
+            {nextInterventionDate && (() => {
+              const nextDate = safeParseDate(`${nextInterventionDate}T00:00:00`)
+              if (!nextDate) return null
+              return (
+                <View style={styles.infoItemFull}>
+                  <Text style={styles.infoLabel}>Prochaine intervention prévue</Text>
+                  <Text style={[styles.infoValue, { color: colors.acc, fontFamily: 'Helvetica-Bold' }]}>
+                    {format(nextDate, 'd MMMM yyyy', { locale: fr })}
+                  </Text>
+                </View>
+              )
+            })()}
           </View>
         </View>
 
@@ -1112,9 +1170,11 @@ function AnomalyBlock({ entry }: { entry: AnomalyPdfEntry }) {
     : anomaly.priority === 'normal' ? colors.org
     : colors.gry
 
-  const dueLabel = anomaly.due_date
-    ? format(new Date(`${anomaly.due_date}T00:00:00`), 'd MMM yyyy', { locale: fr })
-    : null
+  const dueLabel = (() => {
+    if (!anomaly.due_date) return null
+    const d = safeParseDate(`${anomaly.due_date}T00:00:00`)
+    return d ? format(d, 'd MMM yyyy', { locale: fr }) : null
+  })()
 
   const unitHeader = [
     unitSerial ? `N°${unitSerial}` : null,
