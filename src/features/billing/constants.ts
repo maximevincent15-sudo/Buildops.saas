@@ -26,7 +26,7 @@ export const PLAN_OFFERS: PlanOffer[] = [
       'Devis & factures illimités',
       'Envoi email automatique',
       'Support par email',
-      'Hébergement France (RGPD)',
+      'Hébergement Union européenne (RGPD)',
     ],
     accent: false,
   },
