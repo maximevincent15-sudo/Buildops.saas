@@ -1,6 +1,7 @@
 import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { formatCompanyNumber } from '../../clients/companyLookup'
 import { computeQuoteTotals, formatAmount, formatNumber } from '../../devis/constants'
 import type { InvoicingSettings } from '../../parametres/api'
 import type { InvoiceWithLines } from '../schemas'
@@ -354,6 +355,7 @@ export function InvoicePdf({ invoice, organizationName, settings }: Props) {
             {invoice.client_contact_name && <Text style={styles.addressLine}>{invoice.client_contact_name}</Text>}
             {invoice.client_address && <Text style={styles.addressLine}>{invoice.client_address}</Text>}
             {invoice.client_email && <Text style={styles.addressLine}>{invoice.client_email}</Text>}
+            {invoice.client_siren && <Text style={styles.addressLine}>SIREN : {formatCompanyNumber(invoice.client_siren)}</Text>}
           </View>
           {(invoice.site_name || invoice.site_address) && (
             <View style={styles.addressCol}>

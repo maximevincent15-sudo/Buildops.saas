@@ -2,6 +2,7 @@ import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import type { InvoicingSettings } from '../../parametres/api'
+import { formatCompanyNumber } from '../../clients/companyLookup'
 import { computeQuoteTotals, formatAmount, formatNumber } from '../constants'
 import type { QuoteWithLines } from '../schemas'
 
@@ -240,6 +241,9 @@ export function QuotePdf({ quote, organizationName, settings }: Props) {
             )}
             {quote.client_email && (
               <Text style={styles.addressLine}>{quote.client_email}</Text>
+            )}
+            {quote.client_siren && (
+              <Text style={styles.addressLine}>SIREN : {formatCompanyNumber(quote.client_siren)}</Text>
             )}
           </View>
           {(quote.site_name || quote.site_address) && (

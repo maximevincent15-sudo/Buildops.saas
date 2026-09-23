@@ -6,6 +6,7 @@ import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { VAT_RATES, computeQuoteTotals, formatAmount } from '../../devis/constants'
 import type { QuoteLineInput } from '../../devis/schemas'
 import { getInvoicingSettings } from '../../parametres/api'
+import { formatCompanyNumber, parseCompanyNumber } from '../../clients/companyLookup'
 import { ClientAutocomplete } from '../../planning/components/ClientAutocomplete'
 import {
   cancelInvoice,
@@ -67,6 +68,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
   const [clientContact, setClientContact] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientAddress, setClientAddress] = useState('')
+  const [clientSiren, setClientSiren] = useState('')
   const [siteName, setSiteName] = useState('')
   const [siteAddress, setSiteAddress] = useState('')
   const [issueDate, setIssueDate] = useState(todayIso())
@@ -103,6 +105,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
           setClientContact(inv.client_contact_name ?? '')
           setClientEmail(inv.client_email ?? '')
           setClientAddress(inv.client_address ?? '')
+          setClientSiren(inv.client_siren ?? '')
           setSiteName(inv.site_name ?? '')
           setSiteAddress(inv.site_address ?? '')
           setIssueDate(inv.issue_date)
@@ -139,6 +142,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
       setClientContact(seed?.client_contact_name ?? '')
       setClientEmail(seed?.client_email ?? '')
       setClientAddress(seed?.client_address ?? '')
+      setClientSiren(seed?.client_siren ?? '')
       setSiteName(seed?.site_name ?? '')
       setSiteAddress(seed?.site_address ?? '')
       const initIssue = seed?.issue_date ?? todayIso()
@@ -206,6 +210,9 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
         client_contact_name: clientContact || undefined,
         client_email: clientEmail || undefined,
         client_address: clientAddress || undefined,
+        client_siren: parseCompanyNumber(clientSiren).ok
+          ? clientSiren.replace(/\D/g, '').slice(0, 9) || undefined
+          : undefined,
         site_name: siteName || undefined,
         site_address: siteAddress || undefined,
         issue_date: issueDate,
@@ -433,6 +440,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
                         if (c.contact_name && !clientContact) setClientContact(c.contact_name)
                         if (c.contact_email && !clientEmail) setClientEmail(c.contact_email)
                         if (c.address && !clientAddress) setClientAddress(c.address)
+                        if (c.siren && !clientSiren) setClientSiren(c.siren)
                       }
                     }}
                     placeholder="Tape le nom du client"
@@ -464,6 +472,21 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
                     onChange={setClientAddress}
                     placeholder="Commence à taper le numéro et la rue…"
                   />
+                </div>
+              </div>
+              <div className="mrow">
+                <div className="fg">
+                  <label>SIREN du client <span className="text-ink-3 text-xs font-light">(clients pro)</span></label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="9 chiffres"
+                    value={formatCompanyNumber(clientSiren)}
+                    onChange={(e) => setClientSiren(e.target.value.replace(/\D/g, '').slice(0, 9))}
+                  />
+                  {clientSiren.length > 0 && !parseCompanyNumber(clientSiren).ok && (
+                    <span className="ferr on">SIREN invalide — il ne sera pas enregistré</span>
+                  )}
                 </div>
               </div>
             </div>

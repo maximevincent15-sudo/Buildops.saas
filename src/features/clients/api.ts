@@ -1,5 +1,13 @@
 import { supabase } from '../../shared/lib/supabase'
+import { parseCompanyNumber } from './companyLookup'
 import type { Client, CreateClientInput } from './schemas'
+
+/** SIREN/SIRET saisi → colonnes siren + siret (SIRET ⇒ SIREN = 9 premiers chiffres). */
+function companyColumns(raw: string | undefined): { siren: string | null; siret: string | null } {
+  const p = parseCompanyNumber(raw)
+  if (!p.ok || !p.number) return { siren: null, siret: null }
+  return { siren: p.number.siren, siret: p.number.siret }
+}
 
 export async function createClient(
   input: CreateClientInput,
@@ -10,6 +18,7 @@ export async function createClient(
     .insert({
       organization_id: organizationId,
       name: input.name,
+      ...companyColumns(input.company_number),
       contact_name: input.contact_name || null,
       contact_email: input.contact_email || null,
       contact_phone: input.contact_phone || null,
@@ -39,6 +48,7 @@ export async function updateClient(
     .from('clients')
     .update({
       name: input.name,
+      ...companyColumns(input.company_number),
       contact_name: input.contact_name || null,
       contact_email: input.contact_email || null,
       contact_phone: input.contact_phone || null,

@@ -85,7 +85,9 @@ export function useSiretLookup(rawSiret: string): SiretLookupState {
           matchingEtab.code_postal,
           matchingEtab.libelle_commune,
         ].filter(Boolean)
-        const address = addressParts.join(' ')
+        // L'API ne renvoie pas toujours le détail de voie sur matching_etablissements :
+        // on privilégie l'adresse formatée quand elle existe.
+        const address: string = matchingEtab.adresse ?? addressParts.join(' ')
         const naf: string | undefined =
           matchingEtab.activite_principale ?? result.activite_principale ?? undefined
 

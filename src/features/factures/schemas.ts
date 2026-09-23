@@ -11,6 +11,7 @@ export const upsertInvoiceSchema = z.object({
   client_name: z.string().min(1, 'Client requis'),
   client_contact_name: z.string().optional(),
   client_address: z.string().optional(),
+  client_siren: z.string().optional(),
   client_email: z.string().optional(),
   intervention_id: z.string().optional(),
   quote_id: z.string().optional(),
@@ -33,6 +34,7 @@ export type Invoice = {
   client_name: string
   client_contact_name: string | null
   client_address: string | null
+  client_siren: string | null
   client_email: string | null
   intervention_id: string | null
   site_name: string | null
