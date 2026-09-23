@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import type { MouseEvent } from 'react'
+import { Camera, CheckCircle2, Loader2, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ChangeEvent, MouseEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
 import { listClients } from '../../clients/api'
@@ -22,6 +22,7 @@ import {
   computeNextReplacementYear,
   createEquipmentUnitSchema,
 } from '../schemas'
+import { LabelScanError, scanEquipmentLabel } from '../scanLabel'
 import type {
   CreateEquipmentUnitInput,
   EquipmentUnit,
@@ -84,12 +85,19 @@ export function EquipmentUnitModal({
   const [newZoneName, setNewZoneName] = useState('')
   const [creatingZone, setCreatingZone] = useState(false)
 
+  // Scan d'étiquette (photo → IA → champs pré-remplis)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [scanning, setScanning] = useState(false)
+  const [scanPreview, setScanPreview] = useState<string | null>(null)
+  const [scanMessage, setScanMessage] = useState<{ ok: boolean; text: string } | null>(null)
+
   const {
     register,
     handleSubmit,
     reset,
     watch,
     setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<CreateEquipmentUnitInput>({
     resolver: zodResolver(createEquipmentUnitSchema),
@@ -113,6 +121,8 @@ export function EquipmentUnitModal({
     reset(toFormValues(unit, defaultSiteId))
     setSubmitError(null)
     setNewZoneName('')
+    setScanPreview(null)
+    setScanMessage(null)
     listClients().then(setClients).catch(() => setClients([]))
   }, [open, unit, defaultSiteId, reset])
 
@@ -165,6 +175,55 @@ export function EquipmentUnitModal({
       setSubmitError(e instanceof Error ? e.message : 'Erreur création zone')
     } finally {
       setCreatingZone(false)
+    }
+  }
+
+  async function handleScanFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permet de re-scanner la même photo
+    if (!file) return
+    setScanning(true)
+    setScanMessage(null)
+    setScanPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return URL.createObjectURL(file)
+    })
+    try {
+      const r = await scanEquipmentLabel(file)
+      if (!r.readable) {
+        setScanMessage({ ok: false, text: 'Étiquette illisible : reprends la photo plus près, bien à plat et sans reflet.' })
+        return
+      }
+      const filled: string[] = []
+      const opts = { shouldDirty: true, shouldValidate: true }
+      if (r.family) { setValue('family', r.family, opts); filled.push('famille') }
+      if (r.subtype) { setValue('subtype', r.subtype, opts); filled.push('type') }
+      if (r.brand) { setValue('brand', r.brand, opts); filled.push('marque') }
+      if (r.model) { setValue('model', r.model, opts); filled.push('modèle') }
+      if (r.manufacture_year) { setValue('install_year', r.manufacture_year, opts); filled.push('année') }
+      // N° de série fabricant + infos annexes → notes (le « N° d'unité » reste la numérotation du site)
+      const extras = [
+        r.serial_number && `N° série fabricant : ${r.serial_number}`,
+        r.extra,
+      ].filter((x): x is string => !!x)
+      const notes = getValues('notes') ?? ''
+      const toAdd = extras.filter((x) => !notes.includes(x))
+      if (toAdd.length > 0) {
+        setValue('notes', [notes.trim(), ...toAdd].filter(Boolean).join(' · '), opts)
+        filled.push('notes')
+      }
+      setScanMessage(
+        filled.length > 0
+          ? { ok: true, text: `Rempli depuis l'étiquette : ${filled.join(', ')}. Vérifie avant d'enregistrer.` }
+          : { ok: false, text: 'Aucune information exploitable trouvée sur la photo.' },
+      )
+    } catch (err) {
+      setScanMessage({
+        ok: false,
+        text: err instanceof LabelScanError ? err.message : 'La lecture a échoué. Réessaie ou remplis à la main.',
+      })
+    } finally {
+      setScanning(false)
     }
   }
 
@@ -299,6 +358,64 @@ export function EquipmentUnitModal({
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Scan d'étiquette */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '10px 12px',
+              border: '1px dashed var(--acc)',
+              borderRadius: 10,
+              background: 'var(--wht)',
+            }}
+          >
+            {scanPreview ? (
+              <img
+                src={scanPreview}
+                alt="Étiquette scannée"
+                style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
+              />
+            ) : (
+              <Camera size={22} strokeWidth={1.6} style={{ color: 'var(--acc)', flexShrink: 0 }} />
+            )}
+            <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, lineHeight: 1.4 }}>
+              {scanning ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink2)' }}>
+                  <Loader2 size={13} className="spin" /> Lecture de l'étiquette…
+                </span>
+              ) : scanMessage ? (
+                <span style={{ color: scanMessage.ok ? 'var(--grn)' : 'var(--red)', display: 'inline-flex', gap: 6 }}>
+                  {scanMessage.ok && <CheckCircle2 size={14} style={{ flexShrink: 0, marginTop: 1 }} />}
+                  {scanMessage.text}
+                </span>
+              ) : (
+                <span style={{ color: 'var(--ink2)' }}>
+                  <strong style={{ color: 'var(--ink)' }}>Scanner l'étiquette</strong> : prends la plaque en photo,
+                  la marque, le type et l'année se remplissent tout seuls.
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              className="btn-sm"
+              onClick={() => fileRef.current?.click()}
+              disabled={scanning}
+              style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <Camera size={14} strokeWidth={1.8} />
+              {scanPreview ? 'Reprendre' : 'Scanner'}
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={handleScanFile}
+            />
           </div>
 
           {/* Famille + N° + type */}
