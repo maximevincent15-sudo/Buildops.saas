@@ -170,8 +170,12 @@ const unitEntries: UnitReportEntry[] = [
         : 'conforme'
     return {
       unitSerial: `EXT-${String(n).padStart(2, '0')}`,
-      zoneName: n <= 6 ? 'RDC' : '1er étage',
-      parentZone: n <= 6 ? 'Aile principale' : 'Aile principale',
+      zoneName: n <= 8 ? 'Aile principale' : 'Aile Est',
+      parentZone: null,
+      totalItems: 15,
+      checkedCount: isWatch ? 14 : 15,
+      naItems: [],
+      uncheckedItems: isWatch ? ['Poids ou pesée conforme (< 5% pour poudre, < 10% pour CO2)'] : [],
       implantation:
         n === 1 ? 'Entrée principale, à gauche'
         : n === 2 ? 'Couloir accueil, face bureau directrice'
@@ -210,8 +214,12 @@ const unitEntries: UnitReportEntry[] = [
     const isRepair = n === 2
     return {
       unitSerial: `RIA-${String(n).padStart(2, '0')}`,
-      zoneName: n <= 3 ? 'RDC' : '1er étage',
-      parentZone: 'Aile principale',
+      zoneName: n <= 3 ? 'Aile principale' : 'Aile Est',
+      parentZone: null,
+      totalItems: 15,
+      checkedCount: 15,
+      naItems: [],
+      uncheckedItems: [],
       implantation:
         n === 1 ? 'Hall d\'accueil, coffret mural'
         : n === 2 ? 'Couloir chambres RDC'
@@ -233,7 +241,11 @@ const unitEntries: UnitReportEntry[] = [
     return {
       unitSerial: `DES-${String(n).padStart(2, '0')}`,
       zoneName: 'Toiture',
-      parentZone: 'Aile principale',
+      parentZone: null,
+      totalItems: 15,
+      checkedCount: 15,
+      naItems: ['Ventilateurs de désenfumage : essai fonctionnel (démarrage, débit conforme)'],
+      uncheckedItems: [],
       implantation:
         n === 1 ? 'Cage d\'escalier centrale — exutoire'
         : n === 2 ? 'Couloir 1er étage — trappe désenfumage'

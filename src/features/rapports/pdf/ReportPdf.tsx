@@ -440,6 +440,11 @@ export type UnitReportEntry = {
   verdict: 'non_verifie' | 'conforme' | 'surveiller' | 'reformer'
   verdictLabel: string
   observation: string | null
+  /** Détail checklist de l'unité (absent pour les appels legacy). */
+  checkedCount?: number
+  totalItems?: number
+  naItems?: string[]
+  uncheckedItems?: string[]
 }
 
 type Props = {
@@ -524,7 +529,18 @@ export function ReportPdf({
     }
   }
   const answered = okCount + nokCount + naCount
-  const isConform = answered === totalItems ? nokCount === 0 : null
+
+  // Rapport par unité : la checklist globale par famille reste vide, la
+  // conformité se déduit donc des verdicts unitaires.
+  const unitControlsActive = !!unitEntries?.some((e) => e.verdict !== 'non_verifie')
+  const unitCounts = { conforme: 0, surveiller: 0, reformer: 0, non_verifie: 0 }
+  for (const e of unitEntries ?? []) unitCounts[e.verdict]++
+
+  const isConform = unitControlsActive
+    ? (unitCounts.surveiller + unitCounts.reformer > 0
+        ? false
+        : unitCounts.non_verifie > 0 ? null : true)
+    : (answered === totalItems ? nokCount === 0 : null)
   const summary = { answered, total: totalItems, okCount, nokCount, naCount, isConform }
   void computeReportSummary // évite l'avertissement lint (on garde l'import pour compat future)
 
@@ -676,8 +692,9 @@ export function ReportPdf({
         ) : summary.isConform === true ? (
           <View style={[styles.summaryBox, styles.summaryBoxConform]}>
             <Text style={styles.summaryTitle}>
-              Tous les points de contrôle sont conformes ({summary.okCount} OK
-              {summary.naCount > 0 ? ` · ${summary.naCount} N/A` : ''}).
+              {unitControlsActive
+                ? `Tous les équipements contrôlés sont conformes (${unitCounts.conforme}).`
+                : `Tous les points de contrôle sont conformes (${summary.okCount} OK${summary.naCount > 0 ? ` · ${summary.naCount} N/A` : ''}).`}
             </Text>
           </View>
         ) : null}
@@ -901,8 +918,11 @@ export function ReportPdf({
           </View>
         )}
 
-        {/* CHECKLIST — une section par équipement contrôlé */}
-        {effectiveSections.map((section) => {
+        {/* CONTRÔLES PAR ZONE — rapport par unité : chaque zone du site, chaque équipement */}
+        {unitControlsActive && unitEntries && <ZoneControls entries={unitEntries} />}
+
+        {/* CHECKLIST — une section par famille (rapports legacy sans contrôles unitaires) */}
+        {!unitControlsActive && effectiveSections.map((section) => {
           const secOk = section.responses.filter((r) => r.value === 'ok').length
           const secNok = section.responses.filter((r) => r.value === 'nok').length
           const secNa = section.responses.filter((r) => r.value === 'na').length
@@ -1136,6 +1156,145 @@ function ClientSignatureBox({
       <Text style={{ fontSize: 7, color: colors.ink3, marginTop: 6 }}>
         Constaté sur site par le technicien le {completedLabel}.
       </Text>
+    </View>
+  )
+}
+
+// ─── Contrôles par zone : chaque zone du site et le détail de ses équipements ──
+
+const VERDICT_COLORS: Record<UnitReportEntry['verdict'], { fg: string; bg: string }> = {
+  conforme: { fg: colors.grn, bg: colors.grnLt },
+  surveiller: { fg: colors.org, bg: colors.orgLt },
+  reformer: { fg: colors.red, bg: colors.redLt },
+  non_verifie: { fg: colors.gry, bg: colors.gryLt },
+}
+
+function zoneKey(e: UnitReportEntry): string {
+  return [e.parentZone, e.zoneName].filter(Boolean).join(' · ')
+}
+
+function ZoneControls({ entries }: { entries: UnitReportEntry[] }) {
+  // Regroupement par zone en conservant l'ordre d'apparition ; "Sans zone" en dernier.
+  const groups = new Map<string, UnitReportEntry[]>()
+  for (const e of entries) {
+    const key = zoneKey(e)
+    const list = groups.get(key) ?? []
+    list.push(e)
+    groups.set(key, list)
+  }
+  const ordered = [...groups.entries()].sort(([a], [b]) => (a === '' ? 1 : b === '' ? -1 : 0))
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Contrôles par zone</Text>
+      {ordered.map(([zone, list]) => {
+        const counts = { conforme: 0, surveiller: 0, reformer: 0, non_verifie: 0 }
+        for (const e of list) counts[e.verdict]++
+        const summaryParts = [
+          `${list.length} équipement${list.length > 1 ? 's' : ''}`,
+          counts.conforme > 0 ? `${counts.conforme} conforme${counts.conforme > 1 ? 's' : ''}` : null,
+          counts.surveiller > 0 ? `${counts.surveiller} à surveiller` : null,
+          counts.reformer > 0 ? `${counts.reformer} à réformer` : null,
+          counts.non_verifie > 0 ? `${counts.non_verifie} non vérifié${counts.non_verifie > 1 ? 's' : ''}` : null,
+        ].filter(Boolean)
+
+        return (
+          <View key={zone || 'sans-zone'} style={{ marginTop: 10 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'baseline',
+                paddingBottom: 4,
+                borderBottomWidth: 1,
+                borderBottomStyle: 'solid',
+                borderBottomColor: colors.ink,
+              }}
+              wrap={false}
+              minPresenceAhead={60}
+            >
+              <Text style={{ fontSize: 10.5, fontFamily: 'Helvetica-Bold', color: colors.ink, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                {zone || 'Sans zone'}
+              </Text>
+              <Text style={{ fontSize: 8, color: colors.ink2 }}>{summaryParts.join(' · ')}</Text>
+            </View>
+
+            {list.map((e, i) => {
+              const c = VERDICT_COLORS[e.verdict]
+              const title = [`N°${e.unitSerial}`, e.familyLabel, e.subtype].filter(Boolean).join(' · ')
+              const checked = e.checkedCount ?? 0
+              const pointsLine = e.totalItems && checked > 0
+                ? `${checked}/${e.totalItems} points vérifiés${e.naItems && e.naItems.length > 0 ? ` · ${e.naItems.length} N/A` : ''}`
+                : null
+              // Verdict posé sans aucun point coché : une ligne plutôt que 15 points listés.
+              const checklistEmpty = e.verdict !== 'non_verifie' && !!e.totalItems && checked === 0
+              const showUnchecked =
+                e.verdict !== 'non_verifie' && !checklistEmpty
+                && !!e.uncheckedItems && e.uncheckedItems.length > 0
+              const hasDetail =
+                !!e.observation
+                || checklistEmpty
+                || showUnchecked
+                || (e.naItems && e.naItems.length > 0)
+
+              return (
+                <View
+                  key={`${e.unitSerial}-${i}`}
+                  style={{
+                    paddingVertical: 5,
+                    borderBottomWidth: 0.5,
+                    borderBottomStyle: 'solid',
+                    borderBottomColor: colors.border,
+                  }}
+                  wrap={false}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: colors.ink }}>{title}</Text>
+                      {(e.implantation || pointsLine) && (
+                        <Text style={{ fontSize: 8, color: colors.ink3, marginTop: 1 }}>
+                          {[e.implantation, pointsLine].filter(Boolean).join(' · ')}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={{ paddingVertical: 2, paddingHorizontal: 6, backgroundColor: c.bg, borderRadius: 3 }}>
+                      <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: c.fg }}>{e.verdictLabel}</Text>
+                    </View>
+                  </View>
+
+                  {hasDetail && (
+                    <View style={{ marginTop: 3, marginLeft: 8 }}>
+                      {e.observation && (
+                        <Text style={{ fontSize: 8, color: colors.ink2 }}>
+                          <Text style={{ fontFamily: 'Helvetica-Bold' }}>Observation : </Text>
+                          {e.observation}
+                        </Text>
+                      )}
+                      {checklistEmpty && (
+                        <Text style={{ fontSize: 8, color: colors.org, marginTop: 1 }}>
+                          Checklist détaillée non renseignée
+                        </Text>
+                      )}
+                      {showUnchecked && (
+                        <Text style={{ fontSize: 8, color: colors.org, marginTop: 1 }}>
+                          <Text style={{ fontFamily: 'Helvetica-Bold' }}>Non vérifié : </Text>
+                          {e.uncheckedItems!.join(' · ')}
+                        </Text>
+                      )}
+                      {e.naItems && e.naItems.length > 0 && (
+                        <Text style={{ fontSize: 8, color: colors.ink3, marginTop: 1 }}>
+                          <Text style={{ fontFamily: 'Helvetica-Bold' }}>Non applicable : </Text>
+                          {e.naItems.join(' · ')}
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+              )
+            })}
+          </View>
+        )
+      })}
     </View>
   )
 }
