@@ -28,7 +28,12 @@ type EventKind =
 interface RequestBody {
   kind: EventKind
   organization_id: string
+  /** Mode test : envoie l'email client uniquement à TEST_RECIPIENT */
+  test?: boolean
 }
+
+// Seule adresse autorisée en mode test (jamais une adresse passée dans la requête)
+const TEST_RECIPIENT = 'contact@firovia.fr'
 
 const EVENT_META: Record<EventKind, {
   emoji: string
@@ -181,6 +186,41 @@ serve(async (req) => {
     }
 
     const body = (await req.json()) as RequestBody
+
+    // ─── Mode test : aperçu des emails client envoyé à contact@firovia.fr ───
+    if (body?.test === true && (body.kind === 'trial_ending_soon' || body.kind === 'trial_expired')) {
+      const admin = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      )
+      const rl = await checkRateLimit(admin, { bucket: 'lifecycle-test', limit: 10, windowSeconds: 3600 })
+      if (!rl.ok) return new Response(JSON.stringify({ error: 'rate_limited' }), { status: 429 })
+      const end = new Date(Date.now() + (body.kind === 'trial_ending_soon' ? 3 : 0) * 86400_000)
+      const mail = buildCustomerEmail(body.kind, {
+        firstName: 'Maxime',
+        orgName: 'Entreprise Test',
+        trialEnd: end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', timeZone: 'Europe/Paris' }),
+        siteUrl: Deno.env.get('SITE_URL') ?? 'https://app.firovia.fr',
+      })
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: `${RESEND_FROM_NAME} <${RESEND_FROM_EMAIL}>`,
+          to: [TEST_RECIPIENT],
+          reply_to: 'contact@firovia.fr',
+          subject: `[TEST] ${mail.subject}`,
+          text: mail.text,
+          html: mail.html,
+        }),
+      })
+      const out = await res.json()
+      return new Response(JSON.stringify({ test: true, ok: res.ok, to: TEST_RECIPIENT, resend: out }), {
+        status: res.ok ? 200 : 502,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
     if (!body?.kind || !body?.organization_id) {
       return new Response(
         JSON.stringify({ error: 'invalid_payload' }),
