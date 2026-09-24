@@ -9,6 +9,16 @@ import type { Plan, BillingPeriod, PlanOffer } from './schemas'
 export const CGV_VERSION = '2026-09-24'
 export const CGV_URL = 'https://firovia.fr/cgv.html'
 
+// Identité légale de Firovia (émetteur des devis d'abonnement)
+export const FIROVIA_ISSUER = {
+  legalName: 'Maxime Vincent EI',
+  signatory: 'Maxime Vincent',
+  address: '15 Rue Charles Edouard Jeanneret, 78300 Poissy',
+  siret: '106 429 749 00018',
+  email: 'contact@firovia.fr',
+  vatMention: 'TVA non applicable, art. 293 B du CGI',
+} as const
+
 const PRICE_STARTER_MONTHLY = 'price_1Tnx8a2KbFmYQD889c1DfKJC'
 const PRICE_STARTER_YEARLY = 'price_1Tnx2o2KbFmYQD886Fw6uOlk'
 const PRICE_PRO_MONTHLY = 'price_1TnxJX2KbFmYQD88TyrumqBu'
@@ -23,15 +33,16 @@ export const PLAN_OFFERS: PlanOffer[] = [
       monthly: { priceId: PRICE_STARTER_MONTHLY, amount: 299, per: 'mois' },
       yearly: { priceId: PRICE_STARTER_YEARLY, amount: 2990, per: 'an' },
     },
+    // Liste alignée sur firovia.fr/tarifs (référence contractuelle des CGV)
     features: [
       'Jusqu\'à 5 techniciens',
-      'Planning centralisé',
-      'Rapports terrain mobile',
-      'Registre équipements format APSAD',
+      'Planning + rapports terrain mobile',
+      'Registres équipements format APSAD',
+      'Alertes échéances',
       'Devis & factures illimités',
-      'Envoi email automatique',
-      'Support par email',
-      'Hébergement Union européenne (RGPD)',
+      'Envoi automatique par email',
+      'Support email',
+      'Hébergement UE (RGPD)',
     ],
     accent: false,
   },
@@ -44,13 +55,14 @@ export const PLAN_OFFERS: PlanOffer[] = [
       yearly: { priceId: PRICE_PRO_YEARLY, amount: 4990, per: 'an' },
     },
     features: [
-      'Tout de Starter, plus :',
+      'Tout le plan Starter, plus :',
       'Jusqu\'à 20 techniciens',
-      'Multi-sites avancé',
-      'Exports comptables',
+      'Pilotage business (CA, impayés)',
+      'Tops clients / techniciens',
+      'Évolution mensuelle du CA',
+      'Export paie (heures sup, frais)',
       'Support prioritaire',
       'Onboarding humain 1h',
-      'Intégrations à venir',
     ],
     accent: true,
   },

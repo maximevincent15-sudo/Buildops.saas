@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react'
+import { Check, FileDown } from 'lucide-react'
 import type { BillingPeriod, PlanOffer, Plan } from '../schemas'
 import { computeYearlySavings } from '../constants'
 
@@ -9,9 +9,12 @@ interface Props {
   currentPeriod: BillingPeriod | null
   onChoose: (priceId: string, plan: Plan, period: BillingPeriod) => void
   loading: boolean
+  /** Téléchargement d'un devis PDF pour cette formule / période */
+  onDownloadQuote?: () => void
+  quoteLoading?: boolean
 }
 
-export function PlanCard({ offer, period, currentPlan, currentPeriod, onChoose, loading }: Props) {
+export function PlanCard({ offer, period, currentPlan, currentPeriod, onChoose, loading, onDownloadQuote, quoteLoading }: Props) {
   const price = offer.prices[period]
   const isCurrent = currentPlan === offer.plan && currentPeriod === period
   const savings = period === 'yearly' ? computeYearlySavings(offer) : 0
@@ -137,6 +140,30 @@ export function PlanCard({ offer, period, currentPlan, currentPeriod, onChoose, 
       >
         {loading ? 'Redirection…' : buttonLabel}
       </button>
+
+      {onDownloadQuote && (
+        <button
+          type="button"
+          onClick={onDownloadQuote}
+          disabled={quoteLoading}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            background: 'none',
+            border: 'none',
+            color: 'var(--acc, #3A5CA8)',
+            fontSize: '.82rem',
+            fontWeight: 500,
+            cursor: quoteLoading ? 'default' : 'pointer',
+            padding: '.2rem',
+          }}
+        >
+          <FileDown size={14} strokeWidth={2} />
+          {quoteLoading ? 'Génération du devis…' : `Télécharger un devis (${period === 'yearly' ? 'annuel' : 'mensuel'})`}
+        </button>
+      )}
     </div>
   )
 }

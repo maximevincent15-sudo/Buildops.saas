@@ -45,3 +45,28 @@ export async function createPortalSession(): Promise<string> {
   if (!url) throw new Error('URL Portail Stripe manquante dans la réponse')
   return url
 }
+
+export type StripeInvoice = {
+  id: string
+  number: string | null
+  created: number
+  period_start: number | null
+  period_end: number | null
+  total: number
+  amount_due: number
+  currency: string
+  status: 'open' | 'paid' | 'void' | 'uncollectible'
+  hosted_invoice_url: string | null
+  invoice_pdf: string | null
+}
+
+/**
+ * Factures Stripe de l'organisation (rubrique « Mes factures »).
+ * Réservé aux administrateurs ; renvoie [] si l'org n'est jamais passée
+ * par Stripe (essai, accès offert).
+ */
+export async function listStripeInvoices(): Promise<StripeInvoice[]> {
+  const { data, error } = await supabase.functions.invoke('stripe-invoices', { body: {} })
+  if (error) throw error
+  return ((data as { invoices?: StripeInvoice[] })?.invoices ?? [])
+}

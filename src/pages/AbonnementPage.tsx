@@ -5,6 +5,7 @@ import { useAuthStore } from '../features/auth/store'
 import { useSubscription } from '../features/billing/hooks'
 import { CGV_URL, CGV_VERSION, PLAN_OFFERS } from '../features/billing/constants'
 import { createCheckoutSession, createPortalSession } from '../features/billing/api'
+import { InvoicesList } from '../features/billing/components/InvoicesList'
 import { PlanCard } from '../features/billing/components/PlanCard'
 import type { BillingPeriod, Plan } from '../features/billing/schemas'
 
@@ -22,6 +23,9 @@ export function AbonnementPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { subscription, loading, reload, isActive, isTrialing, trialDaysLeft, isBlocked } = useSubscription()
   const isMember = useAuthStore((s) => s.profile?.user_role === 'member')
+  const profile = useAuthStore((s) => s.profile)
+  const userEmail = useAuthStore((s) => s.user?.email ?? null)
+  const [quoteLoading, setQuoteLoading] = useState<Plan | null>(null)
   const [period, setPeriod] = useState<BillingPeriod>('yearly')
   const [redirecting, setRedirecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -66,6 +70,28 @@ export function AbonnementPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
       setRedirecting(false)
+    }
+  }
+
+  async function handleDownloadQuote(offer: (typeof PLAN_OFFERS)[number]) {
+    if (!profile?.organization_id) return
+    setQuoteLoading(offer.plan)
+    setError(null)
+    try {
+      const { downloadSubscriptionQuote } = await import('../features/billing/pdf/downloadSubscriptionQuote')
+      await downloadSubscriptionQuote({
+        offer,
+        period,
+        organizationId: profile.organization_id,
+        organizationName: profile.organizations?.name ?? 'Votre entreprise',
+        contactName: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || null,
+        contactEmail: userEmail,
+      })
+    } catch (e) {
+      console.error('Devis abonnement', e)
+      setError('Impossible de générer le devis. Réessayez ou écrivez à contact@firovia.fr.')
+    } finally {
+      setQuoteLoading(null)
     }
   }
 
@@ -207,6 +233,9 @@ export function AbonnementPage() {
         </div>
       </div>
 
+      {/* Factures Stripe — admins d'une org déjà passée par Stripe */}
+      {subscription?.stripe_customer_id && !isMember && <InvoicesList />}
+
       {/* Sélecteur mensuel / annuel */}
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
         <div style={{
@@ -294,6 +323,8 @@ export function AbonnementPage() {
               currentPeriod={subscription?.billing_period ?? null}
               onChoose={handleChoose}
               loading={redirecting}
+              onDownloadQuote={() => void handleDownloadQuote(offer)}
+              quoteLoading={quoteLoading === offer.plan}
             />
           ))}
         </div>
