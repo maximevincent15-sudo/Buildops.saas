@@ -52,7 +52,8 @@ export function useSubscription(): SubscriptionState {
   const status = subscription?.status
   const isTrialing = status === 'trialing'
   const isActive = status === 'active'
-  const isBlocked = (isTrialing && (trialDaysLeft ?? 0) <= 0) ||
+  // Essai sans date de fin connue → on ne bloque pas (fail open)
+  const isBlocked = (isTrialing && trialDaysLeft !== null && trialDaysLeft <= 0) ||
     status === 'canceled' ||
     status === 'unpaid' ||
     status === 'incomplete_expired'

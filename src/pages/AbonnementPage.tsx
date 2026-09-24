@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ExternalLink, CheckCircle2, XCircle } from 'lucide-react'
+import { AlertTriangle, ExternalLink, CheckCircle2, XCircle } from 'lucide-react'
+import { useAuthStore } from '../features/auth/store'
 import { useSubscription } from '../features/billing/hooks'
 import { CGV_URL, CGV_VERSION, PLAN_OFFERS } from '../features/billing/constants'
 import { createCheckoutSession, createPortalSession } from '../features/billing/api'
@@ -19,7 +20,8 @@ const STATUS_LABELS: Record<string, string> = {
 
 export function AbonnementPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const { subscription, loading, reload, isActive, isTrialing, trialDaysLeft } = useSubscription()
+  const { subscription, loading, reload, isActive, isTrialing, trialDaysLeft, isBlocked } = useSubscription()
+  const isMember = useAuthStore((s) => s.profile?.user_role === 'member')
   const [period, setPeriod] = useState<BillingPeriod>('yearly')
   const [redirecting, setRedirecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -132,6 +134,38 @@ export function AbonnementPage() {
             style={toastCloseStyle}
             aria-label="Fermer"
           >×</button>
+        </div>
+      )}
+
+      {/* Accès bloqué : essai terminé / abonnement terminé ou impayé */}
+      {isBlocked && (
+        <div
+          className="card"
+          style={{
+            marginBottom: '1.5rem',
+            display: 'flex',
+            gap: '.8rem',
+            alignItems: 'flex-start',
+            background: '#FDF3EC',
+            border: '1px solid #F2C9A8',
+          }}
+        >
+          <AlertTriangle size={20} strokeWidth={2} style={{ color: '#C45A1A', flexShrink: 0, marginTop: 2 }} />
+          <div style={{ fontSize: '.9rem', color: 'var(--ink2, #5A6070)', lineHeight: 1.55 }}>
+            <div style={{ fontWeight: 700, color: 'var(--ink, #1C2130)', fontSize: '1rem', marginBottom: '.2rem' }}>
+              {subscription?.status === 'canceled'
+                ? 'Votre abonnement a pris fin'
+                : subscription?.status === 'unpaid'
+                  ? 'Votre abonnement est suspendu (paiement non régularisé)'
+                  : 'Votre essai gratuit est terminé'}
+            </div>
+            {isMember
+              ? "Seul un administrateur de votre entreprise peut choisir une formule : demandez-lui de se connecter à Firovia pour rétablir l'accès. Toutes vos données sont conservées."
+              : "Choisissez une formule ci-dessous pour retrouver l'accès à Firovia. Toutes vos données sont conservées et l'accès est rétabli dès la validation du paiement."}
+            <div style={{ marginTop: '.4rem', fontSize: '.82rem' }}>
+              Une question ? <a href="mailto:contact@firovia.fr" style={{ color: 'var(--acc, #3A5CA8)', fontWeight: 500 }}>contact@firovia.fr</a>
+            </div>
+          </div>
         </div>
       )}
 
@@ -256,7 +290,7 @@ export function AbonnementPage() {
               key={offer.plan}
               offer={offer}
               period={period}
-              currentPlan={subscription?.plan ?? null}
+              currentPlan={isBlocked ? null : subscription?.plan ?? null}
               currentPeriod={subscription?.billing_period ?? null}
               onChoose={handleChoose}
               loading={redirecting}
