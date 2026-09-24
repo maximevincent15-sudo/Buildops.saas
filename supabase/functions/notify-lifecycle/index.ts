@@ -2,6 +2,8 @@
 //
 // Firovia — Edge Function : notif email à Maxime pour les événements
 // de cycle de vie subscription (trial expirant, paiement, résiliation…).
+// Pour trial_ending_soon (J-3) et trial_expired, un email est AUSSI envoyé
+// aux administrateurs de l'organisation cliente (lien vers /abonnement).
 //
 // Appelée depuis :
 //   1. stripe-webhook (pour les events Stripe : payment, cancellation…)
@@ -14,6 +16,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
+import { checkRateLimit } from '../_shared/rateLimit.ts'
 
 type EventKind =
   | 'trial_ending_soon'
@@ -65,6 +68,106 @@ const EVENT_META: Record<EventKind, {
   },
 }
 
+// ─── Emails destinés au client (fin d'essai) ───────────────────────────
+function escapeHtml(v: string): string {
+  return v.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
+function buildCustomerEmail(
+  kind: 'trial_ending_soon' | 'trial_expired',
+  p: { firstName: string | null; orgName: string; trialEnd: string; siteUrl: string },
+): { subject: string; text: string; html: string } {
+  const hello = p.firstName ? `Bonjour ${p.firstName},` : 'Bonjour,'
+  const url = `${p.siteUrl}/abonnement`
+  const ending = kind === 'trial_ending_soon'
+  const subject = ending
+    ? `Votre essai Firovia se termine le ${p.trialEnd}`
+    : 'Votre essai Firovia est terminé — vos données sont conservées'
+  const lines = ending
+    ? [
+        `Votre essai gratuit de Firovia pour ${p.orgName} se termine le ${p.trialEnd}.`,
+        'Pour continuer sans interruption avec vos clients, équipements, rapports et plannings déjà saisis, il vous suffit de choisir votre formule. Cela prend 2 minutes.',
+        "Tout ce que vous avez créé pendant l'essai est conservé.",
+      ]
+    : [
+        `L'essai gratuit de Firovia pour ${p.orgName} est arrivé à son terme le ${p.trialEnd}.`,
+        "Toutes vos données (clients, équipements, rapports, plannings) sont conservées. Pour retrouver l'accès à l'application, choisissez votre formule : l'accès est rétabli dès la validation du paiement.",
+      ]
+  const cta = ending ? 'Choisir ma formule' : "Retrouver l'accès"
+  const outro = "Une question, un besoin particulier ou envie d'en parler avant ? Répondez simplement à cet email ou réservez 15 minutes : https://cal.com/firovia"
+
+  const text = `${hello}
+
+${lines.join('\n\n')}
+
+${cta} : ${url}
+
+${outro}
+
+Maxime Vincent
+Fondateur de Firovia — contact@firovia.fr`
+
+  const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1C2130;line-height:1.55;">
+  <div style="font-size:22px;font-weight:800;margin-bottom:20px;"><span style="color:#3A5CA8;">Fir</span>ovia</div>
+  <p style="margin:0 0 14px;">${escapeHtml(hello)}</p>
+  ${lines.map((l) => `<p style="margin:0 0 14px;color:#3A4050;">${escapeHtml(l)}</p>`).join('')}
+  <p style="margin:24px 0;">
+    <a href="${url}" style="display:inline-block;background:#3A5CA8;color:#fff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:100px;">${cta}</a>
+  </p>
+  <p style="margin:0 0 14px;color:#5A6070;font-size:14px;">Une question, un besoin particulier ou envie d'en parler avant ? Répondez simplement à cet email ou <a href="https://cal.com/firovia" style="color:#3A5CA8;">réservez 15 minutes</a>.</p>
+  <p style="margin:24px 0 0;color:#1C2130;">Maxime Vincent<br/><span style="color:#5A6070;font-size:14px;">Fondateur de Firovia</span></p>
+  <p style="margin-top:28px;font-size:12px;color:#9AA0AE;">Firovia · Maxime Vincent EI · SIREN 106 429 749 · <a href="https://firovia.fr/cgv.html" style="color:#9AA0AE;">CGV</a></p>
+</div>`
+  return { subject, text, html }
+}
+
+async function sendToOrgAdmins(
+  supabase: any,
+  organizationId: string,
+  kind: 'trial_ending_soon' | 'trial_expired',
+  orgName: string,
+  trialEndsAt: string | null,
+  resend: { apiKey: string; from: string },
+): Promise<number> {
+  // Administrateurs de l'org (repli : tous les profils si aucun admin identifié)
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, first_name, user_role')
+    .eq('organization_id', organizationId)
+  const all = profiles ?? []
+  const admins = all.filter((p) => p.user_role === 'admin')
+  const targets = (admins.length > 0 ? admins : all).slice(0, 5)
+
+  const trialEnd = trialEndsAt
+    ? new Date(trialEndsAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', timeZone: 'Europe/Paris' })
+    : 'bientôt'
+  const siteUrl = Deno.env.get('SITE_URL') ?? 'https://app.firovia.fr'
+
+  let sent = 0
+  for (const p of targets) {
+    const { data: userData } = await supabase.auth.admin.getUserById(p.id)
+    const email = userData?.user?.email
+    if (!email) continue
+    const mail = buildCustomerEmail(kind, { firstName: p.first_name ?? null, orgName, trialEnd, siteUrl })
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${resend.apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: resend.from,
+        to: [email],
+        reply_to: 'contact@firovia.fr',
+        subject: mail.subject,
+        text: mail.text,
+        html: mail.html,
+      }),
+    })
+    if (res.ok) sent++
+    else console.error('[notify-lifecycle] customer email failed', res.status, await res.text())
+  }
+  return sent
+}
+
 serve(async (req) => {
   try {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
@@ -107,7 +210,7 @@ serve(async (req) => {
 
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('status, plan, billing_period, trial_ends_at, current_period_end, stripe_customer_id')
+      .select('status, plan, billing_period, trial_ends_at, current_period_end, stripe_customer_id, lifecycle_notified_trial_ending_at, lifecycle_notified_trial_expired_at')
       .eq('organization_id', body.organization_id)
       .single()
 
@@ -195,6 +298,46 @@ Notification automatique Firovia.`
       }),
     })
 
+    // Email au client pour la fin d'essai (en plus de la notif interne)
+    // Garde-fous (la fonction est appelable sans JWT par le cron) : on
+    // n'écrit au client que si la base confirme l'état de l'essai ET que le
+    // cron vient de marquer l'org (< 30 min), avec 1 email max / 3 jours.
+    let customerEmails = 0
+    const isTrialKind = body.kind === 'trial_ending_soon' || body.kind === 'trial_expired'
+    const flaggedAt = body.kind === 'trial_ending_soon'
+      ? sub?.lifecycle_notified_trial_ending_at
+      : sub?.lifecycle_notified_trial_expired_at
+    const endsAt = sub?.trial_ends_at ? new Date(sub.trial_ends_at).getTime() : null
+    const stateOk = sub?.status === 'trialing' && endsAt !== null && (
+      body.kind === 'trial_ending_soon'
+        ? endsAt > Date.now() && endsAt <= Date.now() + 3 * 86400_000
+        : endsAt < Date.now()
+    )
+    const freshlyFlagged = !!flaggedAt && Date.now() - new Date(flaggedAt).getTime() < 30 * 60_000
+    let rateOk = false
+    if (isTrialKind && stateOk && freshlyFlagged) {
+      const rl = await checkRateLimit(supabase, {
+        bucket: `lifecycle-customer:${body.organization_id}:${body.kind}`,
+        limit: 1,
+        windowSeconds: 3 * 86400,
+      })
+      rateOk = rl.ok
+    }
+    if (isTrialKind && stateOk && freshlyFlagged && rateOk) {
+      try {
+        customerEmails = await sendToOrgAdmins(
+          supabase,
+          body.organization_id,
+          body.kind,
+          orgName,
+          sub?.trial_ends_at ?? null,
+          { apiKey: RESEND_API_KEY, from: `${RESEND_FROM_NAME} <${RESEND_FROM_EMAIL}>` },
+        )
+      } catch (e) {
+        console.error('[notify-lifecycle] customer email error', e)
+      }
+    }
+
     const resendData = await resendRes.json()
     if (!resendRes.ok) {
       console.error('[notify-lifecycle] Resend error', resendRes.status, resendData)
@@ -205,7 +348,7 @@ Notification automatique Firovia.`
     }
 
     return new Response(
-      JSON.stringify({ success: true, kind: body.kind, orgName }),
+      JSON.stringify({ success: true, kind: body.kind, orgName, customerEmails }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     )
   } catch (e) {
