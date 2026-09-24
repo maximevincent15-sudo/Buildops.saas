@@ -52,6 +52,8 @@ function buildCorsHeaders(origin: string | null): Record<string, string> {
 
 interface RequestBody {
   priceId: string
+  /** Version des CGV acceptée par le client (case cochée sur /abonnement) */
+  cgvVersion?: string
 }
 
 function jsonResponse(payload: unknown, status: number, corsHeaders: Record<string, string>) {
@@ -86,7 +88,7 @@ serve(async (req) => {
     const { data: { user }, error: userErr } = await userClient.auth.getUser()
     if (userErr || !user) return jsonResponse({ error: 'unauthenticated' }, 401, corsHeaders)
 
-    const { priceId } = (await req.json()) as RequestBody
+    const { priceId, cgvVersion } = (await req.json()) as RequestBody
     if (!priceId) return jsonResponse({ error: 'missing_priceId' }, 400, corsHeaders)
 
     // ─── Récupère l'organization du user ──────────────────
@@ -166,6 +168,10 @@ serve(async (req) => {
       subscription_data: {
         metadata: {
           organization_id: profile.organization_id,
+          // Preuve d'acceptation des CGV (art. 18 CGV) : version + date + auteur
+          cgv_version: typeof cgvVersion === 'string' ? cgvVersion.slice(0, 32) : 'non-transmise',
+          cgv_accepted_at: new Date().toISOString(),
+          cgv_accepted_by: user.email ?? user.id,
         },
       },
       // Réglementaire FR : l'auto-collect de la TVA peut être activé plus

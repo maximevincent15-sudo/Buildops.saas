@@ -18,9 +18,9 @@ export async function fetchSubscription(): Promise<Subscription | null> {
  * Crée une Stripe Checkout Session et renvoie l'URL vers laquelle rediriger
  * le user. Il paye chez Stripe, puis retour sur /abonnement?status=success.
  */
-export async function createCheckoutSession(priceId: string): Promise<string> {
+export async function createCheckoutSession(priceId: string, cgvVersion: string): Promise<string> {
   const { data, error } = await supabase.functions.invoke('stripe-checkout', {
-    body: { priceId },
+    body: { priceId, cgvVersion },
   })
   if (error) throw error
   const url = (data as { url?: string })?.url

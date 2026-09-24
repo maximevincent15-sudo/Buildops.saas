@@ -4,6 +4,11 @@ import type { Plan, BillingPeriod, PlanOffer } from './schemas'
 // le soient). Seule la clé secrète Stripe reste server-side (Edge Function).
 // Ces IDs correspondent aux Prices créés dans le Dashboard Stripe le 30/06/2026.
 
+// Version des CGV en vigueur (firovia.fr/cgv.html) — à mettre à jour à chaque
+// modification des CGV. Transmise à Stripe comme preuve d'acceptation.
+export const CGV_VERSION = '2026-09-24'
+export const CGV_URL = 'https://firovia.fr/cgv.html'
+
 const PRICE_STARTER_MONTHLY = 'price_1Tnx8a2KbFmYQD889c1DfKJC'
 const PRICE_STARTER_YEARLY = 'price_1Tnx2o2KbFmYQD886Fw6uOlk'
 const PRICE_PRO_MONTHLY = 'price_1TnxJX2KbFmYQD88TyrumqBu'

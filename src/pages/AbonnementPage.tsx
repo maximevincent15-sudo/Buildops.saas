@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ExternalLink, CheckCircle2, XCircle } from 'lucide-react'
 import { useSubscription } from '../features/billing/hooks'
-import { PLAN_OFFERS } from '../features/billing/constants'
+import { CGV_URL, CGV_VERSION, PLAN_OFFERS } from '../features/billing/constants'
 import { createCheckoutSession, createPortalSession } from '../features/billing/api'
 import { PlanCard } from '../features/billing/components/PlanCard'
 import type { BillingPeriod, Plan } from '../features/billing/schemas'
@@ -23,6 +23,8 @@ export function AbonnementPage() {
   const [period, setPeriod] = useState<BillingPeriod>('yearly')
   const [redirecting, setRedirecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [cgvAccepted, setCgvAccepted] = useState(false)
+  const [cgvHighlight, setCgvHighlight] = useState(false)
   const [statusToast, setStatusToast] = useState<'success' | 'canceled' | null>(null)
 
   // Gestion du retour depuis Stripe Checkout (?status=success|canceled)
@@ -49,10 +51,15 @@ export function AbonnementPage() {
   }, [])
 
   async function handleChoose(priceId: string, _plan: Plan, _period: BillingPeriod) {
+    if (!cgvAccepted) {
+      setCgvHighlight(true)
+      document.getElementById('cgv-accept')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
     setRedirecting(true)
     setError(null)
     try {
-      const url = await createCheckoutSession(priceId)
+      const url = await createCheckoutSession(priceId, CGV_VERSION)
       window.location.href = url
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
@@ -191,6 +198,48 @@ export function AbonnementPage() {
           </button>
         </div>
       </div>
+
+      {/* Acceptation des CGV — obligatoire avant le paiement */}
+      <label
+        id="cgv-accept"
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '.6rem',
+          maxWidth: 640,
+          margin: '0 auto 1.5rem',
+          padding: '.75rem 1rem',
+          background: cgvHighlight && !cgvAccepted ? '#FDECEC' : 'var(--wht, #F8F9FB)',
+          border: `1px solid ${cgvHighlight && !cgvAccepted ? '#F0B4B4' : 'var(--brd, #E1E5EA)'}`,
+          borderRadius: 8,
+          fontSize: '.85rem',
+          color: 'var(--ink2, #5A6070)',
+          cursor: 'pointer',
+          lineHeight: 1.5,
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={cgvAccepted}
+          onChange={(e) => {
+            setCgvAccepted(e.target.checked)
+            if (e.target.checked) setCgvHighlight(false)
+          }}
+          style={{ marginTop: 3, flexShrink: 0 }}
+        />
+        <span>
+          J'ai lu et j'accepte les{' '}
+          <a href={CGV_URL} target="_blank" rel="noreferrer" style={{ color: 'var(--acc, #3A5CA8)', fontWeight: 500 }}>
+            Conditions Générales de Vente
+          </a>{' '}
+          de Firovia, y compris l'accord de traitement des données (RGPD), au nom de mon entreprise.
+          {cgvHighlight && !cgvAccepted && (
+            <strong style={{ display: 'block', color: '#9B1C1C', marginTop: 2 }}>
+              Cochez cette case pour choisir un plan.
+            </strong>
+          )}
+        </span>
+      </label>
 
       {/* Grille des plans */}
       {loading && !subscription ? (
