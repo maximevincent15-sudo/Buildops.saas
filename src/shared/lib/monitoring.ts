@@ -3,13 +3,15 @@ type SentryModule = typeof import('@sentry/react')
 /**
  * Suivi des erreurs en production (Sentry, région UE).
  *
- * Inactif tant que VITE_SENTRY_DSN n'est pas défini, et toujours inactif en
- * développement. Vie privée : aucune collecte automatique (dataCollection),
+ * Actif en production uniquement (jamais en développement). Vie privée : aucune collecte automatique (dataCollection),
  * seul l'identifiant technique de l'utilisateur et de son organisation est
  * joint ; les jetons présents dans les URL sont masqués avant envoi.
  */
 
-const DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined
+// DSN publique par conception (projet firovia-app, région UE — ingest.de).
+// VITE_SENTRY_DSN permet de la surcharger (ou de désactiver avec une valeur vide).
+const DEFAULT_DSN = 'https://5fb1ecfe552721dc176b16a467f1baa1@o4512164599300096.ingest.de.sentry.io/4512164612997200'
+const DSN = (import.meta.env.VITE_SENTRY_DSN as string | undefined) ?? DEFAULT_DSN
 // Chargé à la demande : le SDK n'est téléchargé que si le suivi est actif
 let Sentry: SentryModule | null = null
 
