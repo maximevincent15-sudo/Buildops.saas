@@ -1,6 +1,8 @@
 import { Plus } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useAuthStore } from '../features/auth/store'
+import { ProFeatureLock } from '../features/billing/components/ProFeatureLock'
+import { useSubscription } from '../features/billing/hooks'
 import { ActivityFeed } from '../features/dashboard/components/ActivityFeed'
 import { AlertsList } from '../features/dashboard/components/AlertsList'
 import { DailyBriefing } from '../features/dashboard/components/DailyBriefing'
@@ -46,6 +48,10 @@ export function DashboardPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [stats, setStats] = useState<InterventionStats | null>(null)
   const [bizStats, setBizStats] = useState<BusinessStats | null>(null)
+  // Pilotage business (CA, impayés, tops, évolution du CA) : formules Pro et Entreprise
+  const { limits, loading: subLoading } = useSubscription()
+  const showBusiness = !subLoading && limits.proFeatures
+  const showBusinessLock = !subLoading && !limits.proFeatures
 
   const loadStats = useCallback(async () => {
     try {
@@ -100,7 +106,7 @@ export function DashboardPage() {
       <DailyBriefing key={`br-${refreshKey}`} />
 
       {/* ─── HERO STATS (banking banner) ─── */}
-      {bizStats && <HeroStats stats={bizStats} />}
+      {showBusiness && bizStats && <HeroStats stats={bizStats} />}
 
       {/* ─── ACTIVITÉ DU JOUR (4 KPIs interventions) ─── */}
       <div className="b-section">
@@ -153,8 +159,23 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* ─── PILOTAGE BUSINESS verrouillé (formule Starter) ─── */}
+      {showBusinessLock && (
+        <div className="b-section">
+          <ProFeatureLock
+            title="Pilotage business"
+            description="Suivez la santé financière de votre entreprise directement depuis Firovia."
+            bullets={[
+              "Chiffre d'affaires encaissé et impayés en un coup d'œil",
+              'Évolution mensuelle du CA',
+              'Top 5 clients et top 5 techniciens par CA facturé',
+            ]}
+          />
+        </div>
+      )}
+
       {/* ─── ÉVOLUTION DU CA (chart full-width) ─── */}
-      {bizStats && (
+      {showBusiness && bizStats && (
         <div className="b-section">
           <MonthlyRevenueChart
             title="Évolution du CA encaissé"
@@ -164,7 +185,7 @@ export function DashboardPage() {
       )}
 
       {/* ─── PILOTAGE BUSINESS — Top clients + Top techs ─── */}
-      {bizStats && (
+      {showBusiness && bizStats && (
         <div className="b-section">
           <div className="b-section-head">
             <div>

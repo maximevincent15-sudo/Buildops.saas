@@ -335,18 +335,18 @@ export function AbonnementPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '.8rem' }}>
           <div>
             <div style={{ fontSize: '.95rem', fontWeight: 600, color: 'var(--ink, #1C2130)' }}>
-              Plus de 20 techniciens ?
+              Besoin d'une offre sur mesure ?
             </div>
             <div style={{ fontSize: '.85rem', color: 'var(--ink2, #5A6070)', marginTop: '.2rem' }}>
-              Formule Enterprise sur devis avec fonctionnalités sur mesure, SLA garanti et onboarding accompagné.
+              Plusieurs agences, un grand nombre de techniciens ou des besoins spécifiques : nous établissons un devis adapté à votre organisation.
             </div>
           </div>
           <button
             type="button"
             className="btn-sm"
-            onClick={() => (window.location.href = 'mailto:contact@firovia.fr?subject=Firovia%20Enterprise')}
+            onClick={() => (window.location.href = 'mailto:contact@firovia.fr?subject=Firovia%20%E2%80%94%20Demande%20de%20devis%20sur%20mesure&body=Entreprise%20%3A%0ANombre%20d%27agences%20%3A%0ANombre%20de%20techniciens%20%3A%0ABesoins%20particuliers%20%3A%0AT%C3%A9l%C3%A9phone%20%3A%0A')}
           >
-            Nous contacter
+            Demander un devis
           </button>
         </div>
       </div>

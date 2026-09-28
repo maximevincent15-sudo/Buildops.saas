@@ -10,7 +10,7 @@ export type SubscriptionStatus =
   | 'incomplete'
   | 'incomplete_expired'
 
-export type Plan = 'starter' | 'pro'
+export type Plan = 'starter' | 'pro' | 'enterprise'
 export type BillingPeriod = 'monthly' | 'yearly'
 
 export interface Subscription {

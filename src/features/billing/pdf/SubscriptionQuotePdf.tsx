@@ -70,12 +70,12 @@ const s = StyleSheet.create({
   section: { marginTop: 10 },
   sectionTitle: { fontSize: 10, fontFamily: 'Helvetica-Bold', marginBottom: 6 },
   featureGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  feature: { flexDirection: 'row', marginBottom: 2, width: '50%', paddingRight: 8 },
+  feature: { flexDirection: 'row', marginBottom: 1, width: '50%', paddingRight: 8 },
   check: { color: c.green, width: 12, fontFamily: 'Helvetica-Bold' },
-  bullet: { flexDirection: 'row', marginBottom: 2, color: c.ink2, fontSize: 8.5 },
+  bullet: { flexDirection: 'row', marginBottom: 1, color: c.ink2, fontSize: 8.5 },
   dot: { width: 10 },
   signRow: { flexDirection: 'row', marginTop: 12, gap: 16 },
-  signBox: { flex: 1, borderWidth: 1, borderStyle: 'solid', borderColor: c.border, borderRadius: 6, padding: 10, height: 76 },
+  signBox: { flex: 1, borderWidth: 1, borderStyle: 'solid', borderColor: c.border, borderRadius: 6, padding: 8, height: 62 },
   signHint: { fontSize: 8, color: c.ink3 },
   footer: {
     position: 'absolute', bottom: 22, left: 34, right: 34, fontSize: 7.5, color: c.ink3, textAlign: 'center',
@@ -87,12 +87,23 @@ function eur(n: number): string {
   return `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/[\u202f\u00a0]/g, ' ')} €`
 }
 
-/** Fonctionnalités complètes de la formule (Pro = Starter + Pro, sans les lignes de liaison). */
+/**
+ * Fonctionnalités complètes de la formule, cumulées (Entreprise ⊃ Pro ⊃ Starter),
+ * sans les lignes de liaison ni les limites de techniciens des formules inférieures.
+ */
+// Lignes des formules inférieures remplacées par un équivalent supérieur
+const SUPERSEDED = new Set(['Support email', 'Support prioritaire', 'Onboarding humain 1h'])
+
 function fullFeatures(offer: PlanOffer): string[] {
+  const order = ['starter', 'pro', 'enterprise'] as const
   const own = offer.features.filter((f) => !/^Tout le plan/i.test(f))
-  if (offer.plan !== 'pro') return own
-  const starter = PLAN_OFFERS.find((o) => o.plan === 'starter')?.features ?? []
-  return [...own, ...starter.filter((f) => !/techniciens$/i.test(f) && f !== 'Support email')]
+  const lower = order
+    .slice(0, order.indexOf(offer.plan))
+    .reverse()
+    .flatMap((p) => PLAN_OFFERS.find((o) => o.plan === p)?.features ?? [])
+    .filter((f) => !/^Tout le plan/i.test(f) && !/^Jusqu'à \d+ techniciens$/i.test(f) && !SUPERSEDED.has(f))
+  const seen = new Set<string>()
+  return [...own, ...lower].filter((f) => (seen.has(f) ? false : (seen.add(f), true)))
 }
 
 export function SubscriptionQuotePdf({ data }: { data: SubscriptionQuoteData }) {
@@ -142,7 +153,7 @@ export function SubscriptionQuotePdf({ data }: { data: SubscriptionQuoteData }) 
         <View style={s.tableRow}>
           <View style={s.colDesc}>
             <Text style={s.descTitle}>
-              Abonnement Firovia — Formule {offer.label} ({offer.tagline.replace(/^Pour les PME de /i, '').replace(/^Pour /i, '')})
+              Abonnement Firovia — Formule {offer.label} ({offer.plan === 'enterprise' ? 'techniciens illimités' : offer.tagline.replace(/^Pour les PME de /i, '')})
             </Text>
             <Text style={s.descSub}>
               {yearly

@@ -17,6 +17,7 @@ interface Props {
 export function PlanCard({ offer, period, currentPlan, currentPeriod, onChoose, loading, onDownloadQuote, quoteLoading }: Props) {
   const price = offer.prices[period]
   const isCurrent = currentPlan === offer.plan && currentPeriod === period
+  const unavailable = !price.priceId
   const savings = period === 'yearly' ? computeYearlySavings(offer) : 0
 
   const borderColor = offer.accent ? 'var(--acc, #3A5CA8)' : 'var(--brd, #E1E5EA)'
@@ -132,13 +133,13 @@ export function PlanCard({ offer, period, currentPlan, currentPeriod, onChoose, 
           padding: '.7rem 1rem',
           fontSize: '.9rem',
           fontWeight: 600,
-          cursor: isCurrent || loading ? 'default' : 'pointer',
-          opacity: isCurrent ? 0.5 : 1,
+          cursor: isCurrent || loading || unavailable ? 'default' : 'pointer',
+          opacity: isCurrent || unavailable ? 0.5 : 1,
         }}
-        onClick={() => !isCurrent && !loading && onChoose(price.priceId, offer.plan, period)}
-        disabled={isCurrent || loading}
+        onClick={() => !isCurrent && !loading && !unavailable && onChoose(price.priceId, offer.plan, period)}
+        disabled={isCurrent || loading || unavailable}
       >
-        {loading ? 'Redirection…' : buttonLabel}
+        {loading ? 'Redirection…' : unavailable ? 'Bientôt disponible' : buttonLabel}
       </button>
 
       {onDownloadQuote && (

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuthStore } from '../auth/store'
 import { fetchSubscription } from './api'
-import type { Subscription } from './schemas'
-import { computeTrialDaysLeft, trialUrgency } from './constants'
+import type { Plan, Subscription } from './schemas'
+import { PLAN_LIMITS, computeTrialDaysLeft, effectiveTier, trialUrgency } from './constants'
 
 export interface SubscriptionState {
   subscription: Subscription | null
@@ -17,6 +17,10 @@ export interface SubscriptionState {
   isActive: boolean
   /** True si l'user est en trial local (aucun paiement encore). */
   isTrialing: boolean
+  /** Formule effective pour les droits (essai = Pro). */
+  tier: Plan
+  /** Droits de la formule effective (limite techniciens, fonctionnalités Pro). */
+  limits: (typeof PLAN_LIMITS)[Plan]
   /** True si l'accès doit être bloqué (trial expiré + rien de payant). */
   isBlocked: boolean
 }
@@ -58,6 +62,9 @@ export function useSubscription(): SubscriptionState {
     status === 'unpaid' ||
     status === 'incomplete_expired'
   const urgency = isTrialing ? trialUrgency(trialDaysLeft) : 'safe'
+  const tier = effectiveTier(subscription ?? null)
+  // Essai complet : fonctionnalités Pro + techniciens illimités (aligné sur le trigger SQL)
+  const limits = isTrialing ? { ...PLAN_LIMITS.pro, maxTechnicians: null } : PLAN_LIMITS[tier]
 
   return {
     subscription,
@@ -69,5 +76,7 @@ export function useSubscription(): SubscriptionState {
     isActive,
     isTrialing,
     isBlocked,
+    tier,
+    limits,
   }
 }

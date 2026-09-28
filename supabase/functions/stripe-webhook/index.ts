@@ -23,7 +23,7 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 import Stripe from 'https://esm.sh/stripe@17.5.0?target=deno'
 
-type PlanInfo = { plan: 'starter' | 'pro'; billing_period: 'monthly' | 'yearly' }
+type PlanInfo = { plan: 'starter' | 'pro' | 'enterprise'; billing_period: 'monthly' | 'yearly' }
 
 function buildPriceMap(): Record<string, PlanInfo> {
   const map: Record<string, PlanInfo> = {}
@@ -35,7 +35,25 @@ function buildPriceMap(): Record<string, PlanInfo> {
   if (starterYearly)  map[starterYearly]  = { plan: 'starter', billing_period: 'yearly'  }
   if (proMonthly)     map[proMonthly]     = { plan: 'pro',     billing_period: 'monthly' }
   if (proYearly)      map[proYearly]      = { plan: 'pro',     billing_period: 'yearly'  }
+  const entMonthly     = Deno.env.get('STRIPE_PRICE_ENTERPRISE_MONTHLY')
+  const entYearly      = Deno.env.get('STRIPE_PRICE_ENTERPRISE_YEARLY')
+  if (entMonthly)     map[entMonthly]     = { plan: 'enterprise', billing_period: 'monthly' }
+  if (entYearly)      map[entYearly]      = { plan: 'enterprise', billing_period: 'yearly'  }
   return map
+}
+
+/**
+ * Prix inconnu = abonnement Entreprise sur mesure créé à la main dans Stripe
+ * (devis négocié). La périodicité est déduite de l'intervalle du prix.
+ */
+function resolvePlan(price: Stripe.Price | null | undefined, map: Record<string, PlanInfo>): PlanInfo | null {
+  if (!price?.id) return null
+  if (map[price.id]) return map[price.id]
+  if (!price.recurring) return null
+  return {
+    plan: 'enterprise',
+    billing_period: price.recurring.interval === 'year' ? 'yearly' : 'monthly',
+  }
 }
 
 async function resolveOrgFromCustomer(supabase, customerId: string): Promise<string | null> {
@@ -112,8 +130,9 @@ serve(async (req) => {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription
-        const priceId = subscription.items.data[0]?.price?.id ?? null
-        const planInfo = priceId ? priceMap[priceId] : null
+        const price = subscription.items.data[0]?.price ?? null
+        const priceId = price?.id ?? null
+        const planInfo = resolvePlan(price, priceMap)
 
         const orgId =
           (subscription.metadata?.organization_id as string | undefined) ??

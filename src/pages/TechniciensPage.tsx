@@ -1,6 +1,7 @@
 import { HardHat, Mail, Phone, Upload } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useSubscription } from '../features/billing/hooks'
 import { RhTabs } from '../features/dashboard/components/RhTabs'
 import { listTechnicians } from '../features/technicians/api'
 import { TechnicianModal } from '../features/technicians/components/TechnicianModal'
@@ -14,6 +15,7 @@ export function TechniciensPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Technician | null>(null)
   const [filter, setFilter] = useState<'active' | 'all'>('active')
+  const { limits, tier, loading: subLoading } = useSubscription()
 
   async function load() {
     setLoading(true)
@@ -51,6 +53,9 @@ export function TechniciensPage() {
   const total = technicians.length
   const activeCount = technicians.filter((t) => t.active).length
   const inactiveCount = total - activeCount
+  const maxTech = limits.maxTechnicians
+  const atLimit = !subLoading && maxTech !== null && activeCount >= maxTech
+  const tierLabel = tier === 'starter' ? 'Starter' : tier === 'pro' ? 'Pro' : 'Entreprise'
 
   return (
     <>
@@ -62,6 +67,16 @@ export function TechniciensPage() {
             {total === 0 && 'Aucun technicien enregistré'}
             {total === 1 && '1 technicien enregistré'}
             {total > 1 && `${total} techniciens · ${activeCount} actif${activeCount > 1 ? 's' : ''}${inactiveCount > 0 ? `, ${inactiveCount} inactif${inactiveCount > 1 ? 's' : ''}` : ''}`}
+            {!subLoading && maxTech !== null && (
+              <span style={{ marginLeft: 8, color: atLimit ? 'var(--org, #C45A1A)' : 'var(--ink3)' }}>
+                · {activeCount} / {maxTech} techniciens actifs (formule {tierLabel})
+                {atLimit && (
+                  <>
+                    {' '}— <Link to="/abonnement" style={{ color: 'var(--acc)', fontWeight: 500 }}>passer à la formule supérieure</Link>
+                  </>
+                )}
+              </span>
+            )}
           </div>
         </div>
         <div className="dash-acts">

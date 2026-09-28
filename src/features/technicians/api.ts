@@ -1,6 +1,20 @@
 import { supabase } from '../../shared/lib/supabase'
 import type { CreateTechnicianInput, Technician } from './schemas'
 
+/**
+ * Traduit le refus du trigger enforce_technician_limit (limite de la
+ * formule atteinte) en message compréhensible ; sinon renvoie l'erreur telle quelle.
+ */
+function toTechnicianError(error: { message?: string }): Error {
+  const m = /technician_limit_reached:(\d+)/.exec(error.message ?? '')
+  if (m) {
+    return new Error(
+      `Votre formule est limitée à ${m[1]} techniciens actifs. Passez à la formule supérieure depuis la page Abonnement, ou désactivez un technicien.`,
+    )
+  }
+  return error instanceof Error ? error : new Error(error.message ?? 'Erreur inconnue')
+}
+
 export async function createTechnician(
   input: CreateTechnicianInput,
   organizationId: string,
@@ -18,7 +32,7 @@ export async function createTechnician(
     })
     .select()
     .single()
-  if (error) throw error
+  if (error) throw toTechnicianError(error)
   return data as Technician
 }
 
@@ -58,7 +72,7 @@ export async function setTechnicianActive(id: string, active: boolean): Promise<
     .from('technicians')
     .update({ active })
     .eq('id', id)
-  if (error) throw error
+  if (error) throw toTechnicianError(error)
 }
 
 export async function deleteTechnician(id: string): Promise<void> {

@@ -23,6 +23,9 @@ const PRICE_STARTER_MONTHLY = 'price_1Tnx8a2KbFmYQD889c1DfKJC'
 const PRICE_STARTER_YEARLY = 'price_1Tnx2o2KbFmYQD886Fw6uOlk'
 const PRICE_PRO_MONTHLY = 'price_1TnxJX2KbFmYQD88TyrumqBu'
 const PRICE_PRO_YEARLY = 'price_1TnxIc2KbFmYQD88vYU0K21o'
+// Formule Entreprise (prix de base « à partir de ») — au-delà : devis sur mesure
+const PRICE_ENTERPRISE_MONTHLY = ''
+const PRICE_ENTERPRISE_YEARLY = ''
 
 export const PLAN_OFFERS: PlanOffer[] = [
   {
@@ -66,7 +69,43 @@ export const PLAN_OFFERS: PlanOffer[] = [
     ],
     accent: true,
   },
+  {
+    plan: 'enterprise',
+    label: 'Entreprise',
+    tagline: 'Pour les structures de plus de 20 techniciens',
+    prices: {
+      monthly: { priceId: PRICE_ENTERPRISE_MONTHLY, amount: 799, per: 'mois' },
+      yearly: { priceId: PRICE_ENTERPRISE_YEARLY, amount: 7990, per: 'an' },
+    },
+    features: [
+      'Tout le plan Pro, plus :',
+      'Techniciens illimités',
+      'Personnalisation avancée',
+      'Accompagnement onboarding',
+      'Support dédié',
+    ],
+    accent: false,
+  },
 ]
+
+// ─── Droits par formule ─────────────────────────────────────
+// La limite de techniciens est aussi appliquée en base (trigger
+// enforce_technician_limit) : ces valeurs doivent rester alignées.
+export const PLAN_LIMITS: Record<Plan, { maxTechnicians: number | null; proFeatures: boolean }> = {
+  starter: { maxTechnicians: 5, proFeatures: false },
+  pro: { maxTechnicians: 20, proFeatures: true },
+  enterprise: { maxTechnicians: null, proFeatures: true },
+}
+
+/**
+ * Formule effective pour les droits : l'essai donne le niveau Pro (sans limite
+ * de techniciens, cf. useSubscription) ; une
+ * formule inconnue (ou abonnement introuvable) → Pro (fail open).
+ */
+export function effectiveTier(sub: { status: string; plan: Plan | null } | null): Plan {
+  if (!sub || sub.status === 'trialing') return 'pro'
+  return sub.plan ?? 'pro'
+}
 
 export function getOffer(plan: Plan): PlanOffer | null {
   return PLAN_OFFERS.find((o) => o.plan === plan) ?? null

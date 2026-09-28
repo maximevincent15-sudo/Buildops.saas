@@ -32,7 +32,7 @@ export async function downloadSubscriptionQuote(params: {
   const issuedAt = new Date()
   const validUntil = new Date(issuedAt.getTime() + 30 * 86400_000)
   const ymd = issuedAt.toISOString().slice(0, 10).replace(/-/g, '')
-  const reference = `DEV-FIR-${ymd}-${params.organizationId.slice(0, 6).toUpperCase()}-${params.offer.plan === 'pro' ? 'P' : 'S'}${params.period === 'yearly' ? 'A' : 'M'}`
+  const reference = `DEV-FIR-${ymd}-${params.organizationId.slice(0, 6).toUpperCase()}-${{ starter: 'S', pro: 'P', enterprise: 'E' }[params.offer.plan]}${params.period === 'yearly' ? 'A' : 'M'}`
 
   const doc = createElement(SubscriptionQuotePdf, {
     data: {

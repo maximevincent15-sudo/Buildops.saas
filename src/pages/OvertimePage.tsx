@@ -1,7 +1,9 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { Check, Download, Plus, Trash2, Undo2, X } from 'lucide-react'
+import { Check, Download, Lock, Plus, Trash2, Undo2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useSubscription } from '../features/billing/hooks'
 import { RhTabs } from '../features/dashboard/components/RhTabs'
 import { PayrollExportModal } from '../features/export/components/PayrollExportModal'
 import { OvertimeModal } from '../features/overtime/components/OvertimeModal'
@@ -35,6 +37,9 @@ function startOfMonthIso(): string {
 }
 
 export function OvertimePage() {
+  const navigate = useNavigate()
+  const { limits } = useSubscription()
+  const canExportPayroll = limits.proFeatures
   const [items, setItems] = useState<Overtime[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -136,11 +141,12 @@ export function OvertimePage() {
           <button
             type="button"
             className="mf out"
-            onClick={() => setExportOpen(true)}
+            onClick={() => (canExportPayroll ? setExportOpen(true) : navigate('/abonnement'))}
+            title={canExportPayroll ? undefined : 'Export paie : disponible en formule Pro'}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            <Download size={14} strokeWidth={2} />
-            Export paie
+            {canExportPayroll ? <Download size={14} strokeWidth={2} /> : <Lock size={14} strokeWidth={2} />}
+            {canExportPayroll ? 'Export paie' : 'Export paie (Pro)'}
           </button>
           <button type="button" className="mf prim" onClick={() => setModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Plus size={14} strokeWidth={2} />
