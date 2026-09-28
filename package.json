@@ -13,6 +13,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@marsidev/react-turnstile": "^1.5.3",
     "@react-pdf/renderer": "^4.5.1",
+    "@sentry/react": "^11.0.0",
     "@supabase/supabase-js": "^2.104.0",
     "@types/react-signature-canvas": "^1.0.7",
     "buffer": "^6.0.3",

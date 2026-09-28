@@ -4,6 +4,10 @@ import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './app/providers'
 import App from './App.tsx'
 import './index.css'
+import { initMonitoring } from './shared/lib/monitoring'
+
+// Suivi des erreurs en production (inactif sans VITE_SENTRY_DSN)
+void initMonitoring()
 
 // Note : les polyfills Node.js (Buffer, process, etc.) requis par
 // @react-pdf/renderer sont fournis par vite-plugin-node-polyfills

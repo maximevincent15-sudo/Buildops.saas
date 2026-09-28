@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
+import { captureError } from '../lib/monitoring'
 
 type Props = {
   children: ReactNode
@@ -23,6 +24,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error('[ErrorBoundary] caught:', error, info)
+    captureError(error, { componentStack: info.componentStack })
   }
 
   handleReset = () => {

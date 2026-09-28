@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { fetchProfile } from '../features/auth/api'
 import { useAuthStore } from '../features/auth/store'
+import { setMonitoringUser } from '../shared/lib/monitoring'
 import { supabase } from '../shared/lib/supabase'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -13,6 +14,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const profile = await fetchProfile(userId)
         setProfile(profile)
+        setMonitoringUser({ id: userId, organizationId: profile?.organization_id ?? null })
       } catch (err) {
         console.error('Erreur chargement du profil', err)
         setProfile(null)
@@ -32,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void loadProfileFor(session.user.id)
       } else {
         setProfile(null)
+        setMonitoringUser(null)
       }
     })
 
