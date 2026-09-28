@@ -24,8 +24,8 @@ const PRICE_STARTER_YEARLY = 'price_1Tnx2o2KbFmYQD886Fw6uOlk'
 const PRICE_PRO_MONTHLY = 'price_1TnxJX2KbFmYQD88TyrumqBu'
 const PRICE_PRO_YEARLY = 'price_1TnxIc2KbFmYQD88vYU0K21o'
 // Formule Entreprise (prix de base « à partir de ») — au-delà : devis sur mesure
-const PRICE_ENTERPRISE_MONTHLY = ''
-const PRICE_ENTERPRISE_YEARLY = ''
+const PRICE_ENTERPRISE_MONTHLY = 'price_1UKdwO2KbFmYQD88ptjNhCJS'
+const PRICE_ENTERPRISE_YEARLY = 'price_1UKdy42KbFmYQD88lx7gicEe'
 
 export const PLAN_OFFERS: PlanOffer[] = [
   {
