@@ -13,6 +13,7 @@ import { useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { parseImportFile } from '../parsers'
+import { analyzeRows, importRows } from '../analyze'
 import { downloadTemplate, generateImportTemplate } from '../templateGenerator'
 import type {
   ImportContext,
@@ -65,16 +66,7 @@ export function ImportWizard({ definition, onDone }: Props) {
         return
       }
       const ctx: ImportContext = { organizationId: orgId, cache: {} }
-      const analyses: RowAnalysis[] = []
-      for (let i = 0; i < parsed.length; i++) {
-        const analysis = await definition.validateRow(parsed[i], ctx)
-        analyses.push({
-          ...analysis,
-          index: i,
-          values: parsed[i],
-          duplicateAction: analysis.status === 'duplicate' ? 'skip' : undefined,
-        })
-      }
+      const analyses = await analyzeRows(parsed, definition, ctx)
       setRows(analyses)
       setStep('preview')
     } catch (err) {
@@ -112,28 +104,7 @@ export function ImportWizard({ definition, onDone }: Props) {
     setError(null)
     try {
       const ctx: ImportContext = { organizationId: orgId, cache: {} }
-      const result: ImportResult = { created: 0, updated: 0, skipped: 0, errors: [] }
-      for (const row of rows) {
-        if (row.status === 'invalid') {
-          result.skipped++
-          continue
-        }
-        if (row.status === 'duplicate' && row.duplicateAction === 'skip') {
-          result.skipped++
-          continue
-        }
-        try {
-          const outcome = await definition.importRow(row.values, row, ctx)
-          if (outcome === 'created') result.created++
-          else if (outcome === 'updated') result.updated++
-          else result.skipped++
-        } catch (err) {
-          result.errors.push({
-            rowIndex: row.index,
-            message: err instanceof Error ? err.message : 'Erreur inconnue',
-          })
-        }
-      }
+      const result = await importRows(rows, definition, ctx)
       setImportResult(result)
       setStep('done')
       onDone?.()

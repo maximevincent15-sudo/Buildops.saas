@@ -14,7 +14,13 @@ export async function parseXlsx(
 ): Promise<Record<string, string | null>[]> {
   const buffer = await file.arrayBuffer()
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(buffer)
+  try {
+    await wb.xlsx.load(buffer)
+  } catch {
+    throw new Error(
+      'Impossible de lire ce fichier Excel. S\'il s\'agit d\'un ancien format .xls (Excel 97-2003), ouvre-le dans Excel et enregistre-le en .xlsx ou .csv.',
+    )
+  }
   const ws = wb.worksheets[0]
   if (!ws) return []
 
@@ -33,12 +39,26 @@ export async function parseXlsx(
   return rows
 }
 
-/** Lit un fichier CSV (séparateur auto-détecté par papaparse). */
+/**
+ * Décode un fichier texte : UTF-8 si valide, sinon Windows-1252 (encodage
+ * « ANSI » des exports de logiciels Windows : WinDev, Batigest, Excel CSV…).
+ */
+function decodeText(buffer: ArrayBuffer): string {
+  let text: string
+  try {
+    text = new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+  } catch {
+    text = new TextDecoder('windows-1252').decode(buffer)
+  }
+  return text.replace(/^\uFEFF/, '')
+}
+
+/** Lit un fichier CSV (séparateur et encodage auto-détectés). */
 export async function parseCsv(
   file: File,
   fields: ImportField[],
 ): Promise<Record<string, string | null>[]> {
-  const text = await file.text()
+  const text = decodeText(await file.arrayBuffer())
   const result = Papa.parse<string[]>(text.trim(), {
     skipEmptyLines: true,
   })
@@ -83,13 +103,18 @@ export async function parseImportFile(
 
 // ─── Helpers internes ─────────────────────────────────────────────────
 
+// Petits mots ignorés pour comparer les intitulés : « Date de fabrication »
+// = « Date fabrication », « N° du site » = « N° site »…
+const HEADER_STOPWORDS = new Set(['de', 'du', 'des', 'd', 'la', 'le', 'les', 'l', 'a', 'au', 'aux', 'en'])
+
 function normalizeHeader(s: string): string {
   return s
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
-    .trim()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w && !HEADER_STOPWORDS.has(w))
+    .join('')
 }
 
 /**
@@ -103,7 +128,7 @@ function buildHeaderMap(
 ): Map<number, string> {
   const normalizedFields = fields.map((f) => ({
     key: f.key,
-    aliases: [normalizeHeader(f.label), normalizeHeader(f.key)],
+    aliases: [f.label, f.key, ...(f.aliases ?? [])].map(normalizeHeader),
   }))
   const map = new Map<number, string>()
   // ExcelJS renvoie un array avec un élément vide à l'index 0, on garde
@@ -148,7 +173,13 @@ function rowToRecord(
       text = String(raw)
     }
     const trimmed = text.trim()
-    rec[key] = trimmed === '' ? null : trimmed
+    // Plusieurs colonnes peuvent alimenter le même champ (ex : « Tél » et
+    // « Portable ») : la première valeur non vide l'emporte.
+    if (trimmed === '') {
+      if (!(key in rec)) rec[key] = null
+    } else if (!rec[key]) {
+      rec[key] = trimmed
+    }
   }
   return rec
 }

@@ -77,6 +77,16 @@ export function parseFlexibleInt(input: string | null | undefined): number | nul
 }
 
 /**
+ * Extrait une année d'une valeur libre : "2019", "15/03/2019", "2019-03-15",
+ * "mars 2019" → 2019. Retourne null si aucune année plausible (1950-2099).
+ */
+export function parseYear(input: string | null | undefined): number | null {
+  if (!input) return null
+  const m = /(?:^|\D)((?:19[5-9]|20\d)\d)(?:\D|$)/.exec(input)
+  return m ? parseInt(m[1], 10) : null
+}
+
+/**
  * Charge et met en cache les techniciens indexés par "prénom nom" normalisé,
  * pour résoudre un nom texte en technician_id pendant l'import.
  */

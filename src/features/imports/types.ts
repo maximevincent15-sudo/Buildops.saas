@@ -17,6 +17,11 @@ export type ImportField = {
   key: string
   /** Nom affiché à l'utilisateur dans le template + preview. */
   label: string
+  /**
+   * Autres intitulés de colonne acceptés (exports d'autres logiciels :
+   * « Raison sociale », « Tél », « Fabricant »…). Comparaison tolérante.
+   */
+  aliases?: string[]
   /** Champ obligatoire ? Une ligne sans valeur est rejetée. */
   required?: boolean
   /** Exemple de valeur pour le template téléchargeable. */
