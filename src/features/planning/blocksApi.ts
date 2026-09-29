@@ -10,8 +10,23 @@ export type PlanningBlock = {
   start_time: string | null // 'HH:MM:SS' (Postgres time)
   end_time: string | null
   color: PlanningBlockColor
+  /** Note libre (lien de visio, adresse…) */
+  notes: string | null
+  /** true = visible uniquement par son auteur */
+  is_private: boolean
   created_at: string
   created_by: string | null
+}
+
+/** Événement d'agenda saisi depuis le « + » d'un jour du planning */
+export type PlanningEventInput = {
+  date: string // YYYY-MM-DD
+  label: string
+  startTime: string | null // 'HH:MM' (null = toute la journée)
+  endTime: string | null
+  color: PlanningBlockColor
+  notes: string | null
+  isPrivate: boolean
 }
 
 export type CreateBlockInput = {
@@ -55,6 +70,43 @@ export async function createBlocks(
     .select()
   if (error) throw error
   return (data ?? []) as PlanningBlock[]
+}
+
+function eventRow(input: PlanningEventInput) {
+  return {
+    date: input.date,
+    label: input.label.trim(),
+    start_time: input.startTime || null,
+    end_time: input.startTime ? input.endTime || null : null,
+    color: input.color,
+    notes: input.notes?.trim() || null,
+    is_private: input.isPrivate,
+  }
+}
+
+export async function createPlanningEvent(
+  organizationId: string,
+  input: PlanningEventInput,
+): Promise<PlanningBlock> {
+  // created_by est rempli par la base (auth.uid()) : requis pour un événement privé
+  const { data, error } = await supabase
+    .from('planning_blocks')
+    .insert({ organization_id: organizationId, ...eventRow(input) })
+    .select()
+    .single()
+  if (error) throw error
+  return data as PlanningBlock
+}
+
+export async function updatePlanningEvent(id: string, input: PlanningEventInput): Promise<PlanningBlock> {
+  const { data, error } = await supabase
+    .from('planning_blocks')
+    .update(eventRow(input))
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data as PlanningBlock
 }
 
 export async function deleteBlock(id: string): Promise<void> {

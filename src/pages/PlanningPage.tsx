@@ -29,6 +29,8 @@ import type { TeamRow, TodoItem } from '../features/planning/team/teamUtils'
 import { listTechnicians } from '../features/technicians/api'
 import type { Technician } from '../features/technicians/schemas'
 import { listBlocksForRange } from '../features/planning/blocksApi'
+import type { PlanningBlock } from '../features/planning/blocksApi'
+import { PlanningEventModal } from '../features/planning/events/PlanningEventModal'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
 import { InterventionRowActions } from '../features/planning/components/InterventionRowActions'
 import { InterventionStatusBadge } from '../features/planning/components/InterventionStatusBadge'
@@ -85,6 +87,9 @@ export function PlanningPage() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
   const [quoteSeed, setQuoteSeed] = useState<Partial<UpsertQuoteInput> | null>(null)
+  // Événements d'agenda (visio, rendez-vous…) : « + » sur chaque jour
+  const [events, setEvents] = useState<PlanningBlock[]>([])
+  const [eventModal, setEventModal] = useState<{ event: PlanningBlock | null; date: string; key: number } | null>(null)
 
   function setView(v: ViewMode) {
     setViewState(v)
@@ -95,6 +100,19 @@ export function PlanningPage() {
     }
   }
 
+  /** Événements de -3 mois à +1 an (volume faible, filtrés par jour dans les vues) */
+  async function loadEvents(): Promise<PlanningBlock[]> {
+    const now = new Date()
+    const from = new Date(now.getFullYear(), now.getMonth() - 3, 1)
+    const to = new Date(now.getFullYear() + 1, now.getMonth(), 1)
+    const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return listBlocksForRange(iso(from), iso(to)).catch(() => [] as PlanningBlock[])
+  }
+
+  function openEventModal(event: PlanningBlock | null, date: string) {
+    setEventModal({ event, date, key: Date.now() })
+  }
+
   function showToast(msg: string, err = false) {
     setToast({ msg, err })
     window.setTimeout(() => setToast((t) => (t?.msg === msg ? null : t)), 3500)
@@ -103,14 +121,16 @@ export function PlanningPage() {
   async function load() {
     setLoading(true)
     try {
-      const [data, techs, anomalies] = await Promise.all([
+      const [data, techs, anomalies, evts] = await Promise.all([
         listInterventions(),
         listTechnicians().catch(() => [] as Technician[]),
         listAnomalies({ status: 'open' }).catch(() => [] as Anomaly[]),
+        loadEvents(),
       ])
       setInterventions(data)
       setTechnicians(techs)
       setOpenAnomalies(anomalies)
+      setEvents(evts)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
@@ -412,6 +432,9 @@ export function PlanningPage() {
                   onWeekChange={(d) => setWeekStart(startOfWeekMonday(d))}
                   onOpen={openEdit}
                   onSchedule={(id, row, date, start) => void handleSchedule(id, row, date, start)}
+                  events={events}
+                  onAddEvent={(date) => openEventModal(null, date)}
+                  onOpenEvent={(e) => openEventModal(e, e.date)}
                 />
                 {panelVisible && (
                   <PlanningTodoPanel
@@ -433,6 +456,9 @@ export function PlanningPage() {
               <PlanningWeekGridView
                 interventions={interventions}
                 onClickIntervention={openEdit}
+                events={events}
+                onAddEvent={(date) => openEventModal(null, date)}
+                onOpenEvent={(e) => openEventModal(e, e.date)}
               />
             )}
             {view === 'day' && (
@@ -583,6 +609,20 @@ export function PlanningPage() {
           onSaved={() => {
             setQuoteSeed(null)
             showToast("✓ Devis créé. Programme la repasse quand le client l'accepte.")
+          }}
+        />
+      )}
+
+      {eventModal && profile?.organization_id && (
+        <PlanningEventModal
+          key={eventModal.key}
+          organizationId={profile.organization_id}
+          event={eventModal.event}
+          defaultDate={eventModal.date}
+          onClose={() => setEventModal(null)}
+          onSaved={() => {
+            setEventModal(null)
+            void loadEvents().then(setEvents)
           }}
         />
       )}

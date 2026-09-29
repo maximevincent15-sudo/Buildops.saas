@@ -3265,7 +3265,7 @@ h1, h2, h3, h4, h5, h6 {
 
   .pt-grid-wrap { background: #fff; border: 1px solid var(--b-brd-soft); border-radius: 14px; overflow: auto; }
   .pt-grid { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; }
-  .pt-grid th { position: sticky; top: 0; background: #fff; z-index: 2; text-align: left; font-size: 12px; font-weight: 600; color: var(--ink2); padding: 10px; border-bottom: 1px solid var(--b-brd-soft); text-transform: capitalize; }
+  .pt-grid th { position: sticky; top: 0; background: #fff; z-index: 2; text-align: left; vertical-align: top; font-size: 12px; font-weight: 600; color: var(--ink2); padding: 10px; border-bottom: 1px solid var(--b-brd-soft); text-transform: capitalize; }
   .pt-grid th.today { color: var(--acc); }
   .pt-grid th.pt-th-tech { width: 165px; position: sticky; left: 0; z-index: 3; }
   .pt-today { display: inline-block; margin-left: 6px; background: var(--acc); color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 100px; text-transform: none; }
@@ -3348,4 +3348,46 @@ h1, h2, h3, h4, h5, h6 {
 
   .pt-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1C2130; color: #fff; padding: 11px 18px; border-radius: 10px; font-size: 13px; z-index: 300; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
   .pt-toast.err { background: var(--red); }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ÉVÉNEMENTS D'AGENDA (« + » sur les jours du planning)
+   ════════════════════════════════════════════════════════════════════ */
+@layer components {
+  .pt-day-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .pe-add {
+    width: 20px; height: 20px; border-radius: 6px; border: 1px solid var(--b-brd-soft); background: #fff;
+    color: var(--ink3); display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    flex-shrink: 0; transition: all .15s; padding: 0;
+  }
+  .pe-add:hover { color: #fff; background: var(--acc); border-color: var(--acc); }
+  .pe-list { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; text-align: left; text-transform: none; }
+  .pe-pill {
+    display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 5px; font-size: 10.5px;
+    font-weight: 500; line-height: 1.35; cursor: pointer; background: #EEF1F4; color: var(--ink);
+    border-left: 3px solid #AEB5C2; overflow: hidden;
+  }
+  .pe-pill:hover { filter: brightness(.97); }
+  .pe-pill.acc { background: var(--b-acc-lt); border-left-color: var(--acc); }
+  .pe-pill.grn { background: var(--grn-lt); border-left-color: var(--grn); }
+  .pe-pill.org { background: var(--org-lt); border-left-color: var(--org); }
+  .pe-pill.red { background: var(--red-lt); border-left-color: var(--red); }
+  .pe-time { font-weight: 700; color: var(--ink2); flex-shrink: 0; }
+  .pe-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+  .pe-ico { flex-shrink: 0; color: var(--ink3); }
+  .pe-ico-link { display: inline-flex; color: var(--acc); }
+  .pe-link { color: var(--acc); text-decoration: underline; word-break: break-all; }
+  .pe-links { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+  .pe-links a { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--acc); text-decoration: none; font-weight: 500; }
+  .pe-colors { display: flex; gap: 8px; }
+  .pe-swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+  .pe-swatch.acc { background: var(--acc); }
+  .pe-swatch.grn { background: var(--grn); }
+  .pe-swatch.org { background: var(--org); }
+  .pe-swatch.red { background: var(--red); }
+  .pe-swatch.neutral { background: #AEB5C2; }
+  .pe-swatch.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); }
+  .pe-check { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink); cursor: pointer; flex-wrap: wrap; }
+  .pe-help { font-size: 11.5px; color: var(--ink3); width: 100%; padding-left: 22px; }
+  .pe-check input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--acc); }
 }

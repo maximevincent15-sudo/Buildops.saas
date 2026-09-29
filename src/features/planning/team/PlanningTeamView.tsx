@@ -2,6 +2,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { DragEvent } from 'react'
 import type { Technician } from '../../technicians/schemas'
+import type { PlanningBlock } from '../blocksApi'
+import { DayAddButton, DayEventList } from '../events/DayEvents'
 import type { Intervention } from '../schemas'
 import {
   DAY_START_MINUTES,
@@ -31,6 +33,10 @@ type Props = {
   onOpen: (i: Intervention) => void
   /** Glisser-déposer : affecte l'intervention au technicien / jour, à partir de startMinutes */
   onSchedule: (interventionId: string, row: TeamRow, date: string, startMinutes: number) => void
+  /** Événements d'agenda (visio, rendez-vous…) affichés sous chaque jour */
+  events: PlanningBlock[]
+  onAddEvent: (date: string) => void
+  onOpenEvent: (e: PlanningBlock) => void
 }
 
 const DAY_FMT = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric' })
@@ -44,6 +50,9 @@ export function PlanningTeamView({
   onWeekChange,
   onOpen,
   onSchedule,
+  events,
+  onAddEvent,
+  onOpenEvent,
 }: Props) {
   const [sector, setSector] = useState('')
   const [showWeekend, setShowWeekend] = useState(false)
@@ -164,8 +173,14 @@ export function PlanningTeamView({
                 <th className="pt-th-tech">Technicien</th>
                 {days.map((d, n) => (
                   <th key={dayIsos[n]} className={dayIsos[n] === today ? 'today' : ''}>
-                    {DAY_FMT.format(d)}
-                    {dayIsos[n] === today && <span className="pt-today">aujourd'hui</span>}
+                    <div className="pt-day-head">
+                      <span>
+                        {DAY_FMT.format(d)}
+                        {dayIsos[n] === today && <span className="pt-today">aujourd'hui</span>}
+                      </span>
+                      <DayAddButton date={dayIsos[n]} onAdd={onAddEvent} />
+                    </div>
+                    <DayEventList events={events.filter((e) => e.date === dayIsos[n])} onOpen={onOpenEvent} />
                   </th>
                 ))}
               </tr>

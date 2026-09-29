@@ -3,11 +3,17 @@ import { fr } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { formatEquipmentTypesShort } from '../../../shared/constants/interventions'
+import type { PlanningBlock } from '../blocksApi'
+import { DayAddButton, DayEventList } from '../events/DayEvents'
 import type { Intervention } from '../schemas'
 
 type Props = {
   interventions: Intervention[]
   onClickIntervention: (i: Intervention) => void
+  /** Événements d'agenda (visio, rendez-vous…) : « + » et liste dans l'en-tête des jours */
+  events?: PlanningBlock[]
+  onAddEvent?: (date: string) => void
+  onOpenEvent?: (e: PlanningBlock) => void
 }
 
 // ─── Grille horaire configurable ─────────────────────────
@@ -83,7 +89,7 @@ function toIsoDate(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-export function PlanningWeekGridView({ interventions, onClickIntervention }: Props) {
+export function PlanningWeekGridView({ interventions, onClickIntervention, events = [], onAddEvent, onOpenEvent }: Props) {
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 }),
   )
@@ -186,10 +192,21 @@ export function PlanningWeekGridView({ interventions, onClickIntervention }: Pro
                   color: isCurrentDay ? 'var(--acc, #3A5CA8)' : 'var(--ink, #1C2130)',
                   fontVariantNumeric: 'tabular-nums',
                   marginTop: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
                 }}
               >
                 {format(day, 'd MMM', { locale: fr })}
+                {onAddEvent && <DayAddButton date={format(day, 'yyyy-MM-dd')} onAdd={onAddEvent} />}
               </div>
+              {onOpenEvent && (
+                <DayEventList
+                  events={events.filter((e) => e.date === format(day, 'yyyy-MM-dd'))}
+                  onOpen={onOpenEvent}
+                />
+              )}
             </div>
           )
         })}
