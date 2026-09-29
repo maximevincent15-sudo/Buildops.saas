@@ -3390,4 +3390,14 @@ h1, h2, h3, h4, h5, h6 {
   .pe-check { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink); cursor: pointer; flex-wrap: wrap; }
   .pe-help { font-size: 11.5px; color: var(--ink3); width: 100%; padding-left: 22px; }
   .pe-check input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--acc); }
+  /* Liste (en-tête) : heure · titre · icônes sur une ligne */
+  .pe-pill:not(.pe-slot) .pe-head { display: contents; }
+  .pe-pill:not(.pe-slot) .pe-ico { order: 2; }
+  /* Bloc dans la grille horaire : heure + icônes, puis titre dessous */
+  .pe-pill.pe-slot { flex-direction: column; align-items: stretch; gap: 1px; padding: 3px 6px; box-shadow: 0 1px 3px rgba(28, 33, 48, .08); }
+  .pe-pill.pe-slot .pe-head { display: flex; align-items: center; gap: 4px; }
+  .pe-pill.pe-slot.pe-short { flex-direction: row; align-items: center; gap: 4px; }
+  .pe-pill.pe-slot.pe-short .pe-head { flex-shrink: 0; }
+  .pe-pill.pe-slot.pe-short .pe-label { display: block; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pe-pill.pe-slot .pe-label { white-space: normal; font-weight: 600; line-height: 1.25; flex: none; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 }

@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { formatEquipmentTypesShort } from '../../../shared/constants/interventions'
 import type { PlanningBlock } from '../blocksApi'
-import { DayAddButton, DayEventList } from '../events/DayEvents'
+import { DayAddButton, DayEventList, EventChip } from '../events/DayEvents'
 import type { Intervention } from '../schemas'
 
 type Props = {
@@ -80,6 +80,47 @@ function priorityColorClass(priority: string, status: string): string {
   if (priority === 'urgente') return 'is-urgent'
   if (priority === 'reglementaire') return 'is-warn'
   return 'is-normal'
+}
+
+/** Minutes depuis minuit d'un "HH:MM(:SS)" (null si absent). */
+function toMinutes(t: string | null): number | null {
+  const p = parseTime(t)
+  return p ? p.h * 60 + p.m : null
+}
+
+/**
+ * Répartit en colonnes les éléments qui se chevauchent (comme un agenda) :
+ * chaque élément reçoit sa colonne et le nombre de colonnes de son groupe.
+ */
+function layoutColumns(items: Array<{ id: string; start: number; end: number }>): Map<string, { col: number; cols: number }> {
+  const sorted = [...items].sort((a, b) => a.start - b.start || b.end - a.end)
+  const result = new Map<string, { col: number; cols: number }>()
+  let group: Array<{ id: string; col: number }> = []
+  let groupEnd = -1
+  let colEnds: number[] = []
+  const flush = () => {
+    const cols = colEnds.length
+    for (const g of group) result.set(g.id, { col: g.col, cols })
+    group = []
+    colEnds = []
+  }
+  for (const it of sorted) {
+    if (it.start >= groupEnd) {
+      flush()
+      groupEnd = -1
+    }
+    let col = colEnds.findIndex((end) => end <= it.start)
+    if (col === -1) {
+      col = colEnds.length
+      colEnds.push(it.end)
+    } else {
+      colEnds[col] = it.end
+    }
+    group.push({ id: it.id, col })
+    groupEnd = Math.max(groupEnd, it.end)
+  }
+  flush()
+  return result
 }
 
 function toIsoDate(d: Date): string {
@@ -203,7 +244,7 @@ export function PlanningWeekGridView({ interventions, onClickIntervention, event
               </div>
               {onOpenEvent && (
                 <DayEventList
-                  events={events.filter((e) => e.date === format(day, 'yyyy-MM-dd'))}
+                  events={events.filter((e) => e.date === format(day, 'yyyy-MM-dd') && !e.start_time)}
                   onOpen={onOpenEvent}
                 />
               )}
@@ -239,6 +280,30 @@ export function PlanningWeekGridView({ interventions, onClickIntervention, event
           const slotted = slottedForDay(day)
           const unslotted = unslottedForDay(day)
           const isCurrentDay = isToday(day)
+          const timedEvents = onOpenEvent
+            ? events.filter((e) => e.date === toIsoDate(day) && toMinutes(e.start_time) !== null)
+            : []
+          const topShift = unslotted.length > 0 ? 22 : 3
+          // Colonnes partagées entre interventions et événements qui se chevauchent
+          const columns = layoutColumns([
+            ...slotted.map((i) => {
+              const box = computeSlotBox(i.start_time, i.duration_minutes, i.slot)!
+              const start = START_HOUR * 60 + (box.top / HOUR_HEIGHT) * 60
+              return { id: `i:${i.id}`, start, end: start + (box.height / HOUR_HEIGHT) * 60 }
+            }),
+            ...timedEvents.map((e) => {
+              const start = toMinutes(e.start_time)!
+              const end = toMinutes(e.end_time)
+              return { id: `e:${e.id}`, start, end: end !== null && end > start ? end : start + 60 }
+            }),
+          ])
+          const hPos = (id: string) => {
+            const c = columns.get(id) ?? { col: 0, cols: 1 }
+            return {
+              left: `calc(${(c.col / c.cols) * 100}% + 3px)`,
+              width: `calc(${100 / c.cols}% - 6px)`,
+            }
+          }
           return (
             <div
               key={day.toISOString()}
@@ -306,9 +371,8 @@ export function PlanningWeekGridView({ interventions, onClickIntervention, event
                       ...eventStyleBase,
                       ...eventColorStyles[colorClass],
                       position: 'absolute',
-                      top: box.top + (unslotted.length > 0 ? 22 : 3),
-                      left: 3,
-                      right: 3,
+                      top: box.top + topShift,
+                      ...hPos(`i:${i.id}`),
                       height: Math.max(box.height - 4, 32),
                       zIndex: 2,
                     }}
@@ -335,6 +399,28 @@ export function PlanningWeekGridView({ interventions, onClickIntervention, event
                       </div>
                     )}
                   </button>
+                )
+              })}
+
+              {/* Événements d'agenda (visio, rendez-vous…) à leur heure */}
+              {onOpenEvent && timedEvents.map((e) => {
+                const start = toMinutes(e.start_time)!
+                const end = toMinutes(e.end_time)
+                const duration = end !== null && end > start ? end - start : 60
+                return (
+                  <EventChip
+                    key={e.id}
+                    event={e}
+                    onOpen={onOpenEvent}
+                    className={`pe-slot${duration <= 40 ? ' pe-short' : ''}`}
+                    style={{
+                      position: 'absolute',
+                      top: ((start - START_HOUR * 60) / 60) * HOUR_HEIGHT + topShift,
+                      ...hPos(`e:${e.id}`),
+                      height: Math.max((duration / 60) * HOUR_HEIGHT - 4, 20),
+                      zIndex: 3,
+                    }}
+                  />
                 )
               })}
             </div>
