@@ -1,17 +1,23 @@
 import { addDays, format, isToday, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MapPin, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import {
   STATUS_BADGE_CLASSES,
   formatEquipmentTypesShort,
 } from '../../../shared/constants/interventions'
 import type { InterventionStatus } from '../../../shared/constants/interventions'
+import type { PlanningBlock } from '../blocksApi'
+import { DayEventList } from '../events/DayEvents'
 import type { Intervention } from '../schemas'
 
 type Props = {
   interventions: Intervention[]
   onClickIntervention: (i: Intervention) => void
+  /** Événements d'agenda du jour (visio, rendez-vous…) : bande « Agenda » en haut */
+  events?: PlanningBlock[]
+  onAddEvent?: (date: string) => void
+  onOpenEvent?: (e: PlanningBlock) => void
 }
 
 function cap(s: string): string {
@@ -37,7 +43,7 @@ function sameIsoDay(dateStr: string | null, target: Date): boolean {
  *   "Non assigné" pour celles sans technician_name.
  * - Read-only : clic = ouvre le modal d'édition standard.
  */
-export function PlanningDayView({ interventions, onClickIntervention }: Props) {
+export function PlanningDayView({ interventions, onClickIntervention, events = [], onAddEvent, onOpenEvent }: Props) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
   const dayInterventions = useMemo(
@@ -67,6 +73,8 @@ export function PlanningDayView({ interventions, onClickIntervention }: Props) {
 
   const isCurrentDay = isToday(selectedDate)
   const dayLabel = cap(format(selectedDate, 'EEEE d MMMM yyyy', { locale: fr }))
+  const dayIso = format(selectedDate, 'yyyy-MM-dd')
+  const dayEvents = events.filter((e) => e.date === dayIso)
 
   return (
     <div>
@@ -127,6 +135,25 @@ export function PlanningDayView({ interventions, onClickIntervention }: Props) {
         </div>
       </div>
 
+      {/* Agenda du jour : événements (visio, rendez-vous…) */}
+      {onOpenEvent && (
+        <div className="pd-agenda">
+          <div className="pd-agenda-head">
+            <span>Agenda</span>
+            {onAddEvent && (
+              <button type="button" className="btn-sm" onClick={() => onAddEvent(dayIso)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '.3rem .7rem' }}>
+                <Plus size={13} strokeWidth={2.2} /> Événement
+              </button>
+            )}
+          </div>
+          {dayEvents.length > 0 ? (
+            <DayEventList events={dayEvents} onOpen={onOpenEvent} />
+          ) : (
+            <p className="pd-agenda-empty">Aucun événement ce jour.</p>
+          )}
+        </div>
+      )}
+
       {/* Grille de colonnes par technicien */}
       {dayInterventions.length === 0 ? (
         <div
@@ -140,7 +167,7 @@ export function PlanningDayView({ interventions, onClickIntervention }: Props) {
             fontSize: '.9rem',
           }}
         >
-          Rien de prévu pour <strong>{dayLabel.toLowerCase()}</strong>.
+          {dayEvents.length > 0 ? 'Aucune intervention' : 'Rien de prévu'} pour <strong>{dayLabel.toLowerCase()}</strong>.
           <br />
           <span style={{ fontSize: '.8rem', color: 'var(--ink3, #8A8F9A)' }}>
             Utilisez les flèches ci-dessus pour naviguer d'un jour à l'autre.

@@ -3389,6 +3389,15 @@ h1, h2, h3, h4, h5, h6 {
   .pe-swatch.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); }
   .pe-check { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink); cursor: pointer; flex-wrap: wrap; }
   .pe-help { font-size: 11.5px; color: var(--ink3); width: 100%; padding-left: 22px; }
+  .pm-cell .pe-add { opacity: 0; width: 18px; height: 18px; }
+  .pm-cell:hover .pe-add, .pm-cell .pe-add:focus-visible { opacity: 1; }
+  @media (hover: none) { .pm-cell .pe-add { opacity: 1; } }
+  .pm-cell .pe-list { margin: 0 0 2px; }
+  .pd-agenda { background: #fff; border: 1px solid var(--b-brd-soft); border-radius: 12px; padding: 10px 12px; margin-bottom: 1rem; }
+  .pd-agenda-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink3); }
+  .pd-agenda .pe-list { margin-top: 8px; }
+  .pd-agenda .pe-pill { font-size: 12px; padding: 4px 8px; }
+  .pd-agenda-empty { font-size: 12.5px; color: var(--ink3); margin-top: 6px; }
   .pe-check input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--acc); }
   /* Liste (en-tête) : heure · titre · icônes sur une ligne */
   .pe-pill:not(.pe-slot) .pe-head { display: contents; }

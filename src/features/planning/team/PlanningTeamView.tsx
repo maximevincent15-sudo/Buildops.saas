@@ -33,10 +33,10 @@ type Props = {
   onOpen: (i: Intervention) => void
   /** Glisser-déposer : affecte l'intervention au technicien / jour, à partir de startMinutes */
   onSchedule: (interventionId: string, row: TeamRow, date: string, startMinutes: number) => void
-  /** Événements d'agenda (visio, rendez-vous…) affichés sous chaque jour */
-  events: PlanningBlock[]
-  onAddEvent: (date: string) => void
-  onOpenEvent: (e: PlanningBlock) => void
+  /** Événements d'agenda (optionnels : la vue Équipe est centrée sur les techniciens) */
+  events?: PlanningBlock[]
+  onAddEvent?: (date: string) => void
+  onOpenEvent?: (e: PlanningBlock) => void
 }
 
 const DAY_FMT = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric' })
@@ -50,7 +50,7 @@ export function PlanningTeamView({
   onWeekChange,
   onOpen,
   onSchedule,
-  events,
+  events = [],
   onAddEvent,
   onOpenEvent,
 }: Props) {
@@ -178,9 +178,11 @@ export function PlanningTeamView({
                         {DAY_FMT.format(d)}
                         {dayIsos[n] === today && <span className="pt-today">aujourd'hui</span>}
                       </span>
-                      <DayAddButton date={dayIsos[n]} onAdd={onAddEvent} />
+                      {onAddEvent && <DayAddButton date={dayIsos[n]} onAdd={onAddEvent} />}
                     </div>
-                    <DayEventList events={events.filter((e) => e.date === dayIsos[n])} onOpen={onOpenEvent} />
+                    {onOpenEvent && (
+                      <DayEventList events={events.filter((e) => e.date === dayIsos[n])} onOpen={onOpenEvent} />
+                    )}
                   </th>
                 ))}
               </tr>

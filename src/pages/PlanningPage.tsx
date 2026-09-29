@@ -432,9 +432,6 @@ export function PlanningPage() {
                   onWeekChange={(d) => setWeekStart(startOfWeekMonday(d))}
                   onOpen={openEdit}
                   onSchedule={(id, row, date, start) => void handleSchedule(id, row, date, start)}
-                  events={events}
-                  onAddEvent={(date) => openEventModal(null, date)}
-                  onOpenEvent={(e) => openEventModal(e, e.date)}
                 />
                 {panelVisible && (
                   <PlanningTodoPanel
@@ -465,12 +462,18 @@ export function PlanningPage() {
               <PlanningDayView
                 interventions={interventions}
                 onClickIntervention={openEdit}
+                events={events}
+                onAddEvent={(date) => openEventModal(null, date)}
+                onOpenEvent={(e) => openEventModal(e, e.date)}
               />
             )}
             {view === 'month' && (
               <PlanningMonthView
                 interventions={interventions}
                 onClickIntervention={openEdit}
+                events={events}
+                onAddEvent={(date) => openEventModal(null, date)}
+                onOpenEvent={(e) => openEventModal(e, e.date)}
               />
             )}
           </div>

@@ -14,11 +14,17 @@ import { fr } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { formatEquipmentTypesShort } from '../../../shared/constants/interventions'
+import type { PlanningBlock } from '../blocksApi'
+import { DayAddButton, DayEventList } from '../events/DayEvents'
 import type { Intervention } from '../schemas'
 
 type Props = {
   interventions: Intervention[]
   onClickIntervention: (i: Intervention) => void
+  /** Événements d'agenda (visio, rendez-vous…) : « + » au survol et liste dans chaque jour */
+  events?: PlanningBlock[]
+  onAddEvent?: (date: string) => void
+  onOpenEvent?: (e: PlanningBlock) => void
 }
 
 function cap(s: string) {
@@ -32,7 +38,7 @@ function priorityColor(priority: string, status: string): { bg: string; fg: stri
   return { bg: 'var(--acc-lt, #E8EEF8)', fg: 'var(--acc, #3A5CA8)', bar: 'var(--acc, #3A5CA8)' }
 }
 
-export function PlanningMonthView({ interventions, onClickIntervention }: Props) {
+export function PlanningMonthView({ interventions, onClickIntervention, events = [], onAddEvent, onOpenEvent }: Props) {
   const [monthStart, setMonthStart] = useState(() => startOfMonth(new Date()))
 
   const days = useMemo(() => {
@@ -114,6 +120,7 @@ export function PlanningMonthView({ interventions, onClickIntervention }: Props)
           return (
             <div
               key={day.toISOString()}
+              className="pm-cell"
               style={{
                 ...cellStyle,
                 background: isCurrentDay
@@ -135,13 +142,22 @@ export function PlanningMonthView({ interventions, onClickIntervention }: Props)
                       : 'var(--ink3, #8B93A5)',
                   marginBottom: 4,
                   fontVariantNumeric: 'tabular-nums',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
                 }}
               >
-                {format(day, 'd')}
-                {isSameDay(day, new Date()) && (
-                  <span style={{ marginLeft: 4, fontSize: 9, opacity: 0.7 }}>· auj.</span>
-                )}
+                <span>
+                  {format(day, 'd')}
+                  {isSameDay(day, new Date()) && (
+                    <span style={{ marginLeft: 4, fontSize: 9, opacity: 0.7 }}>· auj.</span>
+                  )}
+                </span>
+                {onAddEvent && <DayAddButton date={dayKey} onAdd={onAddEvent} />}
               </div>
+              {onOpenEvent && (
+                <DayEventList events={events.filter((e) => e.date === dayKey)} onOpen={onOpenEvent} />
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {dayInterventions.slice(0, 3).map((i) => {
                   const c = priorityColor(i.priority, i.status)
