@@ -28,6 +28,7 @@ export async function createTechnician(
       email: input.email || null,
       phone: input.phone || null,
       role: input.role || null,
+      sector: input.sector?.trim() || null,
       notes: input.notes || null,
     })
     .select()
@@ -58,6 +59,7 @@ export async function updateTechnician(
       email: input.email || null,
       phone: input.phone || null,
       role: input.role || null,
+      sector: input.sector?.trim() || null,
       notes: input.notes || null,
     })
     .eq('id', id)

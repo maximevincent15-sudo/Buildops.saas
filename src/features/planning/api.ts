@@ -118,6 +118,51 @@ export async function updateIntervention(
   return normalizeIntervention(data as Intervention)
 }
 
+/**
+ * Affecte une intervention à un technicien, un jour et une heure (glisser-
+ * déposer du planning Équipe). Mise à jour partielle : le reste de la fiche
+ * n'est pas touché. « À planifier » passe en « Planifiée » ; une intervention
+ * en cours ou terminée n'est jamais déplacée.
+ */
+export async function scheduleIntervention(
+  id: string,
+  target: {
+    technicianId: string | null
+    technicianName: string | null
+    date: string // YYYY-MM-DD
+    startTime: string // HH:MM
+    durationMinutes: number
+  },
+): Promise<Intervention> {
+  const { data: current, error: fetchErr } = await supabase
+    .from('interventions')
+    .select('status')
+    .eq('id', id)
+    .single()
+  if (fetchErr) throw fetchErr
+  const status = (current as { status: string }).status
+  if (status === 'terminee' || status === 'en_cours') {
+    throw new Error('Une intervention en cours ou terminée ne peut pas être déplacée.')
+  }
+
+  const { data, error } = await supabase
+    .from('interventions')
+    .update({
+      technician_id: target.technicianId,
+      technician_name: target.technicianName,
+      scheduled_date: target.date,
+      start_time: target.startTime,
+      duration_minutes: target.durationMinutes,
+      slot: null,
+      status: status === 'a_planifier' ? 'planifiee' : status,
+    })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return normalizeIntervention(data as Intervention)
+}
+
 export async function deleteIntervention(id: string): Promise<void> {
   const { error } = await supabase
     .from('interventions')

@@ -6,6 +6,7 @@ export const createTechnicianSchema = z.object({
   email: z.string().email('Email invalide').or(z.literal('')).optional(),
   phone: z.string().optional(),
   role: z.string().optional(),
+  sector: z.string().optional(),
   notes: z.string().optional(),
 })
 
@@ -19,6 +20,8 @@ export type Technician = {
   email: string | null
   phone: string | null
   role: string | null
+  /** Secteur géographique libre (ex : « Yvelines (78) ») */
+  sector: string | null
   notes: string | null
   active: boolean
   created_at: string

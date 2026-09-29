@@ -1,11 +1,33 @@
 import { addDays, format, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { CalendarPlus, MapPin, Upload } from 'lucide-react'
+import { CalendarPlus, MapPin, PanelRightClose, PanelRightOpen, Upload } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { QuickActions } from '../shared/ui/QuickActions'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuthStore } from '../features/auth/store'
-import { listInterventions } from '../features/planning/api'
+import { listAnomalies, updateAnomaly } from '../features/anomalies/api'
+import { ANOMALY_ACTION_LABELS } from '../features/anomalies/schemas'
+import type { Anomaly } from '../features/anomalies/schemas'
+import { QuoteModal } from '../features/devis/components/QuoteModal'
+import type { UpsertQuoteInput } from '../features/devis/schemas'
+import { createIntervention, listInterventions, scheduleIntervention } from '../features/planning/api'
+import { PlanningTeamView } from '../features/planning/team/PlanningTeamView'
+import { PlanningTodoPanel } from '../features/planning/team/PlanningTodoPanel'
+import type { FollowItem, PanelTab } from '../features/planning/team/PlanningTodoPanel'
+import {
+  durationMinutes,
+  formatDueShort,
+  formatTime,
+  isNoReport,
+  siteLabel,
+  sortTodos,
+  startOfWeekMonday,
+  toTodoItem,
+  todayIso,
+} from '../features/planning/team/teamUtils'
+import type { TeamRow, TodoItem } from '../features/planning/team/teamUtils'
+import { listTechnicians } from '../features/technicians/api'
+import type { Technician } from '../features/technicians/schemas'
 import { listBlocksForRange } from '../features/planning/blocksApi'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
 import { InterventionRowActions } from '../features/planning/components/InterventionRowActions'
@@ -14,14 +36,26 @@ import { PlanningDayView } from '../features/planning/components/PlanningDayView
 import { PlanningMonthView } from '../features/planning/components/PlanningMonthView'
 import { PlanningWeekGridView } from '../features/planning/components/PlanningWeekGridView'
 import { buildIcsCalendar, buildIcsForIntervention, downloadIcs } from '../features/planning/icsExport'
-import type { Intervention } from '../features/planning/schemas'
+import type { CreateInterventionInput, Intervention } from '../features/planning/schemas'
 import {
   INTERVENTION_PRIORITIES,
   formatEquipmentTypesShort,
 } from '../shared/constants/interventions'
 import type { InterventionPriority } from '../shared/constants/interventions'
 
-type ViewMode = 'week' | 'day' | 'month'
+type ViewMode = 'team' | 'week' | 'day' | 'month'
+
+const VIEW_STORAGE_KEY = 'firovia.planning.view'
+
+function readStoredView(): ViewMode {
+  try {
+    const v = localStorage.getItem(VIEW_STORAGE_KEY)
+    if (v === 'team' || v === 'week' || v === 'day' || v === 'month') return v
+  } catch {
+    // stockage indisponible (navigation privée…) : vue par défaut
+  }
+  return 'team'
+}
 
 function formatDate(d: string | null) {
   if (!d) return '—'
@@ -38,15 +72,45 @@ export function PlanningPage() {
   const [error, setError] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Intervention | null>(null)
-  const [view, setView] = useState<ViewMode>('week')
+  const [view, setViewState] = useState<ViewMode>(readStoredView)
   const [exporting, setExporting] = useState(false)
   const profile = useAuthStore((s) => s.profile)
+
+  // ─── Planning « Équipe » ───
+  const [technicians, setTechnicians] = useState<Technician[]>([])
+  const [openAnomalies, setOpenAnomalies] = useState<Anomaly[]>([])
+  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeekMonday(new Date()))
+  const [panelTab, setPanelTab] = useState<PanelTab>('todo')
+  const [panelVisible, setPanelVisible] = useState(true)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null)
+  const [quoteSeed, setQuoteSeed] = useState<Partial<UpsertQuoteInput> | null>(null)
+
+  function setView(v: ViewMode) {
+    setViewState(v)
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, v)
+    } catch {
+      // préférence non mémorisée : sans conséquence
+    }
+  }
+
+  function showToast(msg: string, err = false) {
+    setToast({ msg, err })
+    window.setTimeout(() => setToast((t) => (t?.msg === msg ? null : t)), 3500)
+  }
 
   async function load() {
     setLoading(true)
     try {
-      const data = await listInterventions()
+      const [data, techs, anomalies] = await Promise.all([
+        listInterventions(),
+        listTechnicians().catch(() => [] as Technician[]),
+        listAnomalies({ status: 'open' }).catch(() => [] as Anomaly[]),
+      ])
       setInterventions(data)
+      setTechnicians(techs)
+      setOpenAnomalies(anomalies)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
@@ -72,6 +136,124 @@ export function PlanningPage() {
   function closeModal() {
     setModalOpen(false)
     setEditing(null)
+  }
+
+  const today = todayIso()
+  const todos = useMemo<TodoItem[]>(
+    () => sortTodos(interventions.map((i) => toTodoItem(i, today)).filter((t): t is TodoItem => t !== null)),
+    [interventions, today],
+  )
+  const noReports = useMemo(
+    () => interventions
+      .filter((i) => isNoReport(i, today))
+      .sort((a, b) => (a.scheduled_date ?? '').localeCompare(b.scheduled_date ?? '')),
+    [interventions, today],
+  )
+  const follows = useMemo<FollowItem[]>(() => {
+    const byIntervention = new Map<string, Anomaly[]>()
+    for (const a of openAnomalies) {
+      if (!a.intervention_id) continue
+      byIntervention.set(a.intervention_id, [...(byIntervention.get(a.intervention_id) ?? []), a])
+    }
+    return interventions
+      .filter((i) => i.status === 'terminee' && byIntervention.has(i.id))
+      .map((i) => ({ intervention: i, anomalies: byIntervention.get(i.id) ?? [] }))
+      .sort((a, b) => (b.intervention.scheduled_date ?? '').localeCompare(a.intervention.scheduled_date ?? ''))
+  }, [interventions, openAnomalies])
+  const followCounts = useMemo(
+    () => new Map(follows.map((f) => [f.intervention.id, f.anomalies.length])),
+    [follows],
+  )
+  const lateCount = todos.filter((t) => t.late).length
+
+  function focusPanel(tab: PanelTab) {
+    setView('team')
+    setPanelVisible(true)
+    setPanelTab(tab)
+  }
+
+  async function handleSchedule(interventionId: string, row: TeamRow, date: string, startMin: number) {
+    const i = interventions.find((x) => x.id === interventionId)
+    if (!i) return
+    if (i.status === 'terminee' || i.status === 'en_cours') {
+      showToast('Une intervention en cours ou terminée ne peut pas être déplacée.', true)
+      return
+    }
+    try {
+      const updated = await scheduleIntervention(interventionId, {
+        technicianId: row.technicianId,
+        technicianName: row.name,
+        date,
+        startTime: formatTime(startMin),
+        durationMinutes: durationMinutes(i),
+      })
+      setInterventions((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+      showToast(`✓ ${siteLabel(i)} : ${row.name} · ${formatDueShort(date)} à ${formatTime(startMin)}`)
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Impossible de planifier cette intervention.', true)
+    }
+  }
+
+  function handleCreateQuote(f: FollowItem) {
+    const i = f.intervention
+    setQuoteSeed({
+      client_id: i.client_id ?? undefined,
+      client_name: i.client_name,
+      site_name: i.site_name ?? undefined,
+      site_address: i.address ?? undefined,
+      intervention_id: i.id,
+      notes: `Suite à l'intervention ${i.reference} — anomalies à corriger.`,
+      lines: f.anomalies.map((a, n) => ({
+        position: n,
+        description: `${a.title}${a.action ? ` — ${ANOMALY_ACTION_LABELS[a.action]}` : ''}${a.description ? `\n${a.description}` : ''}`,
+        quantity: 1,
+        unit_price_ht: 0,
+        vat_rate: 20,
+      })),
+    })
+  }
+
+  async function handleScheduleRevisit(f: FollowItem) {
+    if (!profile?.organization_id) return
+    const i = f.intervention
+    setBusyId(i.id)
+    try {
+      await createIntervention(
+        {
+          client_name: i.client_name,
+          client_id: i.client_id ?? undefined,
+          site_name: i.site_name ?? undefined,
+          site_id: i.site_id ?? undefined,
+          address: i.address ?? undefined,
+          equipment_types: i.equipment_types as CreateInterventionInput['equipment_types'],
+          priority: f.anomalies.some((a) => a.priority === 'high') ? 'urgente' : 'normale',
+          intervention_type: 'corrective',
+          recurrence_active: false,
+          notes: `Repasse suite à ${i.reference} — anomalies à traiter :\n${f.anomalies
+            .map((a) => `• ${a.title}${a.action ? ` (${ANOMALY_ACTION_LABELS[a.action]})` : ''}`)
+            .join('\n')}`,
+          chantier_address: i.chantier_address ?? undefined,
+          chantier_postal_code: i.chantier_postal_code ?? undefined,
+          chantier_city: i.chantier_city ?? undefined,
+          chantier_contact_name: i.chantier_contact_name ?? undefined,
+          chantier_contact_phone: i.chantier_contact_phone ?? undefined,
+          chantier_access_parking: i.chantier_access_parking ?? undefined,
+          chantier_access_digicode: i.chantier_access_digicode ?? undefined,
+          chantier_access_building: i.chantier_access_building ?? undefined,
+          chantier_access_hours: i.chantier_access_hours ?? undefined,
+        },
+        profile.organization_id,
+      )
+      // Les anomalies passent en « Planifiée » : la suite est décidée
+      await Promise.all(f.anomalies.map((a) => updateAnomaly(a.id, { status: 'planned' })))
+      await load()
+      setPanelTab('todo')
+      showToast('✓ Repasse ajoutée à « À planifier » : glisse-la sur un technicien.')
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Impossible de créer la repasse.', true)
+    } finally {
+      setBusyId(null)
+    }
   }
 
   async function handleExportIcs() {
@@ -106,11 +288,24 @@ export function PlanningPage() {
       <div className="dash-top">
         <div>
           <div className="dash-title">Planning des interventions</div>
-          <div className="dash-sub">
-            {total === 0 && 'Aucune intervention pour le moment'}
-            {total === 1 && '1 intervention enregistrée'}
-            {total > 1 && `${total} interventions enregistrées`}
-          </div>
+          {total === 0 ? (
+            <div className="dash-sub">Aucune intervention pour le moment</div>
+          ) : (
+            <div className="pt-summary">
+              <button type="button" className={`pt-chip acc${todos.length === 0 ? ' zero' : ''}`} onClick={() => focusPanel('todo')}>
+                <b>{todos.length}</b> à planifier
+              </button>
+              <button type="button" className={`pt-chip red${lateCount === 0 ? ' zero' : ''}`} onClick={() => focusPanel('todo')}>
+                <b>{lateCount}</b> en retard
+              </button>
+              <button type="button" className={`pt-chip org${follows.length === 0 ? ' zero' : ''}`} onClick={() => focusPanel('follow')}>
+                <b>{follows.length}</b> suite{follows.length > 1 ? 's' : ''} à décider
+              </button>
+              <button type="button" className={`pt-chip red${noReports.length === 0 ? ' zero' : ''}`} onClick={() => focusPanel('norep')}>
+                <b>{noReports.length}</b> sans rapport
+              </button>
+            </div>
+          )}
         </div>
         <div className="dash-acts">
           {total > 0 && (
@@ -162,7 +357,15 @@ export function PlanningPage() {
       {!loading && !error && total > 0 && (
         <>
           {/* ═══ Calendrier (en haut) ═══ */}
-          <div style={{ display: 'flex', gap: '.5rem', marginBottom: '.75rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '.5rem', marginBottom: '.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              type="button"
+              className={`filter-pill${view === 'team' ? ' on' : ''}`}
+              onClick={() => setView('team')}
+              title="Techniciens en lignes, jours en colonnes : répartir le travail de l'équipe"
+            >
+              Équipe
+            </button>
             <button
               type="button"
               className={`filter-pill${view === 'week' ? ' on' : ''}`}
@@ -185,9 +388,47 @@ export function PlanningPage() {
             >
               Mois
             </button>
+            {view === 'team' && (
+              <button
+                type="button"
+                className="btn-sm"
+                onClick={() => setPanelVisible((v) => !v)}
+                style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                {panelVisible ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
+                {panelVisible ? 'Masquer le panneau' : `À planifier (${todos.length})`}
+              </button>
+            )}
           </div>
 
           <div style={{ marginBottom: '1.5rem' }}>
+            {view === 'team' && (
+              <div className={`pt-layout${panelVisible ? '' : ' full'}`}>
+                <PlanningTeamView
+                  interventions={interventions}
+                  technicians={technicians}
+                  followCounts={followCounts}
+                  weekStart={weekStart}
+                  onWeekChange={(d) => setWeekStart(startOfWeekMonday(d))}
+                  onOpen={openEdit}
+                  onSchedule={(id, row, date, start) => void handleSchedule(id, row, date, start)}
+                />
+                {panelVisible && (
+                  <PlanningTodoPanel
+                    tab={panelTab}
+                    onTabChange={setPanelTab}
+                    todos={todos}
+                    follows={follows}
+                    noReports={noReports}
+                    technicians={technicians}
+                    busyId={busyId}
+                    onOpen={openEdit}
+                    onCreateQuote={handleCreateQuote}
+                    onScheduleRevisit={(f) => void handleScheduleRevisit(f)}
+                  />
+                )}
+              </div>
+            )}
             {view === 'week' && (
               <PlanningWeekGridView
                 interventions={interventions}
@@ -332,6 +573,21 @@ export function PlanningPage() {
         onChanged={() => void load()}
         intervention={editing}
       />
+
+      {/* Devis correctif pré-rempli depuis les anomalies (« Suite à décider ») */}
+      {quoteSeed && (
+        <QuoteModal
+          open
+          onClose={() => setQuoteSeed(null)}
+          seed={quoteSeed}
+          onSaved={() => {
+            setQuoteSeed(null)
+            showToast("✓ Devis créé. Programme la repasse quand le client l'accepte.")
+          }}
+        />
+      )}
+
+      {toast && <div className={`pt-toast${toast.err ? ' err' : ''}`} role="status">{toast.msg}</div>}
     </>
   )
 }

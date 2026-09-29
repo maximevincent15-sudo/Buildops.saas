@@ -24,6 +24,7 @@ function toFormValues(t: Technician | null | undefined): Partial<CreateTechnicia
     email: t.email ?? '',
     phone: t.phone ?? '',
     role: t.role ?? '',
+    sector: t.sector ?? '',
     notes: t.notes ?? '',
   }
 }
@@ -139,9 +140,15 @@ export function TechnicianModal({ open, onClose, onChanged, technician }: Props)
             </div>
           </div>
 
-          <div className="fg">
-            <label>Rôle (optionnel)</label>
-            <input type="text" placeholder="Ex: Chef d'équipe, Technicien senior…" {...register('role')} />
+          <div className="mrow">
+            <div className="fg">
+              <label>Rôle (optionnel)</label>
+              <input type="text" placeholder="Ex: Chef d'équipe, Technicien senior…" {...register('role')} />
+            </div>
+            <div className="fg">
+              <label>Secteur (optionnel)</label>
+              <input type="text" placeholder="Ex: Yvelines (78), Paris Sud…" {...register('sector')} />
+            </div>
           </div>
 
           <div className="mrow">
