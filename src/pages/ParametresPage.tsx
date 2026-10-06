@@ -117,22 +117,21 @@ export function ParametresPage() {
     if (!window.confirm(
       'Charger les données de démo ?\n\n' +
       'Cela va créer dans ton organisation :\n' +
-      '• 6 clients fictifs\n' +
-      '• 4 techniciens\n' +
-      '• 2 véhicules\n' +
-      '• 12 interventions (passées + à venir)\n' +
-      '• 3 devis et 2 factures\n' +
-      '• 3 notes de frais et 2 heures sup\n\n' +
-      'Tout est marqué [DÉMO] dans les notes pour les retrouver.\n' +
-      'Tu peux les supprimer manuellement après.\n\n' +
-      'Continuer ?'
+      '• 11 clients fictifs avec leurs sites et leur parc (~100 équipements)\n' +
+      '• 4 techniciens, leurs habilitations et 2 véhicules\n' +
+      '• 3 rapports signés avec PDF, dont un non conforme\n' +
+      '• le planning de la semaine et des visites à planifier\n' +
+      '• 3 devis, des factures sur 6 mois, notes de frais et heures sup\n\n' +
+      'Les contacts ont des adresses @demo.firovia.fr : pour un envoi\n' +
+      'de test, saisis ta propre adresse dans la fenêtre d\'envoi.\n\n' +
+      'Compte 1 à 2 minutes. Continuer ?'
     )) return
     setDemoLoading(true)
     setError(null)
     setFlash(null)
     setDemoStep(null)
     try {
-      await loadDemoData(profile.organization_id, (label, current, total) => {
+      await loadDemoData(profile.organization_id, profile.organizations?.name ?? '', (label, current, total) => {
         setDemoStep({ label, current, total })
       })
       setFlash('Données de démo chargées avec succès. Explore les pages pour voir le résultat.')
@@ -583,12 +582,13 @@ supabase secrets set RESEND_FROM_NAME="Maintenance Incendie"`}
           </span>
         </div>
         <p className="text-ink-2 text-sm font-light" style={{ margin: '0 0 .8rem' }}>
-          Crée en un clic des clients, techniciens, véhicules, interventions, devis et factures fictifs
-          dans ton organisation. Pratique pour tester le SaaS rapidement ou pour une démo commerciale.
+          Crée en un clic un compte complet et fictif : clients avec leurs sites et leur parc, techniciens,
+          rapports signés, planning de la semaine, devis et factures. Pratique pour tester le SaaS
+          rapidement ou pour une démo commerciale.
         </p>
         <p className="text-ink-3 text-xs font-light" style={{ margin: '0 0 .8rem' }}>
-          Tout est marqué <strong>[DÉMO]</strong> dans les notes — tu pourras les supprimer manuellement après.
-          Cette opération est <strong>additive</strong> (n'efface rien d'existant).
+          Cette opération est <strong>additive</strong> (n'efface rien d'existant) et ne peut être lancée
+          qu'une fois par compte.
         </p>
         <button
           type="button"
