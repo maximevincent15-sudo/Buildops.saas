@@ -15,6 +15,7 @@ import type { EquipmentType } from '../../../shared/constants/interventions'
 import type { InvoicingSettings } from '../../parametres/api'
 import type { Intervention } from '../../planning/schemas'
 import type { ChecklistItem } from '../checklists'
+import { computeConformity } from '../conformity'
 import {
   RECOMMENDED_ACTION_LABEL,
   computeReportSummary,
@@ -530,17 +531,13 @@ export function ReportPdf({
   }
   const answered = okCount + nokCount + naCount
 
-  // Rapport par unité : la checklist globale par famille reste vide, la
-  // conformité se déduit donc des verdicts unitaires.
-  const unitControlsActive = !!unitEntries?.some((e) => e.verdict !== 'non_verifie')
-  const unitCounts = { conforme: 0, surveiller: 0, reformer: 0, non_verifie: 0 }
-  for (const e of unitEntries ?? []) unitCounts[e.verdict]++
-
-  const isConform = unitControlsActive
-    ? (unitCounts.surveiller + unitCounts.reformer > 0
-        ? false
-        : unitCounts.non_verifie > 0 ? null : true)
-    : (answered === totalItems ? nokCount === 0 : null)
+  // Même calcul que l'écran du rapport, l'email et le portail client
+  const conformity = computeConformity(
+    { answered, total: totalItems, nokCount },
+    (unitEntries ?? []).map((e) => e.verdict),
+  )
+  const unitControlsActive = conformity.unitControlsActive
+  const isConform = conformity.isConform
   const summary = { answered, total: totalItems, okCount, nokCount, naCount, isConform }
   void computeReportSummary // évite l'avertissement lint (on garde l'import pour compat future)
 
@@ -693,7 +690,7 @@ export function ReportPdf({
           <View style={[styles.summaryBox, styles.summaryBoxConform]}>
             <Text style={styles.summaryTitle}>
               {unitControlsActive
-                ? `Tous les équipements contrôlés sont conformes (${unitCounts.conforme}).`
+                ? `Tous les équipements contrôlés sont conformes (${conformity.unitsChecked}).`
                 : `Tous les points de contrôle sont conformes (${summary.okCount} OK${summary.naCount > 0 ? ` · ${summary.naCount} N/A` : ''}).`}
             </Text>
           </View>
@@ -1119,9 +1116,9 @@ function ClientSignatureBox({
   // Cas 2 — Alternatifs (absent / refus / non requis / en attente)
   const cfg: { label: string; bg: string; fg: string; icon: string } =
     status === 'client_absent'
-      ? { label: 'Client absent', bg: colors.orgLt, fg: colors.org, icon: '⊘' }
+      ? { label: 'Client absent', bg: colors.orgLt, fg: colors.org, icon: '–' }
       : status === 'client_refused'
-        ? { label: 'Refus de signature', bg: colors.redLt, fg: colors.red, icon: '✗' }
+        ? { label: 'Refus de signature', bg: colors.redLt, fg: colors.red, icon: '×' }
         : status === 'not_required'
           ? { label: 'Signature non requise', bg: colors.gryLt, fg: colors.gry, icon: '–' }
           : { label: 'En attente de signature', bg: colors.gryLt, fg: colors.gry, icon: '·' }
@@ -1320,10 +1317,8 @@ function AnomalyBlock({ entry }: { entry: AnomalyPdfEntry }) {
     anomaly.priority === 'high' ? '#F0BFBF'
     : anomaly.priority === 'normal' ? '#F0D9A6'
     : colors.border
-  const prioIcon =
-    anomaly.priority === 'high' ? '●'
-    : anomaly.priority === 'normal' ? '●'
-    : '○'
+  // « • » : les symboles ● ○ n'existent pas dans la police Helvetica du PDF (affichés « Ï »)
+  const prioIcon = '•'
   const prioColor =
     anomaly.priority === 'high' ? colors.red
     : anomaly.priority === 'normal' ? colors.org

@@ -21,11 +21,14 @@ import {
   finalizeReport,
   getReportByIntervention,
   saveDraftReport,
+  setReportConformity,
   setReportPdfUrl,
 } from '../features/rapports/api'
 import { CHECKLISTS } from '../features/rapports/checklists'
+import { computeConformity } from '../features/rapports/conformity'
 import { ChecklistSection } from '../features/rapports/components/ChecklistSection'
 import { UnitBasedControls } from '../features/rapports/components/UnitBasedControls'
+import type { UnitVerdictItem } from '../features/rapports/components/UnitBasedControls'
 import { ReportHistoryList } from '../features/rapports/components/ReportHistoryList'
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
 import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
@@ -34,6 +37,7 @@ import type { AnomalyPdfEntry } from '../features/rapports/pdf/ReportPdf'
 import { buildUnitEntriesForIntervention } from '../features/equipment/reportHelpers'
 import { getInvoicingSettings } from '../features/parametres/api'
 import { listAnomaliesForIntervention } from '../features/anomalies/api'
+import { ACTIVE_ANOMALY_STATUSES, ANOMALY_ACTION_LABELS } from '../features/anomalies/schemas'
 import { listEquipmentUnits, listZones } from '../features/equipment/api'
 import { EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
@@ -92,6 +96,10 @@ export function RapportEditorPage() {
   const [sendOpen, setSendOpen] = useState(false)
   const [sentToEmail, setSentToEmail] = useState<string | null>(null)
   const [sentAt, setSentAt] = useState<string | null>(null)
+  // Verdicts des contrôles équipement par équipement (remontés par UnitBasedControls)
+  const [unitVerdicts, setUnitVerdicts] = useState<UnitVerdictItem[]>([])
+  // Devis correctif : complété à l'ouverture avec les anomalies équipement
+  const [quoteSeedFull, setQuoteSeedFull] = useState<Partial<UpsertQuoteInput> | null>(null)
 
   useEffect(() => {
     if (!interventionId) return
@@ -174,11 +182,17 @@ export function RapportEditorPage() {
       }
     }
     const affectedTypes = Array.from(new Set(allAnomalies.map((a) => a.type)))
-    const anomaliesText = allAnomalies.length > 0
-      ? 'Anomalies à traiter :\n' +
-        allAnomalies.map((a) =>
-          `• [${a.type}] ${a.label}${a.action ? ` (${RECOMMENDED_ACTION_LABEL[a.action as keyof typeof RECOMMENDED_ACTION_LABEL]})` : ''}${a.note ? ` — ${a.note}` : ''}`,
-        ).join('\n')
+    const anomalyLines = [
+      ...allAnomalies.map((a) =>
+        `• [${a.type}] ${a.label}${a.action ? ` (${RECOMMENDED_ACTION_LABEL[a.action as keyof typeof RECOMMENDED_ACTION_LABEL]})` : ''}${a.note ? ` — ${a.note}` : ''}`,
+      ),
+      // Contrôles équipement par équipement : unités à surveiller / à réformer
+      ...unitVerdicts
+        .filter((u) => u.verdict === 'surveiller' || u.verdict === 'reformer')
+        .map((u) => `• ${u.label} : ${u.verdict === 'reformer' ? 'à réformer' : 'à surveiller'}`),
+    ]
+    const anomaliesText = anomalyLines.length > 0
+      ? 'Anomalies à traiter :\n' + anomalyLines.join('\n')
       : ''
     const notes =
       `Intervention corrective suite au rapport ${intervention.reference}` +
@@ -200,7 +214,7 @@ export function RapportEditorPage() {
       priority: 'urgente' as const,
       notes,
     }
-  }, [intervention, equipmentType, checklistByType])
+  }, [intervention, equipmentType, checklistByType, unitVerdicts])
 
   // Seed pour la création d'un devis correctif depuis les anomalies du rapport
   const quoteSeed = useMemo<Partial<UpsertQuoteInput> | null>(() => {
@@ -283,6 +297,10 @@ export function RapportEditorPage() {
     totalByType[t] = (CHECKLISTS[t] ?? []).length
   }
   const globalSummary = computeGlobalSummary(checklistByType, totalByType)
+  // Conformité du rapport : checklist globale + verdicts équipement par équipement
+  // (même calcul que le PDF, l'email et le portail client)
+  const conformity = computeConformity(globalSummary, unitVerdicts.map((u) => u.verdict))
+  const unitAnomalyItems = unitVerdicts.filter((u) => u.verdict === 'surveiller' || u.verdict === 'reformer')
 
   const isCompleted = !!completedAt
   const orgId = profile.organization_id
@@ -468,10 +486,16 @@ export function RapportEditorPage() {
       )
       return
     }
-    const unanswered = globalSummary.total - globalSummary.answered
+    // Rapport équipement par équipement : la checklist globale reste vide,
+    // on ne signale que les équipements sans verdict.
+    const unanswered = conformity.unitControlsActive
+      ? conformity.unitsTotal - conformity.unitsChecked
+      : globalSummary.total - globalSummary.answered
     if (unanswered > 0) {
       const ok = window.confirm(
-        `${unanswered} point(s) de contrôle non renseigné(s) (toutes équipements confondus).\n\nFinaliser quand même ?`,
+        conformity.unitControlsActive
+          ? `${unanswered} équipement(s) sans verdict.\n\nFinaliser quand même ?`
+          : `${unanswered} point(s) de contrôle non renseigné(s) (toutes équipements confondus).\n\nFinaliser quand même ?`,
       )
       if (!ok) return
     }
@@ -515,6 +539,13 @@ export function RapportEditorPage() {
       setCompletedAt(saved.completed_at)
 
       try {
+        await setReportConformity(saved.id, conformity)
+      } catch (conformityErr) {
+        // Non bloquant : le portail retombe sur le calcul depuis la checklist
+        console.error('Enregistrement de la conformité échoué', conformityErr)
+      }
+
+      try {
         const newPdfUrl = await regeneratePdfFromCurrent()
         await setReportPdfUrl(saved.id, newPdfUrl)
       } catch (pdfErr) {
@@ -538,6 +569,11 @@ export function RapportEditorPage() {
       const newUrl = await regeneratePdfFromCurrent()
       if (reportId) {
         await setReportPdfUrl(reportId, newUrl)
+        if (isCompleted) {
+          await setReportConformity(reportId, conformity).catch((e) =>
+            console.error('Enregistrement de la conformité échoué', e),
+          )
+        }
       }
       setPdfUrl(newUrl)
       setFlash('PDF généré.')
@@ -547,6 +583,54 @@ export function RapportEditorPage() {
     } finally {
       setGeneratingPdf(false)
     }
+  }
+
+  // Devis correctif : lignes de la checklist globale + anomalies relevées
+  // équipement par équipement (titre, action), une ligne par anomalie.
+  async function openCorrectiveQuote() {
+    const lines = [...(quoteSeed?.lines ?? [])]
+    try {
+      const [anomalies, units] = await Promise.all([
+        listAnomaliesForIntervention(iid),
+        intervention!.site_id ? listEquipmentUnits({ siteId: intervention!.site_id }) : Promise.resolve([]),
+      ])
+      const unitById = new Map(units.map((u) => [u.id, u]))
+      for (const a of anomalies) {
+        if (!ACTIVE_ANOMALY_STATUSES.includes(a.status)) continue
+        const u = a.equipment_unit_id ? unitById.get(a.equipment_unit_id) : undefined
+        const unitLabel = u ? `${EQUIPMENT_FAMILY_LABELS[u.family]} N°${u.serial_number}` : 'Équipement'
+        lines.push({
+          position: lines.length,
+          description: `[${unitLabel}] ${a.title}${a.action ? ` — ${ANOMALY_ACTION_LABELS[a.action]}` : ''}`,
+          quantity: 1,
+          unit_price_ht: 0,
+          vat_rate: 20,
+        })
+      }
+    } catch (e) {
+      console.error('Chargement des anomalies équipement échoué', e)
+    }
+    // Équipements à surveiller / réformer sans fiche anomalie : une ligne chacun
+    if (lines.length === 0) {
+      for (const u of unitAnomalyItems) {
+        lines.push({
+          position: lines.length,
+          description: `[${u.label}] ${u.verdict === 'reformer' ? 'Équipement à réformer — Remplacement' : 'Équipement à surveiller'}`,
+          quantity: 1,
+          unit_price_ht: 0,
+          vat_rate: 20,
+        })
+      }
+    }
+    setQuoteSeedFull({
+      client_id: intervention!.client_id ?? undefined,
+      client_name: intervention!.client_name,
+      site_name: intervention!.site_name ?? undefined,
+      site_address: intervention!.address ?? undefined,
+      notes: `Suite au rapport ${intervention!.reference} — anomalies à corriger.`,
+      lines,
+    })
+    setQuoteOpen(true)
   }
 
   // correctiveSeed est déclaré plus haut (avant les early returns, règle des hooks)
@@ -624,26 +708,26 @@ export function RapportEditorPage() {
       )}
 
       {/* Bandeau synthèse / conformité GLOBALE (tous types confondus) */}
-      {globalSummary.total > 0 && (
+      {(globalSummary.total > 0 || conformity.unitControlsActive) && (
         <div className={`report-summary ${
-          globalSummary.isConform === true ? 'conform' :
-          globalSummary.isConform === false ? 'non-conform' :
+          conformity.isConform === true ? 'conform' :
+          conformity.isConform === false ? 'non-conform' :
           'partial'
         }`}>
           <div className="report-summary-badge">
-            {globalSummary.isConform === true && (
+            {conformity.isConform === true && (
               <>
                 <CheckCircle2 size={22} strokeWidth={2.2} />
                 <span>CONFORME</span>
               </>
             )}
-            {globalSummary.isConform === false && (
+            {conformity.isConform === false && (
               <>
                 <XCircle size={22} strokeWidth={2.2} />
                 <span>NON CONFORME</span>
               </>
             )}
-            {globalSummary.isConform === null && (
+            {conformity.isConform === null && (
               <>
                 <AlertTriangle size={22} strokeWidth={2.2} />
                 <span>INCOMPLET</span>
@@ -651,36 +735,54 @@ export function RapportEditorPage() {
             )}
           </div>
           <div className="report-summary-body">
-            {globalSummary.isConform === true && (
+            {conformity.isConform === true && (
               <div className="report-summary-title">
-                Tous les points de contrôle sont conformes ({globalSummary.okCount} OK{globalSummary.naCount > 0 ? ` · ${globalSummary.naCount} N/A` : ''}).
+                {conformity.unitControlsActive
+                  ? `Tous les équipements contrôlés sont conformes (${conformity.unitsChecked}).`
+                  : `Tous les points de contrôle sont conformes (${globalSummary.okCount} OK${globalSummary.naCount > 0 ? ` · ${globalSummary.naCount} N/A` : ''}).`}
               </div>
             )}
-            {globalSummary.isConform === false && (
-              <>
-                <div className="report-summary-title">
-                  {globalSummary.nokCount} anomalie{globalSummary.nokCount > 1 ? 's' : ''} détectée{globalSummary.nokCount > 1 ? 's' : ''}
-                </div>
-                <ul className="report-summary-list">
-                  {anomalies.slice(0, 5).map((a, i) => (
-                    <li key={i}>
-                      <span className="text-ink-3 text-xs">[{a.typeLabel}]</span> <strong>{a.label}</strong>
-                      {a.action && <span className="report-anom-action"> · {RECOMMENDED_ACTION_LABEL[a.action as keyof typeof RECOMMENDED_ACTION_LABEL]}</span>}
-                    </li>
-                  ))}
-                  {anomalies.length > 5 && (
-                    <li className="text-ink-3">… et {anomalies.length - 5} autre{anomalies.length - 5 > 1 ? 's' : ''}</li>
-                  )}
-                </ul>
-              </>
-            )}
-            {globalSummary.isConform === null && (
+            {conformity.isConform === false && (() => {
+              const listed = [
+                ...anomalies.map((a) => ({
+                  tag: a.typeLabel,
+                  label: a.label,
+                  action: a.action ? RECOMMENDED_ACTION_LABEL[a.action as keyof typeof RECOMMENDED_ACTION_LABEL] : null,
+                })),
+                ...unitAnomalyItems.map((u) => ({
+                  tag: u.label,
+                  label: u.verdict === 'reformer' ? 'À réformer' : 'À surveiller',
+                  action: null,
+                })),
+              ]
+              return (
+                <>
+                  <div className="report-summary-title">
+                    {conformity.anomalyCount} anomalie{conformity.anomalyCount > 1 ? 's' : ''} détectée{conformity.anomalyCount > 1 ? 's' : ''}
+                  </div>
+                  <ul className="report-summary-list">
+                    {listed.slice(0, 5).map((a, i) => (
+                      <li key={i}>
+                        <span className="text-ink-3 text-xs">[{a.tag}]</span> <strong>{a.label}</strong>
+                        {a.action && <span className="report-anom-action"> · {a.action}</span>}
+                      </li>
+                    ))}
+                    {listed.length > 5 && (
+                      <li className="text-ink-3">… et {listed.length - 5} autre{listed.length - 5 > 1 ? 's' : ''}</li>
+                    )}
+                  </ul>
+                </>
+              )
+            })()}
+            {conformity.isConform === null && (
               <div className="report-summary-title">
-                {globalSummary.answered} / {globalSummary.total} points renseignés
+                {conformity.unitControlsActive
+                  ? `${conformity.unitsChecked} / ${conformity.unitsTotal} équipements contrôlés`
+                  : `${globalSummary.answered} / ${globalSummary.total} points renseignés`}
               </div>
             )}
           </div>
-          {globalSummary.isConform === false && (
+          {conformity.isConform === false && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {!isCompleted && (
                 <button
@@ -693,11 +795,11 @@ export function RapportEditorPage() {
                   Planifier une intervention corrective
                 </button>
               )}
-              {quoteSeed && (
+              {conformity.anomalyCount > 0 && (
                 <button
                   type="button"
                   className="btn-sm acc"
-                  onClick={() => setQuoteOpen(true)}
+                  onClick={() => void openCorrectiveQuote()}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
                   title="Crée un devis pré-rempli avec les anomalies à corriger"
                 >
@@ -743,6 +845,7 @@ export function RapportEditorPage() {
         technicianId={intervention.technician_id}
         technicianName={intervention.technician_name}
         readOnly={isCompleted}
+        onVerdictsChange={setUnitVerdicts}
       />
 
       {items.length > 0 && (
@@ -930,7 +1033,7 @@ export function RapportEditorPage() {
             )}
           </div>
           <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
-            {summary.isConform === false && (
+            {conformity.isConform === false && (
               <button
                 type="button"
                 className="btn-sm"
@@ -992,8 +1095,8 @@ export function RapportEditorPage() {
           equipmentLabel={equipmentType ? EQUIPMENT_TYPES[equipmentType] : formatEquipmentTypes(intervention.equipment_types)}
           organizationName={orgName}
           scheduledDate={intervention.scheduled_date}
-          isConform={summary.isConform}
-          nokCount={summary.nokCount}
+          isConform={conformity.isConform}
+          nokCount={conformity.anomalyCount}
           previousEmail={sentToEmail}
           onSent={() => {
             setSentToEmail((prev) => prev) // le modal rappelle avec l'email ; on rafraîchit via re-fetch
@@ -1016,11 +1119,11 @@ export function RapportEditorPage() {
       )}
 
       {/* Modale création devis correctif (pré-rempli depuis les anomalies) */}
-      {quoteOpen && quoteSeed && (
+      {quoteOpen && quoteSeedFull && (
         <QuoteModal
           open={quoteOpen}
           onClose={() => setQuoteOpen(false)}
-          seed={quoteSeed}
+          seed={quoteSeedFull}
           onSaved={() => {
             setQuoteOpen(false)
             setFlash('Devis correctif créé.')

@@ -91,6 +91,9 @@ export type Report = {
   sent_to_email: string | null
   sent_at: string | null
   completed_at: string | null
+  /** Conformité figée à la finalisation (null = rapport antérieur ou incomplet) */
+  is_conform?: boolean | null
+  anomaly_count?: number | null
   created_at: string
   updated_at: string
 }

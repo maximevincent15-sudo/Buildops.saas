@@ -209,9 +209,11 @@ function ReportsTab({ token }: { token: string }) {
   return (
     <div className="portal-list">
       {reports.map((r) => {
-        // Calcule conformité depuis la checklist
-        const nokCount = (r.checklist ?? []).filter((c) => c.value === 'nok').length
-        const isConform = nokCount === 0
+        // Conformité figée à la finalisation (inclut les contrôles équipement
+        // par équipement) ; recalcul depuis la checklist pour les anciens rapports
+        const nokCount = r.anomaly_count
+          ?? (r.checklist ?? []).filter((c) => c.value === 'nok').length
+        const isConform = r.is_conform ?? nokCount === 0
         const equipLabel = formatEquipmentTypesShort({
           equipment_types: r.equipment_types,
           equipment_type: r.equipment_type,

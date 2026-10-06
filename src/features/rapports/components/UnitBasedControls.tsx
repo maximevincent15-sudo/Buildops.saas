@@ -47,6 +47,15 @@ type Props = {
   technicianName: string | null
   readOnly?: boolean
   onProgressChange?: (checked: number, total: number) => void
+  /** Verdicts des équipements contrôlés dans cette intervention (pour la conformité du rapport) */
+  onVerdictsChange?: (items: UnitVerdictItem[]) => void
+}
+
+export type UnitVerdictItem = {
+  unitId: string
+  /** Ex. « Extincteur N°04 » */
+  label: string
+  verdict: CheckVerdict
 }
 
 // Cache des templates par famille (partagé sur cette instance)
@@ -60,6 +69,7 @@ export function UnitBasedControls({
   technicianName,
   readOnly,
   onProgressChange,
+  onVerdictsChange,
 }: Props) {
   const [zones, setZones] = useState<Zone[]>([])
   const [units, setUnits] = useState<EquipmentUnit[]>([])
@@ -111,6 +121,24 @@ export function UnitBasedControls({
     const checkedCount = checks.filter((c) => c.verdict !== 'non_verifie').length
     onProgressChange(checkedCount, units.length)
   }, [checks, units.length, onProgressChange])
+
+  // Notifier les verdicts au parent (mêmes unités que le registre du PDF :
+  // celles du site qui ont un contrôle dans cette intervention)
+  useEffect(() => {
+    if (!onVerdictsChange) return
+    const unitsById = new Map(units.map((u) => [u.id, u]))
+    const items: UnitVerdictItem[] = []
+    for (const c of checks) {
+      const u = unitsById.get(c.equipment_unit_id)
+      if (!u) continue
+      items.push({
+        unitId: u.id,
+        label: `${EQUIPMENT_FAMILY_LABELS[u.family]} N°${u.serial_number}`,
+        verdict: c.verdict,
+      })
+    }
+    onVerdictsChange(items)
+  }, [checks, units, onVerdictsChange])
 
   const checksByUnit = useMemo(() => {
     const map = new Map<string, EquipmentCheck>()

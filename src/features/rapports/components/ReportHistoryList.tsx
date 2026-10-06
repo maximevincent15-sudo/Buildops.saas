@@ -122,7 +122,10 @@ export function ReportHistoryList({
               (r.checklist ?? []) as ChecklistResponse[],
               (r.checklist ?? []).length || 1, // approximation : on n'a pas le total des items mais on a le décompte
             )
-            const conform = summary.nokCount === 0
+            // Conformité figée à la finalisation (inclut les contrôles équipement
+            // par équipement) ; recalcul depuis la checklist pour les anciens rapports
+            const anomalyCount = r.anomaly_count ?? summary.nokCount
+            const conform = r.is_conform ?? anomalyCount === 0
             const isFinalized = !!r.completed_at
             const equipLabel = formatEquipmentTypesShort({
               equipment_types: interv.equipment_types,
@@ -152,10 +155,10 @@ export function ReportHistoryList({
                     {formatDate(interv.scheduled_date ?? r.completed_at ?? r.created_at)}
                     {interv.site_name && <> · {interv.site_name}</>}
                     {interv.technician_name && <> · {interv.technician_name}</>}
-                    {isFinalized && summary.nokCount > 0 && (
+                    {isFinalized && anomalyCount > 0 && (
                       <span className="history-anomalies">
                         {' · '}
-                        {summary.nokCount} anomalie{summary.nokCount > 1 ? 's' : ''}
+                        {anomalyCount} anomalie{anomalyCount > 1 ? 's' : ''}
                       </span>
                     )}
                     {!isFinalized && (

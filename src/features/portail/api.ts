@@ -118,6 +118,9 @@ export type PortalReport = {
   scheduled_date: string | null
   technician_name: string | null
   checklist: Array<{ id: string; value: 'ok' | 'nok' | 'na' | null }>
+  /** Conformité figée à la finalisation (absente pour les anciens rapports) */
+  is_conform?: boolean | null
+  anomaly_count?: number | null
 }
 
 export async function getPortalReports(token: string): Promise<PortalReport[]> {

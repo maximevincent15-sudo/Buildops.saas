@@ -104,6 +104,22 @@ export async function finalizeReport(
   return report
 }
 
+/**
+ * Enregistre la conformité calculée à la finalisation : le portail client et
+ * l'historique la lisent telle quelle au lieu de la recalculer (ils n'ont pas
+ * les verdicts équipement par équipement).
+ */
+export async function setReportConformity(
+  reportId: string,
+  conformity: { isConform: boolean | null; anomalyCount: number },
+): Promise<void> {
+  const { error } = await supabase
+    .from('reports')
+    .update({ is_conform: conformity.isConform, anomaly_count: conformity.anomalyCount })
+    .eq('id', reportId)
+  if (error) throw error
+}
+
 export async function setReportPdfUrl(reportId: string, pdfUrl: string): Promise<void> {
   const { error } = await supabase
     .from('reports')
