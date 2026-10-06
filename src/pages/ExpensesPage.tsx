@@ -1,9 +1,11 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { AlertTriangle, Check, Download, Paperclip, Plus, Trash2, Undo2, Upload, X } from 'lucide-react'
+import { AlertTriangle, Check, Download, Lock, Paperclip, Plus, Trash2, Undo2, Upload, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
+import { useSubscription } from '../features/billing/hooks'
 import { RhTabs } from '../features/dashboard/components/RhTabs'
 import { PayrollExportModal } from '../features/export/components/PayrollExportModal'
 import { ExpenseModal } from '../features/expenses/components/ExpenseModal'
@@ -39,7 +41,11 @@ function startOfMonthIso(): string {
 }
 
 export function ExpensesPage() {
+  const navigate = useNavigate()
   const profile = useAuthStore((s) => s.profile)
+  // Export paie (heures sup et frais) : formule Pro, comme sur la page tarifs
+  const { limits } = useSubscription()
+  const canExportPayroll = limits.proFeatures
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -177,11 +183,12 @@ export function ExpensesPage() {
           <button
             type="button"
             className="mf out"
-            onClick={() => setExportOpen(true)}
+            onClick={() => (canExportPayroll ? setExportOpen(true) : navigate('/abonnement'))}
+            title={canExportPayroll ? undefined : 'Export paie : disponible en formule Pro'}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            <Download size={14} strokeWidth={2} />
-            Export paie
+            {canExportPayroll ? <Download size={14} strokeWidth={2} /> : <Lock size={14} strokeWidth={2} />}
+            {canExportPayroll ? 'Export paie' : 'Export paie (Pro)'}
           </button>
           <button type="button" className="mf prim" onClick={() => setModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Plus size={14} strokeWidth={2} />
