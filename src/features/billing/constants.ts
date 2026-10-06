@@ -6,7 +6,7 @@ import type { Plan, BillingPeriod, PlanOffer } from './schemas'
 
 // Version des CGV en vigueur (firovia.fr/cgv.html) — à mettre à jour à chaque
 // modification des CGV. Transmise à Stripe comme preuve d'acceptation.
-export const CGV_VERSION = '2026-09-28'
+export const CGV_VERSION = '2026-10-06'
 export const CGV_URL = 'https://firovia.fr/cgv.html'
 
 // Identité légale de Firovia (émetteur des devis d'abonnement)
