@@ -15,7 +15,7 @@ import {
 import type { EquipmentType } from '../../../shared/constants/interventions'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { createIntervention, deleteIntervention, updateIntervention } from '../api'
-import { INTERVENTION_TYPE_LABELS, createInterventionSchema } from '../schemas'
+import { INTERVENTION_TYPE_LABELS, createInterventionSchema, isRecurringInterventionType } from '../schemas'
 import type { CreateInterventionInput, Intervention, Slot } from '../schemas'
 import { ClientAutocomplete } from './ClientAutocomplete'
 import { TechnicianAutocomplete } from './TechnicianAutocomplete'
@@ -645,7 +645,12 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
 
               <div className="fg">
                 <label>Type d'intervention</label>
-                <select {...register('intervention_type')}>
+                <select
+                  {...register('intervention_type', {
+                    // Préventive / vérification contractuelle → récurrent ; dépannage, installation… → ponctuel
+                    onChange: (e) => setValue('recurrence_active', isRecurringInterventionType(e.target.value)),
+                  })}
+                >
                   {Object.entries(INTERVENTION_TYPE_LABELS).map(([val, label]) => (
                     <option key={val} value={val}>{label}</option>
                   ))}
@@ -818,7 +823,8 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                   <br />
                   <span style={{ color: 'var(--ink2, #5A6070)', fontWeight: 400 }}>
                     À la clôture du rapport, la prochaine visite est créée automatiquement.
-                    Décoche pour un one-shot (dépannage, urgence).
+                    Cochée d'office pour la maintenance préventive et les vérifications contractuelles,
+                    décochée pour un dépannage, une installation ou une corrective.
                   </span>
                 </span>
               </label>

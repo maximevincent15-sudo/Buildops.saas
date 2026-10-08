@@ -212,6 +212,9 @@ export function RapportEditorPage() {
       technician_id: intervention.technician_id ?? '',
       scheduled_date: '',
       priority: 'urgente' as const,
+      // Repasse ponctuelle : pas de visite suivante créée à sa clôture
+      intervention_type: 'corrective' as const,
+      recurrence_active: false,
       notes,
     }
   }, [intervention, equipmentType, checklistByType, unitVerdicts])

@@ -1,7 +1,7 @@
 import { supabase } from '../../shared/lib/supabase'
 import { INSPECTION_FREQUENCIES_DAYS } from '../alertes/frequencies'
 import type { EquipmentType } from '../../shared/constants/interventions'
-import { normalizeIntervention } from './schemas'
+import { isRecurringInterventionType, normalizeIntervention } from './schemas'
 import type { CreateInterventionInput, Intervention } from './schemas'
 
 function toDbPayload(input: CreateInterventionInput) {
@@ -21,7 +21,8 @@ function toDbPayload(input: CreateInterventionInput) {
     priority: input.priority,
     intervention_type: input.intervention_type ?? 'preventive',
     notes: input.notes || null,
-    recurrence_active: input.recurrence_active ?? true,
+    // Par défaut : récurrent seulement pour la maintenance préventive et les vérifications contractuelles
+    recurrence_active: input.recurrence_active ?? isRecurringInterventionType(input.intervention_type),
     // Localisation chantier
     chantier_address: input.chantier_address || null,
     chantier_postal_code: input.chantier_postal_code || null,

@@ -30,6 +30,14 @@ export const INTERVENTION_TYPE_LABELS: Record<InterventionType, string> = {
   autre: 'Autre',
 }
 
+/**
+ * Types qui se répètent : à la clôture du rapport, la visite suivante est créée
+ * automatiquement. Corrective, installation, dépannage et autre sont ponctuels.
+ */
+export function isRecurringInterventionType(type: string | null | undefined): boolean {
+  return type === 'preventive' || type === 'verification_contrat' || !type
+}
+
 export const createInterventionSchema = z.object({
   client_name: z.string().min(1, 'Client requis'),
   client_id: z.string().optional(),
