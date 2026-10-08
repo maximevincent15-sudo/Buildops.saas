@@ -38,6 +38,23 @@ function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
+      {/* Adresses tapées par réflexe → bonne page (au lieu de la 404) */}
+      {['/login', '/connexion', '/signin', '/se-connecter'].map((p) => (
+        <Route key={p} path={p} element={<Navigate to="/auth" replace />} />
+      ))}
+      {['/signup', '/register', '/inscription', '/essai', '/essai-gratuit'].map((p) => (
+        <Route key={p} path={p} element={<Navigate to="/auth?tab=register" replace />} />
+      ))}
+      {['/mot-de-passe-oublie', '/forgot'].map((p) => (
+        <Route key={p} path={p} element={<Navigate to="/forgot-password" replace />} />
+      ))}
+      {['/settings', '/reglages'].map((p) => (
+        <Route key={p} path={p} element={<Navigate to="/parametres" replace />} />
+      ))}
+      {['/home', '/accueil', '/tableau-de-bord'].map((p) => (
+        <Route key={p} path={p} element={<Navigate to="/dashboard" replace />} />
+      ))}
+
       <Route element={<PublicLayout />}>
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
