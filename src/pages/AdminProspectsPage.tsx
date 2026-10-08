@@ -33,7 +33,8 @@ export function AdminProspectsPage() {
           setError(null)
         }
       })
-      .catch((e) => alive && setError(e instanceof Error ? e.message : 'Erreur inconnue'))
+      // Les erreurs Supabase sont des objets { message } et non des Error : afficher le vrai message
+      .catch((e) => alive && setError((e as { message?: string } | null)?.message || 'Erreur inconnue'))
       .finally(() => alive && setLoading(false))
     return () => {
       alive = false
