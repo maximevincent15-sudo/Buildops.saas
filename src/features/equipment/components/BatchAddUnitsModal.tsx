@@ -76,8 +76,8 @@ export function BatchAddUnitsModal({ open, onClose, onCreated }: Props) {
   }, [open, siteId])
 
   const nextReplacementYear = useMemo(
-    () => computeNextReplacementYear(family, installYear),
-    [family, installYear],
+    () => computeNextReplacementYear(family, installYear, subtype),
+    [family, installYear, subtype],
   )
 
   const preview = useMemo(() => {

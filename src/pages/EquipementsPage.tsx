@@ -406,7 +406,7 @@ export function EquipementsPage() {
                   const client = clientsById.get(u.client_id)
                   const nextYear =
                     u.next_replacement_year ??
-                    computeNextReplacementYear(u.family, u.install_year)
+                    computeNextReplacementYear(u.family, u.install_year, u.subtype)
                   const nowYear = new Date().getFullYear()
                   const isReformOverdue = nextYear !== null && nextYear <= nowYear
                   return (

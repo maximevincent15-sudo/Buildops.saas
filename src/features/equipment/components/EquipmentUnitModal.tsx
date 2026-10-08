@@ -108,11 +108,12 @@ export function EquipmentUnitModal({
   const watchedSiteId = watch('site_id')
   const watchedFamily = watch('family')
   const watchedInstallYear = watch('install_year')
+  const watchedSubtype = watch('subtype')
 
   // Année de réforme suggérée (calculée)
   const suggestedReplacementYear = useMemo(
-    () => computeNextReplacementYear(watchedFamily, watchedInstallYear),
-    [watchedFamily, watchedInstallYear],
+    () => computeNextReplacementYear(watchedFamily, watchedInstallYear, watchedSubtype),
+    [watchedFamily, watchedInstallYear, watchedSubtype],
   )
 
   // Reset au ré-ouverture

@@ -41,9 +41,14 @@ export const EQUIPMENT_STATUS_LABELS: Record<EquipmentStatus, string> = {
 }
 
 // Durée de vie standard (en années) pour calculer next_replacement_year
+/**
+ * Durée de vie avant réforme. Extincteurs à eau et à poudre : 20 ans
+ * (NF S 61-919 ; à 10 ans c'est une révision en atelier, pas une réforme).
+ * CO2 : pas de durée de vie fixée (révision et requalification). BAES : pas
+ * de remplacement à âge fixe, c'est l'état constaté au contrôle qui décide.
+ */
 export const EQUIPMENT_LIFESPAN_YEARS: Partial<Record<EquipmentFamily, number>> = {
-  extincteurs: 10, // règle APSAD R4
-  baes: 4, // NF C 71-800
+  extincteurs: 20,
 }
 
 // ─── Sites ───────────────────────────────────────────────
@@ -225,8 +230,11 @@ export type UpsertEquipmentCheckInput = {
 export function computeNextReplacementYear(
   family: EquipmentFamily,
   installYear: number | null | undefined,
+  subtype?: string | null,
 ): number | null {
   if (!installYear) return null
+  // Extincteurs CO2 : pas de durée de vie fixée
+  if (family === 'extincteurs' && /co\s*2/i.test(subtype ?? '')) return null
   const span = EQUIPMENT_LIFESPAN_YEARS[family]
   return span ? installYear + span : null
 }
