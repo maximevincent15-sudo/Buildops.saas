@@ -160,8 +160,28 @@ export function siteLabel(i: Intervention): string {
   return i.site_name?.trim() || i.client_name
 }
 
+export type City = { name: string; postalCode: string | null }
+
+/**
+ * Ville de l'intervention : celle du chantier si renseignée, sinon lue dans
+ * l'adresse (« 45 avenue de la République, 95000 Cergy »).
+ */
+export function cityOf(i: Intervention): City | null {
+  const chantier = i.chantier_city?.trim()
+  if (chantier) return { name: chantier, postalCode: i.chantier_postal_code?.trim() || null }
+  const m = /\b(\d{5})\s+([^,\d][^,]*?)\s*$/.exec(i.address?.trim() ?? '')
+  if (!m) return null
+  const name = m[2].replace(/\s+cedex(\s*\d+)?$/i, '').trim()
+  return name ? { name, postalCode: m[1] } : null
+}
+
 export function placeLabel(i: Intervention): string | null {
-  return i.chantier_city?.trim() || null
+  return cityOf(i)?.name ?? null
+}
+
+/** Clé de regroupement : même ville quelle que soit la casse ou les accents */
+export function cityKey(c: City): string {
+  return c.name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[\s-]+/g, ' ').trim()
 }
 
 export function formatDueShort(iso: string): string {

@@ -4,8 +4,30 @@ import { ANOMALY_ACTION_LABELS } from '../../anomalies/schemas'
 import type { Anomaly } from '../../anomalies/schemas'
 import type { Technician } from '../../technicians/schemas'
 import type { Intervention } from '../schemas'
-import { EQUIPMENT_TAGS, formatDueShort, placeLabel, siteLabel } from './teamUtils'
+import { EQUIPMENT_TAGS, cityKey, cityOf, formatDueShort, siteLabel } from './teamUtils'
 import type { TodoItem } from './teamUtils'
+
+const BY_CITY_KEY = 'firovia.planning.todoByCity'
+
+type CityGroup = { key: string; label: string; items: TodoItem[] }
+
+/** Regroupe les visites par ville : les villes avec le plus de visites d'abord, « Ville non renseignée » en dernier */
+function groupByCity(items: TodoItem[]): CityGroup[] {
+  const groups = new Map<string, CityGroup>()
+  for (const t of items) {
+    const city = cityOf(t.intervention)
+    const key = city ? cityKey(city) : ''
+    const label = city ? (city.postalCode ? `${city.name} (${city.postalCode.slice(0, 2)})` : city.name) : 'Ville non renseignée'
+    const g = groups.get(key) ?? { key, label, items: [] }
+    g.items.push(t)
+    groups.set(key, g)
+  }
+  return [...groups.values()].sort((a, b) => {
+    if (!a.key !== !b.key) return a.key ? -1 : 1
+    if (a.items.length !== b.items.length) return b.items.length - a.items.length
+    return a.label.localeCompare(b.label, 'fr')
+  })
+}
 
 export type PanelTab = 'todo' | 'follow' | 'norep'
 export type FollowItem = { intervention: Intervention; anomalies: Anomaly[] }
@@ -43,6 +65,19 @@ export function PlanningTodoPanel({
 }: Props) {
   const [filter, setFilter] = useState<TodoFilter>('all')
   const visibleTodos = todos.filter((t) => filter === 'all' || (filter === 'late' && t.late) || (filter === 'urgent' && t.urgent))
+  // Regroupement par ville : voir d'un coup d'œil les visites proches pour les confier au même technicien
+  const [byCity, setByCity] = useState<boolean>(() => {
+    try { return localStorage.getItem(BY_CITY_KEY) === '1' } catch { return false }
+  })
+  function toggleByCity() {
+    setByCity((v) => {
+      try { localStorage.setItem(BY_CITY_KEY, v ? '0' : '1') } catch { /* stockage indisponible */ }
+      return !v
+    })
+  }
+  const groups: CityGroup[] = byCity
+    ? groupByCity(visibleTodos)
+    : [{ key: 'all', label: '', items: visibleTodos }]
 
   function technicianEmail(i: Intervention): string | null {
     const t = technicians.find((x) => x.id === i.technician_id)
@@ -70,48 +105,71 @@ export function PlanningTodoPanel({
             {([['all', 'Tout'], ['late', 'En retard'], ['urgent', 'Urgent']] as const).map(([k, l]) => (
               <button key={k} type="button" className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{l}</button>
             ))}
+            <button
+              type="button"
+              className={`pt-bycity${byCity ? ' on' : ''}`}
+              onClick={toggleByCity}
+              aria-pressed={byCity}
+              title="Regrouper les visites par ville pour les confier au même technicien"
+            >
+              Par ville
+            </button>
           </div>
           <div className="pt-body">
-            <p className="pt-hint">Glisse une carte sur un technicien et un jour pour la planifier, ou clique pour l'ouvrir.</p>
+            <p className="pt-hint">
+              {byCity
+                ? 'Visites regroupées par ville : glisse celles d\'une même ville sur le même technicien et le même jour.'
+                : 'Glisse une carte sur un technicien et un jour pour la planifier, ou clique pour l\'ouvrir.'}
+            </p>
             {visibleTodos.length === 0 && <p className="pt-hint">🎉 Rien à planifier ici.</p>}
-            {visibleTodos.map(({ intervention: i, due, late, urgent }) => {
-              const place = placeLabel(i)
-              return (
-                <div
-                  key={i.id}
-                  className="pt-todo"
-                  draggable
-                  onDragStart={(e) => { e.dataTransfer.setData('text/plain', i.id); e.dataTransfer.effectAllowed = 'move' }}
-                  onClick={() => onOpen(i)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter') onOpen(i) }}
-                >
-                  <div className="pt-todo-head">
-                    <div style={{ minWidth: 0 }}>
-                      <div className="pt-todo-name">{siteLabel(i)}</div>
-                      <div className="pt-todo-sub">{[i.site_name ? i.client_name : null, place].filter(Boolean).join(' · ') || i.reference}</div>
-                    </div>
-                    <span className="pt-grip" aria-hidden>⋮⋮</span>
+            {groups.map((g) => (
+              <div key={g.key}>
+                {byCity && (
+                  <div className="pt-city">
+                    <span>{g.label}</span>
+                    <span className="pt-count">{g.items.length} visite{g.items.length > 1 ? 's' : ''}</span>
                   </div>
-                  {i.notes && <div className="pt-todo-desc">{i.notes.split('\n')[0]}</div>}
-                  <div className="pt-meta">
-                    {late && due && <span className="pt-pill late">Échéance dépassée — {formatDate(due)}</span>}
-                    {!late && due && <span className="pt-pill">Échéance {formatDate(due)}</span>}
-                    {urgent && <span className="pt-pill urg">Urgent</span>}
-                    {i.auto_generated && <span className="pt-pill auto">Générée par le contrat</span>}
-                    {i.duration_minutes && <span className="pt-pill">≈ {Math.round((i.duration_minutes / 60) * 10) / 10} h</span>}
-                  </div>
-                  {i.equipment_types.length > 0 && (
-                    <div className="pt-tags" style={{ marginTop: 6 }}>
-                      {i.equipment_types.map((t) => (
-                        <span key={t} className={`pt-tag ${EQUIPMENT_TAGS[t]?.cls ?? ''}`}>{EQUIPMENT_TAGS[t]?.label ?? t}</span>
-                      ))}
+                )}
+                {g.items.map(({ intervention: i, due, late, urgent }) => {
+                  const place = cityOf(i)?.name ?? null
+                  return (
+                    <div
+                      key={i.id}
+                      className="pt-todo"
+                      draggable
+                      onDragStart={(e) => { e.dataTransfer.setData('text/plain', i.id); e.dataTransfer.effectAllowed = 'move' }}
+                      onClick={() => onOpen(i)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter') onOpen(i) }}
+                    >
+                      <div className="pt-todo-head">
+                        <div style={{ minWidth: 0 }}>
+                          <div className="pt-todo-name">{siteLabel(i)}</div>
+                          <div className="pt-todo-sub">{[i.site_name ? i.client_name : null, place].filter(Boolean).join(' · ') || i.reference}</div>
+                        </div>
+                        <span className="pt-grip" aria-hidden>⋮⋮</span>
+                      </div>
+                      {i.notes && <div className="pt-todo-desc">{i.notes.split('\n')[0]}</div>}
+                      <div className="pt-meta">
+                        {late && due && <span className="pt-pill late">Échéance dépassée — {formatDate(due)}</span>}
+                        {!late && due && <span className="pt-pill">Échéance {formatDate(due)}</span>}
+                        {urgent && <span className="pt-pill urg">Urgent</span>}
+                        {i.auto_generated && <span className="pt-pill auto">Générée par le contrat</span>}
+                        {i.duration_minutes && <span className="pt-pill">≈ {Math.round((i.duration_minutes / 60) * 10) / 10} h</span>}
+                      </div>
+                      {i.equipment_types.length > 0 && (
+                        <div className="pt-tags" style={{ marginTop: 6 }}>
+                          {i.equipment_types.map((t) => (
+                            <span key={t} className={`pt-tag ${EQUIPMENT_TAGS[t]?.cls ?? ''}`}>{EQUIPMENT_TAGS[t]?.label ?? t}</span>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )
-            })}
+                  )
+                })}
+              </div>
+            ))}
           </div>
         </>
       )}
