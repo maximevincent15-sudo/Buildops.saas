@@ -1,10 +1,10 @@
 -- ═══════════════════════════════════════════════════════════
 -- Page admin « Prospects » : « Erreur inconnue »
 --
--- RETURN QUERY exige des types identiques à ceux annoncés par la fonction.
--- auth.users.email est en varchar(255), pas en text : PostgreSQL refuse la
--- réponse (« structure of query does not match function result type »).
--- Toutes les colonnes renvoyées sont désormais converties explicitement.
+-- Cause : « column reference organization_id is ambiguous » (42702) dans la
+-- sous-requête sur profiles, organization_id étant aussi une colonne du
+-- résultat de la fonction. Références qualifiées + types convertis
+-- explicitement (auth.users.email est en varchar).
 -- Même logique de sécurité qu'avant (whitelist, session obligatoire). Idempotent.
 -- ═══════════════════════════════════════════════════════════
 
@@ -74,10 +74,12 @@ begin
   left join public.profiles p on p.organization_id = o.id
   left join auth.users u on u.id = p.id
   left join public.subscriptions s on s.organization_id = o.id
+  -- Alias « pr » obligatoire : « organization_id » est aussi une colonne du
+  -- résultat de la fonction, une référence non qualifiée est ambiguë (42702)
   where p.id = (
-    select id from public.profiles
-     where organization_id = o.id
-     order by created_at asc
+    select pr.id from public.profiles pr
+     where pr.organization_id = o.id
+     order by pr.created_at asc
      limit 1
   )
   order by
