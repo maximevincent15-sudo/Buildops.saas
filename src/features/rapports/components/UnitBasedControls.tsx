@@ -56,6 +56,8 @@ export type UnitVerdictItem = {
   /** Ex. « Extincteur N°04 » */
   label: string
   verdict: CheckVerdict
+  /** Heure du contrôle (pour le suivi du temps réel) */
+  checkedAt: string | null
 }
 
 // Cache des templates par famille (partagé sur cette instance)
@@ -135,6 +137,7 @@ export function UnitBasedControls({
         unitId: u.id,
         label: `${EQUIPMENT_FAMILY_LABELS[u.family]} N°${u.serial_number}`,
         verdict: c.verdict,
+        checkedAt: c.checked_at ?? null,
       })
     }
     onVerdictsChange(items)

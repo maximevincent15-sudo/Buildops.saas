@@ -30,6 +30,7 @@ import { ChecklistSection } from '../features/rapports/components/ChecklistSecti
 import { UnitBasedControls } from '../features/rapports/components/UnitBasedControls'
 import type { UnitVerdictItem } from '../features/rapports/components/UnitBasedControls'
 import { ReportHistoryList } from '../features/rapports/components/ReportHistoryList'
+import { TimeSpentCard } from '../features/rapports/components/TimeSpentCard'
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
 import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
 import { ReportPdf } from '../features/rapports/pdf/ReportPdf'
@@ -813,6 +814,18 @@ export function RapportEditorPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Temps réellement passé (gérant) : planning et main-d'œuvre des devis */}
+      {profile.user_role !== 'member' && (
+        <TimeSpentCard
+          interventionId={iid}
+          siteId={intervention.site_id}
+          startedAt={intervention.started_at ?? null}
+          completedAt={completedAt}
+          plannedMinutes={intervention.duration_minutes}
+          checkTimes={unitVerdicts.map((u) => u.checkedAt).filter((t): t is string => !!t)}
+        />
       )}
 
       {/* Historique des rapports précédents — utile pour le tech sur place
