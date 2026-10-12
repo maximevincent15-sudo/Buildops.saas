@@ -151,6 +151,10 @@ check('1 intervention en cours', iv.filter((i) => i.status === 'en_cours').lengt
 check('3 interventions à planifier', iv.filter((i) => i.status === 'a_planifier').length === 3)
 check('Visites de l\'an prochain créées à la finalisation', iv.filter((i) => i.auto_generated === true).length === 3,
   String(iv.filter((i) => i.auto_generated === true).length))
+const nextVisits = iv.filter((i) => i.auto_generated === true)
+check('Visites de l\'an prochain liées au site (liste des équipements dans le rapport)',
+  nextVisits.length === 3 && nextVisits.every((i) => !!i.site_id && i.duration_minutes != null),
+  JSON.stringify(nextVisits.map((i) => [!!i.site_id, i.duration_minutes])))
 check('3 devis (1 accepté)', count('quotes') === 3 && count('quotes', (q) => q.status === 'accepted') === 1)
 check('9 factures dont 7 payées', count('invoices') === 9 && count('invoices', (f) => f.status === 'paid') === 7)
 const paidMonths = new Set((db.invoices ?? []).filter((f) => f.paid_at).map((f) => String(f.paid_at).slice(0, 7)))

@@ -336,14 +336,34 @@ export async function createNextScheduledIntervention(
       client_name: parentInter.client_name,
       client_id: parentInter.client_id,
       site_name: parentInter.site_name,
+      // Lien au site : sans lui, la liste des équipements du site n'apparaît
+      // pas dans le rapport de la visite suivante
+      site_id: parentInter.site_id,
+      zone_ids: parentInter.zone_ids,
       address: parentInter.address,
       equipment_type: firstEquipment,
       equipment_types: parentInter.equipment_types,
+      intervention_type: parentInter.intervention_type ?? 'preventive',
       technician_name: null, // À réassigner
       technician_id: null,
       scheduled_date: nextDate,
+      // Même créneau et même durée que la visite précédente
+      slot: parentInter.slot,
+      start_time: parentInter.start_time,
+      duration_minutes: parentInter.duration_minutes,
       priority: 'reglementaire', // Visite annuelle = réglementaire par défaut
       notes: `Visite récurrente automatique (suite de ${parentInter.reference}).`,
+      // Chantier et consignes d'accès (digicode, parking, horaires…)
+      chantier_address: parentInter.chantier_address,
+      chantier_postal_code: parentInter.chantier_postal_code,
+      chantier_city: parentInter.chantier_city,
+      chantier_contact_name: parentInter.chantier_contact_name,
+      chantier_contact_phone: parentInter.chantier_contact_phone,
+      chantier_access_parking: parentInter.chantier_access_parking,
+      chantier_access_digicode: parentInter.chantier_access_digicode,
+      chantier_access_building: parentInter.chantier_access_building,
+      chantier_access_hours: parentInter.chantier_access_hours,
+      material_needed: parentInter.material_needed ?? [],
       status: 'planifiee',
       parent_intervention_id: parentInter.id,
       auto_generated: true,

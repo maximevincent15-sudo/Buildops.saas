@@ -31,6 +31,11 @@ const STATUS_BADGE: Record<EquipmentStatus, string> = {
   removed: 'b-gry',
 }
 
+/** Recherche sans tenir compte des accents ni des majuscules (« beausejour » trouve « Beauséjour ») */
+function normalizeSearch(text: string): string {
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+}
+
 export function EquipementsPage() {
   const [units, setUnits] = useState<EquipmentUnit[]>([])
   const [sites, setSites] = useState<Site[]>([])
@@ -101,28 +106,53 @@ export function EquipementsPage() {
     return counts
   }, [units])
 
+  // Sites triés par client puis par nom (menu « Tous sites »)
+  const sortedSites = useMemo(
+    () =>
+      [...sites].sort((a, b) => {
+        const ca = clientsById.get(a.client_id)?.name ?? ''
+        const cb = clientsById.get(b.client_id)?.name ?? ''
+        return ca.localeCompare(cb, 'fr') || a.name.localeCompare(b.name, 'fr')
+      }),
+    [sites, clientsById],
+  )
+
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return units.filter((u) => {
+    const q = normalizeSearch(search)
+    const list = units.filter((u) => {
       if (familyFilter !== 'all' && u.family !== familyFilter) return false
       if (siteFilter !== 'all' && u.site_id !== siteFilter) return false
       if (statusFilter !== 'all' && u.status !== statusFilter) return false
       if (q) {
-        const hay = [
+        // Recherche aussi par client et par site (« Beauséjour », « Tilleuls »…)
+        const hay = normalizeSearch([
+          clientsById.get(u.client_id)?.name ?? '',
+          sitesById.get(u.site_id)?.name ?? '',
           u.serial_number,
           u.subtype ?? '',
           u.brand ?? '',
           u.model ?? '',
           u.implantation ?? '',
           u.notes ?? '',
-        ]
-          .join(' ')
-          .toLowerCase()
+        ].join(' '))
         if (!hay.includes(q)) return false
       }
       return true
     })
-  }, [units, search, familyFilter, siteFilter, statusFilter])
+    // Ordre alphabétique : client, site, famille, puis N° (01, 02… 10)
+    return list.sort((a, b) => {
+      const ca = clientsById.get(a.client_id)?.name ?? ''
+      const cb = clientsById.get(b.client_id)?.name ?? ''
+      const sa = sitesById.get(a.site_id)?.name ?? ''
+      const sb = sitesById.get(b.site_id)?.name ?? ''
+      return (
+        ca.localeCompare(cb, 'fr') ||
+        sa.localeCompare(sb, 'fr') ||
+        EQUIPMENT_FAMILY_LABELS[a.family].localeCompare(EQUIPMENT_FAMILY_LABELS[b.family], 'fr') ||
+        a.serial_number.localeCompare(b.serial_number, 'fr', { numeric: true })
+      )
+    })
+  }, [units, search, familyFilter, siteFilter, statusFilter, clientsById, sitesById])
 
   const total = units.length
   const shown = filtered.length
@@ -264,7 +294,7 @@ export function EquipementsPage() {
           <input
             className="input-sm"
             type="text"
-            placeholder="Rechercher (n°, marque, implantation…)"
+            placeholder="Rechercher (client, site, n°, marque, implantation…)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ paddingLeft: 30, width: '100%' }}
@@ -276,11 +306,14 @@ export function EquipementsPage() {
           onChange={(e) => setSiteFilter(e.target.value)}
         >
           <option value="all">Tous sites</option>
-          {sites.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
+          {sortedSites.map((s) => {
+            const clientName = clientsById.get(s.client_id)?.name
+            return (
+              <option key={s.id} value={s.id}>
+                {clientName && clientName !== s.name ? `${clientName} · ${s.name}` : s.name}
+              </option>
+            )
+          })}
         </select>
         {siteFilter !== 'all' && (
           <button
