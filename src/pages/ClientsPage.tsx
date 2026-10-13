@@ -1,10 +1,13 @@
-import { Bell, Mail, MapPin, Phone, Upload, User } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Bell, Building2, Mail, MapPin, Phone, Search, Upload, User, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listClients } from '../features/clients/api'
 import { ClientModal } from '../features/clients/components/ClientModal'
 import type { Client } from '../features/clients/schemas'
+import { listSites } from '../features/equipment/api'
+import type { Site } from '../features/equipment/schemas'
 import { RelanceModal } from '../features/relances/components/RelanceModal'
+import { matchesSearch } from '../shared/lib/search'
 import { QuickActions } from '../shared/ui/QuickActions'
 
 export function ClientsPage() {
@@ -14,12 +17,19 @@ export function ClientsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Client | null>(null)
   const [relanceClient, setRelanceClient] = useState<Client | null>(null)
+  const [search, setSearch] = useState('')
+  const [sites, setSites] = useState<Site[]>([])
 
   async function load() {
     setLoading(true)
     try {
-      const data = await listClients()
+      const [data, allSites] = await Promise.all([
+        listClients(),
+        // Les sites servent seulement à la recherche : un échec ne bloque pas la page
+        listSites().catch(() => [] as Site[]),
+      ])
       setClients(data)
+      setSites(allSites)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
@@ -48,6 +58,32 @@ export function ClientsPage() {
   }
 
   const total = clients.length
+
+  const sitesByClient = useMemo(() => {
+    const map = new Map<string, Site[]>()
+    for (const site of sites) {
+      const list = map.get(site.client_id) ?? []
+      list.push(site)
+      map.set(site.client_id, list)
+    }
+    return map
+  }, [sites])
+
+  // Recherche : nom, contact, téléphone, email, adresse, SIRET… et sites du client
+  const visible = useMemo(() => {
+    if (!search.trim()) return clients.map((client) => ({ client, matchedSites: [] as Site[] }))
+    return clients.flatMap((client) => {
+      const clientSites = sitesByClient.get(client.id) ?? []
+      const ownMatch = matchesSearch(search, [
+        client.name, client.contact_name, client.contact_email, client.contact_phone,
+        client.address, client.siret, client.siren,
+      ])
+      const matchedSites = clientSites.filter((site) =>
+        matchesSearch(search, [site.name, site.address, site.postal_code, site.city, site.contact_name]),
+      )
+      return ownMatch || matchedSites.length > 0 ? [{ client, matchedSites: ownMatch ? [] : matchedSites }] : []
+    })
+  }, [clients, sitesByClient, search])
 
   return (
     <>
@@ -98,11 +134,48 @@ export function ClientsPage() {
 
         {!loading && !error && total > 0 && (
           <>
-            <p className="text-ink-3 text-xs font-light" style={{ marginBottom: '.75rem' }}>
-              Clique sur une fiche pour modifier ou supprimer un client.
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem', flexWrap: 'wrap', marginBottom: '.75rem' }}>
+              <div style={{ position: 'relative', flex: '1 1 260px', maxWidth: 380 }}>
+                <Search
+                  size={14}
+                  strokeWidth={2}
+                  style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)' }}
+                />
+                <input
+                  className="input-sm"
+                  type="search"
+                  placeholder="Rechercher (nom, contact, ville, téléphone, site…)"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{ paddingLeft: 30, width: '100%' }}
+                  aria-label="Rechercher un client"
+                />
+              </div>
+              <span className="text-ink-3 text-xs font-light">
+                {search.trim()
+                  ? `${visible.length} résultat${visible.length > 1 ? 's' : ''} sur ${total}`
+                  : 'Clique sur une fiche pour modifier ou supprimer un client.'}
+              </span>
+            </div>
+
+            {visible.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                <p className="text-ink-2 text-sm font-light" style={{ marginBottom: '.8rem' }}>
+                  Aucun client ne correspond à « {search.trim()} ».
+                </p>
+                <button
+                  type="button"
+                  className="btn-sm"
+                  onClick={() => setSearch('')}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <X size={13} strokeWidth={2} /> Effacer la recherche
+                </button>
+              </div>
+            )}
+
             <div className="clients-grid">
-              {clients.map((c) => (
+              {visible.map(({ client: c, matchedSites }) => (
                 <div
                   key={c.id}
                   className="client-card"
@@ -112,6 +185,12 @@ export function ClientsPage() {
                   onKeyDown={(e) => { if (e.key === 'Enter') openEdit(c) }}
                 >
                   <div className="client-name">{c.name}</div>
+                  {matchedSites.length > 0 && (
+                    <div className="client-line" style={{ color: 'var(--acc)' }}>
+                      <Building2 size={12} strokeWidth={2} />
+                      {matchedSites.map((site) => site.name).join(', ')}
+                    </div>
+                  )}
                   {c.contact_name && (
                     <div className="client-line">
                       <User size={12} strokeWidth={2} />

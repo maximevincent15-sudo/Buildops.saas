@@ -19,6 +19,7 @@ import type {
   EquipmentUnit,
   Site,
 } from '../features/equipment/schemas'
+import { normalizeSearch } from '../shared/lib/search'
 
 type FamilyFilter = 'all' | EquipmentFamily
 type StatusFilter = 'all' | EquipmentStatus
@@ -29,11 +30,6 @@ const STATUS_BADGE: Record<EquipmentStatus, string> = {
   to_replace: 'b-red',
   replaced: 'b-gry',
   removed: 'b-gry',
-}
-
-/** Recherche sans tenir compte des accents ni des majuscules (« beausejour » trouve « Beauséjour ») */
-function normalizeSearch(text: string): string {
-  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 }
 
 export function EquipementsPage() {
