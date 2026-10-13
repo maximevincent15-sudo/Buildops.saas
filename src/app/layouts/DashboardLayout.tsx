@@ -32,7 +32,7 @@ export function DashboardLayout() {
       <OfflineBanner />
       <TopNav onToggleSidebar={() => setSidebarOpen((v) => !v)} />
       <TrialBanner />
-      <Sidebar />
+      <Sidebar open={sidebarOpen} />
       {sidebarOpen && (
         <div
           className={`b-sidebar-backdrop${sidebarOpen ? ' show' : ''}`}

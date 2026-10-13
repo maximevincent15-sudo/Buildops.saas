@@ -102,7 +102,8 @@ function cap(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
 }
 
-export function Sidebar() {
+/** open : menu déplié sur mobile / tablette (≤ 1024 px), via le bouton ☰ du TopNav */
+export function Sidebar({ open = false }: { open?: boolean }) {
   const navigate = useNavigate()
   const location = useLocation()
   const user = useAuthStore((s) => s.user)
@@ -168,7 +169,7 @@ export function Sidebar() {
   const isAdmin = (profile?.user_role ?? 'admin') === 'admin'
 
   return (
-    <aside className="b-sidebar">
+    <aside className={`b-sidebar${open ? ' open' : ''}`}>
       <div className="b-sb-sec">Principal</div>
       {principal.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
