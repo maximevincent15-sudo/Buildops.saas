@@ -1,4 +1,4 @@
-import { Building2, CheckCircle2, FileText, Mail, Save, Sparkles, Users, XCircle } from 'lucide-react'
+import { Building2, CheckCircle2, Download, FileText, Mail, Save, Sparkles, Users, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchProfile } from '../features/auth/api'
@@ -43,6 +43,7 @@ export function ParametresPage() {
   const [error, setError] = useState<string | null>(null)
   const [demoLoading, setDemoLoading] = useState(false)
   const [demoStep, setDemoStep] = useState<{ label: string; current: number; total: number } | null>(null)
+  const [exportStep, setExportStep] = useState<{ label: string; done: number; total: number } | null>(null)
   const [emailTesting, setEmailTesting] = useState(false)
   const [emailTestResult, setEmailTestResult] = useState<{ ok: boolean; message: string } | null>(null)
 
@@ -141,6 +142,30 @@ export function ParametresPage() {
     } finally {
       setDemoLoading(false)
       setDemoStep(null)
+    }
+  }
+
+  async function handleExportAll() {
+    setExportStep({ label: 'Préparation', done: 0, total: 1 })
+    setError(null)
+    setFlash(null)
+    try {
+      const [{ exportAllData }, { triggerDownload }] = await Promise.all([
+        import('../features/export/fullExport'),
+        import('../features/export/payrollExport'),
+      ])
+      const result = await exportAllData(orgName.trim() || profile?.organizations?.name || 'Firovia', (label, done, total) => {
+        setExportStep({ label, done, total })
+      })
+      triggerDownload(result.blob, result.filename)
+      setFlash(
+        `Export terminé : ${result.rowCount} lignes de données et ${result.pdfCount} PDF.` +
+        (result.pdfFailed > 0 ? ` ${result.pdfFailed} PDF n'ont pas pu être récupérés (liens indisponibles).` : ''),
+      )
+    } catch (e) {
+      setError(e instanceof Error ? `Export impossible : ${e.message}` : "Erreur lors de l'export")
+    } finally {
+      setExportStep(null)
     }
   }
 
@@ -570,6 +595,46 @@ supabase secrets set RESEND_FROM_NAME="Maintenance Incendie"`}
               </span>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Export complet — réversibilité (art. 11 des CGV), admin only */}
+      {(profile?.user_role ?? 'admin') === 'admin' && (
+        <div className="card" style={{ marginTop: '1rem' }}>
+          <div className="card-top">
+            <span className="card-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <Download size={14} strokeWidth={1.8} />
+              Vos données vous appartiennent
+            </span>
+          </div>
+          <p className="text-ink-2 text-sm font-light" style={{ margin: '0 0 .8rem' }}>
+            Téléchargez à tout moment l'intégralité de vos données : un classeur Excel (clients, sites,
+            équipements, interventions, rapports, devis, factures, frais…) et tous vos PDF, dans un seul
+            fichier ZIP. Vous pouvez les réutiliser librement, dans un autre logiciel ou un tableur.
+          </p>
+          <button
+            type="button"
+            className="mf out"
+            onClick={() => void handleExportAll()}
+            disabled={exportStep !== null}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={13} strokeWidth={2} />
+            {exportStep ? 'Export en cours…' : 'Exporter toutes mes données'}
+          </button>
+          {exportStep && (
+            <div style={{ marginTop: '1rem' }}>
+              <div className="text-ink-2 text-xs font-light" style={{ marginBottom: 4 }}>
+                {exportStep.label}{exportStep.total > 1 ? ` — ${exportStep.done} / ${exportStep.total}` : ''}
+              </div>
+              <div className="demo-progress">
+                <div
+                  className="demo-progress-fill"
+                  style={{ width: `${exportStep.total ? (exportStep.done / exportStep.total) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
