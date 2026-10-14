@@ -108,6 +108,8 @@ export type Intervention = {
   created_by: string | null
   /** Heure d'arrivée sur place : notée par la base au passage en « en cours » (bouton Démarrer) */
   started_at?: string | null
+  /** Contrat de maintenance auquel la visite est rattachée */
+  contract_id?: string | null
   /** Référence vers l'intervention dont celle-ci est la suite automatique (visite récurrente). */
   parent_intervention_id: string | null
   /** true si l'intervention a été créée automatiquement par le système de maintenance préventive. */

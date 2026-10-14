@@ -6,6 +6,7 @@ import { Controller, useForm, useWatch } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
 import { ClientPortalSection } from '../../portail/components/ClientPortalSection'
 import { ReportHistoryList } from '../../rapports/components/ReportHistoryList'
+import { ClientContractsSection } from '../../contrats/components/ClientContractsSection'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { createClient, deleteClient, updateClient } from '../api'
 import { formatCompanyNumber, useCompanyLookup } from '../companyLookup'
@@ -206,6 +207,9 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
             <label>Notes internes</label>
             <input type="text" placeholder="Accès, consignes, infos utiles au technicien" {...register('notes')} />
           </div>
+
+          {/* Contrats de maintenance — uniquement en édition */}
+          {isEdit && client && <ClientContractsSection clientId={client.id} />}
 
           {/* Historique des rapports — uniquement en édition */}
           {isEdit && client && (

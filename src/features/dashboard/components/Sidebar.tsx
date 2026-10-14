@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   CreditCard,
+  FileSignature,
   HardHat,
   LayoutDashboard,
   LogOut,
@@ -46,6 +47,7 @@ const principal: NavItem[] = [
 const clients: NavItem[] = [
   { to: '/clients', Icon: Building2, label: 'Fiches clients' },
   { to: '/equipements', Icon: Boxes, label: 'Équipements' },
+  { to: '/contrats', Icon: FileSignature, label: 'Contrats' },
 ]
 
 const rh: NavItem[] = [
