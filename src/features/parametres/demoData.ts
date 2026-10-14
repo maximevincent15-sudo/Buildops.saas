@@ -17,7 +17,11 @@
 
 import { createAnomaly } from '../anomalies/api'
 import type { AnomalyAction, AnomalyPriority } from '../anomalies/schemas'
+import { createCatalogItems, listCatalogItems } from '../catalogue/api'
+import { DEFAULT_CATALOG } from '../catalogue/defaultCatalog'
 import { createClient } from '../clients/api'
+import { planContractVisits, saveContract } from '../contrats/api'
+import type { ContractLine } from '../contrats/schemas'
 import type { Client } from '../clients/schemas'
 import { createInvoice, markInvoiceSent, recordPayment } from '../factures/api'
 import { createQuote, markQuoteAccepted, markQuoteSent } from '../devis/api'
@@ -416,7 +420,7 @@ export type DemoProgressUpdate = (step: string, current: number, total: number) 
 
 // 11 clients + techniciens + habilitations + 3 × (rapport, PDF) + échéances
 // + planning + devis + factures + frais + agenda
-const TOTAL_STEPS = 25
+const TOTAL_STEPS = 27
 
 export async function loadDemoData(
   organizationId: string,
@@ -952,4 +956,57 @@ export async function loadDemoData(
   })
   await createClientToken(organizationId, get('stjean').client.id)
   tick('Agenda et portail client')
+
+  // ─── 10. Catalogue d'articles (si vide) ────────────────────────
+  if ((await listCatalogItems()).length === 0) {
+    await createCatalogItems(DEFAULT_CATALOG, organizationId)
+  }
+  tick("Catalogue d'articles")
+
+  // ─── 11. Contrats de maintenance ───────────────────────────────
+  // Quantités comptées sur le parc de démo ; les visites préventives déjà
+  // prévues sont rattachées au contrat (sinon une visite « À planifier »).
+  const count = (key: string, family: EquipmentFamily) => get(key).units.filter((u) => u.family === family).length
+  const line = (description: string, quantity: number, unitPrice: number, family: EquipmentFamily | null, frequency: ContractLine['frequency']): ContractLine => ({
+    position: 0, site_id: null, catalog_item_id: null, equipment_family: family,
+    description, quantity, unit_price_ht: unitPrice, vat_rate: 20, frequency,
+  })
+  const contractSpecs = [
+    {
+      key: 'stjean', title: 'Maintenance annuelle extincteurs et RIA', start: monthsAgo(20, 1),
+      billing_mode: 'per_visit' as const, billing_frequency: 'annual' as const, revision: 3,
+      lines: [
+        line('Vérification annuelle extincteur (par appareil)', count('stjean', 'extincteurs'), 8, 'extincteurs', 'annual'),
+        line('Vérification RIA (par poste)', count('stjean', 'ria'), 25, 'ria', 'semiannual'),
+      ],
+    },
+    {
+      // Échéance dans ~40 jours : apparaît en orange dans la liste des contrats
+      key: 'tilleuls', title: 'Contrat de maintenance — syndic', start: daysFromToday(40 - 365),
+      billing_mode: 'advance' as const, billing_frequency: 'annual' as const, revision: 2.5,
+      lines: [
+        line('Vérification annuelle extincteur (par appareil)', count('tilleuls', 'extincteurs'), 8, 'extincteurs', 'annual'),
+        line('Vérification RIA (par poste)', count('tilleuls', 'ria'), 25, 'ria', 'semiannual'),
+        line('Vérification désenfumage (par commande ou ouvrant)', count('tilleuls', 'desenfumage'), 30, 'desenfumage', 'annual'),
+        line('Forfait déplacement', 1, 45, null, 'annual'),
+      ],
+    },
+    {
+      key: 'montaigne', title: 'Forfait annuel extincteurs et désenfumage', start: monthsAgo(10, 15),
+      billing_mode: 'advance' as const, billing_frequency: 'semiannual' as const, revision: 3,
+      lines: [line('Forfait annuel de maintenance (extincteurs et désenfumage)', 1, 1650, null, 'annual')],
+    },
+  ]
+  for (const c of contractSpecs) {
+    const { client, site } = get(c.key)
+    const saved = await saveContract({
+      client_id: client.id, client_name: client.name, title: c.title, status: 'active',
+      start_date: c.start, initial_months: 12, tacit_renewal: true, notice_months: 3,
+      billing_mode: c.billing_mode, billing_frequency: c.billing_frequency, revision_rate: c.revision,
+      notes: null, site_ids: [site.id],
+      lines: c.lines.filter((l) => l.quantity > 0).map((l, i) => ({ ...l, position: i })),
+    }, organizationId)
+    await planContractVisits(saved, organizationId)
+  }
+  tick('Contrats de maintenance')
 }

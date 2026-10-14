@@ -186,7 +186,7 @@ export async function planContractVisits(contract: ContractWithDetails, organiza
   let created = 0
   for (const site of (sites ?? []) as SiteRow[]) {
     const candidates = ((upcoming ?? []) as Array<{ id: string; site_id: string; contract_id: string | null; scheduled_date: string | null }>)
-      .filter((i) => i.site_id === site.id && (i.contract_id === null || i.contract_id === contract.id))
+      .filter((i) => i.site_id === site.id && (!i.contract_id || i.contract_id === contract.id))
     if (candidates.some((i) => i.contract_id === contract.id)) continue
 
     if (candidates.length > 0) {
