@@ -14,6 +14,8 @@ import { SubscriptionQuotePdf } from './SubscriptionQuotePdf'
 export async function downloadSubscriptionQuote(params: {
   offer: PlanOffer
   period: BillingPeriod
+  /** Techniciens actifs à la date du devis */
+  technicians: number
   organizationId: string
   organizationName: string
   contactName: string | null
@@ -32,7 +34,7 @@ export async function downloadSubscriptionQuote(params: {
   const issuedAt = new Date()
   const validUntil = new Date(issuedAt.getTime() + 30 * 86400_000)
   const ymd = issuedAt.toISOString().slice(0, 10).replace(/-/g, '')
-  const reference = `DEV-FIR-${ymd}-${params.organizationId.slice(0, 6).toUpperCase()}-${{ starter: 'S', pro: 'P', enterprise: 'E' }[params.offer.plan]}${params.period === 'yearly' ? 'A' : 'M'}`
+  const reference = `DEV-FIR-${ymd}-${params.organizationId.slice(0, 6).toUpperCase()}-${{ essentiel: 'T', starter: 'S', pro: 'P', enterprise: 'E' }[params.offer.plan]}${params.period === 'yearly' ? 'A' : 'M'}`
 
   const doc = createElement(SubscriptionQuotePdf, {
     data: {
@@ -41,6 +43,7 @@ export async function downloadSubscriptionQuote(params: {
       validUntil,
       offer: params.offer,
       period: params.period,
+      technicians: params.technicians,
       client: {
         name: params.organizationName,
         siret: (org as { siret?: string | null } | null)?.siret ?? settings?.siret ?? null,

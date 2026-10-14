@@ -1,10 +1,12 @@
 import { Check, FileDown } from 'lucide-react'
 import type { BillingPeriod, PlanOffer, Plan } from '../schemas'
-import { computeYearlySavings } from '../constants'
+import { SEAT_DISCOUNT_FROM, billedSeats, computePlanTotal, computeYearlySavings } from '../constants'
 
 interface Props {
   offer: PlanOffer
   period: BillingPeriod
+  /** Techniciens actifs de l'organisation (base du montant estimé) */
+  technicians: number
   currentPlan: Plan | null
   currentPeriod: BillingPeriod | null
   onChoose: (priceId: string, plan: Plan, period: BillingPeriod) => void
@@ -14,11 +16,13 @@ interface Props {
   quoteLoading?: boolean
 }
 
-export function PlanCard({ offer, period, currentPlan, currentPeriod, onChoose, loading, onDownloadQuote, quoteLoading }: Props) {
+export function PlanCard({ offer, period, technicians, currentPlan, currentPeriod, onChoose, loading, onDownloadQuote, quoteLoading }: Props) {
   const price = offer.prices[period]
   const isCurrent = currentPlan === offer.plan && currentPeriod === period
   const unavailable = !price.priceId
-  const savings = period === 'yearly' ? computeYearlySavings(offer) : 0
+  const seats = billedSeats(offer, technicians)
+  const total = computePlanTotal(offer, period, technicians)
+  const savings = period === 'yearly' ? computeYearlySavings(offer, technicians) : 0
 
   const borderColor = offer.accent ? 'var(--acc, #3A5CA8)' : 'var(--brd, #E1E5EA)'
   const buttonLabel = isCurrent
@@ -38,7 +42,7 @@ export function PlanCard({ offer, period, currentPlan, currentPeriod, onChoose, 
       display: 'flex',
       flexDirection: 'column',
       gap: '.8rem',
-      minHeight: 500,
+      minHeight: 540,
     }}>
       {offer.accent && (
         <div style={{
@@ -77,28 +81,46 @@ export function PlanCard({ offer, period, currentPlan, currentPeriod, onChoose, 
       </div>
 
       <div style={{ borderTop: '1px solid var(--brd, #E1E5EA)', paddingTop: '.8rem' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '.3rem' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '.3rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--ink)' }}>
-            {price.amount} €
+            {price.unit} €
           </span>
           <span style={{ fontSize: '.85rem', color: 'var(--ink2)' }}>
-            HT / {price.per}
+            HT / technicien / {price.per}
           </span>
         </div>
-        {period === 'yearly' && savings > 0 && (
-          <div style={{
-            display: 'inline-block',
-            marginTop: '.4rem',
-            fontSize: '.75rem',
-            color: '#0E7A3F',
-            background: '#E6F4EB',
-            padding: '.15rem .5rem',
-            borderRadius: 4,
-            fontWeight: 600,
-          }}>
-            Économie de {savings} € vs mensuel
-          </div>
-        )}
+        <div style={{ fontSize: '.78rem', color: 'var(--ink3, #8A8F9A)', marginTop: '.2rem' }}>
+          Minimum {offer.minSeats} techniciens facturés · {price.unitAfter10} € dès le {SEAT_DISCOUNT_FROM}e
+          <br />
+          {offer.officeAccounts} comptes bureau inclus, en plus d'un compte par technicien
+        </div>
+
+        <div style={{
+          marginTop: '.7rem',
+          padding: '.55rem .7rem',
+          background: 'var(--wht, #F8F9FB)',
+          border: '1px solid var(--brd, #E1E5EA)',
+          borderRadius: 8,
+          fontSize: '.82rem',
+          color: 'var(--ink2, #5A6070)',
+        }}>
+          {technicians > 0
+            ? <>Avec vos {technicians} technicien{technicians > 1 ? 's' : ''} actif{technicians > 1 ? 's' : ''}</>
+            : <>Pour {seats} techniciens</>}
+          {technicians > 0 && technicians < offer.minSeats && <> (minimum {offer.minSeats} facturés)</>}
+          {' : '}
+          <strong style={{ color: 'var(--ink, #1C2130)' }}>{total.toLocaleString('fr-FR')} € HT / {price.per}</strong>
+          {seats >= SEAT_DISCOUNT_FROM && (
+            <div style={{ fontSize: '.76rem', marginTop: '.15rem' }}>
+              soit {SEAT_DISCOUNT_FROM - 1} × {price.unit} € + {seats - SEAT_DISCOUNT_FROM + 1} × {price.unitAfter10} € (tarif dégressif)
+            </div>
+          )}
+          {period === 'yearly' && savings > 0 && (
+            <div style={{ color: '#0E7A3F', fontWeight: 600, marginTop: '.15rem' }}>
+              2 mois offerts : économie de {savings.toLocaleString('fr-FR')} € vs mensuel
+            </div>
+          )}
+        </div>
       </div>
 
       <ul style={{

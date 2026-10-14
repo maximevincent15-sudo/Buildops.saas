@@ -1,16 +1,21 @@
 // @ts-nocheck — Cette fonction tourne dans Deno (Supabase Edge), pas dans le bundle Vite/TS
 //
 // Firovia — Edge Function : créer une Stripe Checkout Session pour
-// passer du trial local 14j à un abonnement payant Starter ou Pro.
+// passer du trial local 14j à un abonnement payant Essentiel ou Pro.
 //
 // Flow :
 //   1. Le user clique "Choisir un plan" dans le SaaS.
 //   2. Le front appelle cette fonction avec { priceId }.
 //   3. La fonction crée (si besoin) un Customer Stripe lié à l'org,
-//      persiste le stripe_customer_id, puis crée une Checkout Session.
+//      persiste le stripe_customer_id, puis crée une Checkout Session
+//      dont la quantité = nombre de techniciens actifs.
 //   4. Le front redirige le user vers l'URL Stripe Checkout retournée.
 //   5. Stripe encaisse, puis envoie un webhook → stripe-webhook met à
 //      jour la table subscriptions.
+//
+// Organisation déjà abonnée : changement de formule appliqué directement
+// sur l'abonnement existant (prorata facturé tout de suite), sans
+// repasser par Checkout ni créer un second abonnement.
 //
 // Setup nécessaire (à faire UNE fois) :
 //   supabase secrets set STRIPE_SECRET_KEY=sk_live_xxx
@@ -49,6 +54,16 @@ function buildCorsHeaders(origin: string | null): Record<string, string> {
     'Vary': 'Origin',
   }
 }
+
+// Formules en libre-service (prix par technicien, grille du 13/10/2026).
+// Les anciens prix forfaitaires et l'Entreprise ne s'achètent plus en ligne :
+// ils sont créés à la main dans Stripe pour les offres négociées.
+const SELF_SERVE_PRICES = new Set([
+  'price_1UQ13C2KbFmYQD88IgXAJzkb', // Essentiel mensuel
+  'price_1UQ15a2KbFmYQD88Yv284sG1', // Essentiel annuel
+  'price_1UQ18Y2KbFmYQD88467baI77', // Pro mensuel par technicien
+  'price_1UQ19a2KbFmYQD88wfLBT8Ap', // Pro annuel par technicien
+])
 
 interface RequestBody {
   priceId: string
@@ -90,6 +105,7 @@ serve(async (req) => {
 
     const { priceId, cgvVersion } = (await req.json()) as RequestBody
     if (!priceId) return jsonResponse({ error: 'missing_priceId' }, 400, corsHeaders)
+    if (!SELF_SERVE_PRICES.has(priceId)) return jsonResponse({ error: 'invalid_price' }, 400, corsHeaders)
 
     // ─── Récupère l'organization du user ──────────────────
     const { data: profile, error: profileErr } = await userClient
@@ -125,11 +141,43 @@ serve(async (req) => {
 
     const { data: sub } = await adminClient
       .from('subscriptions')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, stripe_subscription_id, status')
       .eq('organization_id', profile.organization_id)
       .single()
 
     const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-11-20.acacia' })
+
+    // Quantité facturée = techniciens actifs (le minimum de la formule est
+    // porté par le premier palier du prix Stripe)
+    const { count: activeTechnicians } = await adminClient
+      .from('technicians')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', profile.organization_id)
+      .eq('active', true)
+    const quantity = Math.max(1, activeTechnicians ?? 0)
+
+    // Preuve d'acceptation des CGV (art. 18 CGV) : version + date + auteur
+    const cgvMetadata = {
+      organization_id: profile.organization_id,
+      cgv_version: typeof cgvVersion === 'string' ? cgvVersion.slice(0, 32) : 'non-transmise',
+      cgv_accepted_at: new Date().toISOString(),
+      cgv_accepted_by: user.email ?? user.id,
+    }
+
+    // ─── Déjà abonné : changement de formule sur place ───
+    if (sub?.stripe_subscription_id && ['active', 'past_due'].includes(sub.status)) {
+      const current = await stripe.subscriptions.retrieve(sub.stripe_subscription_id)
+      const item = current.items.data[0]
+      if (item && !['canceled', 'incomplete_expired'].includes(current.status)) {
+        await stripe.subscriptions.update(current.id, {
+          items: [{ id: item.id, price: priceId, quantity }],
+          proration_behavior: 'always_invoice',
+          cancel_at_period_end: false,
+          metadata: { ...current.metadata, ...cgvMetadata },
+        })
+        return jsonResponse({ url: `${SITE_URL}/abonnement?status=success`, updated: true }, 200, corsHeaders)
+      }
+    }
 
     // Crée le Customer Stripe au premier passage (réutilise sinon)
     let customerId = sub?.stripe_customer_id ?? null
@@ -160,19 +208,13 @@ serve(async (req) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: priceId, quantity }],
       success_url: `${SITE_URL}/abonnement?status=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${SITE_URL}/abonnement?status=canceled`,
       allow_promotion_codes: true,
       billing_address_collection: 'required',
       subscription_data: {
-        metadata: {
-          organization_id: profile.organization_id,
-          // Preuve d'acceptation des CGV (art. 18 CGV) : version + date + auteur
-          cgv_version: typeof cgvVersion === 'string' ? cgvVersion.slice(0, 32) : 'non-transmise',
-          cgv_accepted_at: new Date().toISOString(),
-          cgv_accepted_by: user.email ?? user.id,
-        },
+        metadata: cgvMetadata,
       },
       // Réglementaire FR : l'auto-collect de la TVA peut être activé plus
       // tard via stripe.tax.settings (nécessite ID TVA intracom — l'EI à

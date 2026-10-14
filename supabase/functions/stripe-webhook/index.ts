@@ -23,10 +23,21 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 import Stripe from 'https://esm.sh/stripe@17.5.0?target=deno'
 
-type PlanInfo = { plan: 'starter' | 'pro' | 'enterprise'; billing_period: 'monthly' | 'yearly' }
+type PlanInfo = { plan: 'essentiel' | 'starter' | 'pro' | 'enterprise'; billing_period: 'monthly' | 'yearly' }
+
+// Prix par technicien (grille du 13/10/2026). Identifiants publics, écrits en
+// dur pour ne dépendre d'aucun secret : un prix absent de la table serait
+// classé « enterprise » par resolvePlan.
+const SEAT_PRICES: Record<string, PlanInfo> = {
+  price_1UQ13C2KbFmYQD88IgXAJzkb: { plan: 'essentiel', billing_period: 'monthly' },
+  price_1UQ15a2KbFmYQD88Yv284sG1: { plan: 'essentiel', billing_period: 'yearly' },
+  price_1UQ18Y2KbFmYQD88467baI77: { plan: 'pro', billing_period: 'monthly' },
+  price_1UQ19a2KbFmYQD88wfLBT8Ap: { plan: 'pro', billing_period: 'yearly' },
+}
 
 function buildPriceMap(): Record<string, PlanInfo> {
-  const map: Record<string, PlanInfo> = {}
+  const map: Record<string, PlanInfo> = { ...SEAT_PRICES }
+  // Anciennes formules forfaitaires (avant le 13/10/2026)
   const starterMonthly = Deno.env.get('STRIPE_PRICE_STARTER_MONTHLY')
   const starterYearly  = Deno.env.get('STRIPE_PRICE_STARTER_YEARLY')
   const proMonthly     = Deno.env.get('STRIPE_PRICE_PRO_MONTHLY')
@@ -130,7 +141,8 @@ serve(async (req) => {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription
-        const price = subscription.items.data[0]?.price ?? null
+        const item = subscription.items.data[0] ?? null
+        const price = item?.price ?? null
         const priceId = price?.id ?? null
         const planInfo = resolvePlan(price, priceMap)
 
@@ -159,6 +171,8 @@ serve(async (req) => {
             stripe_price_id:        priceId,
             plan:                   planInfo?.plan ?? null,
             billing_period:         planInfo?.billing_period ?? null,
+            seat_based:             price?.billing_scheme === 'tiered',
+            seats:                  item?.quantity ?? null,
             status:                 subscription.status,
             current_period_end:     toIso(subscription.current_period_end),
             cancel_at_period_end:   subscription.cancel_at_period_end ?? false,

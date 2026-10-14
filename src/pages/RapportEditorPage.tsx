@@ -13,6 +13,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
+import { useSubscription } from '../features/billing/hooks'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
 import { setInterventionStatus } from '../features/planning/api'
 import { INTERVENTION_TYPE_LABELS, normalizeIntervention } from '../features/planning/schemas'
@@ -72,6 +73,7 @@ export function RapportEditorPage() {
   const { interventionId } = useParams<{ interventionId: string }>()
   const navigate = useNavigate()
   const profile = useAuthStore((s) => s.profile)
+  const { limits } = useSubscription()
 
   const [intervention, setIntervention] = useState<Intervention | null>(null)
   const [equipmentType, setEquipmentType] = useState<EquipmentType | null>(null)
@@ -817,7 +819,7 @@ export function RapportEditorPage() {
       )}
 
       {/* Temps réellement passé (gérant) : planning et main-d'œuvre des devis */}
-      {profile.user_role !== 'member' && (
+      {profile.user_role !== 'member' && limits.proFeatures && (
         <TimeSpentCard
           interventionId={iid}
           siteId={intervention.site_id}

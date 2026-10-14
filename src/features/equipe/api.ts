@@ -133,6 +133,11 @@ export async function listAllInvitations(): Promise<Invitation[]> {
   return (data ?? []) as Invitation[]
 }
 
+/** Message affiché quand la limite de comptes de la formule est atteinte */
+function accountLimitMessage(limit: string): string {
+  return `Votre formule inclut ${limit} comptes (un par technicien facturé + les comptes bureau), invitations en attente comprises. Pour ouvrir un compte de plus, ajoutez un technicien actif dans Techniciens (il sera facturé), ou annulez une invitation en attente.`
+}
+
 export async function createInvitation(
   organizationId: string,
   email: string,
@@ -151,7 +156,11 @@ export async function createInvitation(
     })
     .select()
     .single()
-  if (error) throw error
+  if (error) {
+    const m = /account_limit_reached:(\d+)/.exec(error.message ?? '')
+    if (m) throw new Error(accountLimitMessage(m[1]))
+    throw error
+  }
   return data as Invitation
 }
 
@@ -211,6 +220,7 @@ export async function acceptInvitation(
   const { data, error } = await supabase.rpc('accept_organization_invitation', {
     invite_token: token,
   })
+  if (error && /account_limit_reached/.test(error.message ?? '')) return { error: 'account_limit_reached' }
   if (error) throw error
   if (data?.error) return { error: data.error as string }
   return {

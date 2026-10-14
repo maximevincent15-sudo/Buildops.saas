@@ -63,8 +63,14 @@ export function useSubscription(): SubscriptionState {
     status === 'incomplete_expired'
   const urgency = isTrialing ? trialUrgency(trialDaysLeft) : 'safe'
   const tier = effectiveTier(subscription ?? null)
-  // Essai complet : fonctionnalités Pro + techniciens illimités (aligné sur le trigger SQL)
-  const limits = isTrialing ? { ...PLAN_LIMITS.pro, maxTechnicians: null } : PLAN_LIMITS[tier]
+  // Essai complet : fonctionnalités Pro + techniciens illimités ; abonnement
+  // par technicien : pas de limite, chaque technicien est facturé (aligné sur
+  // technician_limit_for_org)
+  const limits = isTrialing
+    ? { ...PLAN_LIMITS.pro, maxTechnicians: null }
+    : subscription?.seat_based
+      ? { ...PLAN_LIMITS[tier], maxTechnicians: null }
+      : PLAN_LIMITS[tier]
 
   return {
     subscription,

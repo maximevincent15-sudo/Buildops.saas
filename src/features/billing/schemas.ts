@@ -10,7 +10,7 @@ export type SubscriptionStatus =
   | 'incomplete'
   | 'incomplete_expired'
 
-export type Plan = 'starter' | 'pro' | 'enterprise'
+export type Plan = 'essentiel' | 'starter' | 'pro' | 'enterprise'
 export type BillingPeriod = 'monthly' | 'yearly'
 
 export interface Subscription {
@@ -25,15 +25,23 @@ export interface Subscription {
   trial_ends_at: string | null
   current_period_end: string | null
   cancel_at_period_end: boolean
+  /** Abonnement facturé par technicien actif (prix Stripe à paliers) */
+  seat_based: boolean
+  /** Nombre de techniciens facturés sur l'abonnement Stripe */
+  seats: number | null
   created_at: string
   updated_at: string
 }
 
 // Vue "PlanOffer" utilisée dans l'UI (page /abonnement + PlanCard).
 
+/** Prix d'une formule facturée par technicien actif, pour une périodicité. */
 export interface PlanPrice {
   priceId: string
-  amount: number
+  /** Prix HT par technicien, du 1er au 10e */
+  unit: number
+  /** Prix HT par technicien à partir du 11e */
+  unitAfter10: number
   per: 'mois' | 'an'
 }
 
@@ -41,6 +49,10 @@ export interface PlanOffer {
   plan: Plan
   label: string
   tagline: string
+  /** Nombre minimum de techniciens facturés */
+  minSeats: number
+  /** Comptes bureau inclus, en plus d'un compte par technicien facturé */
+  officeAccounts: number
   prices: {
     monthly: PlanPrice
     yearly: PlanPrice

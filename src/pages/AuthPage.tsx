@@ -64,6 +64,10 @@ export function AuthPage() {
             )
           } else if (res.error === 'invalid_or_expired') {
             setAcceptError('Cette invitation est invalide ou a expiré.')
+          } else if (res.error === 'account_limit_reached') {
+            setAcceptError(
+              "L'équipe que vous rejoignez a atteint le nombre de comptes de sa formule. Demandez à son administrateur d'ajouter un technicien ou de libérer un compte, puis rouvrez ce lien.",
+            )
           } else {
             setAcceptError(`Erreur : ${res.error}`)
           }

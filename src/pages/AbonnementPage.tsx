@@ -3,8 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { AlertTriangle, ExternalLink, CheckCircle2, XCircle } from 'lucide-react'
 import { useAuthStore } from '../features/auth/store'
 import { useSubscription } from '../features/billing/hooks'
-import { CGV_URL, CGV_VERSION, PLAN_OFFERS } from '../features/billing/constants'
-import { createCheckoutSession, createPortalSession } from '../features/billing/api'
+import { CGV_URL, CGV_VERSION, PLAN_LABELS, PLAN_OFFERS } from '../features/billing/constants'
+import { countActiveTechnicians, createCheckoutSession, createPortalSession } from '../features/billing/api'
 import { InvoicesList } from '../features/billing/components/InvoicesList'
 import { PlanCard } from '../features/billing/components/PlanCard'
 import type { BillingPeriod, Plan } from '../features/billing/schemas'
@@ -32,6 +32,11 @@ export function AbonnementPage() {
   const [cgvAccepted, setCgvAccepted] = useState(false)
   const [cgvHighlight, setCgvHighlight] = useState(false)
   const [statusToast, setStatusToast] = useState<'success' | 'canceled' | null>(null)
+  const [technicians, setTechnicians] = useState(0)
+
+  useEffect(() => {
+    countActiveTechnicians().then(setTechnicians, () => setTechnicians(0))
+  }, [])
 
   // Gestion du retour depuis Stripe Checkout (?status=success|canceled)
   useEffect(() => {
@@ -82,6 +87,7 @@ export function AbonnementPage() {
       await downloadSubscriptionQuote({
         offer,
         period,
+        technicians,
         organizationId: profile.organization_id,
         organizationName: profile.organizations?.name ?? 'Votre entreprise',
         contactName: [profile.first_name, profile.last_name].filter(Boolean).join(' ') || null,
@@ -110,8 +116,8 @@ export function AbonnementPage() {
   const currentPlanLabel = useMemo(() => {
     if (!subscription) return '—'
     if (subscription.plan) {
-      const label = PLAN_OFFERS.find((o) => o.plan === subscription.plan)?.label
-      return `${label ?? subscription.plan} · ${subscription.billing_period === 'yearly' ? 'annuel' : 'mensuel'}`
+      const label = PLAN_LABELS[subscription.plan] ?? subscription.plan
+      return `${label} · ${subscription.billing_period === 'yearly' ? 'annuel' : 'mensuel'}`
     }
     return STATUS_LABELS[subscription.status] ?? subscription.status
   }, [subscription])
@@ -216,6 +222,11 @@ export function AbonnementPage() {
                 {subscription.cancel_at_period_end && ' · annulation programmée à la fin de la période'}
               </div>
             )}
+            {isActive && subscription?.seat_based && (
+              <div style={{ fontSize: '.85rem', color: 'var(--ink2, #5A6070)', marginTop: '.3rem' }}>
+                {technicians} technicien{technicians > 1 ? 's' : ''} actif{technicians > 1 ? 's' : ''} · tout ajout ou retrait de technicien est répercuté automatiquement sur l'abonnement, au prorata
+              </div>
+            )}
           </div>
 
           {subscription?.stripe_customer_id && (
@@ -312,14 +323,16 @@ export function AbonnementPage() {
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: '1.2rem',
-          marginBottom: '1.5rem',
+          maxWidth: 820,
+          margin: '0 auto 1.5rem',
         }}>
           {PLAN_OFFERS.map((offer) => (
             <PlanCard
               key={offer.plan}
               offer={offer}
               period={period}
-              currentPlan={isBlocked ? null : subscription?.plan ?? null}
+              technicians={technicians}
+              currentPlan={isBlocked || (subscription?.stripe_subscription_id && !subscription.seat_based) ? null : subscription?.plan ?? null}
               currentPeriod={subscription?.billing_period ?? null}
               onChoose={handleChoose}
               loading={redirecting}
@@ -338,7 +351,7 @@ export function AbonnementPage() {
               Besoin d'une offre sur mesure ?
             </div>
             <div style={{ fontSize: '.85rem', color: 'var(--ink2, #5A6070)', marginTop: '.2rem' }}>
-              Plusieurs agences, un grand nombre de techniciens ou des besoins spécifiques : nous établissons un devis adapté à votre organisation.
+              Plus de 20 techniciens, plusieurs agences ou des besoins spécifiques : nous établissons un devis adapté à votre organisation.
             </div>
           </div>
           <button

@@ -2,7 +2,10 @@ import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { formatCompanyNumber } from '../../clients/companyLookup'
-import { CGV_URL, CGV_VERSION, FIROVIA_ISSUER, PLAN_OFFERS, computeYearlySavings } from '../constants'
+import {
+  CGV_URL, CGV_VERSION, FIROVIA_ISSUER, PLAN_OFFERS, SEAT_DISCOUNT_FROM,
+  billedSeats, computePlanTotal, computeYearlySavings,
+} from '../constants'
 import type { BillingPeriod, PlanOffer } from '../schemas'
 
 /**
@@ -16,6 +19,8 @@ export type SubscriptionQuoteData = {
   validUntil: Date
   offer: PlanOffer
   period: BillingPeriod
+  /** Techniciens actifs à la date du devis */
+  technicians: number
   client: {
     name: string
     siret: string | null
@@ -88,29 +93,33 @@ function eur(n: number): string {
 }
 
 /**
- * Fonctionnalités complètes de la formule, cumulées (Entreprise ⊃ Pro ⊃ Starter),
- * sans les lignes de liaison ni les limites de techniciens des formules inférieures.
+ * Fonctionnalités complètes de la formule, cumulées (Pro ⊃ Essentiel),
+ * sans les lignes de liaison.
  */
 // Lignes des formules inférieures remplacées par un équivalent supérieur
 const SUPERSEDED = new Set(['Support email', 'Support prioritaire', 'Onboarding humain 1h'])
 
 function fullFeatures(offer: PlanOffer): string[] {
-  const order = ['starter', 'pro', 'enterprise'] as const
+  const order = PLAN_OFFERS.map((o) => o.plan)
   const own = offer.features.filter((f) => !/^Tout le plan/i.test(f))
   const lower = order
-    .slice(0, order.indexOf(offer.plan))
+    .slice(0, Math.max(0, order.indexOf(offer.plan)))
     .reverse()
     .flatMap((p) => PLAN_OFFERS.find((o) => o.plan === p)?.features ?? [])
-    .filter((f) => !/^Tout le plan/i.test(f) && !/^Jusqu'à \d+ techniciens$/i.test(f) && !SUPERSEDED.has(f))
+    .filter((f) => !/^Tout le plan/i.test(f) && !SUPERSEDED.has(f))
   const seen = new Set<string>()
   return [...own, ...lower].filter((f) => (seen.has(f) ? false : (seen.add(f), true)))
 }
 
 export function SubscriptionQuotePdf({ data }: { data: SubscriptionQuoteData }) {
-  const { offer, period, client } = data
+  const { offer, period, client, technicians } = data
   const price = offer.prices[period]
   const yearly = period === 'yearly'
-  const savings = yearly ? computeYearlySavings(offer) : 0
+  const seats = billedSeats(offer, technicians)
+  const fullSeats = Math.min(seats, SEAT_DISCOUNT_FROM - 1)
+  const discountedSeats = seats - fullSeats
+  const total = computePlanTotal(offer, period, technicians)
+  const savings = yearly ? computeYearlySavings(offer, technicians) : 0
   const fmt = (d: Date) => format(d, 'd MMMM yyyy', { locale: fr })
 
   return (
@@ -153,23 +162,38 @@ export function SubscriptionQuotePdf({ data }: { data: SubscriptionQuoteData }) 
         <View style={s.tableRow}>
           <View style={s.colDesc}>
             <Text style={s.descTitle}>
-              Abonnement Firovia — Formule {offer.label} ({offer.plan === 'enterprise' ? 'techniciens illimités' : offer.tagline.replace(/^Pour les PME de /i, '')})
+              Abonnement Firovia — Formule {offer.label}, {yearly ? '12 mois' : '1 mois'} par technicien
             </Text>
             <Text style={s.descSub}>
+              {technicians > 0
+                ? `${technicians} technicien${technicians > 1 ? 's' : ''} actif${technicians > 1 ? 's' : ''} à la date du devis`
+                : 'Nombre de techniciens à confirmer'}
+              {technicians < offer.minSeats ? ` (minimum facturé : ${offer.minSeats} techniciens)` : ''}.{' '}
+              {`Un compte par technicien facturé + ${offer.officeAccounts} comptes bureau inclus. `}
               {yearly
-                ? `Période de 12 mois, payable d'avance. Économie de ${eur(savings)} HT par rapport à la formule mensuelle.`
-                : `Abonnement mensuel payable d'avance, sans durée minimale. Soit ${eur(price.amount * 12)} HT sur 12 mois.`}
+                ? `Période de 12 mois, payable d'avance, 2 mois offerts : économie de ${eur(savings)} HT par rapport à la formule mensuelle.`
+                : `Abonnement mensuel payable d'avance, sans durée minimale. Soit ${eur(total * 12)} HT sur 12 mois.`}
             </Text>
           </View>
-          <Text style={s.colQty}>{yearly ? '1 an' : '1 mois'}</Text>
-          <Text style={s.colPu}>{eur(price.amount)}</Text>
-          <Text style={s.colTotal}>{eur(price.amount)}</Text>
+          <Text style={s.colQty}>{fullSeats}</Text>
+          <Text style={s.colPu}>{eur(price.unit)}</Text>
+          <Text style={s.colTotal}>{eur(fullSeats * price.unit)}</Text>
         </View>
+        {discountedSeats > 0 && (
+          <View style={s.tableRow}>
+            <View style={s.colDesc}>
+              <Text style={s.descTitle}>Techniciens à partir du {SEAT_DISCOUNT_FROM}e (tarif dégressif)</Text>
+            </View>
+            <Text style={s.colQty}>{discountedSeats}</Text>
+            <Text style={s.colPu}>{eur(price.unitAfter10)}</Text>
+            <Text style={s.colTotal}>{eur(discountedSeats * price.unitAfter10)}</Text>
+          </View>
+        )}
 
         <View style={s.totals}>
           <View style={s.totalRow}>
             <Text>Total HT</Text>
-            <Text>{eur(price.amount)}</Text>
+            <Text>{eur(total)}</Text>
           </View>
           <View style={s.totalRow}>
             <Text style={{ color: c.ink2 }}>TVA (non applicable, art. 293 B du CGI)</Text>
@@ -177,7 +201,7 @@ export function SubscriptionQuotePdf({ data }: { data: SubscriptionQuoteData }) 
           </View>
           <View style={s.totalFinal}>
             <Text>{yearly ? 'Total à régler (12 mois)' : 'Total à régler par mois'}</Text>
-            <Text>{eur(price.amount)}</Text>
+            <Text>{eur(total)}</Text>
           </View>
         </View>
 
@@ -206,6 +230,7 @@ export function SubscriptionQuotePdf({ data }: { data: SubscriptionQuoteData }) 
             yearly
               ? "Abonnement annuel payable d'avance, renouvelé tacitement pour 12 mois sauf résiliation avant l'échéance (rappel envoyé 30 jours avant)."
               : "Abonnement mensuel payable d'avance, renouvelé tacitement chaque mois, résiliable à tout moment (effet à la fin du mois en cours).",
+            "Le montant suit le nombre de techniciens actifs : tout ajout ou retrait de technicien est répercuté automatiquement sur l'abonnement, au prorata de la période en cours.",
             "Paiement par carte bancaire en ligne depuis l'espace Abonnement de Firovia (app.firovia.fr/abonnement), ou par virement à réception de facture sur demande.",
             'Retard de paiement : pénalités au taux de la BCE majoré de 10 points et indemnité forfaitaire de 40 € pour frais de recouvrement. Pas d\'escompte pour paiement anticipé.',
             `Offre soumise aux Conditions Générales de Vente de Firovia (version du ${CGV_VERSION.split('-').reverse().join('/')}), incluant l'accord de traitement des données (RGPD) : ${CGV_URL.replace('https://', '')}`,

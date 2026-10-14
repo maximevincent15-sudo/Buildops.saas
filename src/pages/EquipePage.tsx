@@ -18,6 +18,9 @@ import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
+import { countActiveTechnicians } from '../features/billing/api'
+import { computeAccountLimit } from '../features/billing/constants'
+import { useSubscription } from '../features/billing/hooks'
 import {
   buildInvitationUrl,
   cancelInvitation,
@@ -53,6 +56,12 @@ export function EquipePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
+  const { subscription } = useSubscription()
+  const [activeTechnicians, setActiveTechnicians] = useState(0)
+
+  useEffect(() => {
+    countActiveTechnicians().then(setActiveTechnicians, () => setActiveTechnicians(0))
+  }, [])
 
   // Modal d'invitation
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -236,6 +245,12 @@ export function EquipePage() {
     )
   }
 
+  // Limite de comptes de la formule (CGV art. 4) : invitations en attente comprises
+  const accountLimit = computeAccountLimit(subscription, activeTechnicians)
+  const pendingInvitations = invitations.filter((i) => new Date(i.expires_at) > new Date()).length
+  const usedAccounts = members.length + pendingInvitations
+  const atAccountLimit = !loading && accountLimit !== null && usedAccounts >= accountLimit
+
   return (
     <>
       <div className="dash-top">
@@ -243,6 +258,16 @@ export function EquipePage() {
           <div className="dash-title">Équipe</div>
           <div className="dash-sub">
             Invite tes employés à rejoindre ton organisation Firovia.
+            {!loading && accountLimit !== null && (
+              <span style={{ marginLeft: 8, color: atAccountLimit ? 'var(--org, #C45A1A)' : 'var(--ink3)' }}>
+                · {usedAccounts} / {accountLimit} comptes utilisés (un par technicien facturé + comptes bureau)
+                {atAccountLimit && (
+                  <>
+                    {' '}— <Link to="/techniciens" style={{ color: 'var(--acc)', fontWeight: 500 }}>ajouter un technicien</Link> pour ouvrir un compte de plus
+                  </>
+                )}
+              </span>
+            )}
           </div>
         </div>
         <div className="dash-acts">
@@ -253,7 +278,9 @@ export function EquipePage() {
             type="button"
             className="mf prim"
             onClick={() => setInviteOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            disabled={atAccountLimit}
+            title={atAccountLimit ? 'Limite de comptes de votre formule atteinte' : undefined}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, opacity: atAccountLimit ? 0.5 : 1 }}
           >
             <Plus size={14} strokeWidth={2} />
             Inviter un membre

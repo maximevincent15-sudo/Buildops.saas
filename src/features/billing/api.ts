@@ -14,6 +14,16 @@ export async function fetchSubscription(): Promise<Subscription | null> {
   return data as Subscription | null
 }
 
+/** Nombre de techniciens actifs de l'organisation (= techniciens facturés). */
+export async function countActiveTechnicians(): Promise<number> {
+  const { count, error } = await supabase
+    .from('technicians')
+    .select('id', { count: 'exact', head: true })
+    .eq('active', true)
+  if (error) throw error
+  return count ?? 0
+}
+
 /**
  * Crée une Stripe Checkout Session et renvoie l'URL vers laquelle rediriger
  * le user. Il paye chez Stripe, puis retour sur /abonnement?status=success.

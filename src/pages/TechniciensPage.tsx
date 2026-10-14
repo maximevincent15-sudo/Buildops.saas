@@ -1,6 +1,7 @@
 import { HardHat, Mail, Phone, Upload } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { PLAN_LABELS } from '../features/billing/constants'
 import { useSubscription } from '../features/billing/hooks'
 import { RhTabs } from '../features/dashboard/components/RhTabs'
 import { listTechnicians } from '../features/technicians/api'
@@ -15,7 +16,7 @@ export function TechniciensPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Technician | null>(null)
   const [filter, setFilter] = useState<'active' | 'all'>('active')
-  const { limits, tier, loading: subLoading } = useSubscription()
+  const { limits, tier, subscription, isActive, loading: subLoading } = useSubscription()
 
   async function load() {
     setLoading(true)
@@ -55,7 +56,7 @@ export function TechniciensPage() {
   const inactiveCount = total - activeCount
   const maxTech = limits.maxTechnicians
   const atLimit = !subLoading && maxTech !== null && activeCount >= maxTech
-  const tierLabel = tier === 'starter' ? 'Starter' : tier === 'pro' ? 'Pro' : 'Entreprise'
+  const tierLabel = PLAN_LABELS[tier]
 
   return (
     <>
@@ -75,6 +76,11 @@ export function TechniciensPage() {
                     {' '}— <Link to="/abonnement" style={{ color: 'var(--acc)', fontWeight: 500 }}>passer à la formule supérieure</Link>
                   </>
                 )}
+              </span>
+            )}
+            {!subLoading && isActive && subscription?.seat_based && (
+              <span style={{ marginLeft: 8, color: 'var(--ink3)' }}>
+                · formule {tierLabel} facturée par technicien actif : chaque ajout ou retrait est répercuté sur l'abonnement, au prorata
               </span>
             )}
           </div>

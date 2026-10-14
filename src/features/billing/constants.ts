@@ -2,11 +2,10 @@ import type { Plan, BillingPeriod, PlanOffer } from './schemas'
 
 // Les price IDs sont exposés côté client (public, Stripe s'attend à ce qu'ils
 // le soient). Seule la clé secrète Stripe reste server-side (Edge Function).
-// Ces IDs correspondent aux Prices créés dans le Dashboard Stripe le 30/06/2026.
 
 // Version des CGV en vigueur (firovia.fr/cgv.html) — à mettre à jour à chaque
 // modification des CGV. Transmise à Stripe comme preuve d'acceptation.
-export const CGV_VERSION = '2026-10-06'
+export const CGV_VERSION = '2026-10-13'
 export const CGV_URL = 'https://firovia.fr/cgv.html'
 
 // Identité légale de Firovia (émetteur des devis d'abonnement)
@@ -19,31 +18,37 @@ export const FIROVIA_ISSUER = {
   vatMention: 'TVA non applicable, art. 293 B du CGI',
 } as const
 
-const PRICE_STARTER_MONTHLY = 'price_1Tnx8a2KbFmYQD889c1DfKJC'
-const PRICE_STARTER_YEARLY = 'price_1Tnx2o2KbFmYQD886Fw6uOlk'
-const PRICE_PRO_MONTHLY = 'price_1TnxJX2KbFmYQD88TyrumqBu'
-const PRICE_PRO_YEARLY = 'price_1TnxIc2KbFmYQD88vYU0K21o'
-// Formule Entreprise (prix de base « à partir de ») — au-delà : devis sur mesure
-const PRICE_ENTERPRISE_MONTHLY = 'price_1UKdwO2KbFmYQD88ptjNhCJS'
-const PRICE_ENTERPRISE_YEARLY = 'price_1UKdy42KbFmYQD88lx7gicEe'
+// Prix Stripe « progressifs » créés le 13/10/2026 : premier palier = forfait
+// minimum, puis prix par technicien, dégressif à partir du 11e.
+const PRICE_ESSENTIEL_MONTHLY = 'price_1UQ13C2KbFmYQD88IgXAJzkb'
+const PRICE_ESSENTIEL_YEARLY = 'price_1UQ15a2KbFmYQD88Yv284sG1'
+const PRICE_PRO_MONTHLY = 'price_1UQ18Y2KbFmYQD88467baI77'
+const PRICE_PRO_YEARLY = 'price_1UQ19a2KbFmYQD88wfLBT8Ap'
 
+/** Rang du premier technicien au tarif dégressif */
+export const SEAT_DISCOUNT_FROM = 11
+
+// Formules en libre-service. Liste alignée sur firovia.fr/tarifs
+// (référence contractuelle des CGV).
 export const PLAN_OFFERS: PlanOffer[] = [
   {
-    plan: 'starter',
-    label: 'Starter',
-    tagline: 'Pour les PME de 1 à 5 techniciens',
+    plan: 'essentiel',
+    label: 'Essentiel',
+    tagline: 'Tout le terrain, du planning à la facture',
+    minSeats: 2,
+    officeAccounts: 2,
     prices: {
-      monthly: { priceId: PRICE_STARTER_MONTHLY, amount: 299, per: 'mois' },
-      yearly: { priceId: PRICE_STARTER_YEARLY, amount: 2990, per: 'an' },
+      monthly: { priceId: PRICE_ESSENTIEL_MONTHLY, unit: 49, unitAfter10: 39, per: 'mois' },
+      yearly: { priceId: PRICE_ESSENTIEL_YEARLY, unit: 490, unitAfter10: 390, per: 'an' },
     },
-    // Liste alignée sur firovia.fr/tarifs (référence contractuelle des CGV)
     features: [
-      'Jusqu\'à 5 techniciens',
       'Planning + rapports terrain mobile',
       'Registres équipements format APSAD',
+      'Visites préventives programmées automatiquement',
       'Alertes échéances',
       'Devis & factures illimités',
       'Envoi automatique par email',
+      'Portail client',
       'Support email',
       'Hébergement UE (RGPD)',
     ],
@@ -52,46 +57,41 @@ export const PLAN_OFFERS: PlanOffer[] = [
   {
     plan: 'pro',
     label: 'Pro',
-    tagline: 'Pour les PME de 6 à 20 techniciens',
+    tagline: "Le terrain + le pilotage de l'activité",
+    minSeats: 3,
+    officeAccounts: 5,
     prices: {
-      monthly: { priceId: PRICE_PRO_MONTHLY, amount: 499, per: 'mois' },
-      yearly: { priceId: PRICE_PRO_YEARLY, amount: 4990, per: 'an' },
+      monthly: { priceId: PRICE_PRO_MONTHLY, unit: 69, unitAfter10: 59, per: 'mois' },
+      yearly: { priceId: PRICE_PRO_YEARLY, unit: 690, unitAfter10: 590, per: 'an' },
     },
     features: [
-      'Tout le plan Starter, plus :',
-      'Jusqu\'à 20 techniciens',
+      'Tout le plan Essentiel, plus :',
       'Pilotage business (CA, impayés)',
       'Tops clients / techniciens',
       'Évolution mensuelle du CA',
+      'Temps passé réel par intervention',
       'Export paie (heures sup, frais)',
       'Support prioritaire',
       'Onboarding humain 1h',
     ],
     accent: true,
   },
-  {
-    plan: 'enterprise',
-    label: 'Entreprise',
-    tagline: 'Pour les structures de plus de 20 techniciens',
-    prices: {
-      monthly: { priceId: PRICE_ENTERPRISE_MONTHLY, amount: 799, per: 'mois' },
-      yearly: { priceId: PRICE_ENTERPRISE_YEARLY, amount: 7990, per: 'an' },
-    },
-    features: [
-      'Tout le plan Pro, plus :',
-      'Techniciens illimités',
-      'Personnalisation avancée',
-      'Accompagnement onboarding',
-      'Support dédié',
-    ],
-    accent: false,
-  },
 ]
 
+/** Libellés de toutes les formules, y compris les anciennes formules forfaitaires */
+export const PLAN_LABELS: Record<Plan, string> = {
+  essentiel: 'Essentiel',
+  starter: 'Starter',
+  pro: 'Pro',
+  enterprise: 'Entreprise',
+}
+
 // ─── Droits par formule ─────────────────────────────────────
-// La limite de techniciens est aussi appliquée en base (trigger
-// enforce_technician_limit) : ces valeurs doivent rester alignées.
+// Abonnement par technicien (seat_based) : pas de limite, chaque technicien
+// actif est facturé (cf. useSubscription). Starter 5 et Pro forfaitaire 20 :
+// anciennes formules, aussi appliquées en base (technician_limit_for_org).
 export const PLAN_LIMITS: Record<Plan, { maxTechnicians: number | null; proFeatures: boolean }> = {
+  essentiel: { maxTechnicians: null, proFeatures: false },
   starter: { maxTechnicians: 5, proFeatures: false },
   pro: { maxTechnicians: 20, proFeatures: true },
   enterprise: { maxTechnicians: null, proFeatures: true },
@@ -111,15 +111,41 @@ export function getOffer(plan: Plan): PlanOffer | null {
   return PLAN_OFFERS.find((o) => o.plan === plan) ?? null
 }
 
-export function getPriceId(plan: Plan, period: BillingPeriod): string {
-  const offer = getOffer(plan)
-  if (!offer) throw new Error(`Plan inconnu : ${plan}`)
-  return offer.prices[period].priceId
+/** Nombre de techniciens facturés : les techniciens actifs, au minimum celui de la formule. */
+export function billedSeats(offer: PlanOffer, technicians: number): number {
+  return Math.max(offer.minSeats, Math.round(technicians))
 }
 
-// Économie affichée sur l'annuel (12 x mensuel - annuel). Convention : ~17%.
-export function computeYearlySavings(offer: PlanOffer): number {
-  return offer.prices.monthly.amount * 12 - offer.prices.yearly.amount
+/**
+ * Montant HT d'une formule pour un nombre de techniciens actifs, identique au
+ * calcul des paliers Stripe (forfait minimum, puis prix par technicien,
+ * dégressif à partir du 11e).
+ */
+export function computePlanTotal(offer: PlanOffer, period: BillingPeriod, technicians: number): number {
+  const price = offer.prices[period]
+  const seats = billedSeats(offer, technicians)
+  const full = Math.min(seats, SEAT_DISCOUNT_FROM - 1)
+  return full * price.unit + (seats - full) * price.unitAfter10
+}
+
+/**
+ * Comptes de connexion autorisés (CGV art. 4) : un par technicien facturé +
+ * les comptes bureau de la formule. null = pas de limite (essai, anciennes
+ * formules, accès offerts). Aligné sur account_limit_for_org (SQL).
+ */
+export function computeAccountLimit(
+  sub: { status: string; plan: Plan | null; seat_based: boolean } | null,
+  technicians: number,
+): number | null {
+  if (!sub || sub.status === 'trialing' || !sub.seat_based || !sub.plan) return null
+  const offer = getOffer(sub.plan)
+  if (!offer) return null
+  return billedSeats(offer, technicians) + offer.officeAccounts
+}
+
+// Économie affichée sur l'annuel (12 x mensuel - annuel) = 2 mois offerts.
+export function computeYearlySavings(offer: PlanOffer, technicians: number): number {
+  return computePlanTotal(offer, 'monthly', technicians) * 12 - computePlanTotal(offer, 'yearly', technicians)
 }
 
 // Nombre de jours restants dans le trial (peut être négatif si expiré).
