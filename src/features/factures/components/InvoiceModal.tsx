@@ -6,6 +6,8 @@ import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { VAT_RATES, computeQuoteTotals, formatAmount } from '../../devis/constants'
 import type { QuoteLineInput } from '../../devis/schemas'
 import { getInvoicingSettings } from '../../parametres/api'
+import { CatalogPicker } from '../../catalogue/components/CatalogPicker'
+import type { CatalogItem } from '../../catalogue/schemas'
 import { formatCompanyNumber, parseCompanyNumber } from '../../clients/companyLookup'
 import { ClientAutocomplete } from '../../planning/components/ClientAutocomplete'
 import {
@@ -168,6 +170,17 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
 
   function addLine() {
     setLines((prev) => [...prev, { ...EMPTY_LINE, position: prev.length }])
+  }
+
+  /** Article du catalogue : remplace la dernière ligne si elle est vide, sinon ajoute une ligne */
+  function addCatalogItem(item: CatalogItem) {
+    setLines((prev) => {
+      const line: QuoteLineInput = { ...EMPTY_LINE, description: item.label, unit_price_ht: item.unit_price_ht, vat_rate: item.vat_rate }
+      const last = prev[prev.length - 1]
+      const lastIsEmpty = !!last && !last.description.trim() && !last.unit_price_ht
+      const next = lastIsEmpty ? [...prev.slice(0, -1), line] : [...prev, line]
+      return next.map((l, i) => ({ ...l, position: i }))
+    })
   }
 
   function removeLine(index: number) {
@@ -611,9 +624,12 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
                     </div>
                   )
                 })}
-                <button type="button" className="quote-add-line" onClick={addLine}>
-                  <Plus size={13} strokeWidth={2} /> Ajouter une ligne
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', flexWrap: 'wrap' }}>
+                  <button type="button" className="quote-add-line" onClick={addLine}>
+                    <Plus size={13} strokeWidth={2} /> Ajouter une ligne
+                  </button>
+                  <CatalogPicker onPick={addCatalogItem} />
+                </div>
               </div>
             </div>
 

@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Archive,
   Bell,
+  BookOpen,
   Boxes,
   Building2,
   CalendarDays,
@@ -54,6 +55,7 @@ const rh: NavItem[] = [
 const facturation: NavItem[] = [
   { to: '/devis', Icon: Wallet, label: 'Devis' },
   { to: '/factures', Icon: Receipt, label: 'Factures', badgeKey: 'factures' },
+  { to: '/catalogue', Icon: BookOpen, label: 'Catalogue' },
 ]
 
 const documents: NavItem[] = [
