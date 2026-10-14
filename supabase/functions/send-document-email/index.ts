@@ -57,6 +57,18 @@ function buildCorsHeaders(origin) {
 
 type DocumentKind = 'report' | 'quote' | 'invoice'
 
+const EMAIL_RE = /^[^\s@<>",;]+@[^\s@<>",;]+\.[^\s@<>",;]+$/
+
+/**
+ * Nom d'expéditeur affiché : « Vincent Incendie via Firovia ». Les caractères
+ * qui casseraient l'en-tête From sont retirés, et le nom est placé entre
+ * guillemets (virgules, points…).
+ */
+function senderName(orgName: string | null | undefined, fallback: string): string {
+  const clean = (orgName ?? '').replace(/["<>\\\r\n]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60)
+  return clean ? `"${clean} via Firovia"` : fallback
+}
+
 interface RequestBody {
   kind: DocumentKind
   documentId: string
@@ -181,6 +193,27 @@ serve(async (req) => {
       )
     }
 
+    // ─── Expéditeur au nom de l'entreprise, réponses vers l'entreprise ───
+    // Le mail part toujours de noreply@firovia.fr (domaine vérifié), mais le
+    // client voit le nom de l'entreprise et sa réponse arrive chez elle :
+    // email légal (Paramètres → facturation), sinon celui de l'expéditeur.
+    const { data: profile } = await supabaseClient
+      .from('profiles')
+      .select('organization_id, organizations ( name )')
+      .eq('id', user.id)
+      .maybeSingle()
+    let legalEmail: string | null = null
+    if (profile?.organization_id) {
+      const { data: settings } = await supabaseClient
+        .from('organization_invoicing_settings')
+        .select('legal_email')
+        .eq('organization_id', profile.organization_id)
+        .maybeSingle()
+      legalEmail = settings?.legal_email?.trim() ?? null
+    }
+    const replyTo = [legalEmail, user.email].find((e) => e && EMAIL_RE.test(e)) ?? null
+    const fromName = senderName(profile?.organizations?.name, RESEND_FROM_NAME)
+
     const pdfUrl = payload.pdfUrl ?? doc.pdf_url
     let attachments: { filename: string; content: string }[] = []
 
@@ -213,7 +246,8 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: `${RESEND_FROM_NAME} <${RESEND_FROM_EMAIL}>`,
+        from: `${fromName} <${RESEND_FROM_EMAIL}>`,
+        reply_to: replyTo ?? undefined,
         to: [payload.recipientEmail],
         subject: payload.subject,
         text: payload.body,
@@ -239,6 +273,7 @@ serve(async (req) => {
         success: true,
         emailId: resendData.id,
         sentTo: payload.recipientEmail,
+        replyTo,
         attached: attachments.length > 0,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
