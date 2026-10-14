@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { AlertTriangle, CheckCircle2, ClipboardCheck, Download, ExternalLink } from 'lucide-react'
+import { AlertTriangle, Archive, CheckCircle2, ClipboardCheck, Download, ExternalLink } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatEquipmentTypesShort } from '../../../shared/constants/interventions'
@@ -81,6 +81,12 @@ export function ReportHistoryList({
 
   const visible = showAll || limit === 0 ? reports : reports.slice(0, limit)
   const hiddenCount = reports.length - visible.length
+
+  // Archivage pré-filtré : rapports, devis et factures du client (et du site), toutes années
+  const archiveParams = new URLSearchParams()
+  if (clientName) archiveParams.set('client', clientName)
+  if (siteName) archiveParams.set('q', siteName)
+  const archiveUrl = `/archivage?${archiveParams.toString()}`
 
   return (
     <div className="card history-card">
@@ -193,6 +199,17 @@ export function ReportHistoryList({
             </button>
           )}
         </div>
+      )}
+
+      {!loading && (clientName || siteName) && (
+        <Link
+          to={archiveUrl}
+          className="text-xs"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: '.7rem', color: 'var(--acc)', fontWeight: 500 }}
+        >
+          <Archive size={12} strokeWidth={2} />
+          Tout l'historique {siteName ? 'de ce site' : 'de ce client'} : rapports, devis et factures, toutes années
+        </Link>
       )}
     </div>
   )

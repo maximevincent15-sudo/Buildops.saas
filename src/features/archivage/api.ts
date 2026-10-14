@@ -22,6 +22,12 @@ export type ArchivedDocument = {
   amount_ttc?: number
   /** true si le document a été importé depuis un PDF externe (legacy) */
   is_legacy?: boolean
+  /** Texte complémentaire pour la recherche : adresse, ville, technicien, notes, observations… */
+  search_text?: string
+}
+
+function joinText(parts: Array<string | null | undefined>): string {
+  return parts.filter(Boolean).join(' ')
 }
 
 /**
@@ -41,8 +47,11 @@ export async function listArchivedDocuments(): Promise<ArchivedDocument[]> {
     const { data: reports, error: rErr } = await supabase
       .from('reports')
       .select(`
-        id, intervention_id, completed_at, pdf_url, created_at,
-        intervention:interventions ( id, reference, client_name, client_id, site_name, status )
+        id, intervention_id, completed_at, pdf_url, created_at, observations,
+        intervention:interventions (
+          id, reference, client_name, client_id, site_name, status, address,
+          chantier_address, chantier_postal_code, chantier_city, technician_name, notes, recommendations
+        )
       `)
       .not('completed_at', 'is', null)
       .order('completed_at', { ascending: false })
@@ -54,6 +63,7 @@ export async function listArchivedDocuments(): Promise<ArchivedDocument[]> {
         completed_at: string | null
         pdf_url: string | null
         created_at: string
+        observations: string | null
         intervention: {
           id: string
           reference: string
@@ -61,6 +71,13 @@ export async function listArchivedDocuments(): Promise<ArchivedDocument[]> {
           client_id: string | null
           site_name: string | null
           status: string
+          address: string | null
+          chantier_address: string | null
+          chantier_postal_code: string | null
+          chantier_city: string | null
+          technician_name: string | null
+          notes: string | null
+          recommendations: string | null
         } | null
       }>) {
         const interv = r.intervention
@@ -76,6 +93,10 @@ export async function listArchivedDocuments(): Promise<ArchivedDocument[]> {
           pdf_url: r.pdf_url,
           intervention_id: r.intervention_id,
           status: 'finalisé',
+          search_text: joinText([
+            interv.address, interv.chantier_address, interv.chantier_postal_code, interv.chantier_city,
+            interv.technician_name, interv.notes, interv.recommendations, r.observations,
+          ]),
         })
       }
     }
@@ -87,7 +108,7 @@ export async function listArchivedDocuments(): Promise<ArchivedDocument[]> {
   try {
     const { data: quotes, error: qErr } = await supabase
       .from('quotes')
-      .select('id, reference, issue_date, client_name, client_id, site_name, pdf_url, status, total_ttc')
+      .select('id, reference, issue_date, client_name, client_id, site_name, site_address, client_address, notes, pdf_url, status, total_ttc')
       .neq('status', 'draft')
       .order('issue_date', { ascending: false })
 
@@ -99,11 +120,15 @@ export async function listArchivedDocuments(): Promise<ArchivedDocument[]> {
         client_name: string
         client_id: string | null
         site_name: string | null
+        site_address: string | null
+        client_address: string | null
+        notes: string | null
         pdf_url: string | null
         status: string
         total_ttc: number
       }>) {
         docs.push({
+          search_text: joinText([q.site_address, q.client_address, q.notes]),
           id: q.id,
           kind: 'quote',
           reference: q.reference,
@@ -125,7 +150,7 @@ export async function listArchivedDocuments(): Promise<ArchivedDocument[]> {
   try {
     const { data: invoices, error: iErr } = await supabase
       .from('invoices')
-      .select('id, reference, issue_date, client_name, client_id, site_name, pdf_url, status, total_ttc')
+      .select('id, reference, issue_date, client_name, client_id, site_name, site_address, client_address, notes, pdf_url, status, total_ttc')
       .neq('status', 'draft')
       .order('issue_date', { ascending: false })
 
@@ -137,11 +162,15 @@ export async function listArchivedDocuments(): Promise<ArchivedDocument[]> {
         client_name: string
         client_id: string | null
         site_name: string | null
+        site_address: string | null
+        client_address: string | null
+        notes: string | null
         pdf_url: string | null
         status: string
         total_ttc: number
       }>) {
         docs.push({
+          search_text: joinText([inv.site_address, inv.client_address, inv.notes]),
           id: inv.id,
           kind: 'invoice',
           reference: inv.reference,

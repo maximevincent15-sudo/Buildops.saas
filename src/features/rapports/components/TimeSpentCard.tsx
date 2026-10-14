@@ -80,7 +80,16 @@ export function TimeSpentCard({ interventionId, siteId, startedAt, completedAt, 
   const firstCheck = sorted[0] ?? null
   const lastCheck = sorted[sorted.length - 1] ?? null
   const start = startedAt ?? firstCheck
-  const end = completedAt ?? (start ? new Date().toISOString() : null)
+
+  // Intervention en cours : le temps sur place avance chaque minute
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (completedAt || !start) return
+    const timer = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(timer)
+  }, [completedAt, start])
+
+  const end = completedAt ?? (start ? new Date(now).toISOString() : null)
   const onSite = start && end ? minutesBetween(start, end) : null
   const controls = firstCheck && lastCheck && sorted.length > 1 ? minutesBetween(firstCheck, lastCheck) : null
   const perUnit = controls !== null && sorted.length > 1 ? controls / sorted.length : null

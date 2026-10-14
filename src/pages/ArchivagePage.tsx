@@ -13,12 +13,13 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
 import { listArchivedDocuments } from '../features/archivage/api'
 import type { ArchivedDocument } from '../features/archivage/api'
 import { LegacyImportModal } from '../features/archivage/components/LegacyImportModal'
 import { formatAmount } from '../features/devis/constants'
+import { matchesSearch } from '../shared/lib/search'
 
 type KindFilter = 'all' | 'report' | 'quote' | 'invoice'
 
@@ -65,10 +66,11 @@ export function ArchivagePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Filtres
-  const [search, setSearch] = useState('')
+  // Filtres — pré-remplis par un lien (?client=…&q=…), ex. depuis l'historique d'un client
+  const [searchParams] = useSearchParams()
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const [kindFilter, setKindFilter] = useState<KindFilter>('all')
-  const [clientFilter, setClientFilter] = useState<string>('all')
+  const [clientFilter, setClientFilter] = useState<string>(() => searchParams.get('client') ?? 'all')
   const [yearFilter, setYearFilter] = useState<string>('all')
 
   const [importOpen, setImportOpen] = useState(false)
@@ -94,8 +96,10 @@ export function ArchivagePage() {
   const clients = useMemo(() => {
     const set = new Set<string>()
     for (const d of docs) set.add(d.client_name)
+    // Client reçu par lien mais sans document : il reste sélectionnable
+    if (clientFilter !== 'all') set.add(clientFilter)
     return Array.from(set).sort((a, b) => a.localeCompare(b))
-  }, [docs])
+  }, [docs, clientFilter])
 
   const years = useMemo(() => {
     const set = new Set<string>()
@@ -109,14 +113,9 @@ export function ArchivagePage() {
       if (kindFilter !== 'all' && d.kind !== kindFilter) return false
       if (clientFilter !== 'all' && d.client_name !== clientFilter) return false
       if (yearFilter !== 'all' && getYear(d.date) !== yearFilter) return false
-      if (search.trim()) {
-        const s = search.trim().toLowerCase()
-        const haystack = [
-          d.reference,
-          d.client_name,
-          d.site_name ?? '',
-        ].join(' ').toLowerCase()
-        if (!haystack.includes(s)) return false
+      // Sans accents ni majuscules ; inclut adresse, ville, technicien, notes et observations
+      if (search.trim() && !matchesSearch(search, [d.reference, d.client_name, d.site_name, d.search_text])) {
+        return false
       }
       return true
     })
@@ -201,7 +200,7 @@ export function ArchivagePage() {
             <Search size={14} strokeWidth={2} />
             <input
               type="text"
-              placeholder="Rechercher par référence, client, site…"
+              placeholder="Rechercher : référence, client, site, adresse, ville, technicien…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
