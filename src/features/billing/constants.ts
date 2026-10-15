@@ -51,7 +51,7 @@ export const PLAN_OFFERS: PlanOffer[] = [
       'Export comptable pour votre expert-comptable',
       'Envoi automatique par email',
       'Portail client',
-      'Mise en route et formation en visio incluses',
+      'Reprise de vos données incluse',
       'Support email',
       'Hébergement UE, export de vos données à tout moment',
     ],
