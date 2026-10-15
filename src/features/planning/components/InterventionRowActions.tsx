@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { MouseEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { setInterventionStatus } from '../api'
 import type { Intervention } from '../schemas'
 
@@ -11,11 +11,17 @@ type Props = {
 
 export function InterventionRowActions({ intervention, onChanged }: Props) {
   const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
 
   async function change(status: string) {
     setLoading(true)
     try {
       await setInterventionStatus(intervention.id, status)
+      // Démarrer = arrivée sur place : on ouvre directement le rapport
+      if (status === 'en_cours') {
+        navigate(`/rapports/${intervention.id}`)
+        return
+      }
       onChanged()
     } catch (err) {
       console.error('Erreur changement statut', err)
