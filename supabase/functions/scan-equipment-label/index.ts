@@ -10,12 +10,13 @@
 // Setup (UNE fois) :
 //   1. Créer une clé API sur https://console.anthropic.com (Settings → API Keys)
 //   2. Supabase Dashboard → Edge Functions → Secrets → ANTHROPIC_API_KEY
-//      (optionnel : SCAN_MODEL pour changer de modèle)
+//      (optionnel : SCAN_MODEL pour changer de modèle, claude-opus-5-5 par défaut)
 //   3. supabase functions deploy scan-equipment-label --no-verify-jwt
 //      (--no-verify-jwt car l'auth est vérifiée manuellement ci-dessous)
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
+import Anthropic from 'npm:@anthropic-ai/sdk@0.129.0'
 import { checkRateLimit } from '../_shared/rateLimit.ts'
 
 const ALLOWED_ORIGINS = [
@@ -59,24 +60,26 @@ Conventions pour "subtype" (format court usuel des techniciens) :
 "serial_number" = numéro de série fabricant tel qu'imprimé (pas un numéro d'inventaire manuscrit).
 "extra" = autres infos utiles et lisibles en une ligne courte (pression, norme NF EN 3, n° d'agrément, dernière révision…), ou null.`
 
-const TOOL = {
-  name: 'record_equipment_label',
-  description: "Enregistre les informations lues sur l'étiquette de l'équipement.",
-  input_schema: {
-    type: 'object',
-    properties: {
-      readable: { type: 'boolean', description: "false si la photo ne montre pas d'étiquette exploitable" },
-      family: { type: ['string', 'null'], enum: [...FAMILIES, null] },
-      subtype: { type: ['string', 'null'] },
-      brand: { type: ['string', 'null'], description: 'Fabricant / marque' },
-      model: { type: ['string', 'null'], description: 'Référence ou modèle' },
-      manufacture_year: { type: ['integer', 'null'] },
-      serial_number: { type: ['string', 'null'] },
-      extra: { type: ['string', 'null'] },
-    },
-    required: ['readable', 'family', 'subtype', 'brand', 'model', 'manufacture_year', 'serial_number', 'extra'],
+// Sortie structurée (output_config.format) : la réponse respecte ce schéma
+const nullable = (schema, description?) => ({ anyOf: [schema, { type: 'null' }], ...(description ? { description } : {}) })
+const LABEL_SCHEMA = {
+  type: 'object',
+  properties: {
+    readable: { type: 'boolean', description: "false si la photo ne montre pas d'étiquette exploitable" },
+    family: nullable({ type: 'string', enum: FAMILIES }),
+    subtype: nullable({ type: 'string' }),
+    brand: nullable({ type: 'string' }, 'Fabricant / marque'),
+    model: nullable({ type: 'string' }, 'Référence ou modèle'),
+    manufacture_year: nullable({ type: 'integer' }),
+    serial_number: nullable({ type: 'string' }),
+    extra: nullable({ type: 'string' }),
   },
+  required: ['readable', 'family', 'subtype', 'brand', 'model', 'manufacture_year', 'serial_number', 'extra'],
+  additionalProperties: false,
 }
+
+// Modèles qui acceptent la relance automatique sur un autre modèle en cas de refus
+const FALLBACK_MODELS = ['claude-opus-5-5', 'claude-opus-5', 'claude-sonnet-5-5', 'claude-fable-5-1', 'claude-fable-5']
 
 function json(body, status, corsHeaders, extra = {}) {
   return new Response(JSON.stringify(body), {
@@ -92,7 +95,7 @@ serve(async (req) => {
 
   try {
     const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
-    const MODEL = Deno.env.get('SCAN_MODEL') ?? 'claude-sonnet-5'
+    const MODEL = Deno.env.get('SCAN_MODEL') ?? 'claude-opus-5-5'
     if (!ANTHROPIC_API_KEY) {
       return json({ error: 'scan_not_configured', message: "Le scan d'étiquette n'est pas encore activé." }, 503, corsHeaders)
     }
@@ -138,39 +141,48 @@ serve(async (req) => {
       return json({ error: 'invalid_media_type' }, 400, corsHeaders)
     }
 
-    // ─── Appel Claude (vision + tool forcé = JSON structuré) ───
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1024,
-        tools: [TOOL],
-        tool_choice: { type: 'tool', name: TOOL.name },
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mediaType, data: image } },
-            { type: 'text', text: PROMPT },
-          ],
-        }],
-      }),
-    })
-
-    if (!res.ok) {
-      console.error('[scan-label] Anthropic error', res.status, await res.text())
-      return json({ error: 'ai_failed' }, 502, corsHeaders)
+    // ─── Appel Claude (vision + sortie structurée JSON) ───
+    // Lecture d'étiquette = extraction simple : effort « low » (rapide, le
+    // technicien attend sur place). En cas de refus du modèle, l'API relance
+    // d'elle-même sur un modèle de secours (fallbacks: 'default').
+    const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY, maxRetries: 1, timeout: 60_000 })
+    const params = {
+      model: MODEL,
+      max_tokens: 16000,
+      output_config: { effort: 'low', format: { type: 'json_schema', schema: LABEL_SCHEMA } },
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: image } },
+          { type: 'text', text: PROMPT },
+        ],
+      }],
+    }
+    let response
+    try {
+      response = FALLBACK_MODELS.includes(MODEL)
+        ? await anthropic.beta.messages.create({ ...params, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' })
+        : await anthropic.messages.create(params)
+    } catch (err) {
+      if (err instanceof Anthropic.APIError) {
+        console.error('[scan-label] Anthropic error', err.status, err.message)
+        return json({ error: 'ai_failed' }, 502, corsHeaders)
+      }
+      throw err
     }
 
-    const data = await res.json()
-    const toolUse = (data.content ?? []).find((c) => c.type === 'tool_use')
-    if (!toolUse?.input) return json({ error: 'ai_failed' }, 502, corsHeaders)
-
-    const r = toolUse.input
+    if (response.stop_reason === 'refusal') {
+      console.warn('[scan-label] refus du modèle', response.stop_details?.category ?? '')
+      return json({ error: 'ai_failed' }, 502, corsHeaders)
+    }
+    const text = (response.content ?? []).find((c) => c.type === 'text')?.text
+    let r
+    try {
+      r = JSON.parse(text ?? '')
+    } catch {
+      console.error('[scan-label] réponse illisible', response.stop_reason)
+      return json({ error: 'ai_failed' }, 502, corsHeaders)
+    }
     const str = (v) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 120) : null)
     const year = Number.isInteger(r.manufacture_year)
       && r.manufacture_year >= 1950

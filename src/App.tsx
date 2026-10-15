@@ -21,6 +21,9 @@ import { EquipePage } from './pages/EquipePage'
 import { EquipementsPage } from './pages/EquipementsPage'
 import { ImportEquipementsPage } from './pages/ImportEquipementsPage'
 import { FacturesPage } from './pages/FacturesPage'
+import { CataloguePage } from './pages/CataloguePage'
+import { ContratsPage } from './pages/ContratsPage'
+import { ImportCatalogPage } from './pages/ImportCatalogPage'
 import { ParametresPage } from './pages/ParametresPage'
 import { AbonnementPage } from './pages/AbonnementPage'
 import { AdminProspectsPage } from './pages/AdminProspectsPage'
@@ -87,6 +90,9 @@ function App() {
           <Route path="/vehicules" element={<VehiculesPage />} />
           <Route path="/devis" element={<DevisPage />} />
           <Route path="/factures" element={<FacturesPage />} />
+          <Route path="/catalogue" element={<CataloguePage />} />
+          <Route path="/contrats" element={<ContratsPage />} />
+          <Route path="/catalogue/import" element={<ImportCatalogPage />} />
           <Route path="/archivage" element={<ArchivagePage />} />
           <Route path="/parametres" element={<ParametresPage />} />
           <Route path="/abonnement" element={<AbonnementPage />} />

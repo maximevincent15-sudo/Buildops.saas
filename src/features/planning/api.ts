@@ -307,6 +307,20 @@ export async function createNextScheduledIntervention(
     return null
   }
 
+  // 2 bis) Visite d'un contrat : la chaîne s'arrête si le contrat n'est plus
+  // actif (résilié, suspendu, expiré) ou si la visite suivante tomberait
+  // après la date de résiliation
+  let contractTerminatedOn: string | null = null
+  if (parentInter.contract_id) {
+    const { data: contract } = await supabase
+      .from('contracts')
+      .select('status, terminated_on')
+      .eq('id', parentInter.contract_id)
+      .maybeSingle()
+    if (contract && (contract as { status: string }).status !== 'active') return null
+    contractTerminatedOn = (contract as { terminated_on: string | null } | null)?.terminated_on ?? null
+  }
+
   // 3) Idempotence : si un enfant existe déjà, on ne recrée pas
   const { data: existing } = await supabase
     .from('interventions')
@@ -326,6 +340,7 @@ export async function createNextScheduledIntervention(
     console.warn('[auto-recurrence] pas de fréquence connue pour les équipements', parentInter.equipment_types)
     return null
   }
+  if (contractTerminatedOn && nextDate > contractTerminatedOn) return null
 
   // 4) Crée la nouvelle intervention
   const firstEquipment = parentInter.equipment_types[0] ?? null
@@ -370,6 +385,8 @@ export async function createNextScheduledIntervention(
       // Hérite du flag parent : un contrat récurrent le reste sur toute
       // sa durée. Passer à false stoppe la chaîne au niveau désiré.
       recurrence_active: parentInter.recurrence_active,
+      // Reste rattachée au même contrat de maintenance
+      contract_id: parentInter.contract_id ?? null,
     })
     .select()
     .single()

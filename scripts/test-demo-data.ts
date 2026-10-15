@@ -17,7 +17,7 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 
 // Références générées par les triggers en base
-const REF_PREFIX: Record<string, string> = { interventions: 'INT-', quotes: 'DEV-2026-', invoices: 'FAC-2026-' }
+const REF_PREFIX: Record<string, string> = { interventions: 'INT-', quotes: 'DEV-2026-', invoices: 'FAC-2026-', contracts: 'CTR-2026-' }
 
 // Modèles de checklist par famille (seedés par migration en vrai)
 db.family_templates = ['extincteurs', 'ria', 'baes', 'portes_cf', 'desenfumage', 'detection', 'colonnes_seches'].map((family) => ({
@@ -104,7 +104,15 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     return json(rows)
   }
   const limit = Number(url.searchParams.get('limit') ?? 0)
-  const list = limit ? rows.slice(0, limit) : rows
+  let list = limit ? rows.slice(0, limit) : rows
+  // Jointures PostgREST utilisées par les contrats (contract_sites, contract_lines)
+  if (table === 'contracts' && (url.searchParams.get('select') ?? '').includes('contract_lines')) {
+    list = list.map((c) => ({
+      ...c,
+      contract_sites: (db.contract_sites ?? []).filter((x) => x.contract_id === c.id),
+      contract_lines: (db.contract_lines ?? []).filter((x) => x.contract_id === c.id),
+    }))
+  }
   return json(single ? (list[0] ?? null) : list)
 }) as typeof fetch
 
@@ -161,6 +169,13 @@ const paidMonths = new Set((db.invoices ?? []).filter((f) => f.paid_at).map((f) 
 check('Paiements répartis sur 6 mois', paidMonths.size === 6, [...paidMonths].sort().join(' '))
 check('2 événements d\'agenda privés', count('planning_blocks', (b) => b.is_private === true) === 2)
 check('1 lien portail client', count('client_portal_tokens') === 1)
+check('Catalogue de 29 articles', count('catalog_items') === 29, String(count('catalog_items')))
+check('3 contrats actifs', count('contracts', (c) => c.status === 'active') === 3, (db.contracts ?? []).map((c) => c.reference).join(' '))
+check('Lignes de contrat avec quantités du parc', count('contract_lines') >= 6 && (db.contract_lines ?? []).every((l) => Number(l.quantity) > 0),
+  (db.contract_lines ?? []).map((l) => `${l.description?.toString().slice(0, 18)}×${l.quantity}`).join(', '))
+const contractVisits = (db.interventions ?? []).filter((i) => i.contract_id)
+check('Chaque contrat a sa visite rattachée', new Set(contractVisits.map((i) => i.contract_id)).size === 3,
+  contractVisits.map((i) => `${i.site_name} ${i.status}`).join(' | '))
 check('Aucun avertissement', warnings.length === 0, warnings.join(' | '))
 
 // PDF générés → fichiers pour relecture

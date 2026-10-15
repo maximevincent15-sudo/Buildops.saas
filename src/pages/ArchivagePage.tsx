@@ -37,7 +37,7 @@ const KIND_ICON: Record<Exclude<KindFilter, 'all'>, typeof ClipboardCheck> = {
 
 const KIND_BADGE: Record<Exclude<KindFilter, 'all'>, string> = {
   report: 'b-grn',
-  quote: 'b-acc',
+  quote: 'b-blu',
   invoice: 'b-org',
 }
 
