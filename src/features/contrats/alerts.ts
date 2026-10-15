@@ -82,7 +82,11 @@ export function computeContractAlerts(contracts: ContractWithDetails[], today = 
     const deadline = noticeDeadline(c, today)
     const parts = [
       deadline ? (deadline < today ? `préavis de résiliation dépassé depuis le ${frDate(deadline)}` : `résiliation possible jusqu'au ${frDate(deadline)}`) : null,
-      c.revision_rate ? `révision de ${pct(c.revision_rate)} à appliquer à la reconduction` : null,
+      c.revision_rate
+        ? c.last_revised_period && c.last_revised_period >= periodEnd
+          ? `révision de ${pct(c.revision_rate)} déjà appliquée`
+          : `révision de ${pct(c.revision_rate)} à appliquer à la reconduction`
+        : null,
     ].filter(Boolean)
     alerts.push({
       key: `${c.id}|renewal`,
