@@ -46,7 +46,11 @@ export function FacturesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<InvoiceStatus | 'all' | 'unpaid'>('all')
+  // Onglet initial possible par lien (?onglet=draft depuis « Facturer le mois »)
+  const [tab, setTab] = useState<InvoiceStatus | 'all' | 'unpaid'>(() => {
+    const wanted = new URLSearchParams(window.location.search).get('onglet')
+    return TABS.some((t) => t.key === wanted) ? (wanted as InvoiceStatus | 'all' | 'unpaid') : 'all'
+  })
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [relanceInvoice, setRelanceInvoice] = useState<Invoice | null>(null)

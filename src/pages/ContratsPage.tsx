@@ -1,6 +1,6 @@
 import { FileSignature, Receipt, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
 import { listContracts } from '../features/contrats/api'
 import { ContractBillingModal } from '../features/contrats/components/ContractBillingModal'
@@ -33,6 +33,7 @@ export function ContratsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
+  const [flashToInvoices, setFlashToInvoices] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'running' | 'all' | ContractStatus>('running')
   const [editing, setEditing] = useState<ContractWithDetails | null>(null)
@@ -105,7 +106,12 @@ export function ContratsPage() {
 
       {flash && (
         <div className="card" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '.6rem', background: '#E6F4EB', border: '1px solid #B7DFC7', color: '#0E7A3F', fontSize: '.85rem' }}>
-          <span style={{ flex: 1 }}>{flash}</span>
+          <span style={{ flex: 1 }}>
+            {flash}
+            {flashToInvoices && (
+              <>{' '}<Link to="/factures?onglet=draft" style={{ color: 'inherit', fontWeight: 600 }}>Voir dans Factures →</Link></>
+            )}
+          </span>
           <button type="button" onClick={() => setFlash(null)} aria-label="Fermer" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>
             <X size={14} />
           </button>
@@ -211,7 +217,7 @@ export function ContratsPage() {
         <ContractBillingModal
           open={billingOpen}
           onClose={() => setBillingOpen(false)}
-          onDone={(message) => setFlash(message)}
+          onDone={(message) => { setFlash(message); setFlashToInvoices(true) }}
         />
       )}
 
@@ -220,7 +226,7 @@ export function ContratsPage() {
           key={editing?.id ?? 'new'}
           open={modalOpen}
           onClose={() => setModalOpen(false)}
-          onSaved={(message) => { setFlash(message); void load() }}
+          onSaved={(message) => { setFlash(message); setFlashToInvoices(false); void load() }}
           contract={editing}
         />
       )}

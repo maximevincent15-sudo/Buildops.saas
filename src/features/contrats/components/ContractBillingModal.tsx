@@ -16,6 +16,12 @@ type Props = {
   onDone: (message: string) => void
 }
 
+/** Révision de prix non appliquée pour la période facturée */
+function revisionFor(p: BillingProposal) {
+  const asOf = p.kind === 'advance' ? p.periodStart : p.visits[p.visits.length - 1]?.done_on
+  return asOf ? pendingRevision(p.contract, asOf) : null
+}
+
 function currentMonth(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -52,7 +58,8 @@ export function ContractBillingModal({ open, onClose, onDone }: Props) {
         if (!alive) return
         setProposals(plan.proposals)
         setSkipped(plan.skipped)
-        setSelected(new Set(plan.proposals.map((p) => p.key)))
+        // Révision de prix non appliquée : décochée d'office (à appliquer avant)
+        setSelected(new Set(plan.proposals.filter((p) => !revisionFor(p)).map((p) => p.key)))
         setError(null)
       })
       .catch((e) => { if (alive) setError(e instanceof Error ? e.message : 'Erreur inconnue') })
@@ -69,12 +76,6 @@ export function ContractBillingModal({ open, onClose, onDone }: Props) {
 
   const chosen = useMemo(() => proposals.filter((p) => selected.has(p.key)), [proposals, selected])
   const totalHt = chosen.reduce((s, p) => s + p.totals.ht, 0)
-
-  /** Révision de prix non appliquée pour la période facturée */
-  function revisionFor(p: BillingProposal) {
-    const asOf = p.kind === 'advance' ? p.periodStart : p.visits[p.visits.length - 1]?.done_on
-    return asOf ? pendingRevision(p.contract, asOf) : null
-  }
 
   async function handleRevision(p: BillingProposal, from: string) {
     setCreating(true)
@@ -187,9 +188,12 @@ export function ContractBillingModal({ open, onClose, onDone }: Props) {
                     const rev = revisionFor(p)
                     if (!rev) return null
                     return (
-                      <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '.78rem', color: 'var(--org, #C45A1A)' }}>
-                        <span>Révision de {rev.rate > 0 ? '+' : ''}{String(rev.rate).replace('.', ',')} % pas encore appliquée pour cette période.</span>
-                        <button type="button" className="mf out" style={{ padding: '2px 10px', fontSize: '.75rem' }}
+                      <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '.8rem', color: '#8A3D0E', background: '#FDF1E7', border: '1px solid #F0C9A6', borderRadius: 8, padding: '6px 10px' }}>
+                        <span style={{ flex: '1 1 240px' }}>
+                          <strong>Révision de {rev.rate > 0 ? '+' : ''}{String(rev.rate).replace('.', ',')} % à appliquer</strong> avant de facturer cette période.
+                          {' '}Facture non cochée par sécurité.
+                        </span>
+                        <button type="button" className="btn-sm acc" style={{ padding: '4px 12px', fontSize: '.78rem' }}
                           onClick={(e) => { e.preventDefault(); void handleRevision(p, rev.from) }} disabled={creating}>
                           Appliquer et recalculer
                         </button>
