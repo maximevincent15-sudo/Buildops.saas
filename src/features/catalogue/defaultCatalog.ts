@@ -7,10 +7,10 @@ import type { CatalogItemInput } from './schemas'
  */
 export const DEFAULT_CATALOG: CatalogItemInput[] = [
   // Prestations
-  { reference: 'VER-EXT', label: 'Vérification annuelle extincteur (par appareil)', category: 'prestation', unit: 'u', unit_price_ht: 8, vat_rate: 20 },
-  { reference: 'VER-RIA', label: 'Vérification annuelle RIA (par poste)', category: 'prestation', unit: 'u', unit_price_ht: 25, vat_rate: 20 },
-  { reference: 'VER-BAES', label: "Vérification éclairage de sécurité (par bloc)", category: 'prestation', unit: 'u', unit_price_ht: 4, vat_rate: 20 },
-  { reference: 'VER-DSF', label: 'Vérification désenfumage (par commande ou ouvrant)', category: 'prestation', unit: 'u', unit_price_ht: 30, vat_rate: 20 },
+  { reference: 'VER-EXT', label: 'Vérification annuelle extincteur (par appareil)', category: 'prestation', unit: 'u', unit_price_ht: 12, vat_rate: 20 },
+  { reference: 'VER-RIA', label: 'Vérification annuelle RIA (par poste)', category: 'prestation', unit: 'u', unit_price_ht: 45, vat_rate: 20 },
+  { reference: 'VER-BAES', label: "Vérification éclairage de sécurité (par bloc)", category: 'prestation', unit: 'u', unit_price_ht: 5, vat_rate: 20 },
+  { reference: 'VER-DSF', label: 'Vérification désenfumage (par commande ou ouvrant)', category: 'prestation', unit: 'u', unit_price_ht: 60, vat_rate: 20 },
   { reference: 'VER-CS', label: 'Vérification colonne sèche', category: 'prestation', unit: 'u', unit_price_ht: 60, vat_rate: 20 },
   { reference: 'MAA-EXT', label: 'Maintenance approfondie extincteur (révision 5 ans)', category: 'prestation', unit: 'u', unit_price_ht: 30, vat_rate: 20 },
   { reference: 'REV-EXT', label: 'Révision décennale extincteur', category: 'prestation', unit: 'u', unit_price_ht: 35, vat_rate: 20 },

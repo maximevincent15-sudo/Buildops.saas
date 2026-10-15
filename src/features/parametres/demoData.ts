@@ -976,7 +976,7 @@ export async function loadDemoData(
       key: 'stjean', title: 'Maintenance annuelle extincteurs et RIA', start: monthsAgo(20, 1),
       billing_mode: 'per_visit' as const, billing_frequency: 'annual' as const, revision: 3,
       lines: [
-        line('Vérification annuelle extincteur (par appareil)', count('stjean', 'extincteurs'), 8, 'extincteurs', 'annual'),
+        line('Vérification annuelle extincteur (par appareil)', count('stjean', 'extincteurs'), 12, 'extincteurs', 'annual'),
         line('Vérification RIA (par poste)', count('stjean', 'ria'), 25, 'ria', 'semiannual'),
       ],
     },
@@ -985,9 +985,9 @@ export async function loadDemoData(
       key: 'tilleuls', title: 'Contrat de maintenance — syndic', start: daysFromToday(40 - 365),
       billing_mode: 'advance' as const, billing_frequency: 'annual' as const, revision: 2.5,
       lines: [
-        line('Vérification annuelle extincteur (par appareil)', count('tilleuls', 'extincteurs'), 8, 'extincteurs', 'annual'),
+        line('Vérification annuelle extincteur (par appareil)', count('tilleuls', 'extincteurs'), 12, 'extincteurs', 'annual'),
         line('Vérification RIA (par poste)', count('tilleuls', 'ria'), 25, 'ria', 'semiannual'),
-        line('Vérification désenfumage (par commande ou ouvrant)', count('tilleuls', 'desenfumage'), 30, 'desenfumage', 'annual'),
+        line('Vérification désenfumage (par commande ou ouvrant)', count('tilleuls', 'desenfumage'), 60, 'desenfumage', 'annual'),
         line('Forfait déplacement', 1, 45, null, 'annual'),
       ],
     },
