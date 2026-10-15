@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { AlertTriangle, Bell, Download, FileText, Mail, Plus } from 'lucide-react'
+import { AlertTriangle, Bell, Calculator, Download, FileText, Mail, Plus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
@@ -16,6 +16,7 @@ import {
 import type { InvoiceStatus } from '../features/factures/constants'
 import type { Invoice } from '../features/factures/schemas'
 import { RelanceModal } from '../features/relances/components/RelanceModal'
+import { AccountingExportModal } from '../features/export/components/AccountingExportModal'
 
 function formatDate(d: string | null): string {
   if (!d) return '—'
@@ -41,6 +42,7 @@ export function FacturesPage() {
   const isAdmin = (profile?.user_role ?? 'admin') === 'admin'
 
   const [searchParams, setSearchParams] = useSearchParams()
+  const [exportOpen, setExportOpen] = useState(false)
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -164,6 +166,15 @@ export function FacturesPage() {
           </div>
         </div>
         <div className="dash-acts">
+          <button
+            type="button"
+            className="mf out"
+            onClick={() => setExportOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Calculator size={14} strokeWidth={2} />
+            Export comptable
+          </button>
           <button
             type="button"
             className="mf prim"
@@ -349,6 +360,7 @@ export function FacturesPage() {
           }}
         />
       )}
+      {exportOpen && <AccountingExportModal onClose={() => setExportOpen(false)} />}
     </>
   )
 }

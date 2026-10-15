@@ -222,6 +222,25 @@ const plan4 = await loadMonthBilling(monthOf(in40))
 check('Échéance facturée : plus proposée, signalée « déjà facturée »', res3.created.length === 1
   && !plan4.proposals.some((p) => p.contract.client_name === 'Résidence Les Tilleuls')
   && plan4.skipped.some((x) => x.contract.client_name === 'Résidence Les Tilleuls'), JSON.stringify(res3.errors))
+// ─── Export comptable ────────────────────────────────────────────────
+const { exportAccounting } = await import('../src/features/export/accountingExport')
+const { unzipSync, strFromU8 } = await import('fflate')
+const { default: ExcelJS } = await import('exceljs')
+const exp = await exportAccounting('2000-01-01', '2100-12-31', 'SARL Vincent Sécurité')
+const unzipped = unzipSync(new Uint8Array(await exp.blob.arrayBuffer()))
+const names = Object.keys(unzipped)
+const xlsxName = names.find((n) => n.endsWith('.xlsx'))
+const csvName = names.find((n) => n.endsWith('.csv'))
+const wbx = new ExcelJS.Workbook()
+if (xlsxName) await wbx.xlsx.load(unzipped[xlsxName]!.buffer as ArrayBuffer)
+const sheetNames = wbx.worksheets.map((w) => w.name)
+const csv = csvName ? strFromU8(unzipped[csvName]!) : ''
+check('Export comptable : ZIP (LISEZ-MOI, classeur, journal FEC)', names.includes('LISEZ-MOI.txt') && !!xlsxName && !!csvName, names.join(', '))
+check('Classeur : factures, journal, TVA, notes de frais', ['Factures', 'Journal des ventes', 'TVA collectée', 'Notes de frais'].every((n) => sheetNames.includes(n)), sheetNames.join(', '))
+check('Factures émises exportées (brouillons exclus), journal équilibré', exp.invoiceCount === count('invoices', (f) => f.status !== 'draft' && f.status !== 'cancelled') && exp.balanced,
+  `${exp.invoiceCount} factures, ${exp.totalHt} € HT`)
+check('Journal FEC : 18 colonnes, une écriture 411 par facture', csv.split('\r\n')[0]?.replace(/^\uFEFF/, '').split(';').length === 18
+  && csv.split('\r\n').filter((l) => l.includes(';411000;')).length === exp.invoiceCount, csv.split('\r\n')[1] ?? '')
 check('Aucun avertissement', warnings.length === 0, warnings.join(' | '))
 
 // PDF générés → fichiers pour relecture
