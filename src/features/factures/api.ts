@@ -38,6 +38,8 @@ export async function getInvoice(id: string): Promise<InvoiceWithLines | null> {
 export async function createInvoice(
   input: UpsertInvoiceInput,
   organizationId: string,
+  /** Facture issue d'un contrat de maintenance (« Facturer le mois ») */
+  contractLink?: { contract_id: string; contract_period_start?: string | null },
 ): Promise<InvoiceWithLines> {
   const totals = computeQuoteTotals(
     input.lines.map((l) => ({
@@ -68,6 +70,7 @@ export async function createInvoice(
       total_vat: totals.total_vat,
       total_ttc: totals.total_ttc,
       status: 'draft',
+      ...(contractLink ? { contract_id: contractLink.contract_id, contract_period_start: contractLink.contract_period_start ?? null } : {}),
     })
     .select()
     .single()

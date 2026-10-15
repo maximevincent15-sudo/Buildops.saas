@@ -1,7 +1,9 @@
-import { FileSignature, Search, X } from 'lucide-react'
+import { FileSignature, Receipt, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useAuthStore } from '../features/auth/store'
 import { listContracts } from '../features/contrats/api'
+import { ContractBillingModal } from '../features/contrats/components/ContractBillingModal'
 import { ContractModal } from '../features/contrats/components/ContractModal'
 import {
   BILLING_MODE_LABELS, CONTRACT_STATUS_BADGE, CONTRACT_STATUS_LABELS, contractAnnualTotals, currentPeriodEnd, noticeDeadline,
@@ -34,6 +36,9 @@ export function ContratsPage() {
   const [statusFilter, setStatusFilter] = useState<'running' | 'all' | ContractStatus>('running')
   const [editing, setEditing] = useState<ContractWithDetails | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [billingOpen, setBillingOpen] = useState(false)
+  // Facturation : réservée aux administrateurs, comme la page Factures
+  const isAdmin = (useAuthStore((st) => st.profile?.user_role) ?? 'admin') === 'admin'
 
   async function load() {
     setLoading(true)
@@ -87,6 +92,12 @@ export function ContratsPage() {
           </div>
         </div>
         <div className="dash-acts">
+          {isAdmin && contracts.length > 0 && (
+            <button type="button" className="mf out" onClick={() => setBillingOpen(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Receipt size={13} strokeWidth={2} /> Facturer le mois
+            </button>
+          )}
           <button type="button" className="btn-sm acc" onClick={openCreate}>+ Nouveau contrat</button>
         </div>
       </div>
@@ -184,6 +195,14 @@ export function ContratsPage() {
           </>
         )}
       </div>
+
+      {billingOpen && (
+        <ContractBillingModal
+          open={billingOpen}
+          onClose={() => setBillingOpen(false)}
+          onDone={(message) => setFlash(message)}
+        />
+      )}
 
       {modalOpen && (
         <ContractModal

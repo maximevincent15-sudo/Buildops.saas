@@ -154,7 +154,7 @@ function toIso(date: Date): string {
 }
 
 /** Ajoute des mois en restant dans le mois visé (31 janv. + 1 mois = 28 ou 29 févr.) */
-function addMonths(iso: string, months: number): string {
+export function addMonths(iso: string, months: number): string {
   const date = parseIsoDate(iso)
   const day = date.getDate()
   date.setDate(1)

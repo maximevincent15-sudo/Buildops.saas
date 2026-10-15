@@ -164,7 +164,7 @@ check('Visites de l\'an prochain liées au site (liste des équipements dans le 
   nextVisits.length === 3 && nextVisits.every((i) => !!i.site_id && i.duration_minutes != null),
   JSON.stringify(nextVisits.map((i) => [!!i.site_id, i.duration_minutes])))
 check('3 devis (1 accepté)', count('quotes') === 3 && count('quotes', (q) => q.status === 'accepted') === 1)
-check('9 factures dont 7 payées', count('invoices') === 9 && count('invoices', (f) => f.status === 'paid') === 7)
+check('9 factures dont 7 payées', count('invoices', (f) => !f.contract_id) === 9 && count('invoices', (f) => f.status === 'paid') === 7)
 const paidMonths = new Set((db.invoices ?? []).filter((f) => f.paid_at).map((f) => String(f.paid_at).slice(0, 7)))
 check('Paiements répartis sur 6 mois', paidMonths.size === 6, [...paidMonths].sort().join(' '))
 check('2 événements d\'agenda privés', count('planning_blocks', (b) => b.is_private === true) === 2)
@@ -176,6 +176,38 @@ check('Lignes de contrat avec quantités du parc', count('contract_lines') >= 6 
 const contractVisits = (db.interventions ?? []).filter((i) => i.contract_id)
 check('Chaque contrat a sa visite rattachée', new Set(contractVisits.map((i) => i.contract_id)).size === 3,
   contractVisits.map((i) => `${i.site_name} ${i.status}`).join(' | '))
+// ─── Facturer le mois (contrats, étape B) ─────────────────────────────
+const { loadMonthBilling, createBillingInvoices } = await import('../src/features/contrats/billingApi')
+const monthOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+const today = new Date()
+const isoToday = `${monthOf(today)}-${String(today.getDate()).padStart(2, '0')}`
+const stjeanContract = (db.contracts ?? []).find((c) => c.client_name === 'Clinique Saint-Jean')
+const stjeanVisit = (db.interventions ?? []).find((i) => i.contract_id === stjeanContract?.id)
+// La visite rattachée au contrat de la Clinique est faite aujourd'hui
+if (stjeanVisit) Object.assign(stjeanVisit, { status: 'terminee', scheduled_date: isoToday })
+const plan1 = await loadMonthBilling(monthOf(today))
+const pStjean = plan1.proposals.find((p) => p.contract.client_name === 'Clinique Saint-Jean')
+check('Facturer le mois : visite de la Clinique proposée (extincteurs + RIA)', pStjean?.kind === 'per_visit' && pStjean.lines.length === 2,
+  JSON.stringify(pStjean?.lines.map((l) => [l.description, l.quantity, l.unit_price_ht])))
+const res1 = await createBillingInvoices(pStjean ? [pStjean] : [], 'org-demo', 'ce mois')
+const inv1 = (db.invoices ?? []).find((f) => f.id === res1.created[0]?.id)
+check('Facture de contrat créée en brouillon, liée au contrat et à la visite',
+  res1.errors.length === 0 && inv1?.status === 'draft' && inv1?.contract_id === stjeanContract?.id && stjeanVisit?.contract_invoice_id === inv1?.id
+  && count('invoice_lines', (l) => l.invoice_id === inv1?.id) === 2, JSON.stringify(res1))
+const plan2 = await loadMonthBilling(monthOf(today))
+check('Visite facturée : plus proposée', !plan2.proposals.some((p) => p.contract.client_name === 'Clinique Saint-Jean'))
+// Échéance d'avance des Tilleuls (dans ~40 jours)
+const in40 = new Date(today)
+in40.setDate(in40.getDate() + 40)
+const plan3 = await loadMonthBilling(monthOf(in40))
+const pTil = plan3.proposals.find((p) => p.contract.client_name === 'Résidence Les Tilleuls')
+check("Échéance d'avance des Tilleuls proposée le bon mois", pTil?.kind === 'advance' && !!pTil.periodStart && pTil.totals.ht > 0,
+  `${pTil?.summary} — ${pTil?.totals.ht} € HT`)
+const res3 = await createBillingInvoices(pTil ? [pTil] : [], 'org-demo', 'dans 40 jours')
+const plan4 = await loadMonthBilling(monthOf(in40))
+check('Échéance facturée : plus proposée, signalée « déjà facturée »', res3.created.length === 1
+  && !plan4.proposals.some((p) => p.contract.client_name === 'Résidence Les Tilleuls')
+  && plan4.skipped.some((x) => x.contract.client_name === 'Résidence Les Tilleuls'), JSON.stringify(res3.errors))
 check('Aucun avertissement', warnings.length === 0, warnings.join(' | '))
 
 // PDF générés → fichiers pour relecture
