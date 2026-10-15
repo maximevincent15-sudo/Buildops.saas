@@ -5,6 +5,7 @@ import { fetchProfile } from '../features/auth/api'
 import { useAuthStore } from '../features/auth/store'
 import { testEmailConfig } from '../features/email/api'
 import { FixedCostsCard } from '../features/finance/components/FixedCostsCard'
+import { useSubscription } from '../features/billing/hooks'
 import { getInvoicingSettings, updateOrganizationName, upsertInvoicingSettings } from '../features/parametres/api'
 import type { UpsertInvoicingInput } from '../features/parametres/api'
 import { loadDemoData } from '../features/parametres/demoData'
@@ -36,6 +37,8 @@ export function ParametresPage() {
   const profile = useAuthStore((s) => s.profile)
   const setProfile = useAuthStore((s) => s.setProfile)
   const user = useAuthStore((s) => s.user)
+  // Charges fixes : seulement utiles avec le pilotage (formules Pro et Entreprise)
+  const { limits } = useSubscription()
   const [form, setForm] = useState<UpsertInvoicingInput>(EMPTY)
   const [orgName, setOrgName] = useState('')
   const [loading, setLoading] = useState(true)
@@ -523,7 +526,7 @@ export function ParametresPage() {
       )}
 
       {/* Bloc Charges fixes (admin uniquement) : résultat estimé du tableau de bord */}
-      {(profile?.user_role ?? 'admin') === 'admin' && profile?.organization_id && (
+      {(profile?.user_role ?? 'admin') === 'admin' && profile?.organization_id && limits.proFeatures && (
         <FixedCostsCard organizationId={profile.organization_id} />
       )}
 

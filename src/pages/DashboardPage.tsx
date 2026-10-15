@@ -183,7 +183,7 @@ export function DashboardPage() {
             description="Suivez la santé financière de votre entreprise directement depuis Firovia."
             bullets={[
               "Chiffre d'affaires encaissé et impayés en un coup d'œil",
-              'Évolution mensuelle du CA',
+              'Évolution du CA, marge et bénéfice estimés',
               'Top 5 clients et top 5 techniciens par CA facturé',
             ]}
           />
