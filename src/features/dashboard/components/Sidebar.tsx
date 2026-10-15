@@ -23,6 +23,8 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { classifyAlert, computeRegulatoryAlerts } from '../../alertes/api'
 import { countActiveAnomalies } from '../../anomalies/api'
 import { signOut } from '../../auth/api'
+import { fetchContractAlerts, isUrgentContractAlert } from '../../contrats/alerts'
+import type { ContractAlert } from '../../contrats/alerts'
 import { useAuthStore } from '../../auth/store'
 import { listExpenses } from '../../expenses/api'
 import { listOvertime } from '../../overtime/api'
@@ -118,6 +120,7 @@ export function Sidebar({ open = false }: { open?: boolean }) {
     let alive = true
     const safeInvoices = listInvoices().catch(() => [])
     const safeAnomalies = countActiveAnomalies().catch(() => 0)
+    const safeContractAlerts = fetchContractAlerts().catch(() => [] as ContractAlert[])
     Promise.all([
       listInterventions(),
       computeRegulatoryAlerts(),
@@ -126,8 +129,9 @@ export function Sidebar({ open = false }: { open?: boolean }) {
       computeVehicleAlerts(),
       safeInvoices,
       safeAnomalies,
+      safeContractAlerts,
     ])
-      .then(([all, alerts, expenses, overtime, vehicleAlerts, invoices, anomaliesCount]) => {
+      .then(([all, alerts, expenses, overtime, vehicleAlerts, invoices, anomaliesCount, contractAlerts]) => {
         if (!alive) return
         const planning = all.filter((i) => i.status === 'a_planifier' || i.status === 'planifiee').length
         const rapports = all.filter((i) => i.status === 'en_cours').length
@@ -137,7 +141,8 @@ export function Sidebar({ open = false }: { open?: boolean }) {
         }
         const alertesUrgent =
           alerts.filter((a) => urgent(a.daysUntilDue)).length +
-          vehicleAlerts.filter((a) => urgent(a.daysUntilDue)).length
+          vehicleAlerts.filter((a) => urgent(a.daysUntilDue)).length +
+          contractAlerts.filter(isUrgentContractAlert).length
         const rh =
           expenses.filter((e) => e.status === 'pending').length +
           overtime.filter((o) => o.status === 'pending').length

@@ -1,10 +1,13 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { AlertCircle, Award, Calendar, Car, CheckCircle2, Clock, HardHat, Wrench } from 'lucide-react'
+import { AlertCircle, Award, Calendar, Car, CheckCircle2, Clock, FileSignature, HardHat, Wrench } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { classifyAlert, computeRegulatoryAlerts } from '../features/alertes/api'
 import type { AlertSeverity, RegulatoryAlert } from '../features/alertes/api'
 import { INSPECTION_FREQUENCIES_LABEL } from '../features/alertes/frequencies'
+import { fetchContractAlerts } from '../features/contrats/alerts'
+import type { ContractAlert } from '../features/contrats/alerts'
 import { computeCertificationAlerts } from '../features/technicians/certificationsApi'
 import type { CertificationAlert } from '../features/technicians/certificationsApi'
 import { computeVehicleAlerts } from '../features/vehicles/api'
@@ -48,12 +51,13 @@ const SEVERITY_META: Record<AlertSeverity, { label: string; cls: string; icon: t
   ok: { label: 'Dans + de 90 jours', cls: 'sev-ok', icon: CheckCircle2 },
 }
 
-type Category = 'equipment' | 'certifications' | 'vehicles'
+type Category = 'equipment' | 'certifications' | 'vehicles' | 'contracts'
 
 export function AlertesPage() {
   const [regAlerts, setRegAlerts] = useState<RegulatoryAlert[]>([])
   const [certAlerts, setCertAlerts] = useState<CertificationAlert[]>([])
   const [vehAlerts, setVehAlerts] = useState<VehicleAlert[]>([])
+  const [ctrAlerts, setCtrAlerts] = useState<ContractAlert[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [category, setCategory] = useState<Category>('equipment')
@@ -61,12 +65,13 @@ export function AlertesPage() {
 
   useEffect(() => {
     let alive = true
-    Promise.all([computeRegulatoryAlerts(), computeCertificationAlerts(), computeVehicleAlerts()])
-      .then(([reg, certs, veh]) => {
+    Promise.all([computeRegulatoryAlerts(), computeCertificationAlerts(), computeVehicleAlerts(), fetchContractAlerts().catch(() => [])])
+      .then(([reg, certs, veh, ctr]) => {
         if (!alive) return
         setRegAlerts(reg)
         setCertAlerts(certs)
         setVehAlerts(veh)
+        setCtrAlerts(ctr)
       })
       .catch((e: unknown) => {
         console.error('Erreur chargement alertes', e)
@@ -101,10 +106,17 @@ export function AlertesPage() {
     ok: vehAlerts.filter((a) => classifyAlert(a.daysUntilDue) === 'ok').length,
   }
 
+  const ctrCounts = {
+    overdue: ctrAlerts.filter((a) => classifyAlert(a.daysUntil) === 'overdue').length,
+    urgent: ctrAlerts.filter((a) => classifyAlert(a.daysUntil) === 'urgent').length,
+    soon: ctrAlerts.filter((a) => classifyAlert(a.daysUntil) === 'soon').length,
+    ok: ctrAlerts.filter((a) => classifyAlert(a.daysUntil) === 'ok').length,
+  }
+
   const activeList =
-    category === 'equipment' ? regAlerts : category === 'certifications' ? certAlerts : vehAlerts
+    category === 'equipment' ? regAlerts : category === 'certifications' ? certAlerts : category === 'vehicles' ? vehAlerts : ctrAlerts
   const activeCounts =
-    category === 'equipment' ? regCounts : category === 'certifications' ? certCounts : vehCounts
+    category === 'equipment' ? regCounts : category === 'certifications' ? certCounts : category === 'vehicles' ? vehCounts : ctrCounts
 
   const filteredReg =
     category === 'equipment'
@@ -117,6 +129,10 @@ export function AlertesPage() {
   const filteredVeh =
     category === 'vehicles'
       ? vehAlerts.filter((a) => filter === 'all' || classifyAlert(a.daysUntilDue) === filter)
+      : []
+  const filteredCtr =
+    category === 'contracts'
+      ? ctrAlerts.filter((a) => filter === 'all' || classifyAlert(a.daysUntil) === filter)
       : []
 
   return (
@@ -160,6 +176,15 @@ export function AlertesPage() {
           <Car size={13} strokeWidth={2} />
           Véhicules ({vehAlerts.length})
         </button>
+        <button
+          type="button"
+          className={`filter-pill${category === 'contracts' ? ' on' : ''}`}
+          onClick={() => { setCategory('contracts'); setFilter('all') }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <FileSignature size={13} strokeWidth={2} />
+          Contrats ({ctrAlerts.length})
+        </button>
       </div>
 
       {/* Filtres par gravité */}
@@ -177,7 +202,7 @@ export function AlertesPage() {
             className={`filter-pill${filter === 'overdue' ? ' on' : ''}`}
             onClick={() => setFilter('overdue')}
           >
-            {category === 'equipment' ? 'En retard' : category === 'certifications' ? 'Expirées' : 'Dépassées'} ({activeCounts.overdue})
+            {category === 'equipment' || category === 'contracts' ? 'En retard' : category === 'certifications' ? 'Expirées' : 'Dépassées'} ({activeCounts.overdue})
           </button>
           <button
             type="button"
@@ -351,13 +376,58 @@ export function AlertesPage() {
           </div>
         )}
 
+        {/* Mode Contrats */}
+        {!loading && !error && category === 'contracts' && ctrAlerts.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
+            <p className="text-ink-2 font-light" style={{ marginBottom: '.5rem' }}>
+              Aucune échéance de contrat dans les 90 prochains jours.
+            </p>
+            <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 420, margin: '0 auto' }}>
+              Les reconductions, fins de contrat et révisions de prix apparaîtront ici 90 jours à l'avance.
+            </p>
+          </div>
+        )}
+
+        {!loading && !error && category === 'contracts' && filteredCtr.length > 0 && (
+          <div className="alerts-list">
+            {filteredCtr.map((a) => {
+              const sev = classifyAlert(a.daysUntil)
+              const meta = SEVERITY_META[sev]
+              const Icon = meta.icon
+              return (
+                <Link key={a.key} to={`/contrats?open=${a.contract.id}`} className={`alert-row ${meta.cls}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div className="alert-icon">
+                    <Icon size={18} strokeWidth={2} />
+                  </div>
+                  <div className="alert-main">
+                    <div className="alert-title">
+                      {a.contract.client_name}
+                      <span className="alert-site"> — {a.title}</span>
+                    </div>
+                    <div className="alert-meta">
+                      <FileSignature size={11} strokeWidth={2} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 4 }} />
+                      {a.contract.reference} · {a.detail}
+                    </div>
+                  </div>
+                  <div className="alert-due">
+                    <div className="alert-due-date">{formatDate(a.date)}</div>
+                    <div className="alert-due-days">{a.kind === 'revision' ? 'À appliquer' : formatDaysLabel(a.daysUntil)}</div>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+
         {!loading && !error && activeList.length > 0 && (() => {
           const visible =
             category === 'equipment'
               ? filteredReg.length
               : category === 'certifications'
                 ? filteredCert.length
-                : filteredVeh.length
+                : category === 'vehicles'
+                  ? filteredVeh.length
+                  : filteredCtr.length
           return visible === 0 ? (
             <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
               <p className="text-ink-3 text-sm font-light">Aucune alerte dans ce filtre.</p>

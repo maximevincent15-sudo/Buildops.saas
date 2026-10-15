@@ -203,7 +203,21 @@ const plan3 = await loadMonthBilling(monthOf(in40))
 const pTil = plan3.proposals.find((p) => p.contract.client_name === 'Résidence Les Tilleuls')
 check("Échéance d'avance des Tilleuls proposée le bon mois", pTil?.kind === 'advance' && !!pTil.periodStart && pTil.totals.ht > 0,
   `${pTil?.summary} — ${pTil?.totals.ht} € HT`)
-const res3 = await createBillingInvoices(pTil ? [pTil] : [], 'org-demo', 'dans 40 jours')
+// Étape C : la reconduction des Tilleuls déclenche la révision de +2,5 % sur cette échéance
+const { pendingRevision } = await import('../src/features/contrats/schemas')
+const { applyContractRevision } = await import('../src/features/contrats/api')
+const { fetchContractAlerts } = await import('../src/features/contrats/alerts')
+const ctrAlerts = await fetchContractAlerts()
+check('Alertes de contrat : reconductions des Tilleuls et de Montaigne', ctrAlerts.filter((a) => a.kind === 'renewal').length === 2
+  && ctrAlerts.every((a) => a.kind !== 'revision'), ctrAlerts.map((a) => `${a.contract.client_name} ${a.kind} J${a.daysUntil}`).join(' | '))
+const revTil = pTil?.periodStart ? pendingRevision(pTil.contract, pTil.periodStart) : null
+check('Révision de +2,5 % signalée sur l\'échéance des Tilleuls', revTil?.rate === 2.5 && revTil.from === pTil?.periodStart, JSON.stringify(revTil))
+if (pTil && revTil) await applyContractRevision(pTil.contract, revTil.from)
+const plan3b = await loadMonthBilling(monthOf(in40))
+const pTilRev = plan3b.proposals.find((p) => p.contract.client_name === 'Résidence Les Tilleuls')
+check('Échéance recalculée avec les prix révisés', !!pTilRev && Math.abs(pTilRev.totals.ht - (pTil?.totals.ht ?? 0) * 1.025) < 0.2
+  && !!pTilRev.periodStart && pendingRevision(pTilRev.contract, pTilRev.periodStart) === null, `${pTil?.totals.ht} → ${pTilRev?.totals.ht} € HT`)
+const res3 = await createBillingInvoices(pTilRev ? [pTilRev] : [], 'org-demo', 'dans 40 jours')
 const plan4 = await loadMonthBilling(monthOf(in40))
 check('Échéance facturée : plus proposée, signalée « déjà facturée »', res3.created.length === 1
   && !plan4.proposals.some((p) => p.contract.client_name === 'Résidence Les Tilleuls')

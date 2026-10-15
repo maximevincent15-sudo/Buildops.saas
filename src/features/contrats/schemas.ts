@@ -86,6 +86,8 @@ export type Contract = {
   termination_reason: string | null
   signed_document_url: string | null
   notes: string | null
+  /** Début de la période pour laquelle la révision de prix a été appliquée */
+  last_revised_period: string | null
   created_at: string
   updated_at: string
 }
@@ -185,3 +187,57 @@ export function noticeDeadline(contract: Pick<Contract, 'start_date' | 'initial_
 export function isContractRunning(contract: Pick<Contract, 'status'>): boolean {
   return contract.status === 'active'
 }
+
+export function todayIso(): string {
+  return toIso(new Date())
+}
+
+/**
+ * Début de la période en cours : la période initiale, puis chaque tranche de
+ * 12 mois si tacite reconduction. null avant le début ou après le terme.
+ */
+export function currentPeriodStart(contract: Pick<Contract, 'start_date' | 'initial_months' | 'tacit_renewal'>, today = todayIso()): string | null {
+  if (today < contract.start_date) return null
+  let start = contract.start_date
+  let end = addMonths(start, contract.initial_months)
+  // Le jour anniversaire appartient déjà à la nouvelle période
+  if (end > today) return start
+  if (!contract.tacit_renewal) return null
+  while (end <= today) {
+    start = end
+    end = addMonths(end, 12)
+  }
+  return start
+}
+
+/** Fin prévue d'un contrat sans reconduction tacite (null si reconduction) */
+export function fixedEnd(contract: Pick<Contract, 'start_date' | 'initial_months' | 'tacit_renewal'>): string | null {
+  return contract.tacit_renewal ? null : addMonths(contract.start_date, contract.initial_months)
+}
+
+export type PendingRevision = { rate: number; from: string }
+
+/**
+ * Révision annuelle à appliquer à la date `asOf` : le contrat a été reconduit
+ * depuis sa saisie dans Firovia et les prix n'ont pas encore été révisés pour
+ * la période en cours. Les prix saisis pendant une période sont réputés à jour.
+ */
+export function pendingRevision(
+  contract: Pick<Contract, 'status' | 'start_date' | 'initial_months' | 'tacit_renewal' | 'revision_rate' | 'last_revised_period' | 'created_at'>,
+  asOf = todayIso(),
+): PendingRevision | null {
+  const rate = contract.revision_rate
+  if (!rate || (contract.status !== 'active' && contract.status !== 'suspended')) return null
+  const from = currentPeriodStart(contract, asOf)
+  if (!from || from <= contract.start_date) return null
+  if (contract.created_at.slice(0, 10) >= from) return null
+  if (contract.last_revised_period && contract.last_revised_period >= from) return null
+  return { rate, from }
+}
+
+/** Prix révisé, arrondi au centime */
+export function revisedPrice(price: number, rate: number): number {
+  // price × (100 + taux) reste exact en centimes (25 × 102,5 = 2 562,5 → 25,63 €)
+  return Math.round(price * (100 + rate) + 1e-9) / 100
+}
+

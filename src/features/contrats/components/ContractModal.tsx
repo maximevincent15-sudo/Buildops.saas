@@ -11,11 +11,12 @@ import { EQUIPMENT_FAMILIES, EQUIPMENT_FAMILY_LABELS } from '../../equipment/sch
 import type { EquipmentFamily, Site } from '../../equipment/schemas'
 import { ClientAutocomplete } from '../../planning/components/ClientAutocomplete'
 import {
-  countEquipmentOnSites, deleteContract, listUpcomingContractVisits, planContractVisits, saveContract, terminateContract,
+  applyContractRevision, countEquipmentOnSites, deleteContract, expireContract, listUpcomingContractVisits, planContractVisits,
+  renewContract, saveContract, terminateContract,
 } from '../api'
 import {
   BILLING_FREQUENCY_LABELS, BILLING_MODE_LABELS, CONTRACT_STATUS_LABELS, FAMILY_DEFAULT_FREQUENCY, FREQUENCY_LABELS,
-  contractAnnualTotals, currentPeriodEnd, lineAnnualHt, noticeDeadline,
+  contractAnnualTotals, currentPeriodEnd, fixedEnd, lineAnnualHt, noticeDeadline, pendingRevision, revisedPrice,
 } from '../schemas'
 import type {
   ContractBillingMode, ContractFrequency, ContractLine, ContractStatus, ContractWithDetails,
@@ -40,6 +41,16 @@ function frDate(iso: string | null): string {
   if (!iso) return '—'
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y}`
+}
+
+function daysUntil(iso: string): number {
+  const [y, m, d] = iso.split('-').map(Number)
+  const now = new Date()
+  return Math.round((Date.UTC(y!, m! - 1, d!) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86_400_000)
+}
+
+function pct(rate: number): string {
+  return `${rate > 0 ? '+' : ''}${String(rate).replace('.', ',')} %`
 }
 
 function emptyLine(position: number): ContractLine {
@@ -193,6 +204,48 @@ export function ContractModal({ open, onClose, onSaved, contract }: Props) {
     }
   }
 
+  async function handleRevision() {
+    if (!contract || !revision) return
+    setSaving(true)
+    setError(null)
+    try {
+      await applyContractRevision(contract, revision.from)
+      onSaved(`Révision de ${pct(revision.rate)} appliquée au contrat ${contract.reference} : ${formatAmount(revisedAnnual)} HT par an à partir du ${frDate(revision.from)}.`)
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur inconnue')
+      setSaving(false)
+    }
+  }
+
+  async function handleRenew() {
+    if (!contract || !end) return
+    setSaving(true)
+    setError(null)
+    try {
+      await renewContract(contract)
+      onSaved(`Contrat ${contract.reference} renouvelé de 12 mois : nouvelle fin le ${frDate(fixedEnd({ ...contract, initial_months: contract.initial_months + 12 }))}.`)
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur inconnue')
+      setSaving(false)
+    }
+  }
+
+  async function handleExpire() {
+    if (!contract) return
+    setSaving(true)
+    setError(null)
+    try {
+      await expireContract(contract.id)
+      onSaved(`Contrat ${contract.reference} expiré : plus de visites ni de factures proposées.`)
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur inconnue')
+      setSaving(false)
+    }
+  }
+
   async function handleTerminate() {
     if (!contract) return
     setSaving(true)
@@ -226,6 +279,17 @@ export function ContractModal({ open, onClose, onSaved, contract }: Props) {
 
   const coveredSites = clientSites.filter((s) => siteIds.includes(s.id))
   const isRunning = contract?.status === 'active' || contract?.status === 'suspended'
+
+  // Étape C : révision annuelle (due, ou anticipée 60 j avant pour un contrat facturé d'avance)
+  const nextEnd = contract ? currentPeriodEnd(contract) : null
+  const revision = contract
+    ? pendingRevision(contract) ?? (contract.billing_mode === 'advance' && nextEnd && daysUntil(nextEnd) <= 60 ? pendingRevision(contract, nextEnd) : null)
+    : null
+  const revisedAnnual = revision && contract
+    ? contractAnnualTotals(contract.lines.map((l) => ({ ...l, unit_price_ht: revisedPrice(l.unit_price_ht, revision.rate) }))).ht
+    : 0
+  const end = contract && isRunning ? fixedEnd(contract) : null
+  const endDays = end ? daysUntil(end) : null
   const cell = { padding: '.35rem .3rem', verticalAlign: 'top' as const }
 
   return (
@@ -242,6 +306,32 @@ export function ContractModal({ open, onClose, onSaved, contract }: Props) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+          {/* Révision annuelle du prix */}
+          {revision && contract && (
+            <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center', flexWrap: 'wrap', padding: '.75rem .9rem', borderRadius: 10, background: '#FDF1E7', border: '1px solid #F0C9A6', fontSize: '.85rem' }}>
+              <span style={{ flex: '1 1 320px' }}>
+                <strong>Révision annuelle de {pct(revision.rate)}</strong>{' '}
+                {revision.from <= todayIso() ? `à appliquer (contrat reconduit le ${frDate(revision.from)})` : `pour la période qui commence le ${frDate(revision.from)}`} :{' '}
+                {formatAmount(contractAnnualTotals(contract.lines).ht)} → <strong>{formatAmount(revisedAnnual)}</strong> HT par an.
+              </span>
+              <button type="button" className="btn-sm acc" onClick={() => void handleRevision()} disabled={saving}>Appliquer la révision</button>
+            </div>
+          )}
+
+          {/* Contrat sans reconduction : fin proche ou dépassée */}
+          {end && endDays !== null && endDays <= 90 && contract && (
+            <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center', flexWrap: 'wrap', padding: '.75rem .9rem', borderRadius: 10, background: endDays < 0 ? '#FBEAEA' : '#FDF1E7', border: `1px solid ${endDays < 0 ? '#F2C4C4' : '#F0C9A6'}`, fontSize: '.85rem' }}>
+              <span style={{ flex: '1 1 320px' }}>
+                {endDays < 0 ? <>Ce contrat est <strong>arrivé à son terme le {frDate(end)}</strong></> : <>Ce contrat <strong>se termine le {frDate(end)}</strong></>}
+                {' '}(sans reconduction tacite). Renouvelle-le avec le client, ou laisse-le expirer.
+              </span>
+              <button type="button" className="btn-sm acc" onClick={() => void handleRenew()} disabled={saving}>Renouveler 12 mois</button>
+              {endDays < 0 && (
+                <button type="button" className="mf out" onClick={() => void handleExpire()} disabled={saving}>Laisser expirer</button>
+              )}
+            </div>
+          )}
+
           {/* Client */}
           <div className="card-section">
             <div className="card-section-title">Client</div>

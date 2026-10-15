@@ -2,7 +2,7 @@ import { supabase } from '../../shared/lib/supabase'
 import { createIntervention } from '../planning/api'
 import type { EquipmentType } from '../../shared/constants/interventions'
 import type { EquipmentFamily } from '../equipment/schemas'
-import { FAMILY_TO_EQUIPMENT_TYPE } from './schemas'
+import { FAMILY_TO_EQUIPMENT_TYPE, revisedPrice } from './schemas'
 import type { Contract, ContractInput, ContractLine, ContractWithDetails } from './schemas'
 
 type ContractRow = Contract & {
@@ -276,4 +276,48 @@ export async function terminateContract(id: string, terminatedOn: string, reason
       .in('status', ['a_planifier', 'planifiee'])
     if (delErr) throw delErr
   }
+}
+
+function frDateShort(iso: string): string {
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+/**
+ * Applique la révision annuelle (taux du contrat) aux prix des prestations,
+ * pour la période qui commence le `from`. Trace l'opération dans les notes.
+ */
+export async function applyContractRevision(contract: ContractWithDetails, from: string): Promise<void> {
+  const rate = contract.revision_rate
+  if (!rate) throw new Error('Aucun taux de révision sur ce contrat')
+  await Promise.all(contract.lines.filter((l) => l.id).map(async (l) => {
+    const { error } = await supabase
+      .from('contract_lines')
+      .update({ unit_price_ht: revisedPrice(l.unit_price_ht, rate) })
+      .eq('id', l.id!)
+    if (error) throw error
+  }))
+  const today = new Date()
+  const stamp = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`
+  const trace = `Révision ${rate > 0 ? '+' : ''}${String(rate).replace('.', ',')} % appliquée le ${stamp} (période du ${frDateShort(from)}).`
+  const { error } = await supabase
+    .from('contracts')
+    .update({ last_revised_period: from, notes: contract.notes ? `${contract.notes}\n${trace}` : trace })
+    .eq('id', contract.id)
+  if (error) throw error
+}
+
+/** Contrat sans reconduction tacite : prolonge de 12 mois (et le réactive s'il avait expiré) */
+export async function renewContract(contract: ContractWithDetails): Promise<void> {
+  const { error } = await supabase
+    .from('contracts')
+    .update({ initial_months: contract.initial_months + 12, status: contract.status === 'expired' ? 'active' : contract.status })
+    .eq('id', contract.id)
+  if (error) throw error
+}
+
+/** Contrat arrivé à son terme, non renouvelé */
+export async function expireContract(id: string): Promise<void> {
+  const { error } = await supabase.from('contracts').update({ status: 'expired' }).eq('id', id)
+  if (error) throw error
 }

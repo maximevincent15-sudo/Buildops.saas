@@ -4,7 +4,9 @@ import type { MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../auth/store'
 import { formatAmount } from '../../devis/constants'
+import { applyContractRevision } from '../api'
 import { createBillingInvoices, loadMonthBilling } from '../billingApi'
+import { pendingRevision } from '../schemas'
 import type { BillingResult } from '../billingApi'
 import type { BillingProposal, BillingSkip } from '../billing'
 
@@ -67,6 +69,26 @@ export function ContractBillingModal({ open, onClose, onDone }: Props) {
 
   const chosen = useMemo(() => proposals.filter((p) => selected.has(p.key)), [proposals, selected])
   const totalHt = chosen.reduce((s, p) => s + p.totals.ht, 0)
+
+  /** Révision de prix non appliquée pour la période facturée */
+  function revisionFor(p: BillingProposal) {
+    const asOf = p.kind === 'advance' ? p.periodStart : p.visits[p.visits.length - 1]?.done_on
+    return asOf ? pendingRevision(p.contract, asOf) : null
+  }
+
+  async function handleRevision(p: BillingProposal, from: string) {
+    setCreating(true)
+    setError(null)
+    try {
+      await applyContractRevision(p.contract, from)
+      setLoading(true)
+      setReloadKey((k) => k + 1)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur inconnue')
+    } finally {
+      setCreating(false)
+    }
+  }
 
   function toggle(key: string) {
     setSelected((prev) => {
@@ -161,6 +183,19 @@ export function ContractBillingModal({ open, onClose, onDone }: Props) {
                   <div className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
                     {p.lines.map((l) => `${l.description} : ${l.quantity} × ${formatAmount(l.unit_price_ht)}`).join(' · ')}
                   </div>
+                  {(() => {
+                    const rev = revisionFor(p)
+                    if (!rev) return null
+                    return (
+                      <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: '.78rem', color: 'var(--org, #C45A1A)' }}>
+                        <span>Révision de {rev.rate > 0 ? '+' : ''}{String(rev.rate).replace('.', ',')} % pas encore appliquée pour cette période.</span>
+                        <button type="button" className="mf out" style={{ padding: '2px 10px', fontSize: '.75rem' }}
+                          onClick={(e) => { e.preventDefault(); void handleRevision(p, rev.from) }} disabled={creating}>
+                          Appliquer et recalculer
+                        </button>
+                      </div>
+                    )
+                  })()}
                 </div>
                 <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                   <div style={{ fontWeight: 700 }}>{formatAmount(p.totals.ht)} HT</div>

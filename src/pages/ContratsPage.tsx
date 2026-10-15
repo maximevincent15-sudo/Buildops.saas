@@ -6,7 +6,8 @@ import { listContracts } from '../features/contrats/api'
 import { ContractBillingModal } from '../features/contrats/components/ContractBillingModal'
 import { ContractModal } from '../features/contrats/components/ContractModal'
 import {
-  BILLING_MODE_LABELS, CONTRACT_STATUS_BADGE, CONTRACT_STATUS_LABELS, contractAnnualTotals, currentPeriodEnd, noticeDeadline,
+  BILLING_MODE_LABELS, CONTRACT_STATUS_BADGE, CONTRACT_STATUS_LABELS, contractAnnualTotals, currentPeriodEnd, fixedEnd, noticeDeadline,
+  pendingRevision, todayIso,
 } from '../features/contrats/schemas'
 import type { ContractStatus, ContractWithDetails } from '../features/contrats/schemas'
 import { formatAmount } from '../features/devis/constants'
@@ -156,9 +157,12 @@ export function ContratsPage() {
                 </thead>
                 <tbody>
                   {visible.map((c) => {
-                    const end = c.status === 'active' || c.status === 'suspended' ? currentPeriodEnd(c) : null
+                    const running = c.status === 'active' || c.status === 'suspended'
+                    const end = running ? currentPeriodEnd(c) : null
                     const deadline = c.status === 'active' ? noticeDeadline(c) : null
                     const soon = end !== null && daysUntil(end) <= 60
+                    const revision = pendingRevision(c)
+                    const lapsed = running && !end ? fixedEnd(c) : null
                     return (
                       <tr key={c.id} onClick={() => { setEditing(c); setModalOpen(true) }} style={{ cursor: 'pointer', borderTop: '1px solid var(--brd)' }}>
                         <td style={{ padding: '.6rem .5rem' }}>
@@ -174,11 +178,18 @@ export function ContratsPage() {
                           {end ? (
                             <>
                               <span style={{ color: soon ? 'var(--org, #C45A1A)' : 'var(--ink2)', fontWeight: soon ? 600 : 400 }}>{frDate(end)}</span>
-                              {deadline && <div className="text-ink-3 text-xs">préavis avant le {frDate(deadline)}</div>}
+                              {deadline && <div className="text-ink-3 text-xs">{deadline < todayIso() ? 'préavis dépassé' : `préavis avant le ${frDate(deadline)}`}</div>}
                             </>
+                          ) : lapsed ? (
+                            <span style={{ color: 'var(--red)', fontWeight: 600 }}>échu le {frDate(lapsed)}</span>
                           ) : c.status === 'terminated' ? (
                             <span className="text-ink-3 text-xs">résilié le {frDate(c.terminated_on)}</span>
                           ) : '—'}
+                          {revision && (
+                            <div style={{ marginTop: 2 }}>
+                              <span className="badge b-org">Révision {revision.rate > 0 ? '+' : ''}{String(revision.rate).replace('.', ',')} % à appliquer</span>
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '.6rem .5rem', textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>
                           {formatAmount(contractAnnualTotals(c.lines).ht)}
