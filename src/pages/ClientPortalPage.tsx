@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   Download,
   ExternalLink,
+  FileSignature,
   FileText,
   Loader2,
   Receipt,
@@ -15,24 +16,26 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { BILLING_MODE_LABELS, FREQUENCY_LABELS, contractAnnualTotals, currentPeriodEnd, fixedEnd, noticeDeadline } from '../features/contrats/schemas'
 import { formatAmount } from '../features/devis/constants'
 import { effectiveStatus, INVOICE_STATUS_LABEL, INVOICE_STATUS_BADGE } from '../features/factures/constants'
 import type { InvoiceStatus } from '../features/factures/constants'
 import {
+  getPortalContracts,
   getPortalInvoices,
   getPortalReports,
   getPortalUpcoming,
   requestPortalIntervention,
   validatePortalToken,
 } from '../features/portail/api'
-import type { PortalContext, PortalInvoice, PortalReport, PortalUpcoming } from '../features/portail/api'
+import type { PortalContext, PortalContract, PortalInvoice, PortalReport, PortalUpcoming } from '../features/portail/api'
 import {
   EQUIPMENT_TYPES,
   formatEquipmentTypesShort,
 } from '../shared/constants/interventions'
 import type { EquipmentType } from '../shared/constants/interventions'
 
-type Tab = 'reports' | 'invoices' | 'upcoming' | 'request'
+type Tab = 'reports' | 'invoices' | 'contracts' | 'upcoming' | 'request'
 
 function formatDate(d: string | null): string {
   if (!d) return '—'
@@ -144,6 +147,14 @@ export function ClientPortalPage() {
         </button>
         <button
           type="button"
+          className={`portal-tab${tab === 'contracts' ? ' on' : ''}`}
+          onClick={() => setTab('contracts')}
+        >
+          <FileSignature size={14} strokeWidth={2} />
+          Contrats
+        </button>
+        <button
+          type="button"
           className={`portal-tab${tab === 'upcoming' ? ' on' : ''}`}
           onClick={() => setTab('upcoming')}
         >
@@ -163,6 +174,7 @@ export function ClientPortalPage() {
       <main className="portal-main">
         {tab === 'reports' && <ReportsTab token={token} />}
         {tab === 'invoices' && <InvoicesTab token={token} />}
+        {tab === 'contracts' && <ContractsTab token={token} />}
         {tab === 'upcoming' && <UpcomingTab token={token} />}
         {tab === 'request' && (
           <RequestTab token={token} clientName={ctx.client_name} />
@@ -349,6 +361,64 @@ function InvoicesTab({ token }: { token: string }) {
                 <span>PDF</span>
               </a>
             )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Onglet Contrats ──────────────────────────────────────────────────
+
+function ContractsTab({ token }: { token: string }) {
+  const [contracts, setContracts] = useState<PortalContract[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let alive = true
+    void getPortalContracts(token)
+      .then((data) => { if (alive) setContracts(data) })
+      .catch(() => { if (alive) setContracts([]) })
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
+  }, [token])
+
+  if (loading) return <p className="portal-empty">Chargement…</p>
+  if (contracts.length === 0) {
+    return <p className="portal-empty">Aucun contrat de maintenance en cours.</p>
+  }
+
+  return (
+    <div className="portal-list">
+      {contracts.map((c) => {
+        const lines = c.lines.map((l, i) => ({ ...l, position: i, site_id: null, catalog_item_id: null, equipment_family: null, quantity: Number(l.quantity), unit_price_ht: Number(l.unit_price_ht), vat_rate: Number(l.vat_rate) }))
+        const totals = contractAnnualTotals(lines)
+        const end = currentPeriodEnd(c) ?? fixedEnd(c)
+        const deadline = c.tacit_renewal ? noticeDeadline(c) : null
+        return (
+          <div key={c.id} className="portal-card" style={{ alignItems: 'flex-start' }}>
+            <div className="portal-card-icon b-acc">
+              <FileSignature size={18} />
+            </div>
+            <div className="portal-card-body">
+              <div className="portal-card-title">
+                {c.reference}
+                {c.title && <span className="portal-card-light"> · {c.title}</span>}
+              </div>
+              <div className="portal-card-meta">
+                {c.sites.length > 0 && <>{c.sites.map((s) => s.name).join(', ')} · </>}
+                {BILLING_MODE_LABELS[c.billing_mode].toLowerCase()}
+                {end && <> · {c.tacit_renewal ? 'reconduction le' : 'fin le'} {formatDate(end)}</>}
+                {deadline && <> (résiliation possible jusqu'au {formatDate(deadline)})</>}
+              </div>
+              <div className="portal-card-meta" style={{ marginTop: 4 }}>
+                {lines.map((l) => `${l.description} : ${l.quantity} × ${formatAmount(l.unit_price_ht)} (${FREQUENCY_LABELS[l.frequency].toLowerCase()})`).join(' · ')}
+              </div>
+            </div>
+            <div className="portal-card-status" style={{ textAlign: 'right' }}>
+              <div style={{ fontWeight: 700 }}>{formatAmount(totals.ht)} HT / an</div>
+              {c.status === 'suspended' && <span className="portal-badge b-org">Suspendu</span>}
+            </div>
           </div>
         )
       })}

@@ -1,4 +1,4 @@
-import { Calculator, Plus, Trash2, X } from 'lucide-react'
+import { Calculator, FileDown, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
@@ -67,6 +67,8 @@ function parseNumber(text: string): number {
 
 export function ContractModal({ open, onClose, onSaved, contract }: Props) {
   const organizationId = useAuthStore((s) => s.profile?.organization_id)
+  const organizationName = useAuthStore((s) => s.profile?.organizations?.name ?? '')
+  const [downloading, setDownloading] = useState(false)
   const isEdit = contract !== null
 
   const [clientName, setClientName] = useState(contract?.client_name ?? '')
@@ -201,6 +203,20 @@ export function ContractModal({ open, onClose, onSaved, contract }: Props) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDownload() {
+    if (!contract || !organizationId) return
+    setDownloading(true)
+    setError(null)
+    try {
+      const { downloadContractPdf } = await import('../pdf/downloadContractPdf')
+      await downloadContractPdf(contract, organizationId, organizationName)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur inconnue')
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -588,6 +604,13 @@ export function ContractModal({ open, onClose, onSaved, contract }: Props) {
               <button type="button" className="mf del" onClick={() => void handleDelete()} disabled={saving}
                 style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <Trash2 size={14} strokeWidth={1.8} /> Supprimer
+              </button>
+            )}
+            {isEdit && (
+              <button type="button" className="mf out" onClick={() => void handleDownload()} disabled={saving || downloading}
+                title="PDF du contrat tel qu'enregistré, à faire signer au client"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <FileDown size={14} strokeWidth={1.8} /> {downloading ? 'PDF…' : 'PDF à signer'}
               </button>
             )}
             {isEdit && isRunning && !terminateOpen && (

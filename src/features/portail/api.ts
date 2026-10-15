@@ -150,6 +150,28 @@ export async function getPortalInvoices(token: string): Promise<PortalInvoice[]>
   return (data ?? []) as PortalInvoice[]
 }
 
+export type PortalContract = {
+  id: string
+  reference: string
+  title: string | null
+  status: 'active' | 'suspended'
+  start_date: string
+  initial_months: number
+  tacit_renewal: boolean
+  notice_months: number
+  billing_mode: 'per_visit' | 'advance'
+  billing_frequency: 'annual' | 'semiannual' | 'quarterly'
+  revision_rate: number | null
+  sites: Array<{ name: string; city: string | null }>
+  lines: Array<{ description: string; quantity: number; unit_price_ht: number; vat_rate: number; frequency: 'annual' | 'semiannual' | 'quarterly' }>
+}
+
+export async function getPortalContracts(token: string): Promise<PortalContract[]> {
+  const { data, error } = await supabase.rpc('client_portal_contracts', { in_token: token })
+  if (error) throw error
+  return (data ?? []) as PortalContract[]
+}
+
 export type PortalUpcoming = {
   id: string
   reference: string
