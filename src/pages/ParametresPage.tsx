@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { fetchProfile } from '../features/auth/api'
 import { useAuthStore } from '../features/auth/store'
 import { testEmailConfig } from '../features/email/api'
+import { FixedCostsCard } from '../features/finance/components/FixedCostsCard'
 import { getInvoicingSettings, updateOrganizationName, upsertInvoicingSettings } from '../features/parametres/api'
 import type { UpsertInvoicingInput } from '../features/parametres/api'
 import { loadDemoData } from '../features/parametres/demoData'
@@ -519,6 +520,11 @@ export function ParametresPage() {
             Gérer l'équipe
           </Link>
         </div>
+      )}
+
+      {/* Bloc Charges fixes (admin uniquement) : résultat estimé du tableau de bord */}
+      {(profile?.user_role ?? 'admin') === 'admin' && profile?.organization_id && (
+        <FixedCostsCard organizationId={profile.organization_id} />
       )}
 
       {/* Bloc Configuration email (Resend) — admin only */}

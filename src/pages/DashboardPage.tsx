@@ -13,6 +13,9 @@ import { RecentInterventions } from '../features/dashboard/components/RecentInte
 import { TechsOfDay } from '../features/dashboard/components/TechsOfDay'
 import { TopBarsChart } from '../features/dashboard/components/TopBarsChart'
 import { fetchBusinessStatsSafe } from '../features/dashboard/businessStatsApi'
+import { fetchMonthlyProfit } from '../features/finance/api'
+import { ProfitSummary } from '../features/finance/components/ProfitSummary'
+import type { MonthProfit } from '../features/finance/profit'
 import type { BusinessStats } from '../features/dashboard/businessStatsApi'
 import { getInterventionStats } from '../features/planning/api'
 import type { InterventionStats } from '../features/planning/api'
@@ -52,6 +55,9 @@ export function DashboardPage() {
   const { limits, loading: subLoading } = useSubscription()
   const showBusiness = !subLoading && limits.proFeatures
   const showBusinessLock = !subLoading && !limits.proFeatures
+  // Marge et résultat estimés : administrateurs uniquement (salaires, charges)
+  const isAdmin = (profile?.user_role ?? 'admin') === 'admin'
+  const [profit, setProfit] = useState<Map<string, MonthProfit> | null>(null)
 
   const loadStats = useCallback(async () => {
     try {
@@ -75,6 +81,16 @@ export function DashboardPage() {
     void loadStats()
     void loadBizStats()
   }, [loadStats, loadBizStats, refreshKey])
+
+  const monthKeys = bizStats?.monthlyRevenue.map((m) => m.key).join(',') ?? ''
+  useEffect(() => {
+    if (!showBusiness || !isAdmin || !monthKeys) return
+    let alive = true
+    fetchMonthlyProfit(monthKeys.split(','))
+      .then((p) => { if (alive) setProfit(p) })
+      .catch((err) => console.error('Erreur calcul de la marge', err))
+    return () => { alive = false }
+  }, [showBusiness, isAdmin, monthKeys, refreshKey])
 
   return (
     <>
@@ -180,6 +196,8 @@ export function DashboardPage() {
           <MonthlyRevenueChart
             title="Évolution du CA encaissé"
             data={bizStats.monthlyRevenue}
+            profit={isAdmin ? profit : null}
+            footer={isAdmin && profit ? <ProfitSummary profit={profit} monthKeys={bizStats.monthlyRevenue.map((m) => m.key)} /> : null}
           />
         </div>
       )}
