@@ -40,7 +40,7 @@ import { buildUnitEntriesForIntervention } from '../features/equipment/reportHel
 import { getInvoicingSettings } from '../features/parametres/api'
 import { listAnomaliesForIntervention } from '../features/anomalies/api'
 import { ACTIVE_ANOMALY_STATUSES, ANOMALY_ACTION_LABELS } from '../features/anomalies/schemas'
-import { listEquipmentUnits, listZones } from '../features/equipment/api'
+import { listEquipmentUnitsByIds, listZones } from '../features/equipment/api'
 import { EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
 import type { UpsertQuoteInput } from '../features/devis/schemas'
@@ -408,7 +408,7 @@ export function RapportEditorPage() {
       if (anomalies.length > 0) {
         const siteId = intervention!.site_id
         const [allUnits, allZones] = await Promise.all([
-          listEquipmentUnits(),
+          listEquipmentUnitsByIds(anomalies.map((a) => a.equipment_unit_id)),
           siteId ? listZones(siteId) : Promise.resolve([]),
         ])
         const unitById = new Map(allUnits.map((u) => [u.id, u]))
@@ -596,10 +596,8 @@ export function RapportEditorPage() {
   async function openCorrectiveQuote() {
     const lines = [...(quoteSeed?.lines ?? [])]
     try {
-      const [anomalies, units] = await Promise.all([
-        listAnomaliesForIntervention(iid),
-        intervention!.site_id ? listEquipmentUnits({ siteId: intervention!.site_id }) : Promise.resolve([]),
-      ])
+      const anomalies = await listAnomaliesForIntervention(iid)
+      const units = await listEquipmentUnitsByIds(anomalies.map((a) => a.equipment_unit_id))
       const unitById = new Map(units.map((u) => [u.id, u]))
       for (const a of anomalies) {
         if (!ACTIVE_ANOMALY_STATUSES.includes(a.status)) continue

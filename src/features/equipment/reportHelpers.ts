@@ -1,6 +1,6 @@
 import {
   listChecksByIntervention,
-  listEquipmentUnits,
+  listEquipmentUnitsByIds,
   listFamilyTemplates,
   listZones,
 } from './api'
@@ -24,17 +24,18 @@ export async function buildUnitEntriesForIntervention(
 ): Promise<UnitReportEntry[]> {
   if (!siteId) return []
 
-  const [checks, units, zones, templates] = await Promise.all([
-    listChecksByIntervention(interventionId),
-    listEquipmentUnits({ siteId }),
+  const checks = await listChecksByIntervention(interventionId)
+  if (checks.length === 0) return []
+
+  // Seulement les équipements contrôlés, pas tout le parc du site
+  const [units, zones, templates] = await Promise.all([
+    listEquipmentUnitsByIds(checks.map((c) => c.equipment_unit_id)),
     listZones(siteId),
     listFamilyTemplates().catch(() => [] as FamilyTemplate[]),
   ])
 
-  if (checks.length === 0) return []
-
   const unitsById = new Map<string, EquipmentUnit>()
-  for (const u of units) unitsById.set(u.id, u)
+  for (const u of units) if (u.site_id === siteId) unitsById.set(u.id, u)
 
   const zonesById = new Map<string, Zone>()
   for (const z of zones) zonesById.set(z.id, z)

@@ -21,7 +21,7 @@ import type {
   AnomalyPriority,
   AnomalyStatus,
 } from '../features/anomalies/schemas'
-import { listEquipmentUnits, listSites } from '../features/equipment/api'
+import { listEquipmentUnitsByIds, listSites } from '../features/equipment/api'
 import type { EquipmentUnit, Site } from '../features/equipment/schemas'
 import { listClients } from '../features/clients/api'
 import type { Client } from '../features/clients/schemas'
@@ -59,12 +59,13 @@ export function AnomaliesPage() {
       else if (statusFilter !== 'all') filters.status = statusFilter
       if (siteFilter !== 'all') filters.siteId = siteFilter
 
-      const [a, u, s, c] = await Promise.all([
+      const [a, s, c] = await Promise.all([
         listAnomalies(filters),
-        listEquipmentUnits(),
         listSites(),
         listClients(),
       ])
+      // Seulement les équipements concernés, pas tout le parc
+      const u = await listEquipmentUnitsByIds(a.map((x) => x.equipment_unit_id))
       setAnomalies(a)
       setUnits(u)
       setSites(s)

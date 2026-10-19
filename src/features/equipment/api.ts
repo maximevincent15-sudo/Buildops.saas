@@ -154,15 +154,25 @@ export type EquipmentUnitFilters = {
 // La base renvoie au plus 1 000 lignes par requête : un parc de plusieurs
 // milliers d'équipements se lit par pages (ordre stable grâce à l'id).
 const UNITS_PAGE = 1000
+// Requêtes lancées en même temps, pour ne pas saturer la connexion du téléphone
+const PARALLEL_REQUESTS = 6
+
+/** Exécute les tâches par vagues de PARALLEL_REQUESTS, en gardant l'ordre */
+async function inWaves<T>(tasks: Array<() => Promise<T>>): Promise<T[]> {
+  const out: T[] = []
+  for (let i = 0; i < tasks.length; i += PARALLEL_REQUESTS) {
+    out.push(...(await Promise.all(tasks.slice(i, i + PARALLEL_REQUESTS).map((t) => t()))))
+  }
+  return out
+}
 
 export async function listEquipmentUnits(
   filters: EquipmentUnitFilters = {},
 ): Promise<EquipmentUnit[]> {
-  const all: EquipmentUnit[] = []
-  for (let from = 0; ; from += UNITS_PAGE) {
+  async function page(from: number, withCount = false) {
     let q = supabase
       .from('equipment_units')
-      .select('*')
+      .select('*', withCount ? { count: 'exact' } : undefined)
       .order('family', { ascending: true })
       .order('serial_number', { ascending: true })
       .order('id', { ascending: true })
@@ -173,13 +183,54 @@ export async function listEquipmentUnits(
     if (filters.family) q = q.eq('family', filters.family)
     if (filters.zoneId) q = q.eq('zone_id', filters.zoneId)
     if (filters.status) q = q.eq('status', filters.status)
-    const { data, error } = await q
+    const { data, error, count } = await q
     if (error) throw error
-    const page = (data ?? []) as EquipmentUnit[]
-    all.push(...page)
-    if (page.length < UNITS_PAGE) break
+    return { rows: (data ?? []) as EquipmentUnit[], count: count ?? null }
   }
-  return all
+
+  // 1re page avec le total, puis les suivantes en parallèle
+  const first = await page(0, true)
+  const all = [...first.rows]
+  if (first.rows.length < UNITS_PAGE) return all
+  let next = UNITS_PAGE
+  if (first.count !== null && first.count > UNITS_PAGE) {
+    const starts: number[] = []
+    for (let from = UNITS_PAGE; from < first.count; from += UNITS_PAGE) starts.push(from)
+    const pages = await inWaves(starts.map((from) => () => page(from)))
+    for (const p of pages) all.push(...p.rows)
+    const last = pages[pages.length - 1]
+    if (!last || last.rows.length < UNITS_PAGE) return all
+    next = starts[starts.length - 1]! + UNITS_PAGE
+  }
+  // Total inconnu (ou parc qui a grossi entre-temps) : on continue page par page
+  for (let from = next; ; from += UNITS_PAGE) {
+    const p = await page(from)
+    all.push(...p.rows)
+    if (p.rows.length < UNITS_PAGE) return all
+  }
+}
+
+// Identifiants par requête : l'URL reste courte (≈ 4 Ko)
+const IDS_CHUNK = 100
+
+/**
+ * Équipements précis, par identifiant (anomalies, registre d'un rapport…),
+ * sans charger tout le parc. L'ordre n'est pas garanti.
+ */
+export async function listEquipmentUnitsByIds(ids: Array<string | null | undefined>): Promise<EquipmentUnit[]> {
+  const unique = Array.from(new Set(ids.filter((id): id is string => !!id)))
+  const chunks: string[][] = []
+  for (let i = 0; i < unique.length; i += IDS_CHUNK) chunks.push(unique.slice(i, i + IDS_CHUNK))
+  const pages = await inWaves(chunks.map((chunk) => async () => {
+    const { data, error } = await supabase
+      .from('equipment_units')
+      .select('*')
+      .in('id', chunk)
+      .neq('status', 'removed')
+    if (error) throw error
+    return (data ?? []) as EquipmentUnit[]
+  }))
+  return pages.flat()
 }
 
 export async function getEquipmentUnit(id: string): Promise<EquipmentUnit | null> {

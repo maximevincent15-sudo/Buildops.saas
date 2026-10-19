@@ -1,7 +1,7 @@
 import { normalizeIntervention, INTERVENTION_TYPE_LABELS } from '../../planning/schemas'
 import type { Intervention } from '../../planning/schemas'
 import { listAnomaliesForIntervention } from '../../anomalies/api'
-import { listEquipmentUnits, listZones } from '../../equipment/api'
+import { listEquipmentUnitsByIds, listZones } from '../../equipment/api'
 import { buildUnitEntriesForIntervention } from '../../equipment/reportHelpers'
 import { EQUIPMENT_FAMILY_LABELS } from '../../equipment/schemas'
 import { getInvoicingSettings } from '../../parametres/api'
@@ -59,7 +59,7 @@ export async function generateReportPdfForIntervention(
   if (anomalies.length > 0) {
     const siteId = intervention.site_id
     const [units, zones] = await Promise.all([
-      listEquipmentUnits(),
+      listEquipmentUnitsByIds(anomalies.map((a) => a.equipment_unit_id)),
       siteId ? listZones(siteId) : Promise.resolve([]),
     ])
     const unitById = new Map(units.map((u) => [u.id, u]))
