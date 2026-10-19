@@ -853,10 +853,11 @@ export function RapportEditorPage() {
         </div>
       )}
 
-      {/* Contrôle par unité — n'apparaît que si le site a des équipements dans l'inventaire */}
+      {/* Contrôle par unité (ou inventaire au scan si le site n'a encore aucun équipement) */}
       <UnitBasedControls
         interventionId={iid}
         siteId={intervention.site_id}
+        clientId={intervention.client_id}
         organizationId={orgId}
         technicianId={intervention.technician_id}
         technicianName={intervention.technician_name}

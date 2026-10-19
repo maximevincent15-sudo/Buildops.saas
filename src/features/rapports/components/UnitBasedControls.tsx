@@ -1,4 +1,4 @@
-import { AlertTriangle, Camera, Check, QrCode, Search, X } from 'lucide-react'
+import { AlertTriangle, Camera, Check, Plus, QrCode, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, MouseEvent } from 'react'
 import {
@@ -20,12 +20,13 @@ import type {
 import {
   findUnitsByQrCodes,
   getFamilyTemplate,
+  getSite,
   listChecksByIntervention,
   listEquipmentUnits,
   listSites,
   listZones,
 } from '../../equipment/api'
-import { EquipmentUnitModal } from '../../equipment/components/EquipmentUnitModal'
+import { QuickUnitSheet } from '../../equipment/components/QuickUnitSheet'
 import { QrScanner } from '../../equipment/components/QrScanner'
 import { upsertCheckSmart } from '../../equipment/offlineQueue'
 import {
@@ -51,6 +52,8 @@ const UNITS_STEP = 120
 type Props = {
   interventionId: string
   siteId: string | null
+  /** Client du site (intervention) : nécessaire pour ajouter des équipements */
+  clientId?: string | null
   organizationId: string
   technicianId: string | null
   technicianName: string | null
@@ -75,6 +78,7 @@ type TemplateCache = Map<string, FamilyTemplate>
 export function UnitBasedControls({
   interventionId,
   siteId,
+  clientId,
   organizationId,
   technicianId,
   technicianName,
@@ -102,7 +106,10 @@ export function UnitBasedControls({
   const [scanMessage, setScanMessage] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
   const [fromScan, setFromScan] = useState(false)
   const [chainScan, setChainScan] = useState(true)
-  const [createQr, setCreateQr] = useState<string | null>(null)
+  // Inventaire au scan : fiche d'ajout ouverte (qr = contenu de l'étiquette, null sans étiquette)
+  const [addDraft, setAddDraft] = useState<{ qr: string | null } | null>(null)
+  const [lastCreated, setLastCreated] = useState<EquipmentUnit | null>(null)
+  const [siteClientId, setSiteClientId] = useState<string | null>(null)
 
   async function load() {
     if (!siteId) {
@@ -112,11 +119,13 @@ export function UnitBasedControls({
     setLoading(true)
     setError(null)
     try {
-      const [z, u, c] = await Promise.all([
+      const [z, u, c, site] = await Promise.all([
         listZones(siteId),
         listEquipmentUnits({ siteId }),
         listChecksByIntervention(interventionId),
+        clientId ? Promise.resolve(null) : getSite(siteId).catch(() => null),
       ])
+      setSiteClientId(site?.client_id ?? null)
       setZones(z)
       setUnits(u)
       setChecks(c)
@@ -196,24 +205,22 @@ export function UnitBasedControls({
     })
   }, [units, activeZoneId, onlyRemaining, search, checksByUnit, zonesById])
 
-  /** Équipement créé depuis un scan : on recharge le parc et on ouvre son contrôle */
-  async function afterCreateFromScan(qr: string) {
-    setCreateQr(null)
-    if (!siteId) return
-    try {
-      const fresh = await listEquipmentUnits({ siteId })
-      setUnits(fresh)
-      const created = matchUnitByQr(fresh, qr)
-      if (!created) return
-      if (!templateCache.has(created.family)) {
-        const t = await getFamilyTemplate(created.family)
-        if (t) setTemplateCache((prev) => new Map(prev).set(t.family, t))
-      }
-      setFromScan(true)
-      setScanMessage({ tone: 'ok', text: `${EQUIPMENT_FAMILY_LABELS[created.family]} N°${created.serial_number} ajouté au site` })
-      setEditingUnitId(created.id)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur de rechargement')
+  /** Équipement ajouté depuis la fiche courte : contrôle tout de suite, ou étiquette suivante */
+  async function handleCreated(unit: EquipmentUnit, then: 'check' | 'next') {
+    const scanned = addDraft?.qr != null
+    setAddDraft(null)
+    setUnits((prev) => [...prev, unit])
+    setLastCreated(unit)
+    setScanMessage({ tone: 'ok', text: `${EQUIPMENT_FAMILY_LABELS[unit.family]} N°${unit.serial_number} ajouté au site` })
+    if (!templateCache.has(unit.family)) {
+      const t = await getFamilyTemplate(unit.family).catch(() => null)
+      if (t) setTemplateCache((prev) => new Map(prev).set(t.family, t))
+    }
+    if (then === 'check') {
+      setFromScan(scanned)
+      setEditingUnitId(unit.id)
+    } else if (scanned && chainScan) {
+      setScanOpen(true)
     }
   }
 
@@ -239,8 +246,8 @@ export function UnitBasedControls({
     } catch {
       // recherche impossible (réseau) : on propose quand même la création
     }
-    setScanMessage({ tone: 'warn', text: 'QR code inconnu sur ce site : complète la fiche pour ajouter cet équipement.' })
-    setCreateQr(text.trim())
+    setScanMessage({ tone: 'warn', text: 'Nouvelle étiquette : vérifie la fiche pour ajouter cet équipement au site.' })
+    setAddDraft({ qr: text.trim() })
   }
 
   const editingUnit = useMemo(
@@ -295,7 +302,117 @@ export function UnitBasedControls({
     )
   }
 
-  if (units.length === 0) return null // pas d'inventaire → on utilise l'ancien flow
+  // Site sans parc : rien à afficher en lecture seule (rapport clos → ancien flow)
+  if (units.length === 0 && readOnly) return null
+
+  const effectiveClientId = clientId ?? siteClientId ?? units[0]?.client_id ?? null
+  // Fiche pré-remplie avec le dernier appareil ajouté (ou le plus récent du site)
+  const previousUnit = lastCreated
+    ?? (units.length > 0 ? units.reduce((a, b) => (b.created_at > a.created_at ? b : a)) : null)
+
+  function openManualAdd() {
+    setScanMessage(null)
+    setFromScan(false)
+    setAddDraft({ qr: null })
+  }
+
+  const overlays = (
+    <>
+      {scanOpen && (
+        <QrScanner
+          onClose={() => { setScanOpen(false); setFromScan(false) }}
+          onResult={(text) => { void handleScan(text) }}
+        />
+      )}
+
+      {addDraft && effectiveClientId && (
+        <QuickUnitSheet
+          siteId={siteId}
+          clientId={effectiveClientId}
+          organizationId={organizationId}
+          zones={zones}
+          siteUnits={units}
+          qrCode={addDraft.qr}
+          previous={previousUnit}
+          onZoneCreated={(z) => setZones((prev) => [...prev, z])}
+          onCreated={(unit, then) => { void handleCreated(unit, then) }}
+          onClose={() => { setAddDraft(null); setFromScan(false) }}
+        />
+      )}
+
+      {editingUnit && (
+        <UnitCheckModal
+          unit={editingUnit}
+          template={templateCache.get(editingUnit.family) ?? null}
+          existing={checksByUnit.get(editingUnit.id) ?? null}
+          onClose={() => setEditingUnitId(null)}
+          onSave={handleSaveCheck}
+          readOnly={readOnly}
+          organizationId={organizationId}
+          interventionId={interventionId}
+          technicianName={technicianName}
+        />
+      )}
+    </>
+  )
+
+  const scanMessageBox = scanMessage && (
+    <div style={{
+      margin: '0 4px 10px', padding: '9px 12px', borderRadius: 10, fontSize: '.85rem',
+      background: scanMessage.tone === 'ok' ? '#E6F4EB' : '#FDF1E7',
+      color: scanMessage.tone === 'ok' ? '#0E7A3F' : '#8A3D0E',
+      border: `1px solid ${scanMessage.tone === 'ok' ? '#B7DFC7' : '#F0C9A6'}`,
+    }}>
+      {scanMessage.text}
+    </div>
+  )
+
+  if (units.length === 0) {
+    return (
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <div className="card-top">
+          <span className="card-title">Inventaire au scan</span>
+        </div>
+        <p className="text-ink-2 text-sm font-light" style={{ padding: '0 4px 12px', lineHeight: 1.5 }}>
+          Ce site n'a pas encore d'équipements enregistrés. Scanne l'étiquette de chaque appareil :
+          il est ajouté au parc du site, puis tu fais son contrôle. À la prochaine visite, un scan suffira pour le retrouver.
+        </p>
+        {error && (
+          <p className="text-red text-sm" style={{ padding: '4px 12px' }}>
+            Erreur : {error}
+          </p>
+        )}
+        {!effectiveClientId && (
+          <p className="text-red text-sm" style={{ padding: '4px 12px' }}>
+            Ce site n'est rattaché à aucun client : impossible d'y ajouter des équipements.
+          </p>
+        )}
+        {scanMessageBox}
+        <button
+          type="button"
+          className="btn-sm acc"
+          onClick={() => { setScanMessage(null); setScanOpen(true) }}
+          disabled={!effectiveClientId}
+          style={{ display: 'flex', width: '100%', justifyContent: 'center', alignItems: 'center', gap: 8, padding: '12px 16px', fontSize: '1rem', margin: '4px 0 8px' }}
+        >
+          <QrCode size={18} strokeWidth={2} /> Scanner la 1re étiquette
+        </button>
+        <button
+          type="button"
+          className="mf out"
+          onClick={openManualAdd}
+          disabled={!effectiveClientId}
+          style={{ display: 'flex', width: '100%', justifyContent: 'center', alignItems: 'center', gap: 6 }}
+        >
+          <Plus size={15} strokeWidth={2} /> Ajouter sans étiquette
+        </button>
+        <p className="text-ink-3 text-xs font-light" style={{ padding: '10px 4px 0', textAlign: 'center' }}>
+          Tu peux aussi remplir la checklist globale ci-dessous, sans faire l'inventaire.
+        </p>
+        {overlays}
+      </div>
+    )
+  }
 
   // Compteurs par zone
   function countZone(zoneId: string): { done: number; total: number } {
@@ -332,25 +449,30 @@ export function UnitBasedControls({
 
       {/* Scan des étiquettes + recherche (gros sites) */}
       {!readOnly && (
-        <button
-          type="button"
-          className="btn-sm acc"
-          onClick={() => { setScanMessage(null); setScanOpen(true) }}
-          style={{ display: 'flex', width: '100%', justifyContent: 'center', alignItems: 'center', gap: 8, padding: '12px 16px', fontSize: '1rem', margin: '4px 0 10px' }}
-        >
-          <QrCode size={18} strokeWidth={2} /> Scanner une étiquette
-        </button>
-      )}
-      {scanMessage && (
-        <div style={{
-          margin: '0 4px 10px', padding: '9px 12px', borderRadius: 10, fontSize: '.85rem',
-          background: scanMessage.tone === 'ok' ? '#E6F4EB' : '#FDF1E7',
-          color: scanMessage.tone === 'ok' ? '#0E7A3F' : '#8A3D0E',
-          border: `1px solid ${scanMessage.tone === 'ok' ? '#B7DFC7' : '#F0C9A6'}`,
-        }}>
-          {scanMessage.text}
+        <div style={{ display: 'flex', gap: 8, margin: '4px 0 10px' }}>
+          <button
+            type="button"
+            className="btn-sm acc"
+            onClick={() => { setScanMessage(null); setScanOpen(true) }}
+            style={{ display: 'flex', flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, padding: '12px 16px', fontSize: '1rem' }}
+          >
+            <QrCode size={18} strokeWidth={2} /> Scanner une étiquette
+          </button>
+          {effectiveClientId && (
+            <button
+              type="button"
+              className="mf out"
+              onClick={openManualAdd}
+              title="Ajouter un équipement sans étiquette"
+              aria-label="Ajouter un équipement sans étiquette"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+            >
+              <Plus size={15} strokeWidth={2} /> Ajouter
+            </button>
+          )}
         </div>
       )}
+      {scanMessageBox}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', padding: '0 4px 10px' }}>
         <div style={{ position: 'relative', flex: '1 1 220px' }}>
           <Search size={14} strokeWidth={2} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)' }} />
@@ -465,37 +587,7 @@ export function UnitBasedControls({
         </div>
       )}
 
-      {scanOpen && (
-        <QrScanner
-          onClose={() => { setScanOpen(false); setFromScan(false) }}
-          onResult={(text) => { void handleScan(text) }}
-        />
-      )}
-
-      {createQr !== null && (
-        <EquipmentUnitModal
-          open
-          onClose={() => setCreateQr(null)}
-          defaultSiteId={siteId ?? undefined}
-          defaultClientId={units[0]?.client_id}
-          defaultQrCode={createQr}
-          onChanged={() => { void afterCreateFromScan(createQr) }}
-        />
-      )}
-
-      {editingUnit && (
-        <UnitCheckModal
-          unit={editingUnit}
-          template={templateCache.get(editingUnit.family) ?? null}
-          existing={checksByUnit.get(editingUnit.id) ?? null}
-          onClose={() => setEditingUnitId(null)}
-          onSave={handleSaveCheck}
-          readOnly={readOnly}
-          organizationId={organizationId}
-          interventionId={interventionId}
-          technicianName={technicianName}
-        />
-      )}
+      {overlays}
     </div>
   )
 }
