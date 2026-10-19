@@ -207,6 +207,13 @@ export const equipmentsImportDefinition: ImportDefinition = {
       hint: 'Ajouté aux notes (sert de N° d\'unité si celui-ci est absent)',
     },
     {
+      key: 'qr_code',
+      label: 'QR code',
+      aliases: ['QR', 'Code QR', 'QRcode', 'Code-barres', 'Code barre', 'Code barres', 'Code étiquette', 'N° étiquette', 'Étiquette', 'Tag', 'Code tag', 'Identifiant QR'],
+      example: '',
+      hint: "Contenu du QR code collé sur l'équipement (sert au scan sur le terrain)",
+    },
+    {
       key: 'zone_name',
       label: 'Zone',
       aliases: ['Secteur', 'Bâtiment', 'Niveau', 'Étage', 'Bâtiment / Zone'],
@@ -272,6 +279,10 @@ export const equipmentsImportDefinition: ImportDefinition = {
     if (!serial && row.manufacturer_serial) {
       serial = row.manufacturer_serial.trim()
       messages.push("N° d'unité absent : le n° de série fabricant est utilisé")
+    }
+    if (!serial && row.qr_code) {
+      serial = row.qr_code.trim()
+      messages.push("N° d'unité absent : le QR code est utilisé")
     }
 
     if (!siteName) return invalid(row, 'Nom du site obligatoire')
@@ -426,6 +437,7 @@ export const equipmentsImportDefinition: ImportDefinition = {
       install_year: parseYear(row.install_year) ?? undefined,
       next_replacement_year: parseYear(row.next_replacement_year) ?? undefined,
       status: 'active',
+      qr_code: (row.qr_code ?? '').trim() || undefined,
       notes: notes || undefined,
     }
 

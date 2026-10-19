@@ -151,23 +151,35 @@ export type EquipmentUnitFilters = {
   includeRemoved?: boolean
 }
 
+// La base renvoie au plus 1 000 lignes par requête : un parc de plusieurs
+// milliers d'équipements se lit par pages (ordre stable grâce à l'id).
+const UNITS_PAGE = 1000
+
 export async function listEquipmentUnits(
   filters: EquipmentUnitFilters = {},
 ): Promise<EquipmentUnit[]> {
-  let q = supabase
-    .from('equipment_units')
-    .select('*')
-    .order('family', { ascending: true })
-    .order('serial_number', { ascending: true })
-  if (!filters.includeRemoved) q = q.neq('status', 'removed')
-  if (filters.siteId) q = q.eq('site_id', filters.siteId)
-  if (filters.clientId) q = q.eq('client_id', filters.clientId)
-  if (filters.family) q = q.eq('family', filters.family)
-  if (filters.zoneId) q = q.eq('zone_id', filters.zoneId)
-  if (filters.status) q = q.eq('status', filters.status)
-  const { data, error } = await q
-  if (error) throw error
-  return (data ?? []) as EquipmentUnit[]
+  const all: EquipmentUnit[] = []
+  for (let from = 0; ; from += UNITS_PAGE) {
+    let q = supabase
+      .from('equipment_units')
+      .select('*')
+      .order('family', { ascending: true })
+      .order('serial_number', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + UNITS_PAGE - 1)
+    if (!filters.includeRemoved) q = q.neq('status', 'removed')
+    if (filters.siteId) q = q.eq('site_id', filters.siteId)
+    if (filters.clientId) q = q.eq('client_id', filters.clientId)
+    if (filters.family) q = q.eq('family', filters.family)
+    if (filters.zoneId) q = q.eq('zone_id', filters.zoneId)
+    if (filters.status) q = q.eq('status', filters.status)
+    const { data, error } = await q
+    if (error) throw error
+    const page = (data ?? []) as EquipmentUnit[]
+    all.push(...page)
+    if (page.length < UNITS_PAGE) break
+  }
+  return all
 }
 
 export async function getEquipmentUnit(id: string): Promise<EquipmentUnit | null> {
@@ -359,4 +371,22 @@ export async function upsertCheck(
 export async function deleteCheck(id: string): Promise<void> {
   const { error } = await supabase.from('equipment_checks').delete().eq('id', id)
   if (error) throw error
+}
+
+/**
+ * Équipements de l'organisation dont le QR code correspond à l'une des
+ * valeurs (comparaison exacte, en essayant aussi les variantes de casse).
+ * Sert à repérer un QR déjà connu sur un autre site avant d'en créer un.
+ */
+export async function findUnitsByQrCodes(values: string[]): Promise<Array<Pick<EquipmentUnit, 'id' | 'site_id' | 'client_id' | 'serial_number' | 'family' | 'qr_code'>>> {
+  const variants = Array.from(new Set(values.flatMap((v) => [v.trim(), v.trim().toUpperCase(), v.trim().toLowerCase()]).filter(Boolean)))
+  if (variants.length === 0) return []
+  const { data, error } = await supabase
+    .from('equipment_units')
+    .select('id, site_id, client_id, serial_number, family, qr_code')
+    .in('qr_code', variants.slice(0, 40))
+    .neq('status', 'removed')
+    .limit(5)
+  if (error) throw error
+  return (data ?? []) as Array<Pick<EquipmentUnit, 'id' | 'site_id' | 'client_id' | 'serial_number' | 'family' | 'qr_code'>>
 }

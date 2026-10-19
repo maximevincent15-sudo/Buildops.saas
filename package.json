@@ -21,6 +21,7 @@
     "exceljs": "^4.4.0",
     "fflate": "^0.8.2",
     "framer-motion": "^12.39.0",
+    "jsqr": "^1.4.0",
     "lucide-react": "^1.8.0",
     "papaparse": "^5.5.3",
     "react": "^19.2.5",

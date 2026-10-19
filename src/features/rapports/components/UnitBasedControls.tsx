@@ -1,4 +1,4 @@
-import { AlertTriangle, Camera, Check, X } from 'lucide-react'
+import { AlertTriangle, Camera, Check, QrCode, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, MouseEvent } from 'react'
 import {
@@ -18,11 +18,15 @@ import type {
   AnomalyPriority,
 } from '../../anomalies/schemas'
 import {
+  findUnitsByQrCodes,
   getFamilyTemplate,
   listChecksByIntervention,
   listEquipmentUnits,
+  listSites,
   listZones,
 } from '../../equipment/api'
+import { EquipmentUnitModal } from '../../equipment/components/EquipmentUnitModal'
+import { QrScanner } from '../../equipment/components/QrScanner'
 import { upsertCheckSmart } from '../../equipment/offlineQueue'
 import {
   CHECK_VERDICT_LABELS,
@@ -38,6 +42,11 @@ import type {
   Zone,
 } from '../../equipment/schemas'
 import { deleteReportPhoto, uploadReportPhoto } from '../../../shared/lib/storage'
+import { matchUnitByQr, qrRawParts } from '../../../shared/lib/qr'
+import { normalizeSearch } from '../../../shared/lib/search'
+
+/** Équipements affichés d'un coup (puis « Afficher plus ») : reste fluide sur les gros sites */
+const UNITS_STEP = 120
 
 type Props = {
   interventionId: string
@@ -82,6 +91,18 @@ export function UnitBasedControls({
 
   const [activeZoneId, setActiveZoneId] = useState<string | 'all'>('all')
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null)
+
+  // Gros sites : recherche, « reste à contrôler », affichage par tranches
+  const [search, setSearch] = useState('')
+  const [onlyRemaining, setOnlyRemaining] = useState(false)
+  const [limit, setLimit] = useState(UNITS_STEP)
+
+  // Scan des étiquettes QR
+  const [scanOpen, setScanOpen] = useState(false)
+  const [scanMessage, setScanMessage] = useState<{ tone: 'ok' | 'warn'; text: string } | null>(null)
+  const [fromScan, setFromScan] = useState(false)
+  const [chainScan, setChainScan] = useState(true)
+  const [createQr, setCreateQr] = useState<string | null>(null)
 
   async function load() {
     if (!siteId) {
@@ -155,11 +176,72 @@ export function UnitBasedControls({
     return map
   }, [zones])
 
-  // Unités affichées selon zone active
+  // Unités affichées : zone active, recherche, « reste à contrôler »
   const displayedUnits = useMemo(() => {
-    if (activeZoneId === 'all') return units
-    return units.filter((u) => u.zone_id === activeZoneId)
-  }, [units, activeZoneId])
+    const q = normalizeSearch(search)
+    return units.filter((u) => {
+      if (activeZoneId === 'unassigned' ? !!u.zone_id : activeZoneId !== 'all' && u.zone_id !== activeZoneId) return false
+      if (onlyRemaining) {
+        const c = checksByUnit.get(u.id)
+        if (c && c.verdict !== 'non_verifie') return false
+      }
+      if (q) {
+        const hay = normalizeSearch([
+          u.serial_number, u.subtype ?? '', u.implantation ?? '', u.brand ?? '', u.model ?? '', u.qr_code ?? '',
+          u.zone_id ? zonesById.get(u.zone_id)?.name ?? '' : '',
+        ].join(' '))
+        if (!hay.includes(q)) return false
+      }
+      return true
+    })
+  }, [units, activeZoneId, onlyRemaining, search, checksByUnit, zonesById])
+
+  /** Équipement créé depuis un scan : on recharge le parc et on ouvre son contrôle */
+  async function afterCreateFromScan(qr: string) {
+    setCreateQr(null)
+    if (!siteId) return
+    try {
+      const fresh = await listEquipmentUnits({ siteId })
+      setUnits(fresh)
+      const created = matchUnitByQr(fresh, qr)
+      if (!created) return
+      if (!templateCache.has(created.family)) {
+        const t = await getFamilyTemplate(created.family)
+        if (t) setTemplateCache((prev) => new Map(prev).set(t.family, t))
+      }
+      setFromScan(true)
+      setScanMessage({ tone: 'ok', text: `${EQUIPMENT_FAMILY_LABELS[created.family]} N°${created.serial_number} ajouté au site` })
+      setEditingUnitId(created.id)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur de rechargement')
+    }
+  }
+
+  /** Résultat d'un scan : ouvre le contrôle de l'équipement, ou propose de le créer */
+  async function handleScan(text: string) {
+    setScanOpen(false)
+    const found = matchUnitByQr(units, text)
+    if (found) {
+      setFromScan(true)
+      setScanMessage({ tone: 'ok', text: `${EQUIPMENT_FAMILY_LABELS[found.family]} N°${found.serial_number} trouvé` })
+      setEditingUnitId(found.id)
+      return
+    }
+    setFromScan(false)
+    try {
+      const elsewhere = await findUnitsByQrCodes(qrRawParts(text))
+      const other = elsewhere.find((u) => u.site_id !== siteId)
+      if (other) {
+        const site = (await listSites(other.client_id).catch(() => [])).find((x) => x.id === other.site_id)
+        setScanMessage({ tone: 'warn', text: `Ce QR code appartient à ${EQUIPMENT_FAMILY_LABELS[other.family]} N°${other.serial_number}${site ? ` du site « ${site.name} »` : " d'un autre site"}, pas à ce site.` })
+        return
+      }
+    } catch {
+      // recherche impossible (réseau) : on propose quand même la création
+    }
+    setScanMessage({ tone: 'warn', text: 'QR code inconnu sur ce site : complète la fiche pour ajouter cet équipement.' })
+    setCreateQr(text.trim())
+  }
 
   const editingUnit = useMemo(
     () => (editingUnitId ? units.find((u) => u.id === editingUnitId) ?? null : null),
@@ -193,6 +275,9 @@ export function UnitBasedControls({
         return [...filtered, saved]
       })
       setEditingUnitId(null)
+      // Tournée au scanner : on rouvre la caméra pour l'équipement suivant
+      if (fromScan && chainScan) setScanOpen(true)
+      setFromScan(false)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur enregistrement')
     }
@@ -245,12 +330,60 @@ export function UnitBasedControls({
         </p>
       )}
 
+      {/* Scan des étiquettes + recherche (gros sites) */}
+      {!readOnly && (
+        <button
+          type="button"
+          className="btn-sm acc"
+          onClick={() => { setScanMessage(null); setScanOpen(true) }}
+          style={{ display: 'flex', width: '100%', justifyContent: 'center', alignItems: 'center', gap: 8, padding: '12px 16px', fontSize: '1rem', margin: '4px 0 10px' }}
+        >
+          <QrCode size={18} strokeWidth={2} /> Scanner une étiquette
+        </button>
+      )}
+      {scanMessage && (
+        <div style={{
+          margin: '0 4px 10px', padding: '9px 12px', borderRadius: 10, fontSize: '.85rem',
+          background: scanMessage.tone === 'ok' ? '#E6F4EB' : '#FDF1E7',
+          color: scanMessage.tone === 'ok' ? '#0E7A3F' : '#8A3D0E',
+          border: `1px solid ${scanMessage.tone === 'ok' ? '#B7DFC7' : '#F0C9A6'}`,
+        }}>
+          {scanMessage.text}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', padding: '0 4px 10px' }}>
+        <div style={{ position: 'relative', flex: '1 1 220px' }}>
+          <Search size={14} strokeWidth={2} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)' }} />
+          <input
+            className="input-sm"
+            type="search"
+            placeholder="N°, emplacement, marque, QR…"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setLimit(UNITS_STEP) }}
+            style={{ paddingLeft: 30, width: '100%', display: 'block' }}
+          />
+        </div>
+        <button
+          type="button"
+          className={`filter-pill${onlyRemaining ? ' on' : ''}`}
+          onClick={() => { setOnlyRemaining((v) => !v); setLimit(UNITS_STEP) }}
+        >
+          Reste à contrôler ({Math.max(0, units.length - totalChecked)})
+        </button>
+        {!readOnly && (
+          <label className="text-xs text-ink-2" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <input type="checkbox" checked={chainScan} onChange={(e) => setChainScan(e.target.checked)} />
+            Enchaîner les scans
+          </label>
+        )}
+      </div>
+
       {/* Filtre par zone */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '4px 4px 12px' }}>
         <button
           type="button"
           className={`filter-pill${activeZoneId === 'all' ? ' on' : ''}`}
-          onClick={() => setActiveZoneId('all')}
+          onClick={() => { setActiveZoneId('all'); setLimit(UNITS_STEP) }}
         >
           Toutes ({units.length})
         </button>
@@ -262,7 +395,7 @@ export function UnitBasedControls({
               key={z.id}
               type="button"
               className={`filter-pill${activeZoneId === z.id ? ' on' : ''}`}
-              onClick={() => setActiveZoneId(z.id)}
+              onClick={() => { setActiveZoneId(z.id); setLimit(UNITS_STEP) }}
             >
               {z.name} ({c.done}/{c.total})
             </button>
@@ -272,7 +405,7 @@ export function UnitBasedControls({
           <button
             type="button"
             className={`filter-pill${activeZoneId === 'unassigned' ? ' on' : ''}`}
-            onClick={() => setActiveZoneId('unassigned' as unknown as string)}
+            onClick={() => { setActiveZoneId('unassigned'); setLimit(UNITS_STEP) }}
           >
             Sans zone ({orphanDone}/{orphanCount})
           </button>
@@ -281,7 +414,7 @@ export function UnitBasedControls({
 
       {/* Liste des unités */}
       <div style={unitListStyle}>
-        {displayedUnits.map((u) => {
+        {displayedUnits.slice(0, limit).map((u) => {
           const check = checksByUnit.get(u.id)
           const verdict: CheckVerdict = check?.verdict ?? 'non_verifie'
           const zoneName = u.zone_id ? zonesById.get(u.zone_id)?.name ?? '—' : 'Sans zone'
@@ -318,6 +451,37 @@ export function UnitBasedControls({
           )
         })}
       </div>
+
+      {displayedUnits.length === 0 && (
+        <p className="text-ink-3 text-sm font-light" style={{ textAlign: 'center', padding: '14px 8px' }}>
+          Aucun équipement ne correspond{onlyRemaining ? ' : tout est contrôlé ici' : ''}.
+        </p>
+      )}
+      {displayedUnits.length > limit && (
+        <div style={{ textAlign: 'center', padding: '6px 0 4px' }}>
+          <button type="button" className="mf out" onClick={() => setLimit((n) => n + UNITS_STEP)}>
+            Afficher plus ({displayedUnits.length - limit} restants)
+          </button>
+        </div>
+      )}
+
+      {scanOpen && (
+        <QrScanner
+          onClose={() => { setScanOpen(false); setFromScan(false) }}
+          onResult={(text) => { void handleScan(text) }}
+        />
+      )}
+
+      {createQr !== null && (
+        <EquipmentUnitModal
+          open
+          onClose={() => setCreateQr(null)}
+          defaultSiteId={siteId ?? undefined}
+          defaultClientId={units[0]?.client_id}
+          defaultQrCode={createQr}
+          onChanged={() => { void afterCreateFromScan(createQr) }}
+        />
+      )}
 
       {editingUnit && (
         <UnitCheckModal

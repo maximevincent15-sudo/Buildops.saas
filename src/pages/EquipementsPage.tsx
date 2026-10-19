@@ -1,4 +1,4 @@
-import { Building2, Layers, Pencil, Plus, Search, Upload, X } from 'lucide-react'
+import { Building2, Layers, Pencil, Plus, QrCode, Search, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listClients } from '../features/clients/api'
@@ -6,6 +6,7 @@ import type { Client } from '../features/clients/schemas'
 import { listEquipmentUnits, listSites } from '../features/equipment/api'
 import { BatchAddUnitsModal } from '../features/equipment/components/BatchAddUnitsModal'
 import { EquipmentUnitModal } from '../features/equipment/components/EquipmentUnitModal'
+import { QrScanner } from '../features/equipment/components/QrScanner'
 import { SiteModal } from '../features/equipment/components/SiteModal'
 import {
   EQUIPMENT_FAMILIES,
@@ -19,7 +20,11 @@ import type {
   EquipmentUnit,
   Site,
 } from '../features/equipment/schemas'
+import { matchUnitByQr } from '../shared/lib/qr'
 import { normalizeSearch } from '../shared/lib/search'
+
+/** Lignes affichées d'un coup (puis « Afficher plus ») : un parc de milliers d'équipements reste fluide */
+const ROWS_STEP = 200
 
 type FamilyFilter = 'all' | EquipmentFamily
 type StatusFilter = 'all' | EquipmentStatus
@@ -48,6 +53,10 @@ export function EquipementsPage() {
 
   // Filtres
   const [search, setSearch] = useState('')
+  // « Afficher plus » : revient à la première tranche dès qu'un filtre change
+  const [more, setMore] = useState<{ key: string; n: number }>({ key: '', n: ROWS_STEP })
+  const [scanOpen, setScanOpen] = useState(false)
+  const [scanNotice, setScanNotice] = useState<string | null>(null)
   const [familyFilter, setFamilyFilter] = useState<FamilyFilter>('all')
   const [siteFilter, setSiteFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -129,6 +138,7 @@ export function EquipementsPage() {
           u.brand ?? '',
           u.model ?? '',
           u.implantation ?? '',
+          u.qr_code ?? '',
           u.notes ?? '',
         ].join(' '))
         if (!hay.includes(q)) return false
@@ -151,6 +161,8 @@ export function EquipementsPage() {
   }, [units, search, familyFilter, siteFilter, statusFilter, clientsById, sitesById])
 
   const total = units.length
+  const filterKey = `${search}|${familyFilter}|${siteFilter}|${statusFilter}`
+  const limit = more.key === filterKey ? more.n : ROWS_STEP
   const shown = filtered.length
 
   const clearFilters = () => {
@@ -180,6 +192,15 @@ export function EquipementsPage() {
           </div>
         </div>
         <div className="dash-acts">
+          <button
+            type="button"
+            className="btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            onClick={() => { setScanNotice(null); setScanOpen(true) }}
+          >
+            <QrCode size={13} strokeWidth={2} />
+            Scanner
+          </button>
           <Link
             to="/equipements/import"
             className="btn-sm"
@@ -227,6 +248,15 @@ export function EquipementsPage() {
         <p className="text-red text-sm" style={{ marginBottom: 12 }}>
           Erreur : {error}
         </p>
+      )}
+
+      {scanNotice && (
+        <div className="card" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: '.6rem', background: '#FDF1E7', border: '1px solid #F0C9A6', color: '#8A3D0E', fontSize: '.85rem' }}>
+          <span style={{ flex: 1 }}>{scanNotice}</span>
+          <button type="button" onClick={() => setScanNotice(null)} aria-label="Fermer" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>
+            <X size={14} />
+          </button>
+        </div>
       )}
 
       {/* Pills famille */}
@@ -430,7 +460,7 @@ export function EquipementsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((u) => {
+                {filtered.slice(0, limit).map((u) => {
                   const site = sitesById.get(u.site_id)
                   const client = clientsById.get(u.client_id)
                   const nextYear =
@@ -487,9 +517,32 @@ export function EquipementsPage() {
                 })}
               </tbody>
             </table>
+            {filtered.length > limit && (
+              <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>
+                <button type="button" className="mf out" onClick={() => setMore({ key: filterKey, n: limit + ROWS_STEP })}>
+                  Afficher plus ({filtered.length - limit} restants)
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {scanOpen && (
+        <QrScanner
+          onClose={() => setScanOpen(false)}
+          onResult={(text) => {
+            setScanOpen(false)
+            const found = matchUnitByQr(units, text)
+            if (found) {
+              setEditingUnit(found)
+              setUnitModalOpen(true)
+            } else {
+              setScanNotice(`Aucun équipement ne porte ce QR code (« ${text.trim().slice(0, 60)} »). Ouvre la fiche d'un équipement pour lui associer ce code.`)
+            }
+          }}
+        />
+      )}
 
       <SiteModal
         open={siteModalOpen}

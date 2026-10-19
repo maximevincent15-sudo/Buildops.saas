@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Camera, CheckCircle2, Loader2, Trash2 } from 'lucide-react'
+import { Camera, CheckCircle2, Loader2, QrCode, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, MouseEvent } from 'react'
 import { useForm } from 'react-hook-form'
@@ -23,6 +23,7 @@ import {
   createEquipmentUnitSchema,
 } from '../schemas'
 import { LabelScanError, scanEquipmentLabel } from '../scanLabel'
+import { QrScanner } from './QrScanner'
 import type {
   CreateEquipmentUnitInput,
   EquipmentUnit,
@@ -36,15 +37,22 @@ type Props = {
   onChanged?: () => void
   unit?: EquipmentUnit | null
   defaultSiteId?: string
+  /** Création depuis un rapport ou un scan : client du site et QR déjà connus */
+  defaultClientId?: string
+  defaultQrCode?: string
 }
 
 function toFormValues(
   u: EquipmentUnit | null | undefined,
   defaultSiteId?: string,
+  defaultClientId?: string,
+  defaultQrCode?: string,
 ): Partial<CreateEquipmentUnitInput> {
   if (!u) {
     return {
+      client_id: defaultClientId,
       site_id: defaultSiteId,
+      qr_code: defaultQrCode ?? '',
       status: 'active',
       family: 'extincteurs',
     }
@@ -62,6 +70,7 @@ function toFormValues(
     install_year: u.install_year ?? undefined,
     next_replacement_year: u.next_replacement_year ?? undefined,
     status: u.status,
+    qr_code: u.qr_code ?? '',
     notes: u.notes ?? '',
   }
 }
@@ -72,11 +81,14 @@ export function EquipmentUnitModal({
   onChanged,
   unit,
   defaultSiteId,
+  defaultClientId,
+  defaultQrCode,
 }: Props) {
   const isEdit = !!unit
   const profile = useAuthStore((s) => s.profile)
 
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [qrScanOpen, setQrScanOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const [clients, setClients] = useState<Client[]>([])
@@ -101,7 +113,7 @@ export function EquipmentUnitModal({
     formState: { errors, isSubmitting },
   } = useForm<CreateEquipmentUnitInput>({
     resolver: zodResolver(createEquipmentUnitSchema),
-    defaultValues: toFormValues(unit, defaultSiteId),
+    defaultValues: toFormValues(unit, defaultSiteId, defaultClientId, defaultQrCode),
   })
 
   const watchedClientId = watch('client_id')
@@ -119,13 +131,13 @@ export function EquipmentUnitModal({
   // Reset au ré-ouverture
   useEffect(() => {
     if (!open) return
-    reset(toFormValues(unit, defaultSiteId))
+    reset(toFormValues(unit, defaultSiteId, defaultClientId, defaultQrCode))
     setSubmitError(null)
     setNewZoneName('')
     setScanPreview(null)
     setScanMessage(null)
     listClients().then(setClients).catch(() => setClients([]))
-  }, [open, unit, defaultSiteId, reset])
+  }, [open, unit, defaultSiteId, defaultClientId, defaultQrCode, reset])
 
   // Charger les sites quand le client change
   useEffect(() => {
@@ -461,6 +473,18 @@ export function EquipmentUnitModal({
             </div>
           </div>
 
+          {/* Code QR de l'étiquette (scan sur le terrain) */}
+          <div className="fg">
+            <label>Code QR de l'étiquette (facultatif)</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input type="text" placeholder="Scanne l'étiquette ou saisis son code" {...register('qr_code')} style={{ flex: 1, minWidth: 0 }} />
+              <button type="button" className="mf out" onClick={() => setQrScanOpen(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                <QrCode size={14} strokeWidth={2} /> Scanner
+              </button>
+            </div>
+          </div>
+
           {/* Marque + modèle */}
           <div className="mrow">
             <div className="fg">
@@ -564,6 +588,13 @@ export function EquipmentUnitModal({
           </div>
         </form>
       </div>
+      {qrScanOpen && (
+        <QrScanner
+          onClose={() => setQrScanOpen(false)}
+          onResult={(text) => { setValue('qr_code', text.trim(), { shouldDirty: true }); setQrScanOpen(false) }}
+          hint="Vise le QR code de l'étiquette de cet équipement."
+        />
+      )}
     </div>
   )
 }
