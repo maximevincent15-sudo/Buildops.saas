@@ -19,7 +19,7 @@ import type {
   Zone,
 } from '../../equipment/schemas'
 import { parseYear } from '../helpers'
-import type { ImportDefinition, RowAnalysis } from '../types'
+import type { ImportContext, ImportDefinition, RowAnalysis } from '../types'
 
 // ─── Helpers ────────────────────────────────────────────
 
@@ -98,6 +98,7 @@ type EquipCache = {
   serialsInFile?: Set<string>
   sitesToCreate?: Set<string> // key: `${client_id}::${normalizedSiteName}`
   createdSites?: Map<string, string> // même clé → site_id créé pendant l'import
+  zonesLoadedSites?: Set<string>
 }
 
 async function getSitesIndex(cache: Record<string, unknown>): Promise<Map<string, Site[]>> {
@@ -127,9 +128,14 @@ async function getZonesIndex(
 ): Promise<Map<string, Zone>> {
   const c = cache as EquipCache
   if (!c.zonesBySiteAndName) c.zonesBySiteAndName = new Map()
-  const zones = await listZones(siteId)
-  for (const z of zones) {
-    c.zonesBySiteAndName.set(`${siteId}::${normalize(z.name)}`, z)
+  if (!c.zonesLoadedSites) c.zonesLoadedSites = new Set()
+  // Une seule lecture par site (avant : une requête à chaque ligne)
+  if (!c.zonesLoadedSites.has(siteId)) {
+    const zones = await listZones(siteId)
+    for (const z of zones) {
+      c.zonesBySiteAndName.set(`${siteId}::${normalize(z.name)}`, z)
+    }
+    c.zonesLoadedSites.add(siteId)
   }
   return c.zonesBySiteAndName
 }
@@ -370,9 +376,54 @@ export const equipmentsImportDefinition: ImportDefinition = {
   },
 
   async importRow(row, analysis, context): Promise<'created' | 'updated' | 'skipped'> {
+    const input = await prepareUnitInput(row, analysis, context)
+    if (!input) return 'skipped'
+    await batchCreateEquipmentUnits([input], context.organizationId)
+    return 'created'
+  },
+
+  // Gros parcs (milliers d'équipements) : sites et zones résolus ligne par
+  // ligne (avec cache), puis insertion par paquets de 500 ; si un paquet est
+  // refusé, ses lignes sont réessayées une par une pour isoler l'erreur.
+  batchSize: 500,
+  async importBatch(items, context) {
+    const outcomes: Array<{ outcome: 'created' | 'updated' | 'skipped' } | { error: string }> = []
+    const inputs: Array<{ at: number; input: CreateEquipmentUnitInput }> = []
+    for (const [i, { row, analysis }] of items.entries()) {
+      try {
+        const input = await prepareUnitInput(row, analysis, context)
+        if (input) inputs.push({ at: i, input })
+        outcomes[i] = { outcome: 'skipped' }
+      } catch (e) {
+        outcomes[i] = { error: e instanceof Error ? e.message : 'Erreur inconnue' }
+      }
+    }
+    try {
+      await batchCreateEquipmentUnits(inputs.map((x) => x.input), context.organizationId)
+      for (const x of inputs) outcomes[x.at] = { outcome: 'created' }
+    } catch {
+      for (const x of inputs) {
+        try {
+          await batchCreateEquipmentUnits([x.input], context.organizationId)
+          outcomes[x.at] = { outcome: 'created' }
+        } catch (e) {
+          outcomes[x.at] = { error: e instanceof Error ? e.message : (e as { message?: string })?.message ?? 'Erreur inconnue' }
+        }
+      }
+    }
+    return outcomes
+  },
+}
+
+/** Ligne validée → équipement à créer (site et zone créés au besoin). null = ignorée. */
+async function prepareUnitInput(
+  row: Record<string, string | null>,
+  analysis: RowAnalysis,
+  context: ImportContext,
+): Promise<CreateEquipmentUnitInput | null> {
     if (analysis.status !== 'valid') {
-      if (analysis.status === 'duplicate' && analysis.duplicateAction === 'skip') return 'skipped'
-      if (analysis.status === 'invalid') return 'skipped'
+      if (analysis.status === 'duplicate' && analysis.duplicateAction === 'skip') return null
+      if (analysis.status === 'invalid') return null
     }
 
     const cache = context.cache as Record<string, unknown>
@@ -440,8 +491,5 @@ export const equipmentsImportDefinition: ImportDefinition = {
       qr_code: (row.qr_code ?? '').trim() || undefined,
       notes: notes || undefined,
     }
-
-    await batchCreateEquipmentUnits([input], context.organizationId)
-    return 'created'
-  },
+    return input
 }

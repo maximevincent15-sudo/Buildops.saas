@@ -32,24 +32,48 @@ export async function importRows(
   rows: RowAnalysis[],
   definition: ImportDefinition,
   ctx: ImportContext,
+  onProgress?: (done: number, total: number) => void,
 ): Promise<ImportResult> {
   const result: ImportResult = { created: 0, updated: 0, skipped: 0, errors: [] }
-  for (const row of rows) {
-    if (row.status === 'invalid' || (row.status === 'duplicate' && row.duplicateAction === 'skip')) {
-      result.skipped++
-      continue
+  const toMessage = (err: unknown) => err instanceof Error
+    ? err.message
+    : (err as { message?: string })?.message ?? 'Erreur inconnue'
+  const count = (outcome: 'created' | 'updated' | 'skipped') => {
+    if (outcome === 'created') result.created++
+    else if (outcome === 'updated') result.updated++
+    else result.skipped++
+  }
+
+  const todo = rows.filter((row) => !(row.status === 'invalid' || (row.status === 'duplicate' && row.duplicateAction === 'skip')))
+  result.skipped += rows.length - todo.length
+  onProgress?.(0, todo.length)
+
+  // Gros fichiers : insertion par lots quand la définition le permet
+  if (definition.importBatch) {
+    const size = definition.batchSize ?? 500
+    for (let i = 0; i < todo.length; i += size) {
+      const chunk = todo.slice(i, i + size)
+      try {
+        const outcomes = await definition.importBatch(chunk.map((r) => ({ row: r.values, analysis: r })), ctx)
+        outcomes.forEach((o, j) => {
+          if ('error' in o) result.errors.push({ rowIndex: chunk[j]!.index, message: o.error })
+          else count(o.outcome)
+        })
+      } catch (err) {
+        for (const r of chunk) result.errors.push({ rowIndex: r.index, message: toMessage(err) })
+      }
+      onProgress?.(Math.min(i + size, todo.length), todo.length)
     }
+    return result
+  }
+
+  for (const [i, row] of todo.entries()) {
     try {
-      const outcome = await definition.importRow(row.values, row, ctx)
-      if (outcome === 'created') result.created++
-      else if (outcome === 'updated') result.updated++
-      else result.skipped++
+      count(await definition.importRow(row.values, row, ctx))
     } catch (err) {
-      const message = err instanceof Error
-        ? err.message
-        : (err as { message?: string })?.message ?? 'Erreur inconnue'
-      result.errors.push({ rowIndex: row.index, message })
+      result.errors.push({ rowIndex: row.index, message: toMessage(err) })
     }
+    if ((i + 1) % 10 === 0 || i + 1 === todo.length) onProgress?.(i + 1, todo.length)
   }
   return result
 }

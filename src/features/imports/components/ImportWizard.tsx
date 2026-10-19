@@ -35,6 +35,7 @@ export function ImportWizard({ definition, onDone }: Props) {
   const [rows, setRows] = useState<RowAnalysis[]>([])
   const [loadingParse, setLoadingParse] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -104,7 +105,7 @@ export function ImportWizard({ definition, onDone }: Props) {
     setError(null)
     try {
       const ctx: ImportContext = { organizationId: orgId, cache: {} }
-      const result = await importRows(rows, definition, ctx)
+      const result = await importRows(rows, definition, ctx, (done, total) => setProgress({ done, total }))
       setImportResult(result)
       setStep('done')
       onDone?.()
@@ -311,7 +312,7 @@ export function ImportWizard({ definition, onDone }: Props) {
           >
             <Check size={14} />
             {importing
-              ? 'Import en cours…'
+              ? (progress && progress.total > 0 ? `Import en cours… ${progress.done.toLocaleString('fr-FR')} / ${progress.total.toLocaleString('fr-FR')}` : 'Import en cours…')
               : `Importer ${countToImport} ligne${countToImport > 1 ? 's' : ''}`}
           </button>
         </div>

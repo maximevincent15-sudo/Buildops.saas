@@ -88,6 +88,17 @@ export type ImportDefinition = {
     analysis: RowAnalysis,
     context: ImportContext,
   ) => Promise<'created' | 'updated' | 'skipped'>
+  /**
+   * Facultatif : insère plusieurs lignes d'un coup (gros fichiers). Renvoie un
+   * résultat par ligne, dans le même ordre. Sans elle, importRow est appelée
+   * ligne par ligne.
+   */
+  importBatch?: (
+    items: Array<{ row: Record<string, string | null>; analysis: RowAnalysis }>,
+    context: ImportContext,
+  ) => Promise<Array<{ outcome: 'created' | 'updated' | 'skipped' } | { error: string }>>
+  /** Taille des lots pour importBatch (500 par défaut). */
+  batchSize?: number
 }
 
 /** Contexte commun passé à chaque fonction (ex: organization_id). */
