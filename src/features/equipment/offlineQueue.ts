@@ -154,22 +154,24 @@ export async function upsertCheckSmart(
  * Envoie toutes les mutations en attente au serveur.
  * Les échecs restent dans la queue pour un prochain retry.
  */
-export async function flushQueue(): Promise<{ ok: number; failed: number }> {
+export async function flushQueue(): Promise<{ ok: number; failed: number; error?: string }> {
   const queue = readQueue()
   if (queue.length === 0) return { ok: 0, failed: 0 }
 
   const remaining: PendingCheck[] = []
   let ok = 0
+  let error: string | undefined
   for (const pending of queue) {
     try {
       await upsertCheck(pending.input, pending.organizationId, pending.options)
       ok++
-    } catch {
+    } catch (e) {
       remaining.push(pending)
+      error ??= e instanceof Error ? e.message : String(e)
     }
   }
   writeQueue(remaining)
-  return { ok, failed: remaining.length }
+  return { ok, failed: remaining.length, error }
 }
 
 // ─── Auto-flush au retour de connexion (module-level) ──────

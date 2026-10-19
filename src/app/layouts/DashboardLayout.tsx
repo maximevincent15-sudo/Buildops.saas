@@ -29,9 +29,7 @@ export function DashboardLayout() {
 
   return (
     <>
-      <OfflineBanner />
       <TopNav onToggleSidebar={() => setSidebarOpen((v) => !v)} />
-      <TrialBanner />
       <Sidebar open={sidebarOpen} />
       {sidebarOpen && (
         <div
@@ -41,6 +39,9 @@ export function DashboardLayout() {
         />
       )}
       <main className="b-main">
+        {/* Bandeaux dans la page, sous la barre de navigation : jamais par-dessus le menu */}
+        <TrialBanner />
+        <OfflineBanner />
         <ErrorBoundary key={location.pathname}>
           <Outlet />
         </ErrorBoundary>

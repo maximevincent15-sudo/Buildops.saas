@@ -3144,8 +3144,8 @@ h1, h2, h3, h4, h5, h6 {
   /* ──── RESPONSIVE (mobile / tablette) ──── */
   @media (max-width: 1024px) {
     .b-main { margin-left: 0; padding: 24px 16px 60px; }
-    .b-sidebar { transform: translateX(-100%); z-index: 999; transition: transform .22s ease; box-shadow: 4px 0 24px rgba(28, 33, 48, .12); }
-    .b-sidebar.open { transform: translateX(0); }
+    .b-sidebar { transform: translateX(-100%); z-index: 999; transition: transform .22s ease; }
+    .b-sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(28, 33, 48, .12); }
     .b-hero-stats { grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px; }
     .b-hs-side { border-left: none; padding-left: 0; }
     .b-kpi-grid { grid-template-columns: repeat(2, 1fr); }

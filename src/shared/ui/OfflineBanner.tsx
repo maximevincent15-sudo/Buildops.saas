@@ -4,14 +4,16 @@ import { useOnlineStatus } from '../lib/networkStatus'
 import { getPendingCount, flushQueue, onQueueChange } from '../../features/equipment/offlineQueue'
 
 /**
- * Bannière fixe en haut de l'app affichée quand le navigateur est hors ligne
- * ou quand des mutations sont en attente de synchronisation.
+ * Bandeau affiché en haut des pages (sous la barre de navigation, jamais
+ * par-dessus : le menu reste accessible sur téléphone) quand le navigateur est
+ * hors ligne ou quand des contrôles attendent d'être synchronisés.
  */
 export function OfflineBanner() {
   const online = useOnlineStatus()
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
   const [justSynced, setJustSynced] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
 
   useEffect(() => {
     setPendingCount(getPendingCount())
@@ -30,7 +32,8 @@ export function OfflineBanner() {
     setSyncing(true)
     try {
       const before = getPendingCount()
-      await flushQueue()
+      const result = await flushQueue()
+      setSyncError(result.failed > 0 ? result.error ?? 'erreur inconnue' : null)
       if (before > 0 && getPendingCount() === 0) {
         setJustSynced(true)
         setTimeout(() => setJustSynced(false), 3000)
@@ -73,10 +76,15 @@ export function OfflineBanner() {
       <RefreshCw
         size={16}
         strokeWidth={2.2}
-        style={syncing ? { animation: 'spin 1s linear infinite' } : undefined}
+        style={{ flexShrink: 0, ...(syncing ? { animation: 'spin 1s linear infinite' } : {}) }}
       />
-      <span>
-        {pendingCount} action{pendingCount > 1 ? 's' : ''} en attente de synchronisation
+      <span style={{ minWidth: 0 }}>
+        {pendingCount} contrôle{pendingCount > 1 ? 's' : ''} en attente de synchronisation
+        {syncError && (
+          <span style={{ display: 'block', fontSize: 12, opacity: .9 }}>
+            Envoi impossible pour l'instant ({syncError.slice(0, 120)}). Vérifie ta connexion, ou déconnecte-toi puis reconnecte-toi.
+          </span>
+        )}
       </span>
       <button
         type="button"
@@ -92,11 +100,12 @@ export function OfflineBanner() {
 }
 
 const bannerStyle: React.CSSProperties = {
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
-  zIndex: 1000,
+  // Collé sous la barre de navigation (64 px) au défilement, sous le menu mobile
+  position: 'sticky',
+  top: 72,
+  zIndex: 50,
+  borderRadius: 10,
+  marginBottom: 14,
   color: 'white',
   padding: '8px 16px',
   display: 'flex',
