@@ -31,7 +31,19 @@ async function decodeWithJsQr(canvas: HTMLCanvasElement): Promise<string | null>
   if (!ctx) return null
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
   const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' })
-  return code?.data || null
+  if (!code) return null
+  if (code.data) return code.data
+  // Étiquette encodée en Latin-1 (accents, « N° ») : jsQR rend une chaîne vide,
+  // on décode nous-mêmes les octets
+  if (code.binaryData.length > 0) {
+    const bytes = new Uint8Array(code.binaryData)
+    try {
+      return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    } catch {
+      return new TextDecoder('windows-1252').decode(bytes)
+    }
+  }
+  return null
 }
 
 /**
@@ -82,28 +94,45 @@ export function QrScanner({ onResult, onClose, hint }: Props) {
       video.srcObject = stream
       await video.play().catch(() => {})
       setStarting(false)
-      const detector = await nativeDetector()
+      // Lecteur natif quand il existe (Android), jsQR sinon (iPhone, Firefox…).
+      // Si le natif plante, on le laisse tomber ; s'il ne trouve rien au bout
+      // de 2,5 s, jsQR prend aussi une image sur deux (codes que le natif rate).
+      let detector = await nativeDetector()
+      let nativeErrors = 0
+      let frame = 0
+      const startedAt = Date.now()
+
+      const readWithJsQr = async () => {
+        const canvas = canvasRef.current!
+        const scale = Math.min(1, 720 / video.videoWidth)
+        canvas.width = Math.round(video.videoWidth * scale)
+        canvas.height = Math.round(video.videoHeight * scale)
+        canvas.getContext('2d')!.drawImage(video, 0, 0, canvas.width, canvas.height)
+        return decodeWithJsQr(canvas)
+      }
 
       const tick = async () => {
         if (!alive || doneRef.current) return
-        try {
-          if (video.readyState >= 2 && video.videoWidth > 0) {
-            let text: string | null = null
-            if (detector) {
+        frame++
+        if (video.readyState >= 2 && video.videoWidth > 0) {
+          let text: string | null = null
+          if (detector) {
+            try {
               const found = await detector.detect(video)
-              text = found[0]?.rawValue ?? null
-            } else {
-              const canvas = canvasRef.current!
-              const scale = Math.min(1, 720 / video.videoWidth)
-              canvas.width = Math.round(video.videoWidth * scale)
-              canvas.height = Math.round(video.videoHeight * scale)
-              canvas.getContext('2d')!.drawImage(video, 0, 0, canvas.width, canvas.height)
-              text = await decodeWithJsQr(canvas)
+              text = found[0]?.rawValue || null
+              nativeErrors = 0
+            } catch {
+              if (++nativeErrors >= 3) detector = null
             }
-            if (text) { finish(text); return }
           }
-        } catch {
-          // image illisible : on réessaie au tour suivant
+          if (!text && (!detector || (Date.now() - startedAt > 2500 && frame % 2 === 0))) {
+            try {
+              text = await readWithJsQr()
+            } catch {
+              // image illisible : on réessaie au tour suivant
+            }
+          }
+          if (text) { finish(text); return }
         }
         timer = window.setTimeout(() => { void tick() }, 160)
       }
@@ -132,7 +161,13 @@ export function QrScanner({ onResult, onClose, hint }: Props) {
       canvas.width = Math.round(bitmap.width * scale)
       canvas.height = Math.round(bitmap.height * scale)
       canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-      const text = await decodeWithJsQr(canvas)
+      // Lecteur natif d'abord s'il existe (plus tolérant sur les photos), puis jsQR
+      let text: string | null = null
+      const detector = await nativeDetector()
+      if (detector) {
+        try { text = (await detector.detect(canvas))[0]?.rawValue || null } catch { text = null }
+      }
+      text ??= await decodeWithJsQr(canvas)
       if (text) finish(text)
       else setError('Aucun QR code lisible sur la photo. Recommence en te rapprochant de l\'étiquette.')
     } catch {
