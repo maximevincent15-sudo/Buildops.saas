@@ -22,7 +22,7 @@ import {
   computeNextReplacementYear,
   createEquipmentUnitSchema,
 } from '../schemas'
-import { LabelScanError, scanEquipmentLabel } from '../scanLabel'
+import { LABEL_SCAN_ENABLED, LabelScanError, scanEquipmentLabel } from '../scanLabel'
 import { QrScanner } from './QrScanner'
 import type {
   CreateEquipmentUnitInput,
@@ -373,63 +373,65 @@ export function EquipmentUnitModal({
             )}
           </div>
 
-          {/* Scan d'étiquette */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '10px 12px',
-              border: '1px dashed var(--acc)',
-              borderRadius: 10,
-              background: 'var(--wht)',
-            }}
-          >
-            {scanPreview ? (
-              <img
-                src={scanPreview}
-                alt="Étiquette scannée"
-                style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
-              />
-            ) : (
-              <Camera size={22} strokeWidth={1.6} style={{ color: 'var(--acc)', flexShrink: 0 }} />
-            )}
-            <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, lineHeight: 1.4 }}>
-              {scanning ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink2)' }}>
-                  <Loader2 size={13} className="spin" /> Lecture de l'étiquette…
-                </span>
-              ) : scanMessage ? (
-                <span style={{ color: scanMessage.ok ? 'var(--grn)' : 'var(--red)', display: 'inline-flex', gap: 6 }}>
-                  {scanMessage.ok && <CheckCircle2 size={14} style={{ flexShrink: 0, marginTop: 1 }} />}
-                  {scanMessage.text}
-                </span>
-              ) : (
-                <span style={{ color: 'var(--ink2)' }}>
-                  <strong style={{ color: 'var(--ink)' }}>Scanner l'étiquette</strong> : prends la plaque en photo,
-                  la marque, le type et l'année se remplissent tout seuls.
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              className="btn-sm"
-              onClick={() => fileRef.current?.click()}
-              disabled={scanning}
-              style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          {/* Lecture de la plaque par l'IA (photo) — masquée tant qu'elle n'est pas activée */}
+          {LABEL_SCAN_ENABLED && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '10px 12px',
+                border: '1px dashed var(--acc)',
+                borderRadius: 10,
+                background: 'var(--wht)',
+              }}
             >
-              <Camera size={14} strokeWidth={1.8} />
-              {scanPreview ? 'Reprendre' : 'Scanner'}
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              onChange={handleScanFile}
-            />
-          </div>
+              {scanPreview ? (
+                <img
+                  src={scanPreview}
+                  alt="Étiquette scannée"
+                  style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
+                />
+              ) : (
+                <Camera size={22} strokeWidth={1.6} style={{ color: 'var(--acc)', flexShrink: 0 }} />
+              )}
+              <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, lineHeight: 1.4 }}>
+                {scanning ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink2)' }}>
+                    <Loader2 size={13} className="spin" /> Lecture de l'étiquette…
+                  </span>
+                ) : scanMessage ? (
+                  <span style={{ color: scanMessage.ok ? 'var(--grn)' : 'var(--red)', display: 'inline-flex', gap: 6 }}>
+                    {scanMessage.ok && <CheckCircle2 size={14} style={{ flexShrink: 0, marginTop: 1 }} />}
+                    {scanMessage.text}
+                  </span>
+                ) : (
+                  <span style={{ color: 'var(--ink2)' }}>
+                    <strong style={{ color: 'var(--ink)' }}>Scanner l'étiquette</strong> : prends la plaque en photo,
+                    la marque, le type et l'année se remplissent tout seuls.
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="btn-sm"
+                onClick={() => fileRef.current?.click()}
+                disabled={scanning}
+                style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <Camera size={14} strokeWidth={1.8} />
+                {scanPreview ? 'Reprendre' : 'Scanner'}
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                hidden
+                onChange={handleScanFile}
+              />
+            </div>
+          )}
 
           {/* Famille + N° + type */}
           <div className="mrow">

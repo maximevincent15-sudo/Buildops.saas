@@ -20,6 +20,12 @@ export type LabelScanResult = {
 export class LabelScanError extends Error {}
 
 /**
+ * Lecture de la plaque par l'IA : masquée tant que la clé API n'est pas en
+ * place côté serveur. Pour l'activer : VITE_LABEL_SCAN_ENABLED=true (Vercel).
+ */
+export const LABEL_SCAN_ENABLED = import.meta.env.VITE_LABEL_SCAN_ENABLED === 'true'
+
+/**
  * Redimensionne la photo (côté long ≤ 1600 px) et la ré-encode en JPEG :
  * une photo iPhone de 4 Mo passe à ~300 Ko, largement lisible pour l'IA.
  * Le navigateur applique l'orientation EXIF au dessin sur le canvas.
