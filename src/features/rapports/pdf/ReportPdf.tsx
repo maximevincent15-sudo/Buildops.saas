@@ -12,6 +12,7 @@ import {
   formatEquipmentTypes,
 } from '../../../shared/constants/interventions'
 import type { EquipmentType } from '../../../shared/constants/interventions'
+import { EQUIPMENT_FAMILIES } from '../../equipment/schemas'
 import type { InvoicingSettings } from '../../parametres/api'
 import type { Intervention } from '../../planning/schemas'
 import type { ChecklistItem } from '../checklists'
@@ -368,6 +369,22 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
     marginTop: 2,
   },
+  regFamilyHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  regFamilyTitle: {
+    fontSize: 9.5,
+    fontFamily: 'Helvetica-Bold',
+    color: colors.ink,
+  },
+  regFamilyCounts: {
+    fontSize: 7.5,
+    color: colors.ink2,
+    marginLeft: 6,
+  },
   regTable: {
     borderWidth: 0.5,
     borderStyle: 'solid',
@@ -434,6 +451,8 @@ export type UnitReportEntry = {
   zoneName: string | null
   parentZone: string | null
   implantation: string | null
+  /** Famille (extincteurs, ria…) : le registre est découpé par famille */
+  family?: string
   familyLabel: string
   subtype: string | null
   brand: string | null
@@ -870,48 +889,67 @@ export function ReportPdf({
               )
             })()}
 
-            {/* Tableau nominatif */}
-            <View style={styles.regTable}>
-              {/* En-tête */}
-              <View style={[styles.regRow, styles.regRowHead]}>
-                <View style={[styles.regCell, { width: '7%' }]}><Text style={styles.regCellHead}>N°</Text></View>
-                <View style={[styles.regCell, { width: '15%' }]}><Text style={styles.regCellHead}>Niv / Zone</Text></View>
-                <View style={[styles.regCell, { width: '18%' }]}><Text style={styles.regCellHead}>Implantation</Text></View>
-                <View style={[styles.regCell, { width: '12%' }]}><Text style={styles.regCellHead}>Type</Text></View>
-                <View style={[styles.regCell, { width: '12%' }]}><Text style={styles.regCellHead}>Marque</Text></View>
-                <View style={[styles.regCell, { width: '7%' }]}><Text style={styles.regCellHead}>Année</Text></View>
-                <View style={[styles.regCell, styles.regCellLast, { width: '29%' }]}><Text style={styles.regCellHead}>Verdict · Observation</Text></View>
-              </View>
-
-              {/* Lignes */}
-              {unitEntries.map((e, i) => {
-                const verdictStyle =
-                  e.verdict === 'conforme' ? styles.regVerdictConforme
-                  : e.verdict === 'surveiller' ? styles.regVerdictSurveiller
-                  : e.verdict === 'reformer' ? styles.regVerdictReformer
-                  : styles.regVerdictNonVerifie
-                const zoneLabel = [e.parentZone, e.zoneName].filter(Boolean).join(' · ') || '—'
-                const verdictText = `${e.verdictLabel}${e.observation ? ` — ${e.observation}` : ''}`
-                const isLast = i === unitEntries.length - 1
-                return (
-                  <View
-                    key={i}
-                    style={isLast ? [styles.regRow, styles.regRowLast] : styles.regRow}
-                    wrap={false}
-                  >
-                    <View style={[styles.regCell, { width: '7%' }]}><Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8 }}>{e.unitSerial}</Text></View>
-                    <View style={[styles.regCell, { width: '15%' }]}><Text style={{ fontSize: 8 }}>{zoneLabel}</Text></View>
-                    <View style={[styles.regCell, { width: '18%' }]}><Text style={{ fontSize: 8 }}>{e.implantation ?? '—'}</Text></View>
-                    <View style={[styles.regCell, { width: '12%' }]}><Text style={{ fontSize: 8 }}>{e.subtype ?? e.familyLabel}</Text></View>
-                    <View style={[styles.regCell, { width: '12%' }]}><Text style={{ fontSize: 8 }}>{e.brand ?? '—'}</Text></View>
-                    <View style={[styles.regCell, { width: '7%' }]}><Text style={{ fontSize: 8 }}>{e.installYear ?? '—'}</Text></View>
-                    <View style={[styles.regCell, styles.regCellLast, { width: '29%' }]}>
-                      <Text style={[{ fontSize: 8 }, verdictStyle]}>{verdictText}</Text>
-                    </View>
+            {/* Un tableau par famille d'équipement (extincteurs, RIA, BAES…), comme les rapports */}
+            {groupRegistryByFamily(unitEntries).map((g) => {
+              const c = { conforme: 0, surveiller: 0, reformer: 0, non_verifie: 0 }
+              for (const e of g.entries) c[e.verdict]++
+              const counts = [
+                `${g.entries.length} équipement${g.entries.length > 1 ? 's' : ''}`,
+                c.conforme > 0 && `${c.conforme} conforme${c.conforme > 1 ? 's' : ''}`,
+                c.surveiller > 0 && `${c.surveiller} à surveiller`,
+                c.reformer > 0 && `${c.reformer} à réformer`,
+                c.non_verifie > 0 && `${c.non_verifie} non vérifié${c.non_verifie > 1 ? 's' : ''}`,
+              ].filter(Boolean).join(' · ')
+              return (
+                <View key={g.key}>
+                  <View style={styles.regFamilyHead} minPresenceAhead={60}>
+                    <Text style={styles.regFamilyTitle}>{g.label}</Text>
+                    <Text style={styles.regFamilyCounts}>{counts}</Text>
                   </View>
-                )
-              })}
-            </View>
+                  <View style={styles.regTable}>
+                    {/* En-tête */}
+                    <View style={[styles.regRow, styles.regRowHead]} wrap={false}>
+                      <View style={[styles.regCell, { width: '7%' }]}><Text style={styles.regCellHead}>N°</Text></View>
+                      <View style={[styles.regCell, { width: '15%' }]}><Text style={styles.regCellHead}>Niv / Zone</Text></View>
+                      <View style={[styles.regCell, { width: '18%' }]}><Text style={styles.regCellHead}>Implantation</Text></View>
+                      <View style={[styles.regCell, { width: '12%' }]}><Text style={styles.regCellHead}>Type</Text></View>
+                      <View style={[styles.regCell, { width: '12%' }]}><Text style={styles.regCellHead}>Marque</Text></View>
+                      <View style={[styles.regCell, { width: '7%' }]}><Text style={styles.regCellHead}>Année</Text></View>
+                      <View style={[styles.regCell, styles.regCellLast, { width: '29%' }]}><Text style={styles.regCellHead}>Verdict · Observation</Text></View>
+                    </View>
+
+                    {/* Lignes */}
+                    {g.entries.map((e, i) => {
+                      const verdictStyle =
+                        e.verdict === 'conforme' ? styles.regVerdictConforme
+                        : e.verdict === 'surveiller' ? styles.regVerdictSurveiller
+                        : e.verdict === 'reformer' ? styles.regVerdictReformer
+                        : styles.regVerdictNonVerifie
+                      const zoneLabel = [e.parentZone, e.zoneName].filter(Boolean).join(' · ') || '—'
+                      const verdictText = `${e.verdictLabel}${e.observation ? ` — ${e.observation}` : ''}`
+                      const isLast = i === g.entries.length - 1
+                      return (
+                        <View
+                          key={i}
+                          style={isLast ? [styles.regRow, styles.regRowLast] : styles.regRow}
+                          wrap={false}
+                        >
+                          <View style={[styles.regCell, { width: '7%' }]}><Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8 }}>{e.unitSerial}</Text></View>
+                          <View style={[styles.regCell, { width: '15%' }]}><Text style={{ fontSize: 8 }}>{zoneLabel}</Text></View>
+                          <View style={[styles.regCell, { width: '18%' }]}><Text style={{ fontSize: 8 }}>{e.implantation ?? '—'}</Text></View>
+                          <View style={[styles.regCell, { width: '12%' }]}><Text style={{ fontSize: 8 }}>{e.subtype ?? e.familyLabel}</Text></View>
+                          <View style={[styles.regCell, { width: '12%' }]}><Text style={{ fontSize: 8 }}>{e.brand ?? '—'}</Text></View>
+                          <View style={[styles.regCell, { width: '7%' }]}><Text style={{ fontSize: 8 }}>{e.installYear ?? '—'}</Text></View>
+                          <View style={[styles.regCell, styles.regCellLast, { width: '29%' }]}>
+                            <Text style={[{ fontSize: 8 }, verdictStyle]}>{verdictText}</Text>
+                          </View>
+                        </View>
+                      )
+                    })}
+                  </View>
+                </View>
+              )
+            })}
           </View>
         )}
 
@@ -1164,6 +1202,21 @@ const VERDICT_COLORS: Record<UnitReportEntry['verdict'], { fg: string; bg: strin
   surveiller: { fg: colors.org, bg: colors.orgLt },
   reformer: { fg: colors.red, bg: colors.redLt },
   non_verifie: { fg: colors.gry, bg: colors.gryLt },
+}
+
+/** Lignes du registre regroupées par famille, dans l'ordre habituel (extincteurs, RIA, BAES…) */
+function groupRegistryByFamily(entries: UnitReportEntry[]): Array<{ key: string; label: string; entries: UnitReportEntry[] }> {
+  const groups = new Map<string, { key: string; label: string; entries: UnitReportEntry[] }>()
+  for (const e of entries) {
+    const key = e.family ?? e.familyLabel
+    if (!groups.has(key)) groups.set(key, { key, label: e.familyLabel, entries: [] })
+    groups.get(key)!.entries.push(e)
+  }
+  const rank = (key: string) => {
+    const i = (EQUIPMENT_FAMILIES as readonly string[]).indexOf(key)
+    return i === -1 ? EQUIPMENT_FAMILIES.length : i
+  }
+  return [...groups.values()].sort((a, b) => rank(a.key) - rank(b.key) || a.label.localeCompare(b.label, 'fr'))
 }
 
 function zoneKey(e: UnitReportEntry): string {

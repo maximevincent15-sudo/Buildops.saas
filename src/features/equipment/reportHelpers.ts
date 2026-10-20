@@ -66,6 +66,7 @@ export async function buildUnitEntriesForIntervention(
       zoneName: zone?.name ?? null,
       parentZone: zone?.parent_zone ?? null,
       implantation: u.implantation,
+      family: u.family,
       familyLabel: EQUIPMENT_FAMILY_LABELS[u.family],
       subtype: u.subtype,
       brand: u.brand,
