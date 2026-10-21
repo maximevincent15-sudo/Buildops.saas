@@ -177,6 +177,30 @@ export async function markQuoteAccepted(id: string): Promise<void> {
   if (error) throw error
 }
 
+/** Signature du client sur place : le devis passe en « accepté » */
+export async function signQuoteOnSite(
+  id: string,
+  input: { signedByName: string; signatureDataUrl: string },
+): Promise<void> {
+  const now = new Date().toISOString()
+  const { error } = await supabase
+    .from('quotes')
+    .update({
+      status: 'accepted',
+      accepted_at: now,
+      signed_at: now,
+      signed_by_name: input.signedByName,
+      signature_data_url: input.signatureDataUrl,
+      refused_at: null,
+      refused_reason: null,
+    })
+    .eq('id', id)
+  if (error) throw error
+}
+
+// Une signature ne vaut que pour le devis tel qu'il a été signé
+const CLEAR_SIGNATURE = { signed_at: null, signed_by_name: null, signature_data_url: null }
+
 export async function markQuoteRefused(id: string, reason: string): Promise<void> {
   const { error } = await supabase
     .from('quotes')
@@ -185,6 +209,7 @@ export async function markQuoteRefused(id: string, reason: string): Promise<void
       refused_at: new Date().toISOString(),
       refused_reason: reason,
       accepted_at: null,
+      ...CLEAR_SIGNATURE,
     })
     .eq('id', id)
   if (error) throw error
@@ -199,6 +224,7 @@ export async function setQuoteStatusDraft(id: string): Promise<void> {
       accepted_at: null,
       refused_at: null,
       refused_reason: null,
+      ...CLEAR_SIGNATURE,
     })
     .eq('id', id)
   if (error) throw error

@@ -131,7 +131,7 @@ export function buildFactureRelance(ctx: RelanceContext): {
     `n'apparaît pas comme réglée dans nos comptes.${amountLine}\n\n` +
     `Pourriez-vous m'indiquer où en est ce règlement ? Si le paiement a été effectué récemment, ` +
     `merci de me transmettre le justificatif pour rapprochement.\n\n` +
-    `Je reste à ta disposition pour tout échange.\n\n` +
+    `Je reste à votre disposition pour tout échange.\n\n` +
     `${signature(ctx)}`
   return { subject, body }
 }

@@ -849,6 +849,33 @@ h1, h2, h3, h4, h5, h6 {
     gap: 6px;
   }
 
+  /* Signature du devis sur place */
+  .quote-sign-recap {
+    background: var(--bg);
+    border: .5px solid var(--brd);
+    border-radius: var(--r);
+    padding: .8rem 1rem;
+    margin-bottom: .9rem;
+  }
+  .quote-sign-ref { font-weight: 600; font-size: .9rem; margin-bottom: .4rem; }
+  .quote-sign-lines { list-style: none; margin: 0; padding: 0; max-height: 160px; overflow-y: auto; }
+  .quote-sign-lines li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: .82rem;
+    color: var(--ink2);
+    padding: .2rem 0;
+    border-bottom: .5px solid var(--brd);
+  }
+  .quote-sign-lines li span:last-child { white-space: nowrap; }
+  .quote-sign-total {
+    display: flex;
+    justify-content: space-between;
+    font-size: .95rem;
+    margin-top: .5rem;
+  }
+
   /* Liste devis */
   .quotes-list {
     display: flex;

@@ -1,4 +1,4 @@
-import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
+import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import type { InvoicingSettings } from '../../parametres/api'
@@ -148,6 +148,36 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     color: colors.ink2,
     marginBottom: 4,
+  },
+  // Bon pour accord
+  agreement: {
+    marginTop: 18,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  agreementBox: {
+    width: 260,
+    padding: 10,
+    borderWidth: 0.5,
+    borderStyle: 'solid',
+    borderColor: colors.border,
+    borderRadius: 4,
+  },
+  agreementTitle: {
+    fontFamily: 'Helvetica-Bold',
+    fontSize: 8.5,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    color: colors.ink2,
+    marginBottom: 4,
+  },
+  agreementText: { fontSize: 8.5, color: colors.ink2 },
+  agreementBlank: { height: 70 },
+  signature: {
+    marginTop: 6,
+    height: 70,
+    objectFit: 'contain',
+    objectPositionX: 0,
   },
   // Mentions légales
   legal: {
@@ -307,6 +337,27 @@ export function QuotePdf({ quote, organizationName, settings }: Props) {
             <Text>{quote.notes}</Text>
           </View>
         ) : null}
+
+        {/* BON POUR ACCORD */}
+        <View style={styles.agreement} wrap={false}>
+          <View style={styles.agreementBox}>
+            <Text style={styles.agreementTitle}>Bon pour accord</Text>
+            {quote.signed_at && quote.signature_data_url ? (
+              <>
+                <Text style={styles.agreementText}>
+                  Signé le {format(new Date(quote.signed_at), "d MMMM yyyy 'à' HH'h'mm", { locale: fr })}
+                  {quote.signed_by_name ? ` par ${quote.signed_by_name}` : ''}
+                </Text>
+                <Image src={quote.signature_data_url} style={styles.signature} />
+              </>
+            ) : (
+              <>
+                <Text style={styles.agreementText}>Date, nom et signature du client</Text>
+                <View style={styles.agreementBlank} />
+              </>
+            )}
+          </View>
+        </View>
 
         {/* MENTIONS LÉGALES */}
         {settings && (

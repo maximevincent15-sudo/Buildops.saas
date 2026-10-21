@@ -57,6 +57,10 @@ export type Quote = {
   notes: string | null
   pdf_url: string | null
   sent_to_email: string | null
+  /** Devis signé sur place par le client (téléphone / tablette) */
+  signed_by_name: string | null
+  signature_data_url: string | null
+  signed_at: string | null
   created_at: string
   created_by: string | null
   updated_at: string

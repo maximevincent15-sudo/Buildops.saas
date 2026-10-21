@@ -1,5 +1,6 @@
-import { ArrowRight, CheckCircle2, Download, FileText, Mail, Plus, Trash2, Undo2, X, XCircle } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Download, FileText, Mail, PenLine, Plus, Trash2, Undo2, X, XCircle } from 'lucide-react'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
+import { SignaturePad } from '../../../shared/ui/SignaturePad'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
@@ -15,6 +16,7 @@ import {
   markQuoteSent,
   setQuotePdfUrl,
   setQuoteStatusDraft,
+  signQuoteOnSite,
   updateQuote,
 } from '../api'
 import { VAT_RATES, computeQuoteTotals, formatAmount } from '../constants'
@@ -75,6 +77,14 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
   const [refusedAt, setRefusedAt] = useState<string | null>(null)
   const [refusedReason, setRefusedReason] = useState<string | null>(null)
   const [reference, setReference] = useState<string>('')
+  const [signedAt, setSignedAt] = useState<string | null>(null)
+  const [signedByName, setSignedByName] = useState<string | null>(null)
+
+  // Signature sur place
+  const [signOpen, setSignOpen] = useState(false)
+  const [signName, setSignName] = useState('')
+  const [signData, setSignData] = useState<string | null>(null)
+  const [signing, setSigning] = useState(false)
 
   const [clientName, setClientName] = useState('')
   const [clientId, setClientId] = useState('')
@@ -131,6 +141,8 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
           setAcceptedAt(q.accepted_at ?? null)
           setRefusedAt(q.refused_at ?? null)
           setRefusedReason(q.refused_reason ?? null)
+          setSignedAt(q.signed_at ?? null)
+          setSignedByName(q.signed_by_name ?? null)
         })
         .catch((e) => setError(e instanceof Error ? e.message : 'Erreur'))
         .finally(() => setLoading(false))
@@ -159,7 +171,10 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
       setAcceptedAt(null)
       setRefusedAt(null)
       setRefusedReason(null)
+      setSignedAt(null)
+      setSignedByName(null)
     }
+    setSignOpen(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, quoteId])
 
@@ -194,48 +209,55 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
     })),
   )
 
-  async function handleSubmit() {
-    if (!profile?.organization_id) {
-      setError('Profil non chargé.')
-      return
-    }
+  /** Valide le formulaire et construit l'objet à enregistrer (null + message d'erreur si invalide) */
+  function buildInput(): UpsertQuoteInput | null {
     if (!clientName.trim()) {
       setError('Le nom du client est requis.')
-      return
-    }
-    if (lines.length === 0 || lines.every((l) => !l.description.trim())) {
-      setError('Au moins une ligne avec description requise.')
-      return
+      return null
     }
     // Filtre les lignes vides éventuelles
     const cleanLines = lines.filter((l) => l.description.trim())
     if (cleanLines.length === 0) {
       setError('Au moins une ligne avec description requise.')
+      return null
+    }
+    return {
+      client_id: clientId || undefined,
+      client_name: clientName.trim(),
+      client_contact_name: clientContact || undefined,
+      client_email: clientEmail || undefined,
+      client_address: clientAddress || undefined,
+      client_siren: parseCompanyNumber(clientSiren).ok
+        ? clientSiren.replace(/\D/g, '').slice(0, 9) || undefined
+        : undefined,
+      site_name: siteName || undefined,
+      site_address: siteAddress || undefined,
+      issue_date: issueDate,
+      validity_date: validityDate || undefined,
+      notes: notes || undefined,
+      lines: cleanLines.map((l, i) => ({ ...l, position: i })),
+    }
+  }
+
+  async function handleSubmit() {
+    if (!profile?.organization_id) {
+      setError('Profil non chargé.')
       return
     }
+    const input = buildInput()
+    if (!input) return
+    if (isEdit && signedAt && !window.confirm(
+      'Ce devis a été signé par le client.\n\n' +
+      'Si tu le modifies, la signature est annulée et le devis repasse en brouillon. Continuer ?'
+    )) return
 
     setSubmitting(true)
     setError(null)
     try {
-      const input: UpsertQuoteInput = {
-        client_id: clientId || undefined,
-        client_name: clientName.trim(),
-        client_contact_name: clientContact || undefined,
-        client_email: clientEmail || undefined,
-        client_address: clientAddress || undefined,
-        client_siren: parseCompanyNumber(clientSiren).ok
-          ? clientSiren.replace(/\D/g, '').slice(0, 9) || undefined
-          : undefined,
-        site_name: siteName || undefined,
-        site_address: siteAddress || undefined,
-        issue_date: issueDate,
-        validity_date: validityDate || undefined,
-        notes: notes || undefined,
-        lines: cleanLines.map((l, i) => ({ ...l, position: i })),
-      }
       let savedId: string
       if (isEdit && quoteId) {
         await updateQuote(quoteId, input)
+        if (signedAt) await setQuoteStatusDraft(quoteId)
         savedId = quoteId
       } else {
         const created = await createQuote(input, profile.organization_id)
@@ -265,7 +287,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
     }
   }
 
-  async function handleGeneratePdf() {
+  async function handleGeneratePdf(successMessage = 'PDF généré.') {
     if (!quoteId || !profile?.organization_id) return
     setGeneratingPdf(true)
     setError(null)
@@ -287,8 +309,8 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
       )
       await setQuotePdfUrl(quoteId, url)
       setPdfUrl(url)
-      setFlash('PDF généré.')
-      setTimeout(() => setFlash(null), 2500)
+      setFlash(successMessage)
+      setTimeout(() => setFlash(null), 4000)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur PDF')
     } finally {
@@ -296,17 +318,24 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
     }
   }
 
-  async function handleMarkSent() {
-    if (!quoteId) return
+  /** Email du client (demandé s'il manque), ou null si absent / invalide */
+  function resolveRecipient(): string | null {
     const recipient = clientEmail.trim() || window.prompt('Email du client à enregistrer :') || ''
     if (!recipient) {
-      setError('Email du client requis pour marquer comme envoyé.')
-      return
+      setError('Email du client requis pour lui envoyer le devis.')
+      return null
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
       setError('Email invalide.')
-      return
+      return null
     }
+    return recipient
+  }
+
+  async function handleMarkSent() {
+    if (!quoteId) return
+    const recipient = resolveRecipient()
+    if (!recipient) return
     try {
       await markQuoteSent(quoteId, recipient)
       setCurrentStatus('sent')
@@ -321,7 +350,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
         ? `\n\n📄 Le devis est joint à ce mail (ou téléchargeable ici : ${pdfUrl})`
         : `\n\n(Le PDF est disponible sur demande.)`
       const body =
-        `${greet}\n\nVeuillez trouver ci-après le devis pour la prestation envisagée.\n\n${totalsLine}${pdfLine}\n\nJe reste à ta disposition pour toute question.\n\nCordialement,\n${orgName}`
+        `${greet}\n\nVeuillez trouver ci-après le devis pour la prestation envisagée.\n\n${totalsLine}${pdfLine}\n\nJe reste à votre disposition pour toute question.\n\nCordialement,\n${orgName}`
 
       // Tente Resend, fallback mailto:
       const result = await sendDocumentEmail({
@@ -375,6 +404,75 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
     }
   }
 
+  function openSignPanel() {
+    setError(null)
+    setSignName(clientContact.trim())
+    setSignData(null)
+    setSignOpen(true)
+  }
+
+  async function handleSignOnSite() {
+    if (!quoteId) return
+    const name = signName.trim()
+    if (!name || !signData) return
+    // Enregistre d'abord le formulaire : le client signe exactement ce qu'il voit
+    const input = buildInput()
+    if (!input) {
+      setSignOpen(false)
+      return
+    }
+    setSigning(true)
+    setError(null)
+    try {
+      await updateQuote(quoteId, input)
+      await signQuoteOnSite(quoteId, { signedByName: name, signatureDataUrl: signData })
+      const now = new Date().toISOString()
+      setCurrentStatus('accepted')
+      setAcceptedAt(now)
+      setSignedAt(now)
+      setSignedByName(name)
+      setRefusedAt(null)
+      setRefusedReason(null)
+      setSignOpen(false)
+      onSaved?.(quoteId)
+      // Régénère le PDF avec la signature
+      await handleGeneratePdf(`Devis signé par ${name} ✓ — PDF mis à jour, tu peux l'envoyer au client.`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la signature')
+    } finally {
+      setSigning(false)
+    }
+  }
+
+  async function handleSendSigned() {
+    if (!quoteId) return
+    const recipient = resolveRecipient()
+    if (!recipient) return
+    try {
+      const subject = `Devis ${reference} signé`.trim()
+      const orgName = profile?.organizations?.name ?? 'Maintenance'
+      const greet = clientContact ? `Bonjour ${clientContact.trim()},` : 'Bonjour,'
+      const pdfLine = pdfUrl
+        ? `\n\n📄 Le devis signé est joint à ce mail (ou téléchargeable ici : ${pdfUrl})`
+        : ''
+      const body =
+        `${greet}\n\nMerci pour votre accord. Vous trouverez ci-joint votre exemplaire du devis ${reference}, signé.\n\nMontant : ${formatAmount(totals.total_ttc)} TTC.${pdfLine}\n\nJe reste à votre disposition pour toute question.\n\nCordialement,\n${orgName}`
+      const result = await sendDocumentEmail({
+        kind: 'quote',
+        documentId: quoteId,
+        recipientEmail: recipient,
+        subject,
+        body,
+        pdfUrl,
+      })
+      if (result.mode === 'error') throw new Error(result.error)
+      setFlash(result.mode === 'resend' ? 'Devis signé envoyé au client avec le PDF ✓' : 'Message préparé dans ta messagerie.')
+      setTimeout(() => setFlash(null), 3000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    }
+  }
+
   async function handleResetDraft() {
     if (!quoteId) return
     if (!window.confirm('Remettre ce devis en brouillon ?')) return
@@ -385,6 +483,8 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
       setAcceptedAt(null)
       setRefusedAt(null)
       setRefusedReason(null)
+      setSignedAt(null)
+      setSignedByName(null)
       onSaved?.(quoteId)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
@@ -414,12 +514,12 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
   }
 
   function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !submitting && !deleting) onClose()
+    if (e.target === e.currentTarget && !submitting && !deleting && !signOpen) onClose()
   }
 
   if (!open) return null
 
-  const anyLoading = submitting || deleting || loading
+  const anyLoading = submitting || deleting || loading || signing
 
   return (
     <div className="overlay open" onClick={handleBackdrop}>
@@ -673,7 +773,9 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                   <strong>
                     {currentStatus === 'draft' && 'Brouillon'}
                     {currentStatus === 'sent' && `Envoyé${sentAt ? ' (' + new Date(sentAt).toLocaleDateString('fr-FR') + ')' : ''}`}
-                    {currentStatus === 'accepted' && `Accepté${acceptedAt ? ' (' + new Date(acceptedAt).toLocaleDateString('fr-FR') + ')' : ''}`}
+                    {currentStatus === 'accepted' && (signedAt
+                      ? `Accepté — signé sur place le ${new Date(signedAt).toLocaleDateString('fr-FR')} à ${new Date(signedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} par ${signedByName ?? 'le client'}`
+                      : `Accepté${acceptedAt ? ' (' + new Date(acceptedAt).toLocaleDateString('fr-FR') + ')' : ''}`)}
                     {currentStatus === 'refused' && `Refusé${refusedAt ? ' (' + new Date(refusedAt).toLocaleDateString('fr-FR') + ')' : ''}`}
                   </strong>
                   {refusedReason && currentStatus === 'refused' && (
@@ -704,6 +806,18 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                       <Download size={13} /> PDF
                     </a>
                   )}
+                  {(currentStatus === 'draft' || currentStatus === 'sent') && (
+                    <button
+                      type="button"
+                      className="btn-sm done"
+                      onClick={openSignPanel}
+                      disabled={submitting || generatingPdf}
+                      title="Le client signe le devis sur ton téléphone ou ta tablette"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <PenLine size={13} strokeWidth={2} /> Faire signer sur place
+                    </button>
+                  )}
                   {currentStatus === 'draft' && pdfUrl && (
                     <button
                       type="button"
@@ -733,6 +847,17 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                         <XCircle size={13} strokeWidth={2} /> Refusé
                       </button>
                     </>
+                  )}
+                  {currentStatus === 'accepted' && signedAt && pdfUrl && (
+                    <button
+                      type="button"
+                      className="btn-sm"
+                      onClick={() => void handleSendSigned()}
+                      title="Envoyer au client son exemplaire signé"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <Mail size={13} strokeWidth={2} /> Envoyer le devis signé
+                    </button>
                   )}
                   {currentStatus === 'accepted' && (
                     <button
@@ -790,6 +915,66 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
           </div>
         )}
       </div>
+
+      {signOpen && (
+        <div className="overlay open" style={{ zIndex: 9999 }}>
+          <div className="modal" style={{ maxWidth: 560 }}>
+            <div className="modal-head">
+              <span className="modal-title">Signature du client</span>
+              <button type="button" className="modal-x" onClick={() => setSignOpen(false)} disabled={signing} aria-label="Fermer">×</button>
+            </div>
+
+            <div className="quote-sign-recap">
+              <div className="quote-sign-ref">
+                Devis {reference} · {clientName}
+              </div>
+              <ul className="quote-sign-lines">
+                {lines.filter((l) => l.description.trim()).map((l, i) => (
+                  <li key={i}>
+                    <span>{l.description}{l.quantity !== 1 ? ` × ${l.quantity}` : ''}</span>
+                    <span>{formatAmount(l.quantity * l.unit_price_ht)} HT</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="quote-sign-total">
+                <span>Total TTC</span>
+                <strong>{formatAmount(totals.total_ttc)}</strong>
+              </div>
+            </div>
+
+            <p className="text-ink-2 text-sm" style={{ margin: '0 0 .8rem' }}>
+              <strong>Bon pour accord.</strong> En signant, j'accepte le devis {reference} d'un montant de {formatAmount(totals.total_ttc)} TTC et les conditions qui y figurent.
+            </p>
+
+            <div className="fg" style={{ marginBottom: '.8rem' }}>
+              <label>Nom et fonction du signataire</label>
+              <input
+                type="text"
+                value={signName}
+                onChange={(e) => setSignName(e.target.value)}
+                placeholder="Ex : Jean Dupont, gérant"
+                autoComplete="off"
+              />
+            </div>
+
+            <SignaturePad value={signData} onChange={setSignData} />
+
+            <div className="modal-foot">
+              <button type="button" className="mf out" onClick={() => setSignOpen(false)} disabled={signing}>
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="mf prim"
+                onClick={() => void handleSignOnSite()}
+                disabled={signing || !signName.trim() || !signData}
+              >
+                {signing ? 'Enregistrement…' : 'Valider la signature'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
