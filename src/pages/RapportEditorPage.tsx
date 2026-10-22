@@ -8,6 +8,7 @@ import {
   Download,
   FileText,
   Mail,
+  RotateCcw,
   XCircle,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -22,6 +23,7 @@ import {
   finalizeReport,
   getReportByIntervention,
   markReportSent,
+  reopenReport,
   saveDraftReport,
   setReportConformity,
   setReportPdfUrl,
@@ -108,6 +110,10 @@ export function RapportEditorPage() {
   const [sendOpen, setSendOpen] = useState(false)
   const [sentToEmail, setSentToEmail] = useState<string | null>(null)
   const [sentAt, setSentAt] = useState<string | null>(null)
+  // Réouverture d'un rapport finalisé (administrateurs)
+  const [reopenedAt, setReopenedAt] = useState<string | null>(null)
+  const [reopenedBy, setReopenedBy] = useState<string | null>(null)
+  const [reopening, setReopening] = useState(false)
   // Verdicts des contrôles équipement par équipement (remontés par UnitBasedControls)
   const [unitVerdicts, setUnitVerdicts] = useState<UnitVerdictItem[]>([])
   // Devis correctif : complété à l'ouverture avec les anomalies équipement
@@ -153,6 +159,8 @@ export function RapportEditorPage() {
           setPdfUrl(report.pdf_url ?? null)
           setSentToEmail(report.sent_to_email ?? null)
           setSentAt(report.sent_at ?? null)
+          setReopenedAt(report.reopened_at ?? null)
+          setReopenedBy(report.reopened_by_name ?? null)
           if (report.equipment_type) {
             setEquipmentType(report.equipment_type as EquipmentType)
           }
@@ -612,6 +620,32 @@ export function RapportEditorPage() {
       pdfUrl: pdf,
     }, { mailtoFallback: false })
     if (result.mode === 'resend') await markReportSent(id, to)
+  }
+
+  /** Administrateur : repasse le rapport finalisé en brouillon pour corriger une erreur */
+  async function handleReopen() {
+    if (!reportId) return
+    const ok = window.confirm(
+      'Rouvrir ce rapport pour le corriger ?\n\n'
+      + 'Il repasse en brouillon et l\'intervention en cours. Une fois corrigé, finalise-le à nouveau : le PDF sera refait.\n\n'
+      + 'La signature du client est conservée. Si tu modifies le résultat, pense à prévenir le client.',
+    )
+    if (!ok) return
+    setReopening(true)
+    setError(null)
+    try {
+      const byName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || null
+      await reopenReport(reportId, iid, byName)
+      setCompletedAt(null)
+      setReopenedAt(new Date().toISOString())
+      setReopenedBy(byName)
+      setFlash('Rapport rouvert : corrige-le puis clique sur « Finaliser ».')
+      setTimeout(() => setFlash(null), 5000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Réouverture impossible.')
+    } finally {
+      setReopening(false)
+    }
   }
 
   async function handleRegeneratePdf() {
@@ -1074,6 +1108,13 @@ export function RapportEditorPage() {
         <p className="text-grn text-sm" style={{ marginTop: '1rem' }}>{flash}</p>
       )}
 
+      {!isCompleted && reopenedAt && (
+        <p className="text-sm" style={{ marginTop: '1rem', color: '#8A3D0E', background: '#FDF1E7', border: '1px solid #F0C9A6', borderRadius: 8, padding: '8px 12px' }}>
+          Rapport rouvert pour correction le {format(new Date(reopenedAt), 'd MMMM yyyy à HH:mm', { locale: fr })}
+          {reopenedBy ? ` par ${reopenedBy}` : ''}. Pense à le finaliser à nouveau.
+        </p>
+      )}
+
       {!isCompleted && (
         <div style={{ display: 'flex', gap: '.7rem', marginTop: '1.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button type="button" className="btn-sm" onClick={() => void handleSaveDraft()} disabled={saving}>
@@ -1107,6 +1148,18 @@ export function RapportEditorPage() {
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
                 <CalendarPlus size={13} /> Planifier une correction
+              </button>
+            )}
+            {(profile?.user_role ?? 'admin') === 'admin' && (
+              <button
+                type="button"
+                className="btn-sm"
+                onClick={() => void handleReopen()}
+                disabled={reopening}
+                title="Repasser le rapport en brouillon pour corriger une erreur"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <RotateCcw size={13} /> {reopening ? 'Réouverture…' : 'Rouvrir le rapport'}
               </button>
             )}
             <button

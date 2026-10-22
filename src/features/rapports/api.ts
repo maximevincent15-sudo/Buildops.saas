@@ -277,3 +277,20 @@ export async function listReportsForClient(opts: {
   }
   return rows
 }
+
+/**
+ * Rouvre un rapport finalisé pour correction (administrateurs) : il repasse en
+ * brouillon et l'intervention en cours. Il faudra le finaliser à nouveau.
+ */
+export async function reopenReport(reportId: string, interventionId: string, byName: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('reports')
+    .update({ completed_at: null, reopened_at: new Date().toISOString(), reopened_by_name: byName })
+    .eq('id', reportId)
+  if (error) throw error
+  const { error: intervErr } = await supabase
+    .from('interventions')
+    .update({ status: 'en_cours' })
+    .eq('id', interventionId)
+  if (intervErr) throw intervErr
+}
