@@ -398,3 +398,22 @@ export async function createNextScheduledIntervention(
 
   return normalizeIntervention(created as Intervention)
 }
+
+/**
+ * Interventions d'un technicien pour « Ma journée » : celles en cours, celles
+ * d'aujourd'hui, et les prochaines (jusqu'à `days` jours).
+ */
+export async function listMyInterventions(technicianId: string, days = 7): Promise<Intervention[]> {
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const today = new Date()
+  const until = new Date(today.getFullYear(), today.getMonth(), today.getDate() + days)
+  const { data, error } = await supabase
+    .from('interventions')
+    .select('*')
+    .eq('technician_id', technicianId)
+    .or(`status.eq.en_cours,and(scheduled_date.gte.${iso(today)},scheduled_date.lte.${iso(until)})`)
+    .order('scheduled_date', { ascending: true, nullsFirst: true })
+    .order('start_time', { ascending: true, nullsFirst: false })
+  if (error) throw error
+  return ((data ?? []) as Intervention[]).map(normalizeIntervention)
+}

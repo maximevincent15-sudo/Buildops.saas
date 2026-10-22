@@ -8,6 +8,7 @@ import { createTechnician, deleteTechnician, setTechnicianActive, updateTechnici
 import { createTechnicianSchema } from '../schemas'
 import type { CreateTechnicianInput, Technician } from '../schemas'
 import { TechnicianCertifications } from './TechnicianCertifications'
+import { TechnicianAccountLink } from './TechnicianAccountLink'
 
 type Props = {
   open: boolean
@@ -172,6 +173,11 @@ export function TechnicianModal({ open, onClose, onChanged, technician }: Props)
             <p className="text-ink-3 text-xs font-light">
               Ce technicien est actuellement <strong>inactif</strong> — il n'apparaît plus dans les listes d'assignation.
             </p>
+          )}
+
+          {/* Compte de connexion (administrateurs) : vue « Ma journée », notifications */}
+          {isEdit && technician && (profile?.user_role ?? 'admin') === 'admin' && (
+            <TechnicianAccountLink technician={technician} onLinked={() => onChanged?.()} />
           )}
 
           {isEdit && technician && profile?.organization_id && (

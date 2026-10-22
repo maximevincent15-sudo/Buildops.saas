@@ -20,6 +20,7 @@ import type { BusinessStats } from '../features/dashboard/businessStatsApi'
 import { getInterventionStats } from '../features/planning/api'
 import type { InterventionStats } from '../features/planning/api'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
+import { MyDayCard } from '../features/planning/components/MyDayCard'
 import { useModuleEnabled } from '../features/parametres/modules'
 
 function capitalize(s: string) {
@@ -120,6 +121,9 @@ export function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* ─── MA JOURNÉE (compte relié à une fiche technicien) ─── */}
+      <MyDayCard key={`md-${refreshKey}`} />
 
       {/* ─── BRIEFING (dark card) ─── */}
       <DailyBriefing key={`br-${refreshKey}`} />

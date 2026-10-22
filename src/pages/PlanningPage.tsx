@@ -49,6 +49,7 @@ import type { InterventionPriority } from '../shared/constants/interventions'
 type ViewMode = 'team' | 'week' | 'day' | 'month'
 
 const VIEW_STORAGE_KEY = 'firovia.planning.view'
+const MINE_STORAGE_KEY = 'firovia.planning.mine'
 
 function readStoredView(): ViewMode {
   try {
@@ -78,7 +79,26 @@ export function PlanningPage() {
   const [view, setViewState] = useState<ViewMode>(readStoredView)
   const [exporting, setExporting] = useState(false)
   const profile = useAuthStore((s) => s.profile)
+  const myTechnicianId = useAuthStore((s) => s.myTechnicianId)
   const devisEnabled = useModuleEnabled()('devis')
+  // Technicien (compte membre) : ses interventions par défaut ; l'administrateur voit toute l'équipe
+  const [mine, setMineState] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem(MINE_STORAGE_KEY)
+      if (v === '1' || v === '0') return v === '1'
+    } catch {
+      // stockage indisponible : réglage par défaut
+    }
+    return (profile?.user_role ?? 'admin') !== 'admin'
+  })
+  function setMine(v: boolean) {
+    setMineState(v)
+    try {
+      localStorage.setItem(MINE_STORAGE_KEY, v ? '1' : '0')
+    } catch {
+      // préférence non mémorisée : sans conséquence
+    }
+  }
 
   // ─── Planning « Équipe » ───
   const [technicians, setTechnicians] = useState<Technician[]>([])
@@ -304,12 +324,25 @@ export function PlanningPage() {
   }
 
   const total = interventions.length
+  // « Mes interventions » : celles du technicien connecté (compte relié à sa fiche)
+  const mineOnly = !!myTechnicianId && mine
+  const shown = mineOnly ? interventions.filter((i) => i.technician_id === myTechnicianId) : interventions
 
   return (
     <>
       <div className="dash-top">
         <div>
           <div className="dash-title">Planning des interventions</div>
+          {myTechnicianId && (
+            <div style={{ display: 'flex', gap: 6, margin: '6px 0 4px' }}>
+              <button type="button" className={`filter-pill${mineOnly ? ' on' : ''}`} onClick={() => setMine(true)}>
+                Mes interventions
+              </button>
+              <button type="button" className={`filter-pill${!mineOnly ? ' on' : ''}`} onClick={() => setMine(false)}>
+                Toute l'équipe
+              </button>
+            </div>
+          )}
           {total === 0 ? (
             <div className="dash-sub">Aucune intervention pour le moment</div>
           ) : (
@@ -427,7 +460,7 @@ export function PlanningPage() {
             {view === 'team' && (
               <div className={`pt-layout${panelVisible ? '' : ' full'}`}>
                 <PlanningTeamView
-                  interventions={interventions}
+                  interventions={shown}
                   technicians={technicians}
                   followCounts={followCounts}
                   weekStart={weekStart}
@@ -453,7 +486,7 @@ export function PlanningPage() {
             )}
             {view === 'week' && (
               <PlanningWeekGridView
-                interventions={interventions}
+                interventions={shown}
                 onClickIntervention={openEdit}
                 events={events}
                 onAddEvent={(date) => openEventModal(null, date)}
@@ -462,7 +495,7 @@ export function PlanningPage() {
             )}
             {view === 'day' && (
               <PlanningDayView
-                interventions={interventions}
+                interventions={shown}
                 onClickIntervention={openEdit}
                 events={events}
                 onAddEvent={(date) => openEventModal(null, date)}
@@ -471,7 +504,7 @@ export function PlanningPage() {
             )}
             {view === 'month' && (
               <PlanningMonthView
-                interventions={interventions}
+                interventions={shown}
                 onClickIntervention={openEdit}
                 events={events}
                 onAddEvent={(date) => openEventModal(null, date)}
@@ -483,7 +516,7 @@ export function PlanningPage() {
           {/* ═══ Liste des interventions (en bas, toujours visible) ═══ */}
           <div className="card">
             <div className="card-top">
-              <span className="card-title">Toutes les interventions ({total})</span>
+              <span className="card-title">{mineOnly ? `Mes interventions (${shown.length})` : `Toutes les interventions (${total})`}</span>
               <span className="text-ink-3 text-xs font-light">
                 Clique sur une ligne pour modifier
               </span>
@@ -502,7 +535,7 @@ export function PlanningPage() {
                 </tr>
               </thead>
               <tbody>
-                {interventions.map((i) => (
+                {shown.map((i) => (
                   <tr
                     key={i.id}
                     onClick={() => openEdit(i)}

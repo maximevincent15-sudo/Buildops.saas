@@ -24,6 +24,8 @@ export type Technician = {
   sector: string | null
   notes: string | null
   active: boolean
+  /** Compte de connexion relié (vue « Ma journée ») */
+  user_id: string | null
   created_at: string
   created_by: string | null
 }

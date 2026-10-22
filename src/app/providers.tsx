@@ -8,6 +8,7 @@ import { supabase } from '../shared/lib/supabase'
 export function AuthProvider({ children }: { children: ReactNode }) {
   const setSession = useAuthStore((s) => s.setSession)
   const setProfile = useAuthStore((s) => s.setProfile)
+  const setMyTechnicianId = useAuthStore((s) => s.setMyTechnicianId)
 
   useEffect(() => {
     async function loadProfileFor(userId: string) {
@@ -15,6 +16,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profile = await fetchProfile(userId)
         setProfile(profile)
         setMonitoringUser({ id: userId, organizationId: profile?.organization_id ?? null })
+        // Fiche technicien du compte (reliée automatiquement si l'email correspond)
+        const { data: techId } = await supabase.rpc('link_my_technician')
+        setMyTechnicianId(typeof techId === 'string' ? techId : null)
       } catch (err) {
         console.error('Erreur chargement du profil', err)
         setProfile(null)
@@ -34,12 +38,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void loadProfileFor(session.user.id)
       } else {
         setProfile(null)
+        setMyTechnicianId(null)
         setMonitoringUser(null)
       }
     })
 
     return () => subscription.subscription.unsubscribe()
-  }, [setSession, setProfile])
+  }, [setSession, setProfile, setMyTechnicianId])
 
   return <>{children}</>
 }
