@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, Download, FileText, Mail, PenLine, Plus, Trash2, Undo2, X, XCircle } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Copy, Download, FileText, Mail, PenLine, Plus, Trash2, Undo2, X, XCircle } from 'lucide-react'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { SignaturePad } from '../../../shared/ui/SignaturePad'
 import { useEffect, useState } from 'react'
@@ -38,6 +38,10 @@ type Props = {
   quoteId?: string | null
   /** Pré-remplissage en mode création (ex: depuis un rapport non-conforme) */
   seed?: Partial<UpsertQuoteInput>
+  /** Bouton « Dupliquer » : le parent rouvre la modale en création avec ce pré-remplissage */
+  onDuplicate?: (seed: Partial<UpsertQuoteInput>, fromReference: string) => void
+  /** Message affiché en haut en mode création (ex : copie d'un devis) */
+  notice?: string
 }
 
 const EMPTY_LINE: QuoteLineInput = {
@@ -58,9 +62,14 @@ function defaultValidityDate(): string {
   return d.toISOString().slice(0, 10)
 }
 
-export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
+export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed, onDuplicate, notice }: Props) {
   const profile = useAuthStore((s) => s.profile)
   const navigate = useNavigate()
+  // « Créer et faire signer » : le devis créé reste ouvert, en édition
+  const [createdId, setCreatedId] = useState<string | null>(null)
+  // Devis créé mais parent pas encore prévenu (on attend la signature, sinon la fermeture)
+  const [pendingNotify, setPendingNotify] = useState(false)
+  const quoteId = quoteIdProp ?? createdId
   const isEdit = !!quoteId
   const [convertingToInvoice, setConvertingToInvoice] = useState(false)
 
@@ -98,14 +107,18 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
   const [validityDate, setValidityDate] = useState(defaultValidityDate())
   const [notes, setNotes] = useState('')
   const [lines, setLines] = useState<QuoteLineInput[]>([{ ...EMPTY_LINE }])
+  // Intervention d'origine (devis correctif) : conservée à l'enregistrement
+  const [interventionId, setInterventionId] = useState('')
 
   // Charge si édition
   useEffect(() => {
     if (!open) return
     setError(null)
-    if (isEdit && quoteId) {
+    setCreatedId(null)
+    setPendingNotify(false)
+    if (quoteIdProp) {
       setLoading(true)
-      void getQuote(quoteId)
+      void getQuote(quoteIdProp)
         .then((q) => {
           if (!q) {
             setError('Devis introuvable.')
@@ -113,6 +126,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
           }
           setClientName(q.client_name)
           setClientId(q.client_id ?? '')
+          setInterventionId(q.intervention_id ?? '')
           setClientContact(q.client_contact_name ?? '')
           setClientEmail(q.client_email ?? '')
           setClientAddress(q.client_address ?? '')
@@ -150,6 +164,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
       // Création : applique le seed si présent
       setClientName(seed?.client_name ?? '')
       setClientId(seed?.client_id ?? '')
+      setInterventionId(seed?.intervention_id ?? '')
       setClientContact(seed?.client_contact_name ?? '')
       setClientEmail(seed?.client_email ?? '')
       setClientAddress(seed?.client_address ?? '')
@@ -176,7 +191,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
     }
     setSignOpen(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, quoteId])
+  }, [open, quoteIdProp])
 
   function updateLine(index: number, patch: Partial<QuoteLineInput>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)))
@@ -230,6 +245,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
       client_siren: parseCompanyNumber(clientSiren).ok
         ? clientSiren.replace(/\D/g, '').slice(0, 9) || undefined
         : undefined,
+      intervention_id: interventionId || undefined,
       site_name: siteName || undefined,
       site_address: siteAddress || undefined,
       issue_date: issueDate,
@@ -237,6 +253,50 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
       notes: notes || undefined,
       lines: cleanLines.map((l, i) => ({ ...l, position: i })),
     }
+  }
+
+  /** Création puis signature immédiate du client (devis fait sur place) */
+  async function handleCreateAndSign() {
+    if (!profile?.organization_id) {
+      setError('Profil non chargé.')
+      return
+    }
+    const input = buildInput()
+    if (!input) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const created = await createQuote(input, profile.organization_id)
+      setCreatedId(created.id)
+      setReference(created.reference)
+      setCurrentStatus('draft')
+      // Parent prévenu après la signature : depuis le planning, il fermerait la modale
+      setPendingNotify(true)
+      openSignPanel()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  /** Copie du devis : mêmes client, lieu, lignes et notes ; date du jour, nouveau numéro à la création */
+  function handleDuplicate() {
+    if (!onDuplicate) return
+    onDuplicate({
+      client_id: clientId || undefined,
+      client_name: clientName,
+      client_contact_name: clientContact || undefined,
+      client_email: clientEmail || undefined,
+      client_address: clientAddress || undefined,
+      client_siren: clientSiren || undefined,
+      site_name: siteName || undefined,
+      site_address: siteAddress || undefined,
+      notes: notes || undefined,
+      lines: lines
+        .filter((l) => l.description.trim())
+        .map((l, i) => ({ position: i, description: l.description, quantity: l.quantity, unit_price_ht: l.unit_price_ht, vat_rate: l.vat_rate })),
+    }, reference)
   }
 
   async function handleSubmit() {
@@ -435,6 +495,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
       setRefusedReason(null)
       setSignOpen(false)
       onSaved?.(quoteId)
+      setPendingNotify(false)
       // Régénère le PDF avec la signature
       await handleGeneratePdf(`Devis signé par ${name} ✓ — PDF mis à jour, tu peux l'envoyer au client.`)
     } catch (e) {
@@ -513,8 +574,15 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
     }
   }
 
+  /** Fermeture : un devis créé puis non signé est quand même signalé au parent (liste à jour) */
+  function handleClose() {
+    if (pendingNotify && quoteId) onSaved?.(quoteId)
+    setPendingNotify(false)
+    onClose()
+  }
+
   function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !submitting && !deleting && !signOpen) onClose()
+    if (e.target === e.currentTarget && !submitting && !deleting && !signOpen) handleClose()
   }
 
   if (!open) return null
@@ -528,13 +596,19 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
           <span className="modal-title">
             {isEdit ? `Devis ${reference || ''}`.trim() : 'Nouveau devis'}
           </span>
-          <button type="button" className="modal-x" onClick={onClose} aria-label="Fermer">×</button>
+          <button type="button" className="modal-x" onClick={handleClose} aria-label="Fermer">×</button>
         </div>
 
         {loading ? (
           <p className="text-ink-2 text-sm">Chargement…</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {notice && !isEdit && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--acc)', background: 'var(--acc-lt, #E8EEF8)', borderRadius: 8, padding: '9px 12px', lineHeight: 1.45 }}>
+                <Copy size={14} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>{notice}</span>
+              </div>
+            )}
             {/* Client */}
             <div className="card-section">
               <div className="card-section-title">Client</div>
@@ -872,6 +946,17 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                       {convertingToInvoice ? 'Création…' : 'Transformer en facture'}
                     </button>
                   )}
+                  {onDuplicate && (
+                    <button
+                      type="button"
+                      className="btn-sm"
+                      onClick={handleDuplicate}
+                      title="Nouveau devis avec les mêmes lignes (nouveau numéro)"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <Copy size={13} strokeWidth={2} /> Dupliquer
+                    </button>
+                  )}
                   {(currentStatus === 'sent' || currentStatus === 'accepted' || currentStatus === 'refused') && (
                     <button
                       type="button"
@@ -900,9 +985,21 @@ export function QuoteModal({ open, onClose, onSaved, quoteId, seed }: Props) {
                   {deleting ? 'Suppression…' : 'Supprimer'}
                 </button>
               )}
-              <button type="button" className="mf out" onClick={onClose} disabled={anyLoading}>
+              <button type="button" className="mf out" onClick={handleClose} disabled={anyLoading}>
                 Annuler
               </button>
+              {!isEdit && (
+                <button
+                  type="button"
+                  className="mf out"
+                  onClick={() => void handleCreateAndSign()}
+                  disabled={anyLoading}
+                  title="Crée le devis puis le fait signer au client sur ce téléphone"
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                >
+                  <PenLine size={14} strokeWidth={2} /> Créer et faire signer
+                </button>
+              )}
               <button
                 type="button"
                 className="mf prim"

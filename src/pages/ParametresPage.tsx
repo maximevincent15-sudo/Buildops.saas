@@ -10,6 +10,7 @@ import { getInvoicingSettings, updateOrganizationName, upsertInvoicingSettings }
 import type { UpsertInvoicingInput } from '../features/parametres/api'
 import { loadDemoData } from '../features/parametres/demoData'
 import { ModulesCard } from '../features/parametres/components/ModulesCard'
+import { NextNumberFields } from '../features/parametres/components/NextNumberFields'
 
 const EMPTY: UpsertInvoicingInput = {
   legal_form: null,
@@ -467,6 +468,13 @@ export function ParametresPage() {
           ⚠️ Le changement s'applique aux <strong>nouveaux</strong> documents uniquement.
           Les références existantes ne sont pas renommées.
         </p>
+        {(profile?.user_role ?? 'admin') === 'admin' && profile?.organization_id && (
+          <NextNumberFields
+            organizationId={profile.organization_id}
+            quotePrefix={form.quote_prefix || 'DEV'}
+            invoicePrefix={form.invoice_prefix || 'FAC'}
+          />
+        )}
       </div>
 
       {/* Bloc 4 : mentions légales devis/factures */}

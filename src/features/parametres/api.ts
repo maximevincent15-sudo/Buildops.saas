@@ -86,3 +86,54 @@ export async function upsertInvoicingSettings(
   if (error) throw error
   return data as InvoicingSettings
 }
+
+// ─── Prochain numéro de devis / de facture ───────────────
+
+export type NextNumbers = {
+  year: number
+  nextQuote: number
+  nextInvoice: number
+  /** Des factures existent déjà cette année : leur numérotation ne peut plus changer */
+  invoicesThisYear: boolean
+}
+
+export async function getNextNumbers(organizationId: string): Promise<NextNumbers> {
+  const year = new Date().getFullYear()
+  const [counters, invoices] = await Promise.all([
+    supabase
+      .from('organization_year_counters')
+      .select('quotes_counter, invoices_counter')
+      .eq('organization_id', organizationId)
+      .eq('year', year)
+      .maybeSingle(),
+    supabase
+      .from('invoices')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', organizationId)
+      .gte('issue_date', `${year}-01-01`)
+      .lt('issue_date', `${year + 1}-01-01`),
+  ])
+  if (counters.error) throw counters.error
+  if (invoices.error) throw invoices.error
+  return {
+    year,
+    nextQuote: Number(counters.data?.quotes_counter ?? 0) + 1,
+    nextInvoice: Number(counters.data?.invoices_counter ?? 0) + 1,
+    invoicesThisYear: (invoices.count ?? 0) > 0,
+  }
+}
+
+const NEXT_NUMBER_ERRORS: Record<string, string> = {
+  not_admin: 'Seul un administrateur peut changer la numérotation.',
+  bad_number: 'Indique un numéro entre 1 et 999 999.',
+  would_reuse: 'Ce numéro de devis est déjà utilisé : choisis un numéro plus grand.',
+  invoices_already_issued: 'Des factures ont déjà été créées cette année : leur numérotation doit rester continue et ne peut plus être changée.',
+}
+
+/** Fixe le prochain numéro de l'année en cours (reprise de la numérotation d'un ancien logiciel) */
+export async function setNextDocumentNumber(kind: 'quote' | 'invoice', next: number): Promise<void> {
+  const { data, error } = await supabase.rpc('set_next_document_number', { p_kind: kind, p_next: next })
+  if (error) throw error
+  const code = (data as { error?: string } | null)?.error
+  if (code) throw new Error(NEXT_NUMBER_ERRORS[code] ?? 'Numéro refusé.')
+}

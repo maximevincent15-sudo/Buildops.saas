@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
 import { listQuotes } from '../features/devis/api'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
+import type { UpsertQuoteInput } from '../features/devis/schemas'
 import {
   QUOTE_STATUS_BADGE,
   QUOTE_STATUS_ICON,
@@ -42,6 +43,8 @@ export function DevisPage() {
   const [tab, setTab] = useState<QuoteStatus | 'all'>('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  // Copie d'un devis : création pré-remplie
+  const [duplicate, setDuplicate] = useState<{ seed: Partial<UpsertQuoteInput>; from: string } | null>(null)
 
   async function load() {
     setLoading(true)
@@ -89,11 +92,13 @@ export function DevisPage() {
     .reduce((sum, q) => sum + Number(q.total_ttc), 0)
 
   function openCreate() {
+    setDuplicate(null)
     setEditingId(null)
     setModalOpen(true)
   }
 
   function openEdit(id: string) {
+    setDuplicate(null)
     setEditingId(id)
     setModalOpen(true)
   }
@@ -256,6 +261,12 @@ export function DevisPage() {
         onClose={() => setModalOpen(false)}
         onSaved={() => void load()}
         quoteId={editingId}
+        seed={duplicate?.seed}
+        notice={duplicate ? `Copie du devis ${duplicate.from} : vérifie le client et les quantités, puis crée le devis. Il aura un nouveau numéro.` : undefined}
+        onDuplicate={(seed, from) => {
+          setDuplicate({ seed, from })
+          setEditingId(null)
+        }}
       />
     </>
   )
