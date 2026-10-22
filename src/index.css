@@ -226,6 +226,7 @@ h1, h2, h3, h4, h5, h6 {
   .modal-title { font-family: 'Syne', sans-serif; font-size: 1.15rem; font-weight: 800; }
   .modal-x { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--ink2); line-height: 1; padding: 0; }
   .mrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .unit-attrs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .modal-foot { display: flex; gap: .7rem; justify-content: flex-end; margin-top: 1.4rem; flex-wrap: wrap; }
   .mf { padding: .68rem 1.4rem; border-radius: 100px; font-size: .88rem; font-weight: 500; cursor: pointer; border: none; font-family: 'DM Sans', sans-serif; }
   .mf.out { background: transparent; border: 1px solid var(--brd2); color: var(--ink); }
@@ -2752,6 +2753,7 @@ h1, h2, h3, h4, h5, h6 {
   .modal-head { margin-bottom: 1rem; }
   .modal-title { font-size: 1.05rem; }
   .mrow { grid-template-columns: 1fr; gap: .9rem; }
+  .unit-attrs { grid-template-columns: 1fr; gap: .7rem; }
   .modal-foot { flex-direction: column-reverse; }
   .modal-foot .mf { width: 100%; }
   .modal-foot .mf.del { margin-right: 0 !important; margin-top: .5rem; }

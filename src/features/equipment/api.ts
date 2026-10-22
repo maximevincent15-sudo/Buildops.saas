@@ -1,3 +1,5 @@
+import { compressImage } from '../../shared/lib/image'
+import { FileTooLargeError, MAX_UPLOAD_SIZE_BYTES } from '../../shared/lib/storage'
 import { supabase } from '../../shared/lib/supabase'
 import type {
   Site,
@@ -265,7 +267,39 @@ function unitToRow(
     last_check_date: input.last_check_date || null,
     next_check_date: input.next_check_date || null,
     notes: input.notes || null,
+    photo_path: input.photo_path || null,
+    photo_url: input.photo_url || null,
+    attributes: input.attributes ?? {},
   }
+}
+
+// ─── Photo de repérage ──────────────────────────────────
+
+const PHOTO_BUCKET = 'report-photos'
+
+/** Envoie la photo de repérage d'un équipement (réduite avant envoi) */
+export async function uploadUnitPhoto(
+  file: File,
+  organizationId: string,
+): Promise<{ path: string; url: string }> {
+  const blob = await compressImage(file)
+  if (blob.size > MAX_UPLOAD_SIZE_BYTES) throw new FileTooLargeError(blob.size, MAX_UPLOAD_SIZE_BYTES)
+  const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg'
+  const path = `${organizationId}/equipment/${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: blob.type || 'image/jpeg',
+  })
+  if (error) throw error
+  const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path)
+  return { path, url: data.publicUrl }
+}
+
+/** Supprime une ancienne photo de repérage (sans bloquer si elle a déjà disparu) */
+export async function deleteUnitPhoto(path: string | null | undefined): Promise<void> {
+  if (!path) return
+  await supabase.storage.from(PHOTO_BUCKET).remove([path]).catch(() => undefined)
 }
 
 export async function createEquipmentUnit(

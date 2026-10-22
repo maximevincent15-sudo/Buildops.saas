@@ -124,6 +124,11 @@ export const createEquipmentUnitSchema = z.object({
   last_check_date: z.string().optional(),
   next_check_date: z.string().optional(),
   notes: z.string().optional(),
+  /** Photo de repérage (l'appareil dans son environnement) */
+  photo_path: z.string().nullable().optional(),
+  photo_url: z.string().nullable().optional(),
+  /** Caractéristiques propres à la famille (cf. FAMILY_ATTRIBUTES) */
+  attributes: z.record(z.string(), z.string()).optional(),
 })
 export type CreateEquipmentUnitInput = z.infer<typeof createEquipmentUnitSchema>
 
@@ -146,6 +151,9 @@ export type EquipmentUnit = {
   last_check_date: string | null
   next_check_date: string | null
   notes: string | null
+  photo_path: string | null
+  photo_url: string | null
+  attributes: Record<string, string>
   created_at: string
   updated_at: string
   created_by: string | null

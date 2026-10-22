@@ -10,6 +10,7 @@ import {
 } from './schemas'
 import type { EquipmentUnit, FamilyTemplate, Zone } from './schemas'
 import type { UnitReportEntry } from '../rapports/pdf/ReportPdf'
+import { unitTypeLine } from './identification'
 
 /**
  * Construit la liste des lignes du registre APSAD nominatif pour un rapport
@@ -68,7 +69,8 @@ export async function buildUnitEntriesForIntervention(
       implantation: u.implantation,
       family: u.family,
       familyLabel: EQUIPMENT_FAMILY_LABELS[u.family],
-      subtype: u.subtype,
+      // Type + caractéristiques (« EP6 · Poudre ABC · 6 kg », « EI 60 · 2 vantaux »)
+      subtype: unitTypeLine(u) || null,
       brand: u.brand,
       installYear: u.install_year,
       verdict: c.verdict,

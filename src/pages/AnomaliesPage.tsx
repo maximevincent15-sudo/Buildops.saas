@@ -22,6 +22,7 @@ import type {
   AnomalyStatus,
 } from '../features/anomalies/schemas'
 import { listEquipmentUnitsByIds, listSites } from '../features/equipment/api'
+import { unitRepere } from '../features/equipment/identification'
 import type { EquipmentUnit, Site } from '../features/equipment/schemas'
 import { listClients } from '../features/clients/api'
 import type { Client } from '../features/clients/schemas'
@@ -273,7 +274,8 @@ export function AnomaliesPage() {
                       <div style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 3 }}>
                         {unit && (
                           <>
-                            <strong>N°{unit.serial_number}</strong>
+                            <strong>{unitRepere(unit)}</strong>
+                            {unit.implantation && ` · ${unit.implantation}`}
                             {unit.brand && ` · ${unit.brand}`}
                           </>
                         )}

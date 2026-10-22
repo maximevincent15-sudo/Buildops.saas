@@ -18,6 +18,7 @@ import type {
   AnomalyPriority,
 } from '../../anomalies/schemas'
 import {
+  deleteUnitPhoto,
   findUnitsByQrCodes,
   getFamilyTemplate,
   getSite,
@@ -25,9 +26,12 @@ import {
   listEquipmentUnits,
   listSites,
   listZones,
+  updateEquipmentUnit,
 } from '../../equipment/api'
 import { QuickUnitSheet } from '../../equipment/components/QuickUnitSheet'
 import { QrScanner } from '../../equipment/components/QrScanner'
+import { UnitPhotoField } from '../../equipment/components/UnitPhotoField'
+import { attributesSummary, compareUnitsByRound, unitLocation, unitRepere, unitTypeLine } from '../../equipment/identification'
 import { upsertCheckSmart } from '../../equipment/offlineQueue'
 import {
   CHECK_VERDICT_LABELS,
@@ -196,13 +200,14 @@ export function UnitBasedControls({
       }
       if (q) {
         const hay = normalizeSearch([
-          u.serial_number, u.subtype ?? '', u.implantation ?? '', u.brand ?? '', u.model ?? '', u.qr_code ?? '',
+          u.serial_number, unitRepere(u), u.subtype ?? '', u.implantation ?? '', u.brand ?? '', u.model ?? '', u.qr_code ?? '',
           u.zone_id ? zonesById.get(u.zone_id)?.name ?? '' : '',
+          attributesSummary(u.family, u.attributes),
         ].join(' '))
         if (!hay.includes(q)) return false
       }
       return true
-    })
+    }).sort(compareUnitsByRound(zonesById))
   }, [units, activeZoneId, onlyRemaining, search, checksByUnit, zonesById])
 
   /** Équipement ajouté depuis la fiche courte : contrôle tout de suite, ou étiquette suivante */
@@ -211,7 +216,7 @@ export function UnitBasedControls({
     setAddDraft(null)
     setUnits((prev) => [...prev, unit])
     setLastCreated(unit)
-    setScanMessage({ tone: 'ok', text: `${EQUIPMENT_FAMILY_LABELS[unit.family]} N°${unit.serial_number} ajouté au site` })
+    setScanMessage({ tone: 'ok', text: `${unitRepere(unit)} (${EQUIPMENT_FAMILY_LABELS[unit.family]}) ajouté au site` })
     if (!templateCache.has(unit.family)) {
       const t = await getFamilyTemplate(unit.family).catch(() => null)
       if (t) setTemplateCache((prev) => new Map(prev).set(t.family, t))
@@ -230,7 +235,8 @@ export function UnitBasedControls({
     const found = matchUnitByQr(units, text)
     if (found) {
       setFromScan(true)
-      setScanMessage({ tone: 'ok', text: `${EQUIPMENT_FAMILY_LABELS[found.family]} N°${found.serial_number} trouvé` })
+      const where = unitLocation(found, found.zone_id ? zonesById.get(found.zone_id) : null)
+      setScanMessage({ tone: 'ok', text: `${unitRepere(found)} trouvé${where ? ` · ${where}` : ''}` })
       setEditingUnitId(found.id)
       return
     }
@@ -240,7 +246,7 @@ export function UnitBasedControls({
       const other = elsewhere.find((u) => u.site_id !== siteId)
       if (other) {
         const site = (await listSites(other.client_id).catch(() => [])).find((x) => x.id === other.site_id)
-        setScanMessage({ tone: 'warn', text: `Ce QR code appartient à ${EQUIPMENT_FAMILY_LABELS[other.family]} N°${other.serial_number}${site ? ` du site « ${site.name} »` : " d'un autre site"}, pas à ce site.` })
+        setScanMessage({ tone: 'warn', text: `Ce QR code appartient à ${unitRepere(other)} (${EQUIPMENT_FAMILY_LABELS[other.family]})${site ? ` du site « ${site.name} »` : " d'un autre site"}, pas à ce site.` })
         return
       }
     } catch {
@@ -351,6 +357,8 @@ export function UnitBasedControls({
           organizationId={organizationId}
           interventionId={interventionId}
           technicianName={technicianName}
+          zone={editingUnit.zone_id ? zonesById.get(editingUnit.zone_id) ?? null : null}
+          onUnitChange={(u) => setUnits((prev) => prev.map((x) => (x.id === u.id ? u : x)))}
         />
       )}
     </>
@@ -479,7 +487,7 @@ export function UnitBasedControls({
           <input
             className="input-sm"
             type="search"
-            placeholder="N°, emplacement, marque, QR…"
+            placeholder="Repère, emplacement, marque, QR…"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setLimit(UNITS_STEP) }}
             style={{ paddingLeft: 30, width: '100%', display: 'block' }}
@@ -539,7 +547,13 @@ export function UnitBasedControls({
         {displayedUnits.slice(0, limit).map((u) => {
           const check = checksByUnit.get(u.id)
           const verdict: CheckVerdict = check?.verdict ?? 'non_verifie'
-          const zoneName = u.zone_id ? zonesById.get(u.zone_id)?.name ?? '—' : 'Sans zone'
+          const where = unitLocation(u, u.zone_id ? zonesById.get(u.zone_id) : null)
+          const details = [
+            EQUIPMENT_FAMILY_LABELS[u.family],
+            unitTypeLine(u),
+            u.brand,
+            u.install_year,
+          ].filter(Boolean).join(' · ')
           return (
             <button
               key={u.id}
@@ -553,18 +567,15 @@ export function UnitBasedControls({
                 borderLeftColor: verdictColor(verdict),
               }}
             >
-              <div style={unitTileNumStyle}>{u.serial_number}</div>
+              {u.photo_url && (
+                <img src={u.photo_url} alt="" loading="lazy" style={unitTileThumbStyle} />
+              )}
               <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
                 <div style={unitTileTitleStyle}>
-                  {EQUIPMENT_FAMILY_LABELS[u.family]}
-                  {u.subtype ? ` · ${u.subtype}` : ''}
+                  <span style={unitTileNumStyle}>{unitRepere(u)}</span>
+                  {where || <span style={{ color: 'var(--ink3)', fontWeight: 400, fontStyle: 'italic' }}>Emplacement non renseigné</span>}
                 </div>
-                <div style={unitTileMetaStyle}>
-                  {zoneName}
-                  {u.implantation ? ` · ${u.implantation}` : ''}
-                  {u.brand ? ` · ${u.brand}` : ''}
-                  {u.install_year ? ` · ${u.install_year}` : ''}
-                </div>
+                <div style={unitTileMetaStyle}>{details}</div>
               </div>
               <div style={unitTileVerdictStyle(verdict)}>
                 {verdict === 'non_verifie' ? '—' : CHECK_VERDICT_LABELS[verdict]}
@@ -609,12 +620,30 @@ type ModalProps = {
   organizationId: string
   interventionId: string
   technicianName?: string | null
+  zone: Zone | null
+  /** Photo de repérage ajoutée ou changée pendant le contrôle */
+  onUnitChange: (unit: EquipmentUnit) => void
 }
 
 function UnitCheckModal({
   unit, template, existing, onClose, onSave, readOnly,
-  organizationId, interventionId, technicianName,
+  organizationId, interventionId, technicianName, zone, onUnitChange,
 }: ModalProps) {
+  const [photoError, setPhotoError] = useState<string | null>(null)
+
+  /** Photo de repérage enregistrée tout de suite sur l'équipement */
+  async function handleUnitPhoto(p: { path: string; url: string } | null) {
+    setPhotoError(null)
+    try {
+      const updated = await updateEquipmentUnit(unit.id, { photo_path: p?.path ?? null, photo_url: p?.url ?? null })
+      if (unit.photo_path && unit.photo_path !== p?.path) void deleteUnitPhoto(unit.photo_path)
+      onUnitChange(updated)
+    } catch (e) {
+      if (p) void deleteUnitPhoto(p.path)
+      setPhotoError(e instanceof Error ? e.message : 'Photo non enregistrée. Vérifie ta connexion.')
+    }
+  }
+
   const [checklist, setChecklist] = useState<Record<string, CheckItemValue>>(
     existing?.checklist ?? {},
   )
@@ -765,19 +794,39 @@ function UnitCheckModal({
       <div className="modal">
         <div className="modal-head">
           <span className="modal-title">
-            Unité n°{unit.serial_number} · {EQUIPMENT_FAMILY_LABELS[unit.family]}
+            {unitRepere(unit)} · {EQUIPMENT_FAMILY_LABELS[unit.family]}
             {unit.subtype ? ` · ${unit.subtype}` : ''}
           </span>
           <button type="button" className="modal-x" onClick={onClose} aria-label="Fermer">×</button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '.9rem', padding: '.5rem 0' }}>
+          {/* Où est l'appareil : emplacement en gros + photo de repérage */}
+          <div style={locationBoxStyle}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ink3)' }}>
+              Emplacement
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35, margin: '2px 0 10px' }}>
+              {unitLocation(unit, zone) || <span style={{ color: 'var(--ink3)', fontWeight: 400, fontStyle: 'italic' }}>Non renseigné</span>}
+            </div>
+            <UnitPhotoField
+              organizationId={organizationId}
+              value={unit.photo_path && unit.photo_url ? { path: unit.photo_path, url: unit.photo_url } : null}
+              onChange={(p) => { void handleUnitPhoto(p) }}
+              readOnly={readOnly}
+              variant="large"
+            />
+            {photoError && <span className="ferr on">{photoError}</span>}
+          </div>
+
           {/* Meta unité */}
           <div style={metaBoxStyle}>
             <MetaLine k="Marque" v={unit.brand ?? '—'} />
             {unit.model && <MetaLine k="Modèle" v={unit.model} />}
             <MetaLine k="Année" v={unit.install_year?.toString() ?? '—'} />
-            <MetaLine k="Implantation" v={unit.implantation ?? '—'} />
+            {attributesSummary(unit.family, unit.attributes) && (
+              <MetaLine k="Caractéristiques" v={attributesSummary(unit.family, unit.attributes)} />
+            )}
           </div>
 
           {/* Anomalies déjà ouvertes sur cette unité (Slice M3 + M5) */}
@@ -1108,9 +1157,9 @@ function UnitCheckModal({
 
 function MetaLine({ k, v }: { k: string; v: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 12.5 }}>
-      <span style={{ color: 'var(--ink2)' }}>{k}</span>
-      <span style={{ color: 'var(--ink)', fontWeight: 500 }}>{v}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '2px 0', fontSize: 12.5 }}>
+      <span style={{ color: 'var(--ink2)', flexShrink: 0 }}>{k}</span>
+      <span style={{ color: 'var(--ink)', fontWeight: 500, textAlign: 'right' }}>{v}</span>
     </div>
   )
 }
@@ -1157,24 +1206,43 @@ const unitTileStyle: React.CSSProperties = {
 }
 
 const unitTileNumStyle: React.CSSProperties = {
+  display: 'inline-block',
   background: 'var(--acc-lt, #E8EEF8)',
   color: 'var(--acc, #3A5CA8)',
   fontWeight: 700,
-  padding: '4px 8px',
+  padding: '2px 7px',
   borderRadius: 6,
-  fontSize: 12.5,
+  fontSize: 12,
   fontVariantNumeric: 'tabular-nums',
-  minWidth: 32,
-  textAlign: 'center',
+  marginRight: 8,
+  verticalAlign: 'baseline',
+}
+
+const unitTileThumbStyle: React.CSSProperties = {
+  width: 44,
+  height: 44,
+  objectFit: 'cover',
+  borderRadius: 6,
+  flexShrink: 0,
+  border: '1px solid var(--brd, #E1E5EA)',
 }
 
 const unitTileTitleStyle: React.CSSProperties = {
-  fontSize: 13,
+  fontSize: 13.5,
   fontWeight: 600,
   color: 'var(--ink)',
+  lineHeight: 1.35,
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical',
   overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
+}
+
+const locationBoxStyle: React.CSSProperties = {
+  padding: '12px 14px',
+  borderRadius: 10,
+  background: 'var(--acc-lt, #E8EEF8)',
+  border: '1px solid rgba(58, 92, 168, .18)',
 }
 
 const unitTileMetaStyle: React.CSSProperties = {

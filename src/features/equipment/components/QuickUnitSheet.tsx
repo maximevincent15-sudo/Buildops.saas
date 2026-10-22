@@ -1,12 +1,16 @@
 import { CheckCircle2, QrCode } from 'lucide-react'
 import { useState } from 'react'
 import type { MouseEvent } from 'react'
-import { createEquipmentUnit, createZone } from '../api'
+import { createEquipmentUnit, createZone, deleteUnitPhoto } from '../api'
 import { normalize } from '../familyResolver'
+import { cleanAttributes, unitRepere } from '../identification'
 import { nextSerial, parseLabelQr, shortCodeFromQr } from '../inventory'
 import type { LabelQrFields } from '../inventory'
 import { EQUIPMENT_FAMILIES, EQUIPMENT_FAMILY_LABELS } from '../schemas'
 import type { EquipmentFamily, EquipmentUnit, Zone } from '../schemas'
+import { UnitAttributesFields } from './UnitAttributesFields'
+import { UnitPhotoField } from './UnitPhotoField'
+import type { UnitPhoto } from './UnitPhotoField'
 
 type Props = {
   siteId: string
@@ -18,7 +22,7 @@ type Props = {
   /** Contenu de l'étiquette scannée (null : ajout sans étiquette) */
   qrCode: string | null
   /** Dernier appareil ajouté ou existant : sert à pré-remplir la fiche */
-  previous: Pick<EquipmentUnit, 'family' | 'subtype' | 'brand' | 'zone_id' | 'serial_number'> | null
+  previous: Pick<EquipmentUnit, 'family' | 'subtype' | 'brand' | 'zone_id' | 'serial_number' | 'attributes'> | null
   onZoneCreated: (zone: Zone) => void
   /** then = 'check' : ouvrir le contrôle ; 'next' : passer à l'étiquette suivante */
   onCreated: (unit: EquipmentUnit, then: 'check' | 'next') => void
@@ -60,6 +64,7 @@ export function QuickUnitSheet({
       implantation: parsed.implantation ?? '',
       year: parsed.installYear ? String(parsed.installYear) : '',
       notes: parsed.manufacturerSerial ? `N° série fabricant : ${parsed.manufacturerSerial}` : '',
+      attributes: previous?.family === family ? { ...(previous.attributes ?? {}) } : {},
     }
   })
 
@@ -72,6 +77,8 @@ export function QuickUnitSheet({
   const [newZone, setNewZone] = useState(initial.newZone)
   const [implantation, setImplantation] = useState(initial.implantation)
   const [year, setYear] = useState(initial.year)
+  const [attrs, setAttrs] = useState<Record<string, string>>(initial.attributes)
+  const [photo, setPhoto] = useState<UnitPhoto | null>(null)
   const [saving, setSaving] = useState<'check' | 'next' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -87,6 +94,7 @@ export function QuickUnitSheet({
 
   function changeFamily(f: EquipmentFamily) {
     setFamily(f)
+    setAttrs(previous?.family === f ? { ...(previous.attributes ?? {}) } : {})
     if (initial.serialAuto && !serialTouched) {
       const serials = siteUnits.filter((u) => u.family === f).map((u) => u.serial_number)
       setSerial(nextSerial(serials, previous?.family === f ? previous.serial_number : null))
@@ -120,6 +128,9 @@ export function QuickUnitSheet({
         qr_code: qrCode?.trim() || undefined,
         status: 'active',
         notes: initial.notes || undefined,
+        photo_path: photo?.path ?? null,
+        photo_url: photo?.url ?? null,
+        attributes: cleanAttributes(family, attrs),
       }, organizationId)
       onCreated(unit, then)
     } catch (e) {
@@ -131,8 +142,14 @@ export function QuickUnitSheet({
     }
   }
 
+  /** Fermeture sans ajout : la photo déjà envoyée est supprimée */
+  function handleCancel() {
+    if (photo) void deleteUnitPhoto(photo.path)
+    onClose()
+  }
+
   function handleBackdropClick(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !saving) onClose()
+    if (e.target === e.currentTarget && !saving) handleCancel()
   }
 
   return (
@@ -140,7 +157,7 @@ export function QuickUnitSheet({
       <div className="modal">
         <div className="modal-head">
           <span className="modal-title">Nouvel équipement sur le site</span>
-          <button type="button" className="modal-x" onClick={onClose} aria-label="Fermer">×</button>
+          <button type="button" className="modal-x" onClick={handleCancel} aria-label="Fermer">×</button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '.85rem', padding: '.25rem 0' }}>
@@ -167,9 +184,15 @@ export function QuickUnitSheet({
               </select>
             </div>
             <div className="fg">
-              <label>N° d'unité</label>
+              <label>N° de repère</label>
               <input type="text" value={serial} onChange={(e) => { setSerial(e.target.value); setSerialTouched(true) }} placeholder="Ex : 0452" />
-              {duplicate && <span className="ferr on">Déjà utilisé pour cette famille sur ce site</span>}
+              {duplicate ? (
+                <span className="ferr on">Déjà utilisé pour cette famille sur ce site</span>
+              ) : serial.trim() ? (
+                <span className="text-ink-3" style={{ fontSize: 11.5, marginTop: 4 }}>
+                  Affiché : <strong>{unitRepere({ family, serial_number: serial })}</strong>
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -205,8 +228,15 @@ export function QuickUnitSheet({
           </div>
 
           <div className="fg">
-            <label>Emplacement</label>
-            <input type="text" value={implantation} onChange={(e) => setImplantation(e.target.value)} placeholder="Ex : Hall d'accueil, près de l'ascenseur" />
+            <label>Emplacement précis</label>
+            <input type="text" value={implantation} onChange={(e) => setImplantation(e.target.value)} placeholder="Ex : Hall d'accueil, à droite de l'ascenseur" />
+          </div>
+
+          <UnitAttributesFields family={family} value={attrs} onChange={setAttrs} />
+
+          <div className="fg">
+            <label>Photo de repérage <span className="text-ink-3 text-xs font-light">(conseillée)</span></label>
+            <UnitPhotoField organizationId={organizationId} value={photo} onChange={(p) => { if (photo && photo.path !== p?.path) void deleteUnitPhoto(photo.path); setPhoto(p) }} variant="compact" />
           </div>
 
           {error && <span className="ferr on">{error}</span>}
@@ -218,7 +248,7 @@ export function QuickUnitSheet({
               {saving === 'check' ? 'Ajout…' : 'Ajouter et contrôler'}
             </button>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" className="mf out" onClick={onClose} disabled={!!saving} style={{ flex: 1 }}>
+              <button type="button" className="mf out" onClick={handleCancel} disabled={!!saving} style={{ flex: 1 }}>
                 Annuler
               </button>
               <button type="button" className="mf out" onClick={() => void submit('next')} disabled={!!saving} style={{ flex: 1 }}>

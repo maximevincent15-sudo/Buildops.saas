@@ -3,6 +3,7 @@ import { Camera, CheckCircle2, Loader2, QrCode, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, MouseEvent } from 'react'
 import { useForm } from 'react-hook-form'
+import type { FieldErrors } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
 import { listClients } from '../../clients/api'
 import type { Client } from '../../clients/schemas'
@@ -10,10 +11,12 @@ import {
   createEquipmentUnit,
   createZone,
   deleteEquipmentUnit,
+  deleteUnitPhoto,
   listSites,
   listZones,
   updateEquipmentUnit,
 } from '../api'
+import { cleanAttributes, unitRepere } from '../identification'
 import {
   EQUIPMENT_FAMILIES,
   EQUIPMENT_FAMILY_LABELS,
@@ -24,6 +27,9 @@ import {
 } from '../schemas'
 import { LABEL_SCAN_ENABLED, LabelScanError, scanEquipmentLabel } from '../scanLabel'
 import { QrScanner } from './QrScanner'
+import { UnitAttributesFields } from './UnitAttributesFields'
+import { UnitPhotoField } from './UnitPhotoField'
+import type { UnitPhoto } from './UnitPhotoField'
 import type {
   CreateEquipmentUnitInput,
   EquipmentUnit,
@@ -40,6 +46,13 @@ type Props = {
   /** Création depuis un rapport ou un scan : client du site et QR déjà connus */
   defaultClientId?: string
   defaultQrCode?: string
+}
+
+/** Champ nombre vide → undefined (avec valueAsNumber, un champ vide donnait NaN et bloquait l'enregistrement) */
+function emptyToUndefinedNumber(v: unknown): number | undefined {
+  if (v === '' || v === null || v === undefined) return undefined
+  const n = typeof v === 'number' ? v : Number(v)
+  return Number.isNaN(n) ? undefined : n
 }
 
 function toFormValues(
@@ -103,6 +116,10 @@ export function EquipmentUnitModal({
   const [scanPreview, setScanPreview] = useState<string | null>(null)
   const [scanMessage, setScanMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
+  // Photo de repérage et caractéristiques de la famille (hors formulaire)
+  const [photo, setPhoto] = useState<UnitPhoto | null>(null)
+  const [attrs, setAttrs] = useState<Record<string, string>>({})
+
   const {
     register,
     handleSubmit,
@@ -121,6 +138,7 @@ export function EquipmentUnitModal({
   const watchedFamily = watch('family')
   const watchedInstallYear = watch('install_year')
   const watchedSubtype = watch('subtype')
+  const watchedSerial = watch('serial_number')
 
   // Année de réforme suggérée (calculée)
   const suggestedReplacementYear = useMemo(
@@ -136,6 +154,8 @@ export function EquipmentUnitModal({
     setNewZoneName('')
     setScanPreview(null)
     setScanMessage(null)
+    setPhoto(unit?.photo_path && unit.photo_url ? { path: unit.photo_path, url: unit.photo_url } : null)
+    setAttrs(unit?.attributes ?? {})
     listClients().then(setClients).catch(() => setClients([]))
   }, [open, unit, defaultSiteId, defaultClientId, defaultQrCode, reset])
 
@@ -246,11 +266,19 @@ export function EquipmentUnitModal({
       return
     }
     setSubmitError(null)
+    const payload: CreateEquipmentUnitInput = {
+      ...data,
+      photo_path: photo?.path ?? null,
+      photo_url: photo?.url ?? null,
+      attributes: cleanAttributes(data.family, attrs),
+    }
     try {
       if (isEdit && unit) {
-        await updateEquipmentUnit(unit.id, data)
+        await updateEquipmentUnit(unit.id, payload)
+        // Ancienne photo remplacée ou retirée : on la supprime du stockage
+        if (unit.photo_path && unit.photo_path !== photo?.path) void deleteUnitPhoto(unit.photo_path)
       } else {
-        await createEquipmentUnit(data, profile.organization_id)
+        await createEquipmentUnit(payload, profile.organization_id)
       }
       reset()
       onClose()
@@ -260,16 +288,27 @@ export function EquipmentUnitModal({
     }
   }
 
+  /** Champ invalide sans message sous le champ (année de réforme, zone…) : on le signale en bas */
+  function onInvalid(errs: FieldErrors<CreateEquipmentUnitInput>) {
+    const labels: Record<string, string> = {
+      client_id: 'client', site_id: 'site', zone_id: 'zone', family: 'famille', serial_number: 'N° de repère',
+      install_year: 'année de mise en service', next_replacement_year: 'année de réforme', status: 'statut',
+    }
+    setSubmitError(`À corriger : ${Object.keys(errs).map((k) => labels[k] ?? k).join(', ')}.`)
+  }
+
   async function handleDelete() {
     if (!unit) return
     const ok = window.confirm(
-      `Supprimer l'unité n°${unit.serial_number} ?\n\nCette action est irréversible.`,
+      `Supprimer l'équipement ${unitRepere(unit)} ?\n\nCette action est irréversible.`,
     )
     if (!ok) return
     setIsDeleting(true)
     setSubmitError(null)
     try {
       await deleteEquipmentUnit(unit.id)
+      void deleteUnitPhoto(unit.photo_path)
+      if (photo && photo.path !== unit.photo_path) void deleteUnitPhoto(photo.path)
       onClose()
       onChanged?.()
     } catch (e) {
@@ -279,8 +318,14 @@ export function EquipmentUnitModal({
     }
   }
 
+  /** Fermeture sans enregistrer : la photo prise pendant l'édition est supprimée */
+  function handleCancel() {
+    if (photo && photo.path !== unit?.photo_path) void deleteUnitPhoto(photo.path)
+    onClose()
+  }
+
   function handleBackdropClick(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
+    if (e.target === e.currentTarget) handleCancel()
   }
 
   if (!open) return null
@@ -291,14 +336,14 @@ export function EquipmentUnitModal({
         <div className="modal-head">
           <span className="modal-title">
             {isEdit
-              ? `Unité n°${unit?.serial_number} — ${EQUIPMENT_FAMILY_LABELS[unit!.family]}`
-              : 'Nouvelle unité'}
+              ? `${unitRepere(unit!)} — ${EQUIPMENT_FAMILY_LABELS[unit!.family]}`
+              : 'Nouvel équipement'}
           </span>
-          <button type="button" className="modal-x" onClick={onClose} aria-label="Fermer">×</button>
+          <button type="button" className="modal-x" onClick={handleCancel} aria-label="Fermer">×</button>
         </div>
 
         <form
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(onSubmit, onInvalid)}
           style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
         >
           {/* Localisation */}
@@ -334,7 +379,7 @@ export function EquipmentUnitModal({
 
           {/* Zone */}
           <div className="fg">
-            <label>Zone (optionnel)</label>
+            <label>Zone <span className="text-ink-3 text-xs font-light">(bâtiment, étage…)</span></label>
             <select {...register('zone_id')} disabled={!watchedSiteId}>
               <option value="">
                 {!watchedSiteId ? '— Choisis un site d\'abord —' : '— Aucune zone —'}
@@ -356,7 +401,7 @@ export function EquipmentUnitModal({
               >
                 <input
                   type="text"
-                  placeholder="+ Nouvelle zone (ex : Atelier peinture)"
+                  placeholder="+ Nouvelle zone (ex : Bâtiment B · RDC)"
                   value={newZoneName}
                   onChange={(e) => setNewZoneName(e.target.value)}
                   style={{ flex: 1, fontSize: 12.5 }}
@@ -444,15 +489,19 @@ export function EquipmentUnitModal({
               </select>
             </div>
             <div className="fg">
-              <label>N° d'unité (unique sur ce site)</label>
+              <label>N° de repère <span className="text-ink-3 text-xs font-light">(celui de l'étiquette)</span></label>
               <input
                 type="text"
                 placeholder="Ex : 01, 17, A-42"
                 {...register('serial_number')}
               />
-              {errors.serial_number && (
+              {errors.serial_number ? (
                 <span className="ferr on">{errors.serial_number.message}</span>
-              )}
+              ) : watchedSerial?.trim() ? (
+                <span className="text-ink-3" style={{ fontSize: 11.5, marginTop: 4 }}>
+                  Affiché : <strong>{unitRepere({ family: watchedFamily, serial_number: watchedSerial })}</strong>
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -466,14 +515,36 @@ export function EquipmentUnitModal({
               />
             </div>
             <div className="fg">
-              <label>Implantation</label>
+              <label>Emplacement précis</label>
               <input
                 type="text"
-                placeholder="Ex : Entrée principale, Cabine A"
+                placeholder="Ex : Hall d'entrée, à droite de la porte"
                 {...register('implantation')}
               />
             </div>
           </div>
+
+          {/* Caractéristiques propres à la famille */}
+          <div className="card-section">
+            <div className="card-section-title">Caractéristiques · {EQUIPMENT_FAMILY_LABELS[watchedFamily]}</div>
+            <UnitAttributesFields family={watchedFamily} value={attrs} onChange={setAttrs} />
+          </div>
+
+          {/* Photo de repérage */}
+          {profile?.organization_id && (
+            <div className="fg">
+              <label>Photo de repérage</label>
+              <UnitPhotoField
+                organizationId={profile.organization_id}
+                value={photo}
+                onChange={(p) => {
+                  // Photo intermédiaire (prise puis remplacée avant d'enregistrer) : supprimée
+                  if (photo && photo.path !== unit?.photo_path && photo.path !== p?.path) void deleteUnitPhoto(photo.path)
+                  setPhoto(p)
+                }}
+              />
+            </div>
+          )}
 
           {/* Code QR de l'étiquette (scan sur le terrain) */}
           <div className="fg">
@@ -512,7 +583,7 @@ export function EquipmentUnitModal({
                 min={1900}
                 max={2100}
                 placeholder="2020"
-                {...register('install_year', { valueAsNumber: true })}
+                {...register('install_year', { setValueAs: emptyToUndefinedNumber })}
               />
               {errors.install_year && (
                 <span className="ferr on">Année invalide</span>
@@ -539,7 +610,7 @@ export function EquipmentUnitModal({
                 min={1900}
                 max={2100}
                 placeholder={suggestedReplacementYear?.toString() ?? '—'}
-                {...register('next_replacement_year', { valueAsNumber: true })}
+                {...register('next_replacement_year', { setValueAs: emptyToUndefinedNumber })}
               />
             </div>
           </div>
@@ -579,13 +650,13 @@ export function EquipmentUnitModal({
                 {isDeleting ? 'Suppression…' : 'Supprimer'}
               </button>
             )}
-            <button type="button" className="mf out" onClick={onClose} disabled={isSubmitting || isDeleting}>
+            <button type="button" className="mf out" onClick={handleCancel} disabled={isSubmitting || isDeleting}>
               Annuler
             </button>
             <button type="submit" className="mf prim" disabled={isSubmitting || isDeleting}>
               {isSubmitting
                 ? (isEdit ? 'Enregistrement…' : 'Création…')
-                : (isEdit ? 'Enregistrer' : 'Créer l\'unité')}
+                : (isEdit ? 'Enregistrer' : 'Créer l\'équipement')}
             </button>
           </div>
         </form>

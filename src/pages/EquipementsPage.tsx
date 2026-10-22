@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { listClients } from '../features/clients/api'
 import type { Client } from '../features/clients/schemas'
 import { listEquipmentUnits, listSites } from '../features/equipment/api'
+import { attributesSummary, unitRepere, unitTypeLine } from '../features/equipment/identification'
 import { BatchAddUnitsModal } from '../features/equipment/components/BatchAddUnitsModal'
 import { EquipmentUnitModal } from '../features/equipment/components/EquipmentUnitModal'
 import { QrScanner } from '../features/equipment/components/QrScanner'
@@ -134,7 +135,9 @@ export function EquipementsPage() {
           clientsById.get(u.client_id)?.name ?? '',
           sitesById.get(u.site_id)?.name ?? '',
           u.serial_number,
+          unitRepere(u),
           u.subtype ?? '',
+          attributesSummary(u.family, u.attributes),
           u.brand ?? '',
           u.model ?? '',
           u.implantation ?? '',
@@ -449,7 +452,7 @@ export function EquipementsPage() {
             <table className="dtbl" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th style={{ width: 60 }}>N°</th>
+                  <th style={{ width: 120 }}>Repère</th>
                   <th>Client · Site</th>
                   <th>Famille</th>
                   <th>Type</th>
@@ -477,8 +480,12 @@ export function EquipementsPage() {
                       }}
                       style={{ cursor: 'pointer' }}
                     >
-                      <td style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                        {u.serial_number}
+                      <td style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                        {u.photo_url && (
+                          <img src={u.photo_url} alt="" loading="lazy"
+                            style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 5, verticalAlign: 'middle', marginRight: 6 }} />
+                        )}
+                        {unitRepere(u)}
                       </td>
                       <td>
                         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
@@ -486,13 +493,14 @@ export function EquipementsPage() {
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--ink2)' }}>
                           {site?.name ?? '—'}
+                          {u.implantation ? ` · ${u.implantation}` : ''}
                         </div>
                       </td>
                       <td>
                         <span className="b-gry">{EQUIPMENT_FAMILY_LABELS[u.family]}</span>
                       </td>
                       <td style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>
-                        {u.subtype ?? '—'}
+                        {unitTypeLine(u) || '—'}
                       </td>
                       <td>{u.brand ?? '—'}</td>
                       <td style={{ fontVariantNumeric: 'tabular-nums' }}>
