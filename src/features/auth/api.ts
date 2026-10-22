@@ -8,7 +8,15 @@ export type Profile = {
   organization_id: string
   user_role?: 'admin' | 'member' | null
   /** disabled_modules : modules masqués (« mode terrain ») */
-  organizations: { id: string; name: string; disabled_modules?: string[] } | null
+  organizations: {
+    id: string
+    name: string
+    disabled_modules?: string[]
+    /** Notifications par mail et envoi automatique des rapports */
+    notify_technicians?: boolean
+    notify_admins_reports?: boolean
+    auto_send_reports?: boolean
+  } | null
 }
 
 export async function signIn({ email, password }: LoginInput, captchaToken?: string) {
@@ -66,7 +74,7 @@ export async function fetchProfile(userId: string): Promise<Profile> {
   let err: { message: string } | null = null
   const r1 = await supabase
     .from('profiles')
-    .select('id, first_name, last_name, organization_id, user_role, organizations(id, name, disabled_modules)')
+    .select('id, first_name, last_name, organization_id, user_role, organizations(id, name, disabled_modules, notify_technicians, notify_admins_reports, auto_send_reports)')
     .eq('id', userId)
     .single()
   data = r1.data

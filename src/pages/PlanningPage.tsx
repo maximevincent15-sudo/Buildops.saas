@@ -10,6 +10,7 @@ import { ANOMALY_ACTION_LABELS } from '../features/anomalies/schemas'
 import type { Anomaly } from '../features/anomalies/schemas'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
 import { useModuleEnabled } from '../features/parametres/modules'
+import { notifyAssignmentIfNeeded } from '../features/notifications/api'
 import type { UpsertQuoteInput } from '../features/devis/schemas'
 import { createIntervention, listInterventions, scheduleIntervention } from '../features/planning/api'
 import { PlanningTeamView } from '../features/planning/team/PlanningTeamView'
@@ -230,6 +231,8 @@ export function PlanningPage() {
         durationMinutes: durationMinutes(i),
       })
       setInterventions((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+      // Le technicien reçoit le détail par mail (attribution ou déplacement)
+      notifyAssignmentIfNeeded(i, updated)
       showToast(`✓ ${siteLabel(i)} : ${row.name} · ${formatDueShort(date)} à ${formatTime(startMin)}`)
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Impossible de planifier cette intervention.', true)

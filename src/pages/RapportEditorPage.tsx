@@ -21,10 +21,15 @@ import type { Intervention } from '../features/planning/schemas'
 import {
   finalizeReport,
   getReportByIntervention,
+  markReportSent,
   saveDraftReport,
   setReportConformity,
   setReportPdfUrl,
 } from '../features/rapports/api'
+import { notifyReportCompleted } from '../features/notifications/api'
+import { recipientsForClientId } from '../features/clients/recipients'
+import { sendDocumentEmail } from '../features/email/api'
+import { buildDefaultBody, buildDefaultSubject } from '../features/rapports/components/SendToClientModal'
 import { CHECKLISTS } from '../features/rapports/checklists'
 import { computeConformity } from '../features/rapports/conformity'
 import { ChecklistSection } from '../features/rapports/components/ChecklistSection'
@@ -557,20 +562,55 @@ export function RapportEditorPage() {
         console.error('Enregistrement de la conformité échoué', conformityErr)
       }
 
+      let finalPdfUrl: string | null = null
       try {
         const newPdfUrl = await regeneratePdfFromCurrent()
         await setReportPdfUrl(saved.id, newPdfUrl)
+        finalPdfUrl = newPdfUrl
       } catch (pdfErr) {
         console.error('Génération PDF échouée', pdfErr)
       }
 
       await setInterventionStatus(iid, 'terminee')
+      // Administrateurs prévenus par mail (rapport terminé)
+      notifyReportCompleted(iid)
+      // Envoi automatique au client si activé (Paramètres → Notifications)
+      if (profile?.organizations?.auto_send_reports && finalPdfUrl) {
+        await autoSendReport(saved.id, finalPdfUrl).catch((err) => console.warn('Envoi automatique du rapport échoué', err))
+      }
       navigate('/planning')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
     } finally {
       setSaving(false)
     }
+  }
+
+  /** Envoi automatique du rapport aux destinataires « rapports » du client */
+  async function autoSendReport(id: string, pdf: string) {
+    if (!intervention) return
+    const list = await recipientsForClientId(intervention.client_id, 'reports')
+    if (list.length === 0) return
+    const to = list.join(', ')
+    const equipmentLabel = formatEquipmentTypes(intervention.equipment_types)
+    const result = await sendDocumentEmail({
+      kind: 'report',
+      documentId: id,
+      recipientEmail: to,
+      subject: buildDefaultSubject({ reference: intervention.reference, clientName: intervention.client_name, equipmentLabel }),
+      body: buildDefaultBody({
+        reference: intervention.reference,
+        clientName: intervention.client_name,
+        equipmentLabel,
+        organizationName: profile?.organizations?.name ?? '',
+        scheduledDate: intervention.scheduled_date,
+        pdfUrl: pdf,
+        isConform: conformity.isConform,
+        nokCount: conformity.anomalyCount,
+      }),
+      pdfUrl: pdf,
+    }, { mailtoFallback: false })
+    if (result.mode === 'resend') await markReportSent(id, to)
   }
 
   async function handleRegeneratePdf() {

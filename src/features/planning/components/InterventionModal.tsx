@@ -19,6 +19,7 @@ import { INTERVENTION_TYPE_LABELS, createInterventionSchema, isRecurringInterven
 import type { CreateInterventionInput, Intervention, Slot } from '../schemas'
 import { ClientAutocomplete } from './ClientAutocomplete'
 import { TechnicianAutocomplete } from './TechnicianAutocomplete'
+import { notifyAssignmentIfNeeded } from '../../notifications/api'
 
 // ─── Types & constantes ─────────────────────────────────────
 
@@ -247,10 +248,13 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
     }
     setSubmitError(null)
     try {
+      // Le technicien reçoit le détail par mail (attribution ou déplacement)
       if (isEdit && intervention) {
-        await updateIntervention(intervention.id, data)
+        const updated = await updateIntervention(intervention.id, data)
+        notifyAssignmentIfNeeded(intervention, updated)
       } else {
-        await createIntervention(data, profile.organization_id)
+        const created = await createIntervention(data, profile.organization_id)
+        notifyAssignmentIfNeeded(null, created)
       }
       reset()
       onClose()

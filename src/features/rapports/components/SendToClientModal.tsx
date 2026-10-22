@@ -34,7 +34,7 @@ function formatDateLong(d: string | null): string {
   }
 }
 
-function buildDefaultSubject(input: {
+export function buildDefaultSubject(input: {
   reference: string
   clientName: string
   equipmentLabel: string
@@ -42,7 +42,7 @@ function buildDefaultSubject(input: {
   return `Rapport d'intervention ${input.reference} — ${input.equipmentLabel}`
 }
 
-function buildDefaultBody(input: {
+export function buildDefaultBody(input: {
   reference: string
   clientName: string
   equipmentLabel: string

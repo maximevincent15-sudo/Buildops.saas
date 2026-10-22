@@ -22,8 +22,14 @@ export type SendEmailResult =
  * elle échoue, retombe sur un mailto: classique (l'utilisateur envoie depuis
  * sa propre messagerie).
  */
-export async function sendDocumentEmail(input: SendEmailInput): Promise<SendEmailResult> {
+export async function sendDocumentEmail(
+  input: SendEmailInput,
+  opts: { mailtoFallback?: boolean } = {},
+): Promise<SendEmailResult> {
   const { kind, documentId, recipientEmail, subject, body, pdfUrl } = input
+  // Envoi automatique (sans l'utilisateur) : pas d'ouverture de la messagerie en secours
+  const fallbackToMailto = (i: SendEmailInput): SendEmailResult =>
+    opts.mailtoFallback === false ? { mode: 'error', error: 'not_sent' } : openMailto(i)
 
   // 1. Tentative via Resend (Edge Function)
   try {
@@ -64,7 +70,7 @@ export async function sendDocumentEmail(input: SendEmailInput): Promise<SendEmai
   }
 }
 
-function fallbackToMailto(input: SendEmailInput): SendEmailResult {
+function openMailto(input: SendEmailInput): SendEmailResult {
   const params = new URLSearchParams()
   if (input.subject) params.set('subject', input.subject)
   if (input.body) params.set('body', input.body)

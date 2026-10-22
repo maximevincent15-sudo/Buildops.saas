@@ -10,6 +10,7 @@ import { getInvoicingSettings, updateOrganizationName, upsertInvoicingSettings }
 import type { UpsertInvoicingInput } from '../features/parametres/api'
 import { loadDemoData } from '../features/parametres/demoData'
 import { ModulesCard } from '../features/parametres/components/ModulesCard'
+import { NotificationsCard } from '../features/parametres/components/NotificationsCard'
 import { NextNumberFields } from '../features/parametres/components/NextNumberFields'
 
 const EMPTY: UpsertInvoicingInput = {
@@ -270,6 +271,9 @@ export function ParametresPage() {
 
       {/* Modules affichés (« mode terrain ») : administrateurs */}
       {(profile?.user_role ?? 'admin') === 'admin' && <ModulesCard />}
+
+      {/* Notifications par mail (administrateurs) */}
+      {(profile?.user_role ?? 'admin') === 'admin' && <NotificationsCard />}
 
       {/* Bloc 1 : identité légale */}
       <div className="card" style={{ marginBottom: '1rem' }}>
