@@ -12,6 +12,7 @@ import {
 import type { ContractStatus, ContractWithDetails } from '../features/contrats/schemas'
 import { formatAmount } from '../features/devis/constants'
 import { matchesSearch } from '../shared/lib/search'
+import { useModuleEnabled } from '../features/parametres/modules'
 
 function frDate(iso: string | null): string {
   if (!iso) return '—'
@@ -28,6 +29,8 @@ function daysUntil(iso: string): number {
 }
 
 export function ContratsPage() {
+  // « Facturer le mois » crée des factures : masqué si le module Factures l'est
+  const facturesEnabled = useModuleEnabled()('factures')
   const [searchParams, setSearchParams] = useSearchParams()
   const [contracts, setContracts] = useState<ContractWithDetails[]>([])
   const [loading, setLoading] = useState(true)
@@ -94,7 +97,7 @@ export function ContratsPage() {
           </div>
         </div>
         <div className="dash-acts">
-          {isAdmin && contracts.length > 0 && (
+          {isAdmin && facturesEnabled && contracts.length > 0 && (
             <button type="button" className="mf out" onClick={() => setBillingOpen(true)}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <Receipt size={13} strokeWidth={2} /> Facturer le mois

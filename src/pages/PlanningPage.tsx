@@ -9,6 +9,7 @@ import { listAnomalies, updateAnomaly } from '../features/anomalies/api'
 import { ANOMALY_ACTION_LABELS } from '../features/anomalies/schemas'
 import type { Anomaly } from '../features/anomalies/schemas'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
+import { useModuleEnabled } from '../features/parametres/modules'
 import type { UpsertQuoteInput } from '../features/devis/schemas'
 import { createIntervention, listInterventions, scheduleIntervention } from '../features/planning/api'
 import { PlanningTeamView } from '../features/planning/team/PlanningTeamView'
@@ -77,6 +78,7 @@ export function PlanningPage() {
   const [view, setViewState] = useState<ViewMode>(readStoredView)
   const [exporting, setExporting] = useState(false)
   const profile = useAuthStore((s) => s.profile)
+  const devisEnabled = useModuleEnabled()('devis')
 
   // ─── Planning « Équipe » ───
   const [technicians, setTechnicians] = useState<Technician[]>([])
@@ -443,7 +445,7 @@ export function PlanningPage() {
                     technicians={technicians}
                     busyId={busyId}
                     onOpen={openEdit}
-                    onCreateQuote={handleCreateQuote}
+                    onCreateQuote={devisEnabled ? handleCreateQuote : undefined}
                     onScheduleRevisit={(f) => void handleScheduleRevisit(f)}
                   />
                 )}

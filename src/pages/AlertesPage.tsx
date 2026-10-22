@@ -8,6 +8,7 @@ import type { AlertSeverity, RegulatoryAlert } from '../features/alertes/api'
 import { INSPECTION_FREQUENCIES_LABEL } from '../features/alertes/frequencies'
 import { fetchContractAlerts } from '../features/contrats/alerts'
 import type { ContractAlert } from '../features/contrats/alerts'
+import { useModuleEnabled } from '../features/parametres/modules'
 import { computeCertificationAlerts } from '../features/technicians/certificationsApi'
 import type { CertificationAlert } from '../features/technicians/certificationsApi'
 import { computeVehicleAlerts } from '../features/vehicles/api'
@@ -62,10 +63,16 @@ export function AlertesPage() {
   const [error, setError] = useState<string | null>(null)
   const [category, setCategory] = useState<Category>('equipment')
   const [filter, setFilter] = useState<AlertSeverity | 'all'>('all')
+  const contratsEnabled = useModuleEnabled()('contrats')
 
   useEffect(() => {
     let alive = true
-    Promise.all([computeRegulatoryAlerts(), computeCertificationAlerts(), computeVehicleAlerts(), fetchContractAlerts().catch(() => [])])
+    Promise.all([
+      computeRegulatoryAlerts(),
+      computeCertificationAlerts(),
+      computeVehicleAlerts(),
+      contratsEnabled ? fetchContractAlerts().catch(() => []) : Promise.resolve([] as ContractAlert[]),
+    ])
       .then(([reg, certs, veh, ctr]) => {
         if (!alive) return
         setRegAlerts(reg)
@@ -85,7 +92,7 @@ export function AlertesPage() {
       })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [])
+  }, [contratsEnabled])
 
   const regCounts = {
     overdue: regAlerts.filter((a) => classifyAlert(a.daysUntilDue) === 'overdue').length,
@@ -176,15 +183,17 @@ export function AlertesPage() {
           <Car size={13} strokeWidth={2} />
           Véhicules ({vehAlerts.length})
         </button>
-        <button
-          type="button"
-          className={`filter-pill${category === 'contracts' ? ' on' : ''}`}
-          onClick={() => { setCategory('contracts'); setFilter('all') }}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-        >
-          <FileSignature size={13} strokeWidth={2} />
-          Contrats ({ctrAlerts.length})
-        </button>
+        {contratsEnabled && (
+          <button
+            type="button"
+            className={`filter-pill${category === 'contracts' ? ' on' : ''}`}
+            onClick={() => { setCategory('contracts'); setFilter('all') }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <FileSignature size={13} strokeWidth={2} />
+            Contrats ({ctrAlerts.length})
+          </button>
+        )}
       </div>
 
       {/* Filtres par gravité */}

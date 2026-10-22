@@ -7,7 +7,8 @@ export type Profile = {
   last_name: string
   organization_id: string
   user_role?: 'admin' | 'member' | null
-  organizations: { id: string; name: string } | null
+  /** disabled_modules : modules masqués (« mode terrain ») */
+  organizations: { id: string; name: string; disabled_modules?: string[] } | null
 }
 
 export async function signIn({ email, password }: LoginInput, captchaToken?: string) {
@@ -65,7 +66,7 @@ export async function fetchProfile(userId: string): Promise<Profile> {
   let err: { message: string } | null = null
   const r1 = await supabase
     .from('profiles')
-    .select('id, first_name, last_name, organization_id, user_role, organizations(id, name)')
+    .select('id, first_name, last_name, organization_id, user_role, organizations(id, name, disabled_modules)')
     .eq('id', userId)
     .single()
   data = r1.data

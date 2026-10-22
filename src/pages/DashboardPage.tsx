@@ -20,6 +20,7 @@ import type { BusinessStats } from '../features/dashboard/businessStatsApi'
 import { getInterventionStats } from '../features/planning/api'
 import type { InterventionStats } from '../features/planning/api'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
+import { useModuleEnabled } from '../features/parametres/modules'
 
 function capitalize(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
@@ -53,8 +54,10 @@ export function DashboardPage() {
   const [bizStats, setBizStats] = useState<BusinessStats | null>(null)
   // Pilotage business (CA, impayés, tops, évolution du CA) : formules Pro et Entreprise
   const { limits, loading: subLoading } = useSubscription()
-  const showBusiness = !subLoading && limits.proFeatures
-  const showBusinessLock = !subLoading && !limits.proFeatures
+  // Mode terrain sans factures : pas de pilotage du CA (il se calcule sur les factures)
+  const facturesEnabled = useModuleEnabled()('factures')
+  const showBusiness = !subLoading && limits.proFeatures && facturesEnabled
+  const showBusinessLock = !subLoading && !limits.proFeatures && facturesEnabled
   // Marge et résultat estimés : administrateurs uniquement (salaires, charges)
   const isAdmin = (profile?.user_role ?? 'admin') === 'admin'
   const [profit, setProfit] = useState<Map<string, MonthProfit> | null>(null)

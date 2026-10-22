@@ -24,6 +24,7 @@ import { FacturesPage } from './pages/FacturesPage'
 import { CataloguePage } from './pages/CataloguePage'
 import { ContratsPage } from './pages/ContratsPage'
 import { ImportCatalogPage } from './pages/ImportCatalogPage'
+import { ModuleGate } from './features/parametres/components/ModuleGate'
 import { ParametresPage } from './pages/ParametresPage'
 import { AbonnementPage } from './pages/AbonnementPage'
 import { AdminProspectsPage } from './pages/AdminProspectsPage'
@@ -88,11 +89,11 @@ function App() {
           <Route path="/frais" element={<ExpensesPage />} />
           <Route path="/heures-sup" element={<OvertimePage />} />
           <Route path="/vehicules" element={<VehiculesPage />} />
-          <Route path="/devis" element={<DevisPage />} />
-          <Route path="/factures" element={<FacturesPage />} />
-          <Route path="/catalogue" element={<CataloguePage />} />
-          <Route path="/contrats" element={<ContratsPage />} />
-          <Route path="/catalogue/import" element={<ImportCatalogPage />} />
+          <Route path="/devis" element={<ModuleGate module="devis"><DevisPage /></ModuleGate>} />
+          <Route path="/factures" element={<ModuleGate module="factures"><FacturesPage /></ModuleGate>} />
+          <Route path="/catalogue" element={<ModuleGate module="catalogue"><CataloguePage /></ModuleGate>} />
+          <Route path="/contrats" element={<ModuleGate module="contrats"><ContratsPage /></ModuleGate>} />
+          <Route path="/catalogue/import" element={<ModuleGate module="catalogue"><ImportCatalogPage /></ModuleGate>} />
           <Route path="/archivage" element={<ArchivagePage />} />
           <Route path="/parametres" element={<ParametresPage />} />
           <Route path="/abonnement" element={<AbonnementPage />} />

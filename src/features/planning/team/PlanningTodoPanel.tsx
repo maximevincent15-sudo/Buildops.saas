@@ -41,7 +41,8 @@ type Props = {
   technicians: Technician[]
   busyId: string | null
   onOpen: (i: Intervention) => void
-  onCreateQuote: (f: FollowItem) => void
+  /** Absent quand le module Devis est masqué */
+  onCreateQuote?: (f: FollowItem) => void
   onScheduleRevisit: (f: FollowItem) => void
 }
 
@@ -196,7 +197,9 @@ export function PlanningTodoPanel({
                 {f.anomalies.length > 4 && <li>… et {f.anomalies.length - 4} autre(s)</li>}
               </ul>
               <div className="pt-acts">
-                <button type="button" className="pri" disabled={busyId === f.intervention.id} onClick={() => onCreateQuote(f)}>Créer le devis</button>
+                {onCreateQuote && (
+                  <button type="button" className="pri" disabled={busyId === f.intervention.id} onClick={() => onCreateQuote(f)}>Créer le devis</button>
+                )}
                 <button type="button" disabled={busyId === f.intervention.id} onClick={() => onScheduleRevisit(f)}>
                   {busyId === f.intervention.id ? 'Création…' : 'Programmer une repasse'}
                 </button>

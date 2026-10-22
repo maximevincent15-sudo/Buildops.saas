@@ -32,8 +32,10 @@ import { listInterventions } from '../../planning/api'
 import { computeVehicleAlerts } from '../../vehicles/api'
 import { listInvoices } from '../../factures/api'
 import { effectiveStatus } from '../../factures/constants'
+import { useModuleEnabled } from '../../parametres/modules'
+import type { OptionalModule } from '../../parametres/modules'
 
-type NavItem = { to: string; Icon: LucideIcon; label: string; badgeKey?: BadgeKey; danger?: boolean }
+type NavItem = { to: string; Icon: LucideIcon; label: string; badgeKey?: BadgeKey; danger?: boolean; module?: OptionalModule }
 type BadgeKey = 'planning' | 'rapports' | 'alertes' | 'anomalies' | 'rh' | 'factures'
 
 type Counts = Record<BadgeKey, number>
@@ -49,7 +51,7 @@ const principal: NavItem[] = [
 const clients: NavItem[] = [
   { to: '/clients', Icon: Building2, label: 'Fiches clients' },
   { to: '/equipements', Icon: Boxes, label: 'Équipements' },
-  { to: '/contrats', Icon: FileSignature, label: 'Contrats' },
+  { to: '/contrats', Icon: FileSignature, label: 'Contrats', module: 'contrats' },
 ]
 
 const rh: NavItem[] = [
@@ -57,9 +59,9 @@ const rh: NavItem[] = [
 ]
 
 const facturation: NavItem[] = [
-  { to: '/devis', Icon: Wallet, label: 'Devis' },
-  { to: '/factures', Icon: Receipt, label: 'Factures', badgeKey: 'factures' },
-  { to: '/catalogue', Icon: BookOpen, label: 'Catalogue' },
+  { to: '/devis', Icon: Wallet, label: 'Devis', module: 'devis' },
+  { to: '/factures', Icon: Receipt, label: 'Factures', badgeKey: 'factures', module: 'factures' },
+  { to: '/catalogue', Icon: BookOpen, label: 'Catalogue', module: 'catalogue' },
 ]
 
 const documents: NavItem[] = [
@@ -115,12 +117,19 @@ export function Sidebar({ open = false }: { open?: boolean }) {
   const user = useAuthStore((s) => s.user)
   const profile = useAuthStore((s) => s.profile)
   const [counts, setCounts] = useState<Counts>({ planning: 0, rapports: 0, alertes: 0, anomalies: 0, rh: 0, factures: 0 })
+  const moduleEnabled = useModuleEnabled()
+  const contratsEnabled = moduleEnabled('contrats')
+  // Mode terrain : les modules masqués disparaissent du menu
+  const visible = (items: NavItem[]) => items.filter((i) => !i.module || moduleEnabled(i.module))
+  const facturationItems = visible(facturation)
 
   useEffect(() => {
     let alive = true
     const safeInvoices = listInvoices().catch(() => [])
     const safeAnomalies = countActiveAnomalies().catch(() => 0)
-    const safeContractAlerts = fetchContractAlerts().catch(() => [] as ContractAlert[])
+    const safeContractAlerts = contratsEnabled
+      ? fetchContractAlerts().catch(() => [] as ContractAlert[])
+      : Promise.resolve([] as ContractAlert[])
     Promise.all([
       listInterventions(),
       computeRegulatoryAlerts(),
@@ -159,7 +168,7 @@ export function Sidebar({ open = false }: { open?: boolean }) {
       })
       .catch(() => { /* silent ignore */ })
     return () => { alive = false }
-  }, [location.pathname])
+  }, [location.pathname, contratsEnabled])
 
   async function handleSignOut() {
     await signOut()
@@ -183,15 +192,15 @@ export function Sidebar({ open = false }: { open?: boolean }) {
       {principal.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
       <div className="b-sb-sec">Clients</div>
-      {clients.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
+      {visible(clients).map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
       <div className="b-sb-sec">RH / Paie</div>
       {rh.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
-      {isAdmin && (
+      {isAdmin && facturationItems.length > 0 && (
         <>
           <div className="b-sb-sec">Facturation</div>
-          {facturation.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
+          {facturationItems.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
         </>
       )}
 

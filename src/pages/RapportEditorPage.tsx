@@ -43,6 +43,7 @@ import { ACTIVE_ANOMALY_STATUSES, ANOMALY_ACTION_LABELS } from '../features/anom
 import { listEquipmentUnitsByIds, listZones } from '../features/equipment/api'
 import { EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
+import { useModuleEnabled } from '../features/parametres/modules'
 import type { UpsertQuoteInput } from '../features/devis/schemas'
 import {
   RECOMMENDED_ACTION_LABEL,
@@ -95,6 +96,7 @@ export function RapportEditorPage() {
   const [error, setError] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
   const [correctiveOpen, setCorrectiveOpen] = useState(false)
+  const devisEnabled = useModuleEnabled()('devis')
   const [quoteOpen, setQuoteOpen] = useState(false)
   const [sendOpen, setSendOpen] = useState(false)
   const [sentToEmail, setSentToEmail] = useState<string | null>(null)
@@ -799,7 +801,7 @@ export function RapportEditorPage() {
                   Planifier une intervention corrective
                 </button>
               )}
-              {conformity.anomalyCount > 0 && (
+              {conformity.anomalyCount > 0 && devisEnabled && (
                 <button
                   type="button"
                   className="btn-sm acc"

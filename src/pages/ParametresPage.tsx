@@ -9,6 +9,7 @@ import { useSubscription } from '../features/billing/hooks'
 import { getInvoicingSettings, updateOrganizationName, upsertInvoicingSettings } from '../features/parametres/api'
 import type { UpsertInvoicingInput } from '../features/parametres/api'
 import { loadDemoData } from '../features/parametres/demoData'
+import { ModulesCard } from '../features/parametres/components/ModulesCard'
 
 const EMPTY: UpsertInvoicingInput = {
   legal_form: null,
@@ -265,6 +266,9 @@ export function ParametresPage() {
           />
         </div>
       </div>
+
+      {/* Modules affichés (« mode terrain ») : administrateurs */}
+      {(profile?.user_role ?? 'admin') === 'admin' && <ModulesCard />}
 
       {/* Bloc 1 : identité légale */}
       <div className="card" style={{ marginBottom: '1rem' }}>
