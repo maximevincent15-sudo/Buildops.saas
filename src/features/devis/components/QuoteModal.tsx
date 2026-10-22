@@ -26,6 +26,7 @@ import { generateAndUploadQuotePdf } from '../pdf/generateQuotePdf'
 import { QuotePdf } from '../pdf/QuotePdf'
 import { createInvoiceFromQuote } from '../../factures/api'
 import { sendDocumentEmail } from '../../email/api'
+import { isValidEmail, recipientsForClientId, splitEmails } from '../../clients/recipients'
 import { useNavigate } from 'react-router-dom'
 import { CatalogPicker } from '../../catalogue/components/CatalogPicker'
 import type { CatalogItem } from '../../catalogue/schemas'
@@ -378,23 +379,27 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
     }
   }
 
-  /** Email du client (demandé s'il manque), ou null si absent / invalide */
-  function resolveRecipient(): string | null {
-    const recipient = clientEmail.trim() || window.prompt('Email du client à enregistrer :') || ''
-    if (!recipient) {
+  /**
+   * Destinataires : email du devis (sinon principal du client) + ceux de la
+   * fiche client qui reçoivent les devis. Demandé s'il n'y en a aucun.
+   */
+  async function resolveRecipients(): Promise<string | null> {
+    let list = await recipientsForClientId(clientId || null, 'quotes', clientEmail.trim())
+    if (list.length === 0) list = splitEmails(window.prompt('Email du client à enregistrer :') ?? '')
+    if (list.length === 0) {
       setError('Email du client requis pour lui envoyer le devis.')
       return null
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+    if (list.some((e) => !isValidEmail(e))) {
       setError('Email invalide.')
       return null
     }
-    return recipient
+    return list.join(', ')
   }
 
   async function handleMarkSent() {
     if (!quoteId) return
-    const recipient = resolveRecipient()
+    const recipient = await resolveRecipients()
     if (!recipient) return
     try {
       await markQuoteSent(quoteId, recipient)
@@ -423,7 +428,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       })
 
       if (result.mode === 'resend') {
-        setFlash('Devis envoyé automatiquement avec PDF en pièce jointe ✓')
+        setFlash(`Devis envoyé à ${recipient} avec le PDF en pièce jointe ✓`)
       } else {
         setFlash('Devis marqué comme envoyé.')
       }
@@ -507,7 +512,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
 
   async function handleSendSigned() {
     if (!quoteId) return
-    const recipient = resolveRecipient()
+    const recipient = await resolveRecipients()
     if (!recipient) return
     try {
       const subject = `Devis ${reference} signé`.trim()
@@ -527,7 +532,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
         pdfUrl,
       })
       if (result.mode === 'error') throw new Error(result.error)
-      setFlash(result.mode === 'resend' ? 'Devis signé envoyé au client avec le PDF ✓' : 'Message préparé dans ta messagerie.')
+      setFlash(result.mode === 'resend' ? `Devis signé envoyé à ${recipient} avec le PDF ✓` : 'Message préparé dans ta messagerie.')
       setTimeout(() => setFlash(null), 3000)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')

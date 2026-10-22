@@ -31,6 +31,7 @@ import type { InvoiceWithLines, UpsertInvoiceInput } from '../schemas'
 import { generateAndUploadInvoicePdf } from '../pdf/generateInvoicePdf'
 import { InvoicePdf } from '../pdf/InvoicePdf'
 import { sendDocumentEmail } from '../../email/api'
+import { isValidEmail, recipientsForClientId, splitEmails } from '../../clients/recipients'
 
 type Props = {
   open: boolean
@@ -297,15 +298,18 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
 
   async function handleMarkSent() {
     if (!invoiceId) return
-    const recipient = clientEmail.trim() || window.prompt('Email du client à enregistrer :') || ''
-    if (!recipient) {
+    // Email de la facture (sinon principal du client) + destinataires « factures » de la fiche client
+    let list = await recipientsForClientId(clientId || null, 'invoices', clientEmail.trim())
+    if (list.length === 0) list = splitEmails(window.prompt('Email du client à enregistrer :') ?? '')
+    if (list.length === 0) {
       setError('Email du client requis.')
       return
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+    if (list.some((e) => !isValidEmail(e))) {
       setError('Email invalide.')
       return
     }
+    const recipient = list.join(', ')
     try {
       await markInvoiceSent(invoiceId, recipient)
       setStatus('sent')
@@ -322,7 +326,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
         ? `\n\n📄 La facture est jointe à ce mail (ou téléchargeable ici : ${pdfUrl})`
         : `\n\n(Le PDF est disponible sur demande.)`
       const body =
-        `${greet}\n\nVeuillez trouver ci-après la facture pour la prestation réalisée.\n\n${totalsLine}${pdfLine}\n\nN'hésite pas à me contacter pour toute question.\n\nCordialement,\n${orgName}`
+        `${greet}\n\nVeuillez trouver ci-après la facture pour la prestation réalisée.\n\n${totalsLine}${pdfLine}\n\nN'hésitez pas à me contacter pour toute question.\n\nCordialement,\n${orgName}`
 
       // Tente Resend, fallback mailto:
       const result = await sendDocumentEmail({
@@ -335,7 +339,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
       })
 
       if (result.mode === 'resend') {
-        setFlash('Facture envoyée automatiquement avec PDF en pièce jointe ✓')
+        setFlash(`Facture envoyée à ${recipient} avec le PDF en pièce jointe ✓`)
       } else {
         setFlash('Facture marquée comme envoyée.')
       }

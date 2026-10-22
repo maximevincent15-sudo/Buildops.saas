@@ -69,7 +69,9 @@ function fallbackToMailto(input: SendEmailInput): SendEmailResult {
   if (input.subject) params.set('subject', input.subject)
   if (input.body) params.set('body', input.body)
   const qs = params.toString().replace(/\+/g, '%20')
-  const url = `mailto:${encodeURIComponent(input.recipientEmail)}?${qs}`
+  // Plusieurs destinataires : séparés par une virgule non encodée (RFC 6068)
+  const to = input.recipientEmail.split(/[,;\s]+/).filter(Boolean).map(encodeURIComponent).join(',')
+  const url = `mailto:${to}?${qs}`
   // Ouvre la messagerie par défaut
   window.location.href = url
   return { mode: 'mailto', success: true, mailtoUrl: url }

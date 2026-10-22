@@ -15,7 +15,19 @@ export const createClientSchema = z.object({
   notes: z.string().optional(),
 })
 
-export type CreateClientInput = z.infer<typeof createClientSchema>
+export type CreateClientInput = z.infer<typeof createClientSchema> & {
+  /** Hors formulaire (liste éditée à part dans la fiche) */
+  extra_emails?: ClientEmailRecipient[]
+}
+
+/** Destinataire supplémentaire : reçoit les types de documents cochés */
+export type ClientEmailRecipient = {
+  email: string
+  name?: string
+  reports: boolean
+  quotes: boolean
+  invoices: boolean
+}
 
 export type Client = {
   id: string
@@ -28,6 +40,8 @@ export type Client = {
   contact_phone: string | null
   address: string | null
   notes: string | null
+  /** Destinataires supplémentaires (contact_email reçoit tous les documents) */
+  extra_emails: ClientEmailRecipient[]
   created_at: string
   created_by: string | null
 }

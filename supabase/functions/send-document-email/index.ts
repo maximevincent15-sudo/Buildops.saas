@@ -69,9 +69,22 @@ function senderName(orgName: string | null | undefined, fallback: string): strin
   return clean ? `"${clean} via Firovia"` : fallback
 }
 
+/** Destinataires au plus par envoi (gardien + syndic + comptabilité…) */
+const MAX_RECIPIENTS = 10
+
+/** « a@x.fr, b@y.fr ; c@z.fr » → adresses distinctes, ou null si l'une est invalide */
+function parseRecipients(raw: unknown): string[] | null {
+  const list = Array.from(new Set(
+    String(raw ?? '').split(/[,;\s]+/).map((e) => e.trim().toLowerCase()).filter(Boolean),
+  ))
+  if (list.length === 0 || list.length > MAX_RECIPIENTS) return null
+  return list.every((e) => EMAIL_RE.test(e)) ? list : null
+}
+
 interface RequestBody {
   kind: DocumentKind
   documentId: string
+  /** Une ou plusieurs adresses, séparées par des virgules */
   recipientEmail: string
   subject: string
   body: string
@@ -170,6 +183,15 @@ serve(async (req) => {
       )
     }
 
+    // Destinataires vérifiés côté serveur (le navigateur ne fait pas foi)
+    const recipients = parseRecipients(payload.recipientEmail)
+    if (!recipients) {
+      return new Response(
+        JSON.stringify({ error: 'invalid_recipient' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     // Vérification simple : l'utilisateur a bien accès au document via RLS
     const tableMap = { report: 'reports', quote: 'quotes', invoice: 'invoices' }
     const table = tableMap[payload.kind]
@@ -214,7 +236,18 @@ serve(async (req) => {
     const replyTo = [legalEmail, user.email].find((e) => e && EMAIL_RE.test(e)) ?? null
     const fromName = senderName(profile?.organizations?.name, RESEND_FROM_NAME)
 
-    const pdfUrl = payload.pdfUrl ?? doc.pdf_url
+    // PDF : uniquement depuis le stockage Supabase (jamais une adresse quelconque)
+    const isStorageUrl = (u: unknown): u is string => {
+      if (typeof u !== 'string') return false
+      try {
+        const url = new URL(u)
+        return url.protocol === 'https:' && url.hostname.endsWith('.supabase.co')
+          && url.pathname.startsWith('/storage/v1/object/public/')
+      } catch {
+        return false
+      }
+    }
+    const pdfUrl = [payload.pdfUrl, doc.pdf_url].find(isStorageUrl) ?? null
     let attachments: { filename: string; content: string }[] = []
 
     if (pdfUrl) {
@@ -248,7 +281,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: `${fromName} <${RESEND_FROM_EMAIL}>`,
         reply_to: replyTo ?? undefined,
-        to: [payload.recipientEmail],
+        to: recipients,
         subject: payload.subject,
         text: payload.body,
         attachments: attachments.length > 0 ? attachments : undefined,
@@ -272,7 +305,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         emailId: resendData.id,
-        sentTo: payload.recipientEmail,
+        sentTo: recipients.join(', '),
         replyTo,
         attached: attachments.length > 0,
       }),

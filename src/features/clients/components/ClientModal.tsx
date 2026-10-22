@@ -13,7 +13,9 @@ import { createClient, deleteClient, updateClient } from '../api'
 import { formatCompanyNumber, useCompanyLookup } from '../companyLookup'
 import type { CompanyInfo, CompanyLookupState } from '../companyLookup'
 import { createClientSchema } from '../schemas'
-import type { Client, CreateClientInput } from '../schemas'
+import type { Client, ClientEmailRecipient, CreateClientInput } from '../schemas'
+import { isValidEmail } from '../recipients'
+import { ExtraEmailsEditor } from './ExtraEmailsEditor'
 
 type Props = {
   open: boolean
@@ -42,6 +44,8 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
   const profile = useAuthStore((s) => s.profile)
   const contratsEnabled = useModuleEnabled()('contrats')
   const appliedRef = useRef<string | null>(null)
+  // Destinataires supplémentaires (hors formulaire)
+  const [extraEmails, setExtraEmails] = useState<ClientEmailRecipient[]>([])
   const {
     register,
     handleSubmit,
@@ -59,6 +63,7 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
     if (open) {
       reset(toFormValues(client))
       setSubmitError(null)
+      setExtraEmails(client?.extra_emails ?? [])
       appliedRef.current = null
     }
   }, [open, client, reset])
@@ -97,11 +102,19 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
       return
     }
     setSubmitError(null)
+    const extras = extraEmails
+      .map((r) => ({ ...r, email: r.email.trim(), name: r.name?.trim() || undefined }))
+      .filter((r) => r.email)
+    if (extras.some((r) => !isValidEmail(r.email))) {
+      setSubmitError('Un des autres destinataires a un email invalide.')
+      return
+    }
+    const payload: CreateClientInput = { ...data, extra_emails: extras }
     try {
       if (isEdit && client) {
-        await updateClient(client.id, data)
+        await updateClient(client.id, payload)
       } else {
-        await createClient(data, profile.organization_id)
+        await createClient(payload, profile.organization_id)
       }
       reset()
       onClose()
@@ -185,10 +198,12 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
           </div>
 
           <div className="fg">
-            <label>Email</label>
+            <label>Email principal <span style={{ color: 'var(--ink3)', fontWeight: 400 }}>(reçoit tous les documents)</span></label>
             <input type="email" placeholder="contact@exemple.fr" {...register('contact_email')} />
             {errors.contact_email && <span className="ferr on">{errors.contact_email.message}</span>}
           </div>
+
+          <ExtraEmailsEditor value={extraEmails} onChange={setExtraEmails} />
 
           <div className="fg">
             <label>Adresse</label>

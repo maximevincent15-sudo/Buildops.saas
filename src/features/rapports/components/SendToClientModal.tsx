@@ -2,6 +2,7 @@ import { ExternalLink, Mail } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { getClient } from '../../clients/api'
+import { isValidEmail, recipientsFor, splitEmails } from '../../clients/recipients'
 import { sendDocumentEmail } from '../../email/api'
 import { markReportSent } from '../api'
 import { format } from 'date-fns'
@@ -120,7 +121,9 @@ export function SendToClientModal({
       setLoadingClient(true)
       void getClient(clientId)
         .then((c) => {
-          if (c?.contact_email) setRecipient(c.contact_email)
+          // Email principal + destinataires « rapports » de la fiche client
+          const list = recipientsFor(c, 'reports')
+          if (list.length > 0) setRecipient(list.join(', '))
         })
         .catch(() => { /* ignore */ })
         .finally(() => setLoadingClient(false))
@@ -135,26 +138,29 @@ export function SendToClientModal({
   }
 
   async function handleSend() {
-    if (!recipient.trim()) {
+    const list = splitEmails(recipient)
+    if (list.length === 0) {
       setError('Indique un destinataire.')
       return
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.trim())) {
-      setError('Email invalide.')
+    const invalid = list.find((e) => !isValidEmail(e))
+    if (invalid) {
+      setError(`Email invalide : ${invalid}`)
       return
     }
+    const to = list.join(', ')
     setSending(true)
     setError(null)
     try {
       // 1. Marquer le rapport comme envoyé en base
-      await markReportSent(reportId, recipient.trim())
+      await markReportSent(reportId, to)
 
       // 2. Tenter l'envoi via Resend (avec PDF en pièce jointe).
       //    Fallback automatique sur mailto: si Resend n'est pas configuré.
       const result = await sendDocumentEmail({
         kind: 'report',
         documentId: reportId,
-        recipientEmail: recipient.trim(),
+        recipientEmail: to,
         subject,
         body,
         pdfUrl,
@@ -210,9 +216,10 @@ export function SendToClientModal({
           </p>
 
           <div className="fg">
-            <label>Destinataire</label>
+            <label>Destinataire(s) <span className="text-ink-3 text-xs font-light">(plusieurs : séparés par une virgule)</span></label>
             <input
-              type="email"
+              type="text"
+              inputMode="email"
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
               placeholder={loadingClient ? 'Chargement…' : 'email@client.fr'}
