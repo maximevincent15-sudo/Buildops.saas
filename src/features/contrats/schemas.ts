@@ -65,6 +65,9 @@ export const FAMILY_TO_EQUIPMENT_TYPE: Partial<Record<EquipmentFamily, Equipment
   ria: 'ria',
   desenfumage: 'desenfumage',
   detection: 'ssi',
+  baes: 'baes',
+  portes_cf: 'portes_cf',
+  colonnes_seches: 'colonnes_seches',
 }
 
 export type Contract = {

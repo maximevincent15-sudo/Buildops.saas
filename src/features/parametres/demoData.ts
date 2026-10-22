@@ -382,6 +382,9 @@ const TYPE_TO_FAMILY: Partial<Record<EquipmentType, EquipmentFamily>> = {
   ria: 'ria',
   desenfumage: 'desenfumage',
   ssi: 'detection',
+  baes: 'baes',
+  portes_cf: 'portes_cf',
+  colonnes_seches: 'colonnes_seches',
 }
 
 /** Signature manuscrite factice (PNG), dessinée sur un canvas */

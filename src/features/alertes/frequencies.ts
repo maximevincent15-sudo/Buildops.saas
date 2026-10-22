@@ -11,6 +11,9 @@ export const INSPECTION_FREQUENCIES_DAYS: Record<EquipmentType, number> = {
   desenfumage: 365,       // Annuel
   ssi: 365,               // Annuel
   extinction_auto: 365,   // Annuel
+  baes: 365,              // Annuel
+  portes_cf: 365,         // Annuel
+  colonnes_seches: 365,   // Annuel (+ épreuve décennale)
 }
 
 export const INSPECTION_FREQUENCIES_LABEL: Record<EquipmentType, string> = {
@@ -19,4 +22,7 @@ export const INSPECTION_FREQUENCIES_LABEL: Record<EquipmentType, string> = {
   desenfumage: 'Annuel',
   ssi: 'Annuel',
   extinction_auto: 'Annuel',
+  baes: 'Annuel',
+  portes_cf: 'Annuel',
+  colonnes_seches: 'Annuel',
 }

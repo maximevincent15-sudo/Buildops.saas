@@ -3,8 +3,11 @@ import { z } from 'zod'
 export const equipmentTypeEnum = z.enum([
   'extincteurs',
   'ria',
+  'baes',
   'desenfumage',
+  'portes_cf',
   'ssi',
+  'colonnes_seches',
   'extinction_auto',
 ])
 

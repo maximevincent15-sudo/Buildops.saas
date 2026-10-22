@@ -139,3 +139,24 @@ export function unitTypeLine(u: Pick<EquipmentUnit, 'family' | 'subtype' | 'attr
     .filter((p) => p && !squash(subtype).includes(squash(p)))
   return [subtype, ...parts].filter(Boolean).join(' · ')
 }
+
+// ─── Périmètre du chantier ───────────────────────────────
+
+/** Familles du parc contrôlées pour chaque type d'intervention planifiée */
+const TYPE_TO_FAMILIES: Record<string, EquipmentFamily[]> = {
+  extincteurs: ['extincteurs'],
+  ria: ['ria'],
+  baes: ['baes'],
+  desenfumage: ['desenfumage'],
+  portes_cf: ['portes_cf'],
+  ssi: ['detection'],
+  colonnes_seches: ['colonnes_seches'],
+  extinction_auto: [],
+}
+
+/** Familles concernées par les types de l'intervention (vide : pas de restriction) */
+export function familiesForTypes(types: string[] | null | undefined): EquipmentFamily[] {
+  const out = new Set<EquipmentFamily>()
+  for (const t of types ?? []) for (const f of TYPE_TO_FAMILIES[t] ?? []) out.add(f)
+  return EQUIPMENT_FAMILIES.filter((f) => out.has(f))
+}

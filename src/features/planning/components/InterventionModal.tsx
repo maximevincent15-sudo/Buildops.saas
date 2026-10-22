@@ -133,6 +133,8 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
   const [sites, setSites] = useState<Site[]>([])
   const [zones, setZones] = useState<Zone[]>([])
   const [customMaterial, setCustomMaterial] = useState('')
+  // « Autre lieu » choisi explicitement : pas de site enregistré, donc pas de parc dans le rapport
+  const [freeSite, setFreeSite] = useState(false)
 
   const {
     register,
@@ -180,6 +182,8 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
     setStep(1)
     setSubmitError(null)
     setCustomMaterial('')
+    // Ancienne intervention sur un lieu saisi à la main : on garde « Autre lieu »
+    setFreeSite(!!intervention && !intervention.site_id && !!intervention.site_name?.trim())
   }, [open, intervention, seed, reset])
 
   // Charge les sites du client
@@ -227,9 +231,18 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
 
   // ─── Actions ─────────────────────────────────────────────
 
+  /** Client avec des sites : le site est obligatoire (il donne la liste des équipements du rapport) */
+  const siteMissing = !!clientId && sites.length > 0 && !siteId && !freeSite
+  const SITE_REQUIRED_MSG = 'Choisis le site du chantier : le rapport affichera ses équipements.'
+
   async function onSubmit(data: CreateInterventionInput) {
     if (!profile?.organization_id) {
       setSubmitError('Profil non chargé. Reconnecte-toi.')
+      return
+    }
+    if (siteMissing) {
+      setSubmitError(SITE_REQUIRED_MSG)
+      setStep(2)
       return
     }
     setSubmitError(null)
@@ -275,6 +288,11 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
   }
 
   function goNext() {
+    if (step === 2 && siteMissing) {
+      setSubmitError(SITE_REQUIRED_MSG)
+      return
+    }
+    setSubmitError(null)
     setStep((s) => Math.min(STEPS.length, s + 1))
   }
 
@@ -405,35 +423,46 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                   </div>
                 )}
                 {clientId && sites.length > 0 && (
-                  <select
-                    value={siteId ?? ''}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      setValue('site_id', v || null)
-                      const s = sites.find((x) => x.id === v)
-                      if (s) setValue('site_name', s.name)
-                    }}
-                  >
-                    <option value="">— Site libre (à saisir ci-dessous) —</option>
-                    {sites.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+                  <>
+                    <select
+                      value={freeSite ? '__free__' : siteId ?? ''}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setFreeSite(v === '__free__')
+                        setValue('site_id', v && v !== '__free__' ? v : null)
+                        if (v !== '__free__') setValue('zone_ids', [])
+                        const s = sites.find((x) => x.id === v)
+                        if (s) setValue('site_name', s.name)
+                        setSubmitError(null)
+                      }}
+                    >
+                      <option value="">— Choisir le site —</option>
+                      {sites.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                      <option value="__free__">Autre lieu (sans liste d'équipements)</option>
+                    </select>
+                    <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
+                      Obligatoire : le rapport du technicien affichera les équipements de ce site.
+                    </span>
+                  </>
                 )}
               </div>
 
-              <div className="fg">
-                <label>Nom du site (texte libre, si non enregistré)</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Hôtel de ville, Résidence Les Lilas…"
-                  {...register('site_name')}
-                />
-              </div>
+              {(sites.length === 0 || freeSite) && (
+                <div className="fg">
+                  <label>Nom du lieu (texte libre)</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Hôtel de ville, Résidence Les Lilas…"
+                    {...register('site_name')}
+                  />
+                </div>
+              )}
 
               {siteId && (
                 <div className="fg">
-                  <label>Zones concernées par cette intervention</label>
+                  <label>Zones concernées <span className="text-ink-3 text-xs font-light">(aucune = tout le site)</span></label>
                   {zones.length === 0 && (
                     <div style={emptyBoxStyle}>
                       Aucune zone dans ce site. Tu pourras en ajouter depuis la fiche du site.

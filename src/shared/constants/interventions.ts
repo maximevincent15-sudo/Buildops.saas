@@ -1,8 +1,11 @@
 export const EQUIPMENT_TYPES = {
   extincteurs: 'Extincteurs',
   ria: 'RIA',
+  baes: 'BAES (éclairage de sécurité)',
   desenfumage: 'Désenfumage',
+  portes_cf: 'Portes coupe-feu',
   ssi: 'SSI / Alarme incendie',
+  colonnes_seches: 'Colonnes sèches',
   extinction_auto: 'Extinction automatique',
 } as const
 

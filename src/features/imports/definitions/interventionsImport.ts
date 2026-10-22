@@ -5,7 +5,7 @@ import type { CreateInterventionInput } from '../../planning/schemas'
 import { parseFlexibleDate, resolveTechnicianByName } from '../helpers'
 import type { ImportDefinition, RowAnalysis } from '../types'
 
-const VALID_EQUIPMENT_CODES = ['extincteurs', 'ria', 'desenfumage', 'ssi', 'extinction_auto'] as const
+const VALID_EQUIPMENT_CODES = ['extincteurs', 'ria', 'baes', 'desenfumage', 'portes_cf', 'ssi', 'colonnes_seches', 'extinction_auto'] as const
 type EquipmentCode = (typeof VALID_EQUIPMENT_CODES)[number]
 
 /**
@@ -31,6 +31,9 @@ function parseEquipmentTypes(input: string | null | undefined): EquipmentCode[] 
     else if (p.includes('extinct')) result.push('extincteurs')
     else if (p.includes('ria') || p.includes('robinet')) result.push('ria')
     else if (p.includes('desenfum') || p.includes('fumée') || p.includes('fumee')) result.push('desenfumage')
+    else if (p.includes('baes') || p.includes('eclairage') || p.includes('bloc')) result.push('baes')
+    else if (p.includes('pcf') || (p.includes('porte') && p.includes('feu'))) result.push('portes_cf')
+    else if (p.includes('colonne')) result.push('colonnes_seches')
     else if (p.includes('ssi') || p.includes('alarm')) result.push('ssi')
   }
   return Array.from(new Set(result))

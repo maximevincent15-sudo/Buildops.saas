@@ -1,5 +1,5 @@
 import { AlertTriangle, Camera, Check, Plus, QrCode, Search, X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, MouseEvent } from 'react'
 import {
   createAnomaly,
@@ -31,10 +31,11 @@ import {
 import { QuickUnitSheet } from '../../equipment/components/QuickUnitSheet'
 import { QrScanner } from '../../equipment/components/QrScanner'
 import { UnitPhotoField } from '../../equipment/components/UnitPhotoField'
-import { attributesSummary, compareUnitsByRound, unitLocation, unitRepere, unitTypeLine } from '../../equipment/identification'
+import { attributesSummary, compareUnitsByRound, unitLocation, unitRepere, unitTypeLine, zoneLabel } from '../../equipment/identification'
 import { upsertCheckSmart } from '../../equipment/offlineQueue'
 import {
   CHECK_VERDICT_LABELS,
+  EQUIPMENT_FAMILIES,
   EQUIPMENT_FAMILY_LABELS,
 } from '../../equipment/schemas'
 import type {
@@ -42,6 +43,7 @@ import type {
   CheckPhoto,
   CheckVerdict,
   EquipmentCheck,
+  EquipmentFamily,
   EquipmentUnit,
   FamilyTemplate,
   Zone,
@@ -65,6 +67,9 @@ type Props = {
   onProgressChange?: (checked: number, total: number) => void
   /** Verdicts des équipements contrôlés dans cette intervention (pour la conformité du rapport) */
   onVerdictsChange?: (items: UnitVerdictItem[]) => void
+  /** Chantier : familles (types de l'intervention) et zones prévues ; vide = tout le site */
+  scopeFamilies?: EquipmentFamily[]
+  scopeZoneIds?: string[]
 }
 
 export type UnitVerdictItem = {
@@ -89,6 +94,8 @@ export function UnitBasedControls({
   readOnly,
   onProgressChange,
   onVerdictsChange,
+  scopeFamilies,
+  scopeZoneIds,
 }: Props) {
   const [zones, setZones] = useState<Zone[]>([])
   const [units, setUnits] = useState<EquipmentUnit[]>([])
@@ -103,6 +110,9 @@ export function UnitBasedControls({
   // Gros sites : recherche, « reste à contrôler », affichage par tranches
   const [search, setSearch] = useState('')
   const [onlyRemaining, setOnlyRemaining] = useState(false)
+  const [familyFilter, setFamilyFilter] = useState<EquipmentFamily | 'all'>('all')
+  // « Voir tout le site » : le rapport n'affiche par défaut que le chantier
+  const [showAllSite, setShowAllSite] = useState(false)
   const [limit, setLimit] = useState(UNITS_STEP)
 
   // Scan des étiquettes QR
@@ -151,12 +161,35 @@ export function UnitBasedControls({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteId, interventionId])
 
-  // Notifier progression au parent
+  // ─── Périmètre du chantier (types et zones de l'intervention) ───
+  const scopeFamilyKey = (scopeFamilies ?? []).join(',')
+  const scopeZoneKey = (scopeZoneIds ?? []).join(',')
+  const scopeActive = scopeFamilyKey !== '' || scopeZoneKey !== ''
+  const inScope = useMemo(() => {
+    const fams = new Set(scopeFamilyKey ? scopeFamilyKey.split(',') : [])
+    const zs = new Set(scopeZoneKey ? scopeZoneKey.split(',') : [])
+    return (u: Pick<EquipmentUnit, 'family' | 'zone_id'>) =>
+      (fams.size === 0 || fams.has(u.family)) && (zs.size === 0 || (!!u.zone_id && zs.has(u.zone_id)))
+  }, [scopeFamilyKey, scopeZoneKey])
+  const scopedUnits = useMemo(() => units.filter(inScope), [units, inScope])
+  // Aucun équipement du site ne correspond au chantier : on montre tout le site
+  const scopeEmpty = scopeActive && scopedUnits.length === 0 && units.length > 0
+  const restricted = scopeActive && !showAllSite && !scopeEmpty
+  const baseUnits = restricted ? scopedUnits : units
+
+  const doneIds = useMemo(
+    () => new Set(checks.filter((c) => c.verdict !== 'non_verifie').map((c) => c.equipment_unit_id)),
+    [checks],
+  )
+  const isDone = (unitId: string) => doneIds.has(unitId)
+
+  // Notifier progression au parent (sur le chantier)
   useEffect(() => {
     if (!onProgressChange) return
-    const checkedCount = checks.filter((c) => c.verdict !== 'non_verifie').length
-    onProgressChange(checkedCount, units.length)
-  }, [checks, units.length, onProgressChange])
+    const ids = new Set(baseUnits.map((u) => u.id))
+    const checkedCount = checks.filter((c) => c.verdict !== 'non_verifie' && ids.has(c.equipment_unit_id)).length
+    onProgressChange(checkedCount, baseUnits.length)
+  }, [checks, baseUnits, onProgressChange])
 
   // Notifier les verdicts au parent (mêmes unités que le registre du PDF :
   // celles du site qui ont un contrôle dans cette intervention)
@@ -189,11 +222,12 @@ export function UnitBasedControls({
     return map
   }, [zones])
 
-  // Unités affichées : zone active, recherche, « reste à contrôler »
+  // Unités affichées : chantier, zone, type, recherche, « reste à contrôler »
   const displayedUnits = useMemo(() => {
     const q = normalizeSearch(search)
-    return units.filter((u) => {
+    return baseUnits.filter((u) => {
       if (activeZoneId === 'unassigned' ? !!u.zone_id : activeZoneId !== 'all' && u.zone_id !== activeZoneId) return false
+      if (familyFilter !== 'all' && u.family !== familyFilter) return false
       if (onlyRemaining) {
         const c = checksByUnit.get(u.id)
         if (c && c.verdict !== 'non_verifie') return false
@@ -208,7 +242,14 @@ export function UnitBasedControls({
       }
       return true
     }).sort(compareUnitsByRound(zonesById))
-  }, [units, activeZoneId, onlyRemaining, search, checksByUnit, zonesById])
+  }, [baseUnits, activeZoneId, familyFilter, onlyRemaining, search, checksByUnit, zonesById])
+
+  /** Équipement suivant dans l'ordre de passage, pas encore contrôlé (null s'il n'y en a plus) */
+  function nextUnitAfter(unitId: string): string | null {
+    const idx = displayedUnits.findIndex((u) => u.id === unitId)
+    const order = [...displayedUnits.slice(idx + 1), ...displayedUnits.slice(0, Math.max(idx, 0))]
+    return order.find((u) => u.id !== unitId && !isDone(u.id))?.id ?? null
+  }
 
   /** Équipement ajouté depuis la fiche courte : contrôle tout de suite, ou étiquette suivante */
   async function handleCreated(unit: EquipmentUnit, then: 'check' | 'next') {
@@ -234,6 +275,9 @@ export function UnitBasedControls({
     setScanOpen(false)
     const found = matchUnitByQr(units, text)
     if (found) {
+      if (scopeActive && !inScope(found) && !window.confirm(
+        `${unitRepere(found)} (${EQUIPMENT_FAMILY_LABELS[found.family]}) n'est pas prévu dans ce chantier.\n\nLe contrôler quand même ?`,
+      )) return
       setFromScan(true)
       const where = unitLocation(found, found.zone_id ? zonesById.get(found.zone_id) : null)
       setScanMessage({ tone: 'ok', text: `${unitRepere(found)} trouvé${where ? ` · ${where}` : ''}` })
@@ -266,7 +310,7 @@ export function UnitBasedControls({
     observation: string | null
     verdict: CheckVerdict
     photos: CheckPhoto[]
-  }) {
+  }, then: 'close' | 'next' = 'close') {
     if (!editingUnit) return
     try {
       const template = templateCache.get(editingUnit.family) ?? null
@@ -287,6 +331,12 @@ export function UnitBasedControls({
         const filtered = prev.filter((c) => c.equipment_unit_id !== saved.equipment_unit_id)
         return [...filtered, saved]
       })
+      // « Enregistrer et suivant » : appareil suivant dans l'ordre de passage
+      if (then === 'next') {
+        setEditingUnitId(nextUnitAfter(editingUnit.id))
+        setFromScan(false)
+        return
+      }
       setEditingUnitId(null)
       // Tournée au scanner : on rouvre la caméra pour l'équipement suivant
       if (fromScan && chainScan) setScanOpen(true)
@@ -348,6 +398,9 @@ export function UnitBasedControls({
 
       {editingUnit && (
         <UnitCheckModal
+          key={editingUnit.id}
+          hasNext={nextUnitAfter(editingUnit.id) !== null}
+          outOfScope={scopeActive && !inScope(editingUnit)}
           unit={editingUnit}
           template={templateCache.get(editingUnit.family) ?? null}
           existing={checksByUnit.get(editingUnit.id) ?? null}
@@ -422,30 +475,50 @@ export function UnitBasedControls({
     )
   }
 
-  // Compteurs par zone
+  // Compteurs par zone (sur le chantier)
   function countZone(zoneId: string): { done: number; total: number } {
-    const zoneUnits = units.filter((u) => u.zone_id === zoneId)
+    const zoneUnits = baseUnits.filter((u) => u.zone_id === zoneId)
     const done = zoneUnits.filter((u) => {
       const c = checksByUnit.get(u.id)
       return c && c.verdict !== 'non_verifie'
     }).length
     return { done, total: zoneUnits.length }
   }
-  const orphanCount = units.filter((u) => !u.zone_id).length
-  const orphanDone = units.filter((u) => {
+  const orphanCount = baseUnits.filter((u) => !u.zone_id).length
+  const orphanDone = baseUnits.filter((u) => {
     if (u.zone_id) return false
     const c = checksByUnit.get(u.id)
     return c && c.verdict !== 'non_verifie'
   }).length
 
-  const totalChecked = checks.filter((c) => c.verdict !== 'non_verifie').length
+  const totalChecked = baseUnits.filter((u) => isDone(u.id)).length
+  // Intertitres de la liste : « Bâtiment A · RDC · Extincteurs · 12 »
+  const groupLabel = (u: EquipmentUnit) =>
+    `${u.zone_id ? zoneLabel(zonesById.get(u.zone_id)) || 'Sans zone' : 'Sans zone'} · ${EQUIPMENT_FAMILY_LABELS[u.family]}`
+  const groupCounts = new Map<string, number>()
+  for (const u of displayedUnits) groupCounts.set(groupLabel(u), (groupCounts.get(groupLabel(u)) ?? 0) + 1)
+  // Pastilles par type (sur le chantier) : affichées dès qu'il y a plusieurs types
+  const familyCounts = EQUIPMENT_FAMILIES
+    .map((f) => {
+      const list = baseUnits.filter((u) => u.family === f)
+      return { family: f, total: list.length, done: list.filter((u) => isDone(u.id)).length }
+    })
+    .filter((x) => x.total > 0)
+  const scopeText = [
+    (scopeFamilies ?? []).map((f) => EQUIPMENT_FAMILY_LABELS[f]).join(', '),
+    zones.filter((z) => (scopeZoneIds ?? []).includes(z.id)).map((z) => zoneLabel(z)).join(', '),
+  ].filter(Boolean).join(' · ')
 
   return (
     <div className="card" style={{ marginBottom: '1rem' }}>
       <div className="card-top">
-        <span className="card-title">Contrôle par unité — {units.length} équipements du site</span>
+        <span className="card-title">
+          {restricted
+            ? `Contrôle par unité — ${baseUnits.length} équipement${baseUnits.length > 1 ? 's' : ''} du chantier`
+            : `Contrôle par unité — ${units.length} équipements du site`}
+        </span>
         <span className="text-ink-3 text-xs font-light">
-          {totalChecked} / {units.length} contrôlés
+          {totalChecked} / {baseUnits.length} contrôlés
         </span>
       </div>
 
@@ -453,6 +526,29 @@ export function UnitBasedControls({
         <p className="text-red text-sm" style={{ padding: '4px 12px' }}>
           Erreur : {error}
         </p>
+      )}
+
+      {/* Chantier : seuls les types et zones prévus sont affichés */}
+      {scopeActive && (
+        <div style={scopeBannerStyle}>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            {scopeEmpty
+              ? <>Aucun équipement du site ne correspond au chantier (<strong>{scopeText}</strong>) : tout le site est affiché.</>
+              : restricted
+                ? <>Chantier : <strong>{scopeText}</strong> — {scopedUnits.length} équipement{scopedUnits.length > 1 ? 's' : ''} sur {units.length} du site.</>
+                : <>Tout le site est affiché ({units.length}). Les équipements hors chantier sont signalés.</>}
+          </span>
+          {!scopeEmpty && (
+            <button
+              type="button"
+              className="btn-sm"
+              onClick={() => { setShowAllSite((v) => !v); setActiveZoneId('all'); setFamilyFilter('all'); setLimit(UNITS_STEP) }}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              {restricted ? 'Voir tout le site' : 'Revenir au chantier'}
+            </button>
+          )}
+        </div>
       )}
 
       {/* Scan des étiquettes + recherche (gros sites) */}
@@ -498,7 +594,7 @@ export function UnitBasedControls({
           className={`filter-pill${onlyRemaining ? ' on' : ''}`}
           onClick={() => { setOnlyRemaining((v) => !v); setLimit(UNITS_STEP) }}
         >
-          Reste à contrôler ({Math.max(0, units.length - totalChecked)})
+          Reste à contrôler ({Math.max(0, baseUnits.length - totalChecked)})
         </button>
         {!readOnly && (
           <label className="text-xs text-ink-2" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
@@ -515,7 +611,7 @@ export function UnitBasedControls({
           className={`filter-pill${activeZoneId === 'all' ? ' on' : ''}`}
           onClick={() => { setActiveZoneId('all'); setLimit(UNITS_STEP) }}
         >
-          Toutes ({units.length})
+          Toutes ({baseUnits.length})
         </button>
         {zones.map((z) => {
           const c = countZone(z.id)
@@ -542,9 +638,34 @@ export function UnitBasedControls({
         )}
       </div>
 
-      {/* Liste des unités */}
+      {/* Filtre par type d'équipement */}
+      {familyCounts.length > 1 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '0 4px 12px' }}>
+          <button
+            type="button"
+            className={`filter-pill${familyFilter === 'all' ? ' on' : ''}`}
+            onClick={() => { setFamilyFilter('all'); setLimit(UNITS_STEP) }}
+          >
+            Tous types
+          </button>
+          {familyCounts.map((c) => (
+            <button
+              key={c.family}
+              type="button"
+              className={`filter-pill${familyFilter === c.family ? ' on' : ''}`}
+              onClick={() => { setFamilyFilter(c.family); setLimit(UNITS_STEP) }}
+            >
+              {EQUIPMENT_FAMILY_LABELS[c.family]} ({c.done}/{c.total})
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Liste des unités, regroupées par zone et par type (ordre de passage) */}
       <div style={unitListStyle}>
-        {displayedUnits.slice(0, limit).map((u) => {
+        {displayedUnits.slice(0, limit).map((u, i, shown) => {
+          const group = groupLabel(u)
+          const newGroup = i === 0 || groupLabel(shown[i - 1]!) !== group
           const check = checksByUnit.get(u.id)
           const verdict: CheckVerdict = check?.verdict ?? 'non_verifie'
           const where = unitLocation(u, u.zone_id ? zonesById.get(u.zone_id) : null)
@@ -555,8 +676,13 @@ export function UnitBasedControls({
             u.install_year,
           ].filter(Boolean).join(' · ')
           return (
+            <Fragment key={u.id}>
+            {newGroup && (
+              <div style={groupHeadStyle}>
+                {group} <span style={{ color: 'var(--ink3)', fontWeight: 500 }}>· {groupCounts.get(group) ?? 0}</span>
+              </div>
+            )}
             <button
-              key={u.id}
               type="button"
               className="unit-tile"
               onClick={() => setEditingUnitId(u.id)}
@@ -575,12 +701,16 @@ export function UnitBasedControls({
                   <span style={unitTileNumStyle}>{unitRepere(u)}</span>
                   {where || <span style={{ color: 'var(--ink3)', fontWeight: 400, fontStyle: 'italic' }}>Emplacement non renseigné</span>}
                 </div>
-                <div style={unitTileMetaStyle}>{details}</div>
+                <div style={unitTileMetaStyle}>
+                  {scopeActive && !inScope(u) && <span style={outOfScopeTagStyle}>hors chantier</span>}
+                  {details}
+                </div>
               </div>
               <div style={unitTileVerdictStyle(verdict)}>
                 {verdict === 'non_verifie' ? '—' : CHECK_VERDICT_LABELS[verdict]}
               </div>
             </button>
+            </Fragment>
           )
         })}
       </div>
@@ -615,7 +745,7 @@ type ModalProps = {
     observation: string | null
     verdict: CheckVerdict
     photos: CheckPhoto[]
-  }) => Promise<void> | void
+  }, then?: 'close' | 'next') => Promise<void> | void
   readOnly?: boolean
   organizationId: string
   interventionId: string
@@ -623,11 +753,15 @@ type ModalProps = {
   zone: Zone | null
   /** Photo de repérage ajoutée ou changée pendant le contrôle */
   onUnitChange: (unit: EquipmentUnit) => void
+  /** Un autre équipement reste à contrôler : bouton « Enregistrer et suivant » */
+  hasNext: boolean
+  /** Équipement hors des types / zones prévus pour ce chantier */
+  outOfScope: boolean
 }
 
 function UnitCheckModal({
   unit, template, existing, onClose, onSave, readOnly,
-  organizationId, interventionId, technicianName, zone, onUnitChange,
+  organizationId, interventionId, technicianName, zone, onUnitChange, hasNext, outOfScope,
 }: ModalProps) {
   const [photoError, setPhotoError] = useState<string | null>(null)
 
@@ -733,7 +867,7 @@ function UnitCheckModal({
     }
   }
 
-  async function handleSave() {
+  async function handleSave(then: 'close' | 'next' = 'close') {
     setSaving(true)
     try {
       await onSave({
@@ -741,7 +875,7 @@ function UnitCheckModal({
         observation: observation.trim() || null,
         verdict,
         photos,
-      })
+      }, then)
       // Si le verdict signale une anomalie (surveiller/reformer),
       // on crée l'entité `anomalies` liée à l'unité + intervention.
       if (needsAnomalyForm && anomalyTitle.trim().length >= 3 && anomalyAction !== '') {
@@ -801,6 +935,12 @@ function UnitCheckModal({
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '.9rem', padding: '.5rem 0' }}>
+          {outOfScope && (
+            <div style={{ fontSize: 12.5, color: '#8A3D0E', background: '#FDF1E7', border: '1px solid #F0C9A6', borderRadius: 8, padding: '8px 10px' }}>
+              Cet équipement n'est pas prévu dans ce chantier : vérifie que c'est le bon avant de le contrôler.
+            </div>
+          )}
+
           {/* Où est l'appareil : emplacement en gros + photo de repérage */}
           <div style={locationBoxStyle}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ink3)' }}>
@@ -1137,8 +1277,8 @@ function UnitCheckModal({
           </button>
           <button
             type="button"
-            className="mf prim"
-            onClick={() => void handleSave()}
+            className={hasNext ? 'mf out' : 'mf prim'}
+            onClick={() => void handleSave('close')}
             disabled={saving || readOnly || verdict === 'non_verifie' || !anomalyFormValid}
           >
             {saving
@@ -1149,6 +1289,16 @@ function UnitCheckModal({
                   ? 'Complète les détails d\'anomalie'
                   : 'Enregistrer'}
           </button>
+          {hasNext && !readOnly && (
+            <button
+              type="button"
+              className="mf prim"
+              onClick={() => void handleSave('next')}
+              disabled={saving || verdict === 'non_verifie' || !anomalyFormValid}
+            >
+              Enregistrer et suivant →
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1236,6 +1386,41 @@ const unitTileTitleStyle: React.CSSProperties = {
   WebkitLineClamp: 2,
   WebkitBoxOrient: 'vertical',
   overflow: 'hidden',
+}
+
+const scopeBannerStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  flexWrap: 'wrap',
+  margin: '0 4px 10px',
+  padding: '9px 12px',
+  borderRadius: 10,
+  fontSize: '.85rem',
+  lineHeight: 1.45,
+  background: 'var(--acc-lt, #E8EEF8)',
+  color: 'var(--ink)',
+  border: '1px solid rgba(58, 92, 168, .18)',
+}
+
+const groupHeadStyle: React.CSSProperties = {
+  fontSize: 11.5,
+  fontWeight: 700,
+  letterSpacing: '.04em',
+  textTransform: 'uppercase',
+  color: 'var(--ink2)',
+  padding: '10px 2px 2px',
+}
+
+const outOfScopeTagStyle: React.CSSProperties = {
+  display: 'inline-block',
+  fontSize: 10.5,
+  fontWeight: 700,
+  color: '#8A3D0E',
+  background: '#FDF1E7',
+  borderRadius: 4,
+  padding: '0 5px',
+  marginRight: 6,
 }
 
 const locationBoxStyle: React.CSSProperties = {

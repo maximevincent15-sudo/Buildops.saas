@@ -43,6 +43,7 @@ import { ACTIVE_ANOMALY_STATUSES, ANOMALY_ACTION_LABELS } from '../features/anom
 import { listEquipmentUnitsByIds, listZones } from '../features/equipment/api'
 import { EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
+import { familiesForTypes } from '../features/equipment/identification'
 import { useModuleEnabled } from '../features/parametres/modules'
 import type { UpsertQuoteInput } from '../features/devis/schemas'
 import {
@@ -164,6 +165,9 @@ export function RapportEditorPage() {
     if (!intervention) return []
     return resolveEquipmentTypes(intervention) as EquipmentType[]
   }, [intervention])
+
+  // Chantier : familles du parc correspondant aux types de l'intervention
+  const scopeFamilies = useMemo(() => familiesForTypes(availableTypes), [availableTypes])
 
   // Pré-remplit une intervention corrective avec les anomalies.
   // Ce useMemo DOIT être déclaré avant les early returns pour respecter la règle
@@ -865,6 +869,8 @@ export function RapportEditorPage() {
         technicianName={intervention.technician_name}
         readOnly={isCompleted}
         onVerdictsChange={setUnitVerdicts}
+        scopeFamilies={scopeFamilies}
+        scopeZoneIds={intervention.zone_ids ?? undefined}
       />
 
       {items.length > 0 && (

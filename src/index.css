@@ -3343,6 +3343,9 @@ h1, h2, h3, h4, h5, h6 {
   .pt-tag.desenf { background: #E7E3DC; color: #6A5842; }
   .pt-tag.ssi { background: #E9E0F4; color: #5B3E8A; }
   .pt-tag.auto { background: #DCEFE6; color: #23684C; }
+  .pt-tag.baes { background: #FBF0D2; color: #7A5A0E; }
+  .pt-tag.pcf { background: #F3E1D4; color: #82451F; }
+  .pt-tag.cs { background: #DDEFF2; color: #23626E; }
 
   .pt-panel { background: #fff; border: 1px solid var(--b-brd-soft); border-radius: 14px; overflow: hidden; position: sticky; top: 84px; }
   .pt-tabs { display: flex; border-bottom: 1px solid var(--b-brd-soft); }

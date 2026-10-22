@@ -154,6 +154,9 @@ export const EQUIPMENT_TAGS: Record<string, { label: string; cls: string }> = {
   desenfumage: { label: 'DÉSENF', cls: 'desenf' },
   ssi: { label: 'SSI', cls: 'ssi' },
   extinction_auto: { label: 'EXT. AUTO', cls: 'auto' },
+  baes: { label: 'BAES', cls: 'baes' },
+  portes_cf: { label: 'PCF', cls: 'pcf' },
+  colonnes_seches: { label: 'COL. SÈCHE', cls: 'cs' },
 }
 
 export function siteLabel(i: Intervention): string {
