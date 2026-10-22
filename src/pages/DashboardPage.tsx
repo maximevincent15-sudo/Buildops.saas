@@ -57,8 +57,10 @@ export function DashboardPage() {
   const { limits, loading: subLoading } = useSubscription()
   // Mode terrain sans factures : pas de pilotage du CA (il se calcule sur les factures)
   const facturesEnabled = useModuleEnabled()('factures')
-  const showBusiness = !subLoading && limits.proFeatures && facturesEnabled
-  const showBusinessLock = !subLoading && !limits.proFeatures && facturesEnabled
+  // Chiffre d'affaires : administrateurs uniquement (les factures leur sont réservées)
+  const adminUser = (profile?.user_role ?? 'admin') === 'admin'
+  const showBusiness = !subLoading && limits.proFeatures && facturesEnabled && adminUser
+  const showBusinessLock = !subLoading && !limits.proFeatures && facturesEnabled && adminUser
   // Marge et résultat estimés : administrateurs uniquement (salaires, charges)
   const isAdmin = (profile?.user_role ?? 'admin') === 'admin'
   const [profit, setProfit] = useState<Map<string, MonthProfit> | null>(null)

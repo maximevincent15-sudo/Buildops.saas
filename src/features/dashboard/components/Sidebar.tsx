@@ -7,9 +7,11 @@ import {
   Building2,
   CalendarDays,
   ClipboardCheck,
+  Clock,
   CreditCard,
   FileSignature,
   HardHat,
+  ReceiptText,
   LayoutDashboard,
   LogOut,
   Receipt,
@@ -35,7 +37,7 @@ import { effectiveStatus } from '../../factures/constants'
 import { useModuleEnabled } from '../../parametres/modules'
 import type { OptionalModule } from '../../parametres/modules'
 
-type NavItem = { to: string; Icon: LucideIcon; label: string; badgeKey?: BadgeKey; danger?: boolean; module?: OptionalModule }
+type NavItem = { to: string; Icon: LucideIcon; label: string; badgeKey?: BadgeKey; danger?: boolean; module?: OptionalModule; adminOnly?: boolean }
 type BadgeKey = 'planning' | 'rapports' | 'alertes' | 'anomalies' | 'rh' | 'factures'
 
 type Counts = Record<BadgeKey, number>
@@ -51,11 +53,17 @@ const principal: NavItem[] = [
 const clients: NavItem[] = [
   { to: '/clients', Icon: Building2, label: 'Fiches clients' },
   { to: '/equipements', Icon: Boxes, label: 'Équipements' },
-  { to: '/contrats', Icon: FileSignature, label: 'Contrats', module: 'contrats' },
+  { to: '/contrats', Icon: FileSignature, label: 'Contrats', module: 'contrats', adminOnly: true },
 ]
 
 const rh: NavItem[] = [
-  { to: '/techniciens', Icon: HardHat, label: 'Techniciens', badgeKey: 'rh' },
+  { to: '/techniciens', Icon: HardHat, label: 'Techniciens', badgeKey: 'rh', adminOnly: true },
+]
+
+// Technicien (compte « member ») : ses notes de frais et heures sup
+const rhMember: NavItem[] = [
+  { to: '/frais', Icon: ReceiptText, label: 'Mes notes de frais' },
+  { to: '/heures-sup', Icon: Clock, label: 'Mes heures sup' },
 ]
 
 const facturation: NavItem[] = [
@@ -118,9 +126,11 @@ export function Sidebar({ open = false }: { open?: boolean }) {
   const profile = useAuthStore((s) => s.profile)
   const [counts, setCounts] = useState<Counts>({ planning: 0, rapports: 0, alertes: 0, anomalies: 0, rh: 0, factures: 0 })
   const moduleEnabled = useModuleEnabled()
+  const isAdminUser = (profile?.user_role ?? 'admin') === 'admin'
   const contratsEnabled = moduleEnabled('contrats')
   // Mode terrain : les modules masqués disparaissent du menu
-  const visible = (items: NavItem[]) => items.filter((i) => !i.module || moduleEnabled(i.module))
+  const visible = (items: NavItem[]) =>
+    items.filter((i) => (!i.module || moduleEnabled(i.module)) && (!i.adminOnly || isAdminUser))
   const facturationItems = visible(facturation)
 
   useEffect(() => {
@@ -195,7 +205,7 @@ export function Sidebar({ open = false }: { open?: boolean }) {
       {visible(clients).map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
       <div className="b-sb-sec">RH / Paie</div>
-      {rh.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
+      {(isAdmin ? rh : rhMember).map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
       {isAdmin && facturationItems.length > 0 && (
         <>
@@ -204,11 +214,15 @@ export function Sidebar({ open = false }: { open?: boolean }) {
         </>
       )}
 
-      <div className="b-sb-sec">Documents</div>
-      {documents.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
+      {isAdmin && (
+        <>
+          <div className="b-sb-sec">Documents</div>
+          {documents.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
 
-      <div className="b-sb-sec">Compte</div>
-      {compte.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
+          <div className="b-sb-sec">Compte</div>
+          {compte.map((i) => <SidebarLink key={i.to} item={i} counts={counts} />)}
+        </>
+      )}
 
       {email && FOUNDER_EMAILS.has(email) && (
         <>

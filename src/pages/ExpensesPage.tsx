@@ -43,6 +43,10 @@ function startOfMonthIso(): string {
 export function ExpensesPage() {
   const navigate = useNavigate()
   const profile = useAuthStore((s) => s.profile)
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+  const myTechnicianId = useAuthStore((s) => s.myTechnicianId)
+  // Technicien : ses propres notes de frais ; seul l'administrateur valide
+  const isAdmin = (profile?.user_role ?? 'admin') === 'admin'
   // Export paie (heures sup et frais) : formule Pro, comme sur la page tarifs
   const { limits } = useSubscription()
   const canExportPayroll = limits.proFeatures
@@ -59,7 +63,7 @@ export function ExpensesPage() {
   async function reload() {
     try {
       const data = await listExpenses()
-      setExpenses(data)
+      setExpenses(isAdmin ? data : data.filter((e) => e.created_by === userId || (!!myTechnicianId && e.technician_id === myTechnicianId)))
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement')
@@ -315,7 +319,7 @@ export function ExpensesPage() {
                         <Upload size={13} strokeWidth={2} />
                       </button>
                     )}
-                    {e.status === 'pending' && (
+                    {isAdmin && e.status === 'pending' && (
                       <>
                         <button
                           type="button"
@@ -337,7 +341,7 @@ export function ExpensesPage() {
                         </button>
                       </>
                     )}
-                    {(e.status === 'approved' || e.status === 'rejected') && (
+                    {isAdmin && (e.status === 'approved' || e.status === 'rejected') && (
                       <button
                         type="button"
                         className="exp-act neutral"

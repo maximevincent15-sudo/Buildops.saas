@@ -81,7 +81,8 @@ export function PlanningPage() {
   const [exporting, setExporting] = useState(false)
   const profile = useAuthStore((s) => s.profile)
   const myTechnicianId = useAuthStore((s) => s.myTechnicianId)
-  const devisEnabled = useModuleEnabled()('devis')
+  // Devis : administrateurs uniquement (et module affiché)
+  const devisEnabled = useModuleEnabled()('devis') && (profile?.user_role ?? 'admin') === 'admin'
   // Technicien (compte membre) : ses interventions par défaut ; l'administrateur voit toute l'équipe
   const [mine, setMineState] = useState<boolean>(() => {
     try {

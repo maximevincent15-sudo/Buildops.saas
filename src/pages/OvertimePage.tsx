@@ -4,6 +4,7 @@ import { Check, Download, Lock, Plus, Trash2, Undo2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSubscription } from '../features/billing/hooks'
+import { useAuthStore } from '../features/auth/store'
 import { RhTabs } from '../features/dashboard/components/RhTabs'
 import { PayrollExportModal } from '../features/export/components/PayrollExportModal'
 import { OvertimeModal } from '../features/overtime/components/OvertimeModal'
@@ -38,6 +39,10 @@ function startOfMonthIso(): string {
 
 export function OvertimePage() {
   const navigate = useNavigate()
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+  const myTechnicianId = useAuthStore((s) => s.myTechnicianId)
+  // Technicien : ses propres heures sup ; seul l'administrateur valide
+  const isAdmin = (useAuthStore((s) => s.profile)?.user_role ?? 'admin') === 'admin'
   const { limits } = useSubscription()
   const canExportPayroll = limits.proFeatures
   const [items, setItems] = useState<Overtime[]>([])
@@ -50,7 +55,7 @@ export function OvertimePage() {
   async function reload() {
     try {
       const data = await listOvertime()
-      setItems(data)
+      setItems(isAdmin ? data : data.filter((o) => o.created_by === userId || (!!myTechnicianId && o.technician_id === myTechnicianId)))
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de chargement')
@@ -229,7 +234,7 @@ export function OvertimePage() {
                     <div className="expense-amount-sub">{OVERTIME_TYPE_LABEL[i.type].toLowerCase()}</div>
                   </div>
                   <div className="expense-actions">
-                    {i.status === 'pending' && (
+                    {isAdmin && i.status === 'pending' && (
                       <>
                         <button
                           type="button"
@@ -251,7 +256,7 @@ export function OvertimePage() {
                         </button>
                       </>
                     )}
-                    {(i.status === 'approved' || i.status === 'rejected') && (
+                    {isAdmin && (i.status === 'approved' || i.status === 'rejected') && (
                       <button
                         type="button"
                         className="exp-act neutral"

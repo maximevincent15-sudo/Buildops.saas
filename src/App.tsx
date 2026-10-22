@@ -25,6 +25,7 @@ import { CataloguePage } from './pages/CataloguePage'
 import { ContratsPage } from './pages/ContratsPage'
 import { ImportCatalogPage } from './pages/ImportCatalogPage'
 import { ModuleGate } from './features/parametres/components/ModuleGate'
+import { AdminGate } from './app/AdminGate'
 import { EquipmentLabelPage } from './pages/EquipmentLabelPage'
 import { ParametresPage } from './pages/ParametresPage'
 import { AbonnementPage } from './pages/AbonnementPage'
@@ -80,27 +81,27 @@ function App() {
           <Route path="/alertes" element={<AlertesPage />} />
           <Route path="/anomalies" element={<AnomaliesPage />} />
           <Route path="/clients" element={<ClientsPage />} />
-          <Route path="/clients/import" element={<ImportClientsPage />} />
+          <Route path="/clients/import" element={<AdminGate><ImportClientsPage /></AdminGate>} />
           <Route path="/equipements" element={<EquipementsPage />} />
-          <Route path="/equipements/import" element={<ImportEquipementsPage />} />
+          <Route path="/equipements/import" element={<AdminGate><ImportEquipementsPage /></AdminGate>} />
           <Route path="/e/:code" element={<EquipmentLabelPage />} />
-          <Route path="/techniciens/import" element={<ImportTechniciansPage />} />
-          <Route path="/vehicules/import" element={<ImportVehiclesPage />} />
-          <Route path="/planning/import" element={<ImportInterventionsPage />} />
-          <Route path="/techniciens" element={<TechniciensPage />} />
+          <Route path="/techniciens/import" element={<AdminGate><ImportTechniciansPage /></AdminGate>} />
+          <Route path="/vehicules/import" element={<AdminGate><ImportVehiclesPage /></AdminGate>} />
+          <Route path="/planning/import" element={<AdminGate><ImportInterventionsPage /></AdminGate>} />
+          <Route path="/techniciens" element={<AdminGate><TechniciensPage /></AdminGate>} />
           <Route path="/frais" element={<ExpensesPage />} />
           <Route path="/heures-sup" element={<OvertimePage />} />
-          <Route path="/vehicules" element={<VehiculesPage />} />
-          <Route path="/devis" element={<ModuleGate module="devis"><DevisPage /></ModuleGate>} />
-          <Route path="/factures" element={<ModuleGate module="factures"><FacturesPage /></ModuleGate>} />
-          <Route path="/catalogue" element={<ModuleGate module="catalogue"><CataloguePage /></ModuleGate>} />
-          <Route path="/contrats" element={<ModuleGate module="contrats"><ContratsPage /></ModuleGate>} />
-          <Route path="/catalogue/import" element={<ModuleGate module="catalogue"><ImportCatalogPage /></ModuleGate>} />
-          <Route path="/archivage" element={<ArchivagePage />} />
-          <Route path="/parametres" element={<ParametresPage />} />
-          <Route path="/abonnement" element={<AbonnementPage />} />
+          <Route path="/vehicules" element={<AdminGate><VehiculesPage /></AdminGate>} />
+          <Route path="/devis" element={<AdminGate><ModuleGate module="devis"><DevisPage /></ModuleGate></AdminGate>} />
+          <Route path="/factures" element={<AdminGate><ModuleGate module="factures"><FacturesPage /></ModuleGate></AdminGate>} />
+          <Route path="/catalogue" element={<AdminGate><ModuleGate module="catalogue"><CataloguePage /></ModuleGate></AdminGate>} />
+          <Route path="/contrats" element={<AdminGate><ModuleGate module="contrats"><ContratsPage /></ModuleGate></AdminGate>} />
+          <Route path="/catalogue/import" element={<AdminGate><ModuleGate module="catalogue"><ImportCatalogPage /></ModuleGate></AdminGate>} />
+          <Route path="/archivage" element={<AdminGate><ArchivagePage /></AdminGate>} />
+          <Route path="/parametres" element={<AdminGate><ParametresPage /></AdminGate>} />
+          <Route path="/abonnement" element={<AdminGate><AbonnementPage /></AdminGate>} />
           <Route path="/admin/prospects" element={<AdminProspectsPage />} />
-          <Route path="/equipe" element={<EquipePage />} />
+          <Route path="/equipe" element={<AdminGate><EquipePage /></AdminGate>} />
         </Route>
       </Route>
 

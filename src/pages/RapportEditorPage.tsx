@@ -102,7 +102,8 @@ export function RapportEditorPage() {
   const [error, setError] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
   const [correctiveOpen, setCorrectiveOpen] = useState(false)
-  const devisEnabled = useModuleEnabled()('devis')
+  // Devis : administrateurs uniquement (et module affiché)
+  const devisEnabled = useModuleEnabled()('devis') && (profile?.user_role ?? 'admin') === 'admin'
   const [quoteOpen, setQuoteOpen] = useState(false)
   const [sendOpen, setSendOpen] = useState(false)
   const [sentToEmail, setSentToEmail] = useState<string | null>(null)
