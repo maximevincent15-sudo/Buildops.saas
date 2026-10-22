@@ -1,41 +1,66 @@
-type Activity = {
-  time: string
-  txt: React.ReactNode
+import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
+import { useAuthStore } from '../../auth/store'
+import { useModuleEnabled } from '../../parametres/modules'
+import { fetchRecentActivity } from '../activityApi'
+import type { ActivityEvent } from '../activityApi'
+
+function timeLabel(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const hm = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const diff = Math.round((day(now) - day(d)) / 86_400_000)
+  if (diff === 0) return `Aujourd'hui · ${hm}`
+  if (diff === 1) return `Hier · ${hm}`
+  return `${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} · ${hm}`
+}
+
+function eventText(e: ActivityEvent): ReactNode {
+  const who = e.actor ? <strong>{e.actor}</strong> : null
+  const detail = e.detail ? <> · {e.detail}</> : null
+  switch (e.kind) {
+    case 'started':
+      return <>{who ?? 'Un technicien'} a démarré l'intervention <strong>{e.subject}</strong></>
+    case 'report':
+      return <>{who ?? 'Un technicien'} a terminé le rapport <strong>{e.subject}</strong>{detail}</>
+    case 'anomaly':
+      return <>Anomalie relevée : <strong>{e.subject}</strong>{detail}{e.actor ? <> (par {e.actor})</> : null}</>
+    case 'quote_sent':
+      return <>Devis <strong>{e.subject}</strong> envoyé{detail}</>
+    case 'quote_signed':
+      return <>Devis <strong>{e.subject}</strong> signé sur place{e.actor ? <> par {e.actor}</> : null}{detail}</>
+    case 'quote_accepted':
+      return <>Devis <strong>{e.subject}</strong> accepté{detail}</>
+    case 'invoice_sent':
+      return <>Facture <strong>{e.subject}</strong> envoyée{detail}</>
+    case 'invoice_paid':
+      return <>Facture <strong>{e.subject}</strong> payée{detail}</>
+    case 'client':
+      return <>Nouveau client : <strong>{e.subject}</strong></>
+  }
 }
 
 /**
- * Activités de démo (statiques pour le moment).
- *
- * TODO (Session ultérieure) : remplacer par un vrai flux récupéré depuis
- * une table audit_log ou via Supabase Realtime. Le composant est déjà
- * structuré pour accueillir des données dynamiques.
- */
-const activities: Activity[] = [
-  {
-    time: "Aujourd'hui · 14:32",
-    txt: <><strong>Julien Pariseau</strong> a démarré l'intervention <strong>SSI Vincent &amp; Associés</strong></>,
-  },
-  {
-    time: "Aujourd'hui · 11:08",
-    txt: <><strong>Thomas Moreau</strong> a clôturé <strong>Extincteurs Crozet BTP</strong> avec signature client</>,
-  },
-  {
-    time: "Aujourd'hui · 09:14",
-    txt: <>Devis <strong>DEV-2026-018</strong> accepté par <strong>Démo Firovia</strong> · 1 850 €</>,
-  },
-  {
-    time: 'Hier · 16:42',
-    txt: <>Facture <strong>F-2026-042</strong> payée par <strong>Vincent &amp; Associés</strong></>,
-  },
-]
-
-/**
- * ActivityFeed v2 — Direction B (Mercury-vibe).
- *
- * Timeline verticale avec dots et ligne de fil. Plus élégante que la grille
- * d'items du précédent design — raconte une histoire chronologique claire.
+ * Activité récente réelle : interventions démarrées, rapports terminés,
+ * anomalies, devis et factures (bureau), nouveaux clients.
  */
 export function ActivityFeed() {
+  const profile = useAuthStore((s) => s.profile)
+  const enabled = useModuleEnabled()
+  const isAdmin = (profile?.user_role ?? 'admin') === 'admin'
+  const quotes = isAdmin && enabled('devis')
+  const invoices = isAdmin && enabled('factures')
+  const [events, setEvents] = useState<ActivityEvent[] | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    fetchRecentActivity({ quotes, invoices })
+      .then((list) => { if (alive) setEvents(list) })
+      .catch(() => { if (alive) setEvents([]) })
+    return () => { alive = false }
+  }, [quotes, invoices])
+
   return (
     <div className="b-card">
       <div className="b-section-head" style={{ marginBottom: 14 }}>
@@ -44,14 +69,22 @@ export function ActivityFeed() {
           <div className="b-section-s" style={{ fontSize: 12 }}>Derniers événements</div>
         </div>
       </div>
-      <div className="b-tl">
-        {activities.map((a, i) => (
-          <div key={i} className="b-tl-item">
-            <div className="b-tl-time">{a.time}</div>
-            <div className="b-tl-txt">{a.txt}</div>
-          </div>
-        ))}
-      </div>
+      {events === null ? (
+        <p className="text-ink-3 text-sm font-light" style={{ margin: 0 }}>Chargement…</p>
+      ) : events.length === 0 ? (
+        <p className="text-ink-3 text-sm font-light" style={{ margin: 0 }}>
+          Rien pour l'instant : les interventions, rapports, devis et factures apparaîtront ici.
+        </p>
+      ) : (
+        <div className="b-tl">
+          {events.map((e, i) => (
+            <div key={`${e.kind}-${e.at}-${i}`} className="b-tl-item">
+              <div className="b-tl-time">{timeLabel(e.at)}</div>
+              <div className="b-tl-txt">{eventText(e)}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
