@@ -25,6 +25,7 @@ import { CataloguePage } from './pages/CataloguePage'
 import { ContratsPage } from './pages/ContratsPage'
 import { ImportCatalogPage } from './pages/ImportCatalogPage'
 import { ModuleGate } from './features/parametres/components/ModuleGate'
+import { EquipmentLabelPage } from './pages/EquipmentLabelPage'
 import { ParametresPage } from './pages/ParametresPage'
 import { AbonnementPage } from './pages/AbonnementPage'
 import { AdminProspectsPage } from './pages/AdminProspectsPage'
@@ -82,6 +83,7 @@ function App() {
           <Route path="/clients/import" element={<ImportClientsPage />} />
           <Route path="/equipements" element={<EquipementsPage />} />
           <Route path="/equipements/import" element={<ImportEquipementsPage />} />
+          <Route path="/e/:code" element={<EquipmentLabelPage />} />
           <Route path="/techniciens/import" element={<ImportTechniciansPage />} />
           <Route path="/vehicules/import" element={<ImportVehiclesPage />} />
           <Route path="/planning/import" element={<ImportInterventionsPage />} />

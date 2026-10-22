@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { signIn } from '../api'
 import { loginSchema } from '../schemas'
 import type { LoginInput } from '../schemas'
@@ -13,6 +13,7 @@ type Props = {
 
 export function LoginForm({ prefilledEmail }: Props = {}) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
@@ -36,7 +37,12 @@ export function LoginForm({ prefilledEmail }: Props = {}) {
       // Si invitation en attente, on reste sur /auth pour que l'effet d'acceptation
       // se déclenche et redirige proprement après attachement à l'orga.
       if (searchParams.get('invite')) return
-      navigate('/dashboard', { replace: true })
+      // Retour à la page demandée avant la connexion (ex. étiquette QR scannée)
+      const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from
+      const target = from?.pathname && from.pathname.startsWith('/') && from.pathname !== '/auth'
+        ? `${from.pathname}${from.search ?? ''}`
+        : '/dashboard'
+      navigate(target, { replace: true })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erreur inconnue'
       setSubmitError(

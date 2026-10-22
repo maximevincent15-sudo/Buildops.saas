@@ -4,6 +4,7 @@ import type { MouseEvent } from 'react'
 import { createEquipmentUnit, createZone, deleteUnitPhoto } from '../api'
 import { normalize } from '../familyResolver'
 import { cleanAttributes, unitRepere } from '../identification'
+import { firoviaLabelCode } from '../labels'
 import { nextSerial, parseLabelQr, shortCodeFromQr } from '../inventory'
 import type { LabelQrFields } from '../inventory'
 import { EQUIPMENT_FAMILIES, EQUIPMENT_FAMILY_LABELS } from '../schemas'
@@ -44,7 +45,8 @@ export function QuickUnitSheet({
     const family: EquipmentFamily = parsed.family ?? previous?.family ?? 'extincteurs'
     const familySerials = siteUnits.filter((u) => u.family === family).map((u) => u.serial_number)
     const lastSerial = previous?.family === family ? previous.serial_number : null
-    const qrShort = qrCode && parsed.filled.length === 0 ? shortCodeFromQr(qrCode) : null
+    // Étiquette Firovia (…/e/7KQ2M9XA) : son code n'est pas un N° de repère
+    const qrShort = qrCode && parsed.filled.length === 0 && !firoviaLabelCode(qrCode) ? shortCodeFromQr(qrCode) : null
     const fixedSerial = parsed.serial
       || (qrShort && !familySerials.some((s) => sameSerial(s, qrShort)) ? qrShort : null)
     const serial = fixedSerial || nextSerial(familySerials, lastSerial)

@@ -1,12 +1,13 @@
-import { Building2, Layers, Pencil, Plus, QrCode, Search, Upload, X } from 'lucide-react'
+import { Building2, Layers, Pencil, Plus, Printer, QrCode, Search, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { listClients } from '../features/clients/api'
 import type { Client } from '../features/clients/schemas'
 import { listEquipmentUnits, listSites } from '../features/equipment/api'
 import { attributesSummary, unitRepere, unitTypeLine } from '../features/equipment/identification'
 import { BatchAddUnitsModal } from '../features/equipment/components/BatchAddUnitsModal'
 import { EquipmentUnitModal } from '../features/equipment/components/EquipmentUnitModal'
+import { LabelsModal } from '../features/equipment/components/LabelsModal'
 import { QrScanner } from '../features/equipment/components/QrScanner'
 import { SiteModal } from '../features/equipment/components/SiteModal'
 import {
@@ -51,6 +52,10 @@ export function EquipementsPage() {
   const [siteModalOpen, setSiteModalOpen] = useState(false)
   const [editingSite, setEditingSite] = useState<Site | null>(null)
   const [batchModalOpen, setBatchModalOpen] = useState(false)
+  const [labelsOpen, setLabelsOpen] = useState(false)
+  // Étiquette scannée avec l'appareil photo (/e/<code>) → /equipements?open=<id>
+  const [searchParams, setSearchParams] = useSearchParams()
+  const openId = searchParams.get('open')
 
   // Filtres
   const [search, setSearch] = useState('')
@@ -74,6 +79,14 @@ export function EquipementsPage() {
       setUnits(u)
       setSites(s)
       setClients(c)
+      if (openId) {
+        const found = u.find((x) => x.id === openId)
+        if (found) {
+          setEditingUnit(found)
+          setUnitModalOpen(true)
+        }
+        setSearchParams((p) => { p.delete('open'); return p }, { replace: true })
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
     } finally {
@@ -83,6 +96,7 @@ export function EquipementsPage() {
 
   useEffect(() => {
     void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const sitesById = useMemo(() => {
@@ -203,6 +217,15 @@ export function EquipementsPage() {
           >
             <QrCode size={13} strokeWidth={2} />
             Scanner
+          </button>
+          <button
+            type="button"
+            className="btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            onClick={() => setLabelsOpen(true)}
+          >
+            <Printer size={13} strokeWidth={2} />
+            Étiquettes QR
           </button>
           <Link
             to="/equipements/import"
@@ -561,6 +584,18 @@ export function EquipementsPage() {
         onChanged={() => void load()}
         site={editingSite}
       />
+
+      {labelsOpen && (
+        <LabelsModal
+          open
+          onClose={() => setLabelsOpen(false)}
+          onChanged={() => void load()}
+          units={units}
+          sites={sites}
+          clients={clients}
+          defaultSiteId={siteFilter}
+        />
+      )}
 
       <BatchAddUnitsModal
         open={batchModalOpen}
