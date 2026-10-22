@@ -10,6 +10,7 @@ import { normalizeSiret, validateSiret } from './siret'
  * - `invalid`: SIRET ne passe pas la validation Luhn ou le format
  * - `notFound`: SIRET techniquement valide mais inconnu de l'annuaire des entreprises
  * - `taken`  : SIRET déjà utilisé par une organization existante (anti-abus)
+ * - `closed` : établissement fermé (ou entreprise cessée) dans l'annuaire (anti-abus)
  * - `ok`     : SIRET valide ET libre, on a récupéré le nom de l'entreprise
  */
 export type SiretLookupState =
@@ -18,6 +19,7 @@ export type SiretLookupState =
   | { status: 'invalid'; reason: string }
   | { status: 'notFound' }
   | { status: 'taken' }
+  | { status: 'closed'; closedOn?: string }
   | { status: 'ok'; companyName: string; address?: string; naf?: string }
 
 const API_BASE = 'https://recherche-entreprises.api.gouv.fr/search'
@@ -70,9 +72,16 @@ export function useSiretLookup(rawSiret: string): SiretLookupState {
         if (cancelled) return
 
         const result = json?.results?.[0]
-        const matchingEtab = result?.matching_etablissements?.[0]
+        const etabs: Array<Record<string, string | undefined>> = result?.matching_etablissements ?? []
+        const matchingEtab = etabs.find((e) => e.siret === siret) ?? etabs[0]
         if (!result || !matchingEtab) {
           setState({ status: 'notFound' })
+          return
+        }
+
+        // 3. Établissement fermé (F) ou entreprise cessée (C) : on refuse
+        if (matchingEtab.etat_administratif === 'F' || result.etat_administratif === 'C') {
+          setState({ status: 'closed', closedOn: matchingEtab.date_fermeture ?? result.date_fermeture ?? undefined })
           return
         }
 

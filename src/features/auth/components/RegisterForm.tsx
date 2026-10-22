@@ -228,6 +228,16 @@ function SiretFeedback({
     )
   }
 
+  if (state.status === 'closed') {
+    const since = state.closedOn ? ` depuis le ${new Date(state.closedOn).toLocaleDateString('fr-FR')}` : ''
+    return (
+      <span className="ferr on" style={{ lineHeight: 1.5 }}>
+        Cet établissement est fermé{since}. Indiquez le SIRET de votre établissement actuel
+        (il figure sur votre Kbis).
+      </span>
+    )
+  }
+
   if (state.status === 'notFound') {
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--ink2)', fontSize: 12, marginTop: 4 }}>
