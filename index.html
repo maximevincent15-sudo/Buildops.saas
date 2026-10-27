@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <!-- 2026-09-28 : CSP mise à jour (suivi des erreurs Sentry UE) — force le renouvellement du HTML en cache -->
+    <!-- 2026-10-27 : polices hébergées localement, CSP sans Google Fonts — force le renouvellement du HTML en cache -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -17,9 +17,8 @@
     <meta name="apple-mobile-web-app-title" content="Firovia" />
     <meta name="mobile-web-app-capable" content="yes" />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+    <!-- Polices hébergées par Firovia (plus d'appel à Google Fonts) -->
+    <link href="/fonts/fonts.css?v=1" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>
