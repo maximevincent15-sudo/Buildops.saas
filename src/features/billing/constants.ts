@@ -43,7 +43,7 @@ export const PLAN_OFFERS: PlanOffer[] = [
     },
     features: [
       'Planning + rapports terrain mobile',
-      'Registres équipements format APSAD',
+      'Registres prêts pour vos audits APSAD',
       'Visites préventives programmées automatiquement',
       'Contrats de maintenance : échéances, révision, facturation du mois en un clic',
       'Alertes échéances',
