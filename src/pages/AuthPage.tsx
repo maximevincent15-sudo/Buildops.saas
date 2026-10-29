@@ -138,10 +138,10 @@ export function AuthPage() {
         </div>
         <div className="auth-foot">
           <div className="tmini">
-            <div className="tmini-av">RB</div>
+            <div className="tmini-av">F</div>
             <p>
-              "Ce qui m'a convaincu, c'est les alertes réglementaires. J'avais déjà eu un problème avec un contrôle SSI oublié." —{' '}
-              <strong>Romain B., 4 techniciens</strong>
+              Conçu avec les retours de dirigeants de la maintenance incendie, et amélioré chaque semaine.{' '}
+              <strong>Données hébergées en France.</strong>
             </p>
           </div>
         </div>
