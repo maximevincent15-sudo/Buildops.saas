@@ -14,7 +14,7 @@ import {
   effectiveStatus,
 } from '../features/factures/constants'
 import type { InvoiceStatus } from '../features/factures/constants'
-import type { Invoice } from '../features/factures/schemas'
+import type { Invoice, UpsertInvoiceInput } from '../features/factures/schemas'
 import { RelanceModal } from '../features/relances/components/RelanceModal'
 import { AccountingExportModal } from '../features/export/components/AccountingExportModal'
 
@@ -54,11 +54,13 @@ export function FacturesPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [relanceInvoice, setRelanceInvoice] = useState<Invoice | null>(null)
+  const [duplicate, setDuplicate] = useState<{ seed: Partial<UpsertInvoiceInput>; from: string } | null>(null)
 
   // Support ouverture via ?open=<id> (depuis QuoteModal "Transformer en facture")
   useEffect(() => {
     const id = searchParams.get('open')
     if (id) {
+      setDuplicate(null)
       setEditingId(id)
       setModalOpen(true)
       // Nettoie le paramètre pour ne pas réouvrir au refresh
@@ -133,11 +135,13 @@ export function FacturesPage() {
     .reduce((sum, i) => sum + (Number(i.total_ttc) - Number(i.amount_paid ?? 0)), 0)
 
   function openCreate() {
+    setDuplicate(null)
     setEditingId(null)
     setModalOpen(true)
   }
 
   function openEdit(id: string) {
+    setDuplicate(null)
     setEditingId(id)
     setModalOpen(true)
   }
@@ -344,6 +348,12 @@ export function FacturesPage() {
         onClose={() => setModalOpen(false)}
         onSaved={() => void load()}
         invoiceId={editingId}
+        seed={duplicate?.seed}
+        notice={duplicate ? `Copie de la facture ${duplicate.from} : vérifiez le client, les lignes et les dates, puis créez la facture. Elle aura un nouveau numéro.` : undefined}
+        onDuplicate={(seed, from) => {
+          setDuplicate({ seed, from })
+          setEditingId(null)
+        }}
       />
 
       {/* Relance facture impayée */}

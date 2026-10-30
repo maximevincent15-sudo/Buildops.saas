@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { formatCompanyNumber } from '../../clients/companyLookup'
 import { computeQuoteTotals, formatAmount, formatNumber } from '../../devis/constants'
+import { VAT_MENTION_TEXT } from '../../parametres/api'
 import type { InvoicingSettings } from '../../parametres/api'
 import { PdfLogo } from '../../parametres/pdf/PdfLogo'
 import type { InvoiceWithLines } from '../schemas'
@@ -466,7 +467,7 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber }
             {settings.payment_terms && <Text>{settings.payment_terms}</Text>}
             {settings.late_penalty_text && <Text>{settings.late_penalty_text}</Text>}
             {settings.no_discount_text && <Text>{settings.no_discount_text}</Text>}
-            <Text>TVA acquittée sur les débits.</Text>
+            {settings.vat_mention && VAT_MENTION_TEXT[settings.vat_mention] && <Text>{VAT_MENTION_TEXT[settings.vat_mention]}</Text>}
           </View>
         )}
 

@@ -7,7 +7,7 @@ import { testEmailConfig } from '../features/email/api'
 import { FixedCostsCard } from '../features/finance/components/FixedCostsCard'
 import { useSubscription } from '../features/billing/hooks'
 import { getInvoicingSettings, updateOrganizationName, upsertInvoicingSettings } from '../features/parametres/api'
-import type { UpsertInvoicingInput } from '../features/parametres/api'
+import type { UpsertInvoicingInput, VatMention } from '../features/parametres/api'
 import { loadDemoData } from '../features/parametres/demoData'
 import { LogoCard } from '../features/parametres/components/LogoCard'
 import { ModulesCard } from '../features/parametres/components/ModulesCard'
@@ -32,6 +32,7 @@ const EMPTY: UpsertInvoicingInput = {
   late_penalty_text:
     'Tout retard de paiement entraîne des pénalités au taux annuel de 3 fois le taux légal (loi LME 2008), ainsi qu\'une indemnité forfaitaire pour frais de recouvrement de 40 €.',
   no_discount_text: 'Pas d\'escompte pour paiement anticipé.',
+  vat_mention: 'none',
   logo_url: null,
   quote_prefix: 'DEV',
   invoice_prefix: 'FAC',
@@ -80,6 +81,7 @@ export function ParametresPage() {
             payment_terms: s.payment_terms,
             late_penalty_text: s.late_penalty_text,
             no_discount_text: s.no_discount_text,
+            vat_mention: s.vat_mention ?? 'none',
             logo_url: s.logo_url,
             quote_prefix: s.quote_prefix ?? 'DEV',
             invoice_prefix: s.invoice_prefix ?? 'FAC',
@@ -523,6 +525,20 @@ export function ParametresPage() {
             value={form.no_discount_text ?? ''}
             onChange={(e) => setField('no_discount_text', e.target.value)}
           />
+        </div>
+        <div className="fg">
+          <label>Mention TVA</label>
+          <select
+            value={form.vat_mention}
+            onChange={(e) => setField('vat_mention', e.target.value as VatMention)}
+          >
+            <option value="none">Aucune mention</option>
+            <option value="debits">Option pour le paiement de la taxe d'après les débits</option>
+            <option value="franchise">TVA non applicable, art. 293 B du CGI (franchise en base)</option>
+          </select>
+          <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
+            Imprimée en bas des factures, selon votre régime de TVA. En cas de doute, demandez à votre comptable.
+          </span>
         </div>
       </div>
 

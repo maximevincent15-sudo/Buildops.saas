@@ -14,6 +14,15 @@ export async function updateOrganizationName(
   if (error) throw error
 }
 
+export type VatMention = 'none' | 'debits' | 'franchise'
+
+/** Texte imprimé en bas des factures (et des devis pour la franchise) selon le régime choisi */
+export const VAT_MENTION_TEXT: Record<VatMention, string | null> = {
+  none: null,
+  debits: "Option pour le paiement de la taxe d'après les débits.",
+  franchise: 'TVA non applicable, art. 293 B du CGI.',
+}
+
 export type InvoicingSettings = {
   organization_id: string
   legal_form: string | null
@@ -32,6 +41,8 @@ export type InvoicingSettings = {
   payment_terms: string | null
   late_penalty_text: string | null
   no_discount_text: string | null
+  /** Mention TVA en bas des factures (migration 20261030150000) */
+  vat_mention: VatMention
   logo_url: string | null
   /** Préfixes de numérotation (Migration 020) */
   quote_prefix: string | null
@@ -73,6 +84,7 @@ export async function upsertInvoicingSettings(
     payment_terms: input.payment_terms?.trim() || null,
     late_penalty_text: input.late_penalty_text?.trim() || null,
     no_discount_text: input.no_discount_text?.trim() || null,
+    vat_mention: input.vat_mention ?? 'none',
     logo_url: input.logo_url?.trim() || null,
     quote_prefix: input.quote_prefix?.trim().toUpperCase() || null,
     invoice_prefix: input.invoice_prefix?.trim().toUpperCase() || null,

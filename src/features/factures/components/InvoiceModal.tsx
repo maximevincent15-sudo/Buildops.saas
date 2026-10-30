@@ -1,4 +1,4 @@
-import { Ban, CheckCircle2, Download, Edit3, FileText, Mail, Plus, Trash2, Undo2, X } from 'lucide-react'
+import { Ban, CheckCircle2, Copy, Download, FileText, Lock, Mail, Plus, Trash2, Undo2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
@@ -40,6 +40,10 @@ type Props = {
   onSaved?: (invoiceId: string) => void
   invoiceId?: string | null
   seed?: Partial<UpsertInvoiceInput>
+  /** Bouton « Dupliquer » : le parent rouvre la modale en création avec ce pré-remplissage */
+  onDuplicate?: (seed: Partial<UpsertInvoiceInput>, fromReference: string) => void
+  /** Message affiché en haut en mode création (ex : copie d'une facture) */
+  notice?: string
 }
 
 const EMPTY_LINE: QuoteLineInput = {
@@ -54,7 +58,7 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props) {
+export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplicate, notice }: Props) {
   const profile = useAuthStore((s) => s.profile)
   const isEdit = !!invoiceId
 
@@ -200,6 +204,27 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
   // Statut effectif (pour gérer le 'overdue' calculé en runtime)
   const displayStatus = effectiveStatus(status, dueDate || null, amountPaid, totalTtc)
   const remaining = Math.max(0, totalTtc - amountPaid)
+  // Facture émise (plus en brouillon) : contenu figé, comme en base (trigger invoices_protect_issued)
+  const locked = isEdit && status !== 'draft'
+
+  /** Copie de la facture (ex. pour refaire une facture annulée) : date du jour, nouveau numéro à la création */
+  function handleDuplicate() {
+    if (!onDuplicate) return
+    onDuplicate({
+      client_id: clientId || undefined,
+      client_name: clientName,
+      client_contact_name: clientContact || undefined,
+      client_email: clientEmail || undefined,
+      client_address: clientAddress || undefined,
+      client_siren: clientSiren || undefined,
+      site_name: siteName || undefined,
+      site_address: siteAddress || undefined,
+      notes: notes || undefined,
+      lines: lines
+        .filter((l) => l.description.trim())
+        .map((l, i) => ({ position: i, description: l.description, quantity: l.quantity, unit_price_ht: l.unit_price_ht, vat_rate: l.vat_rate })),
+    }, reference)
+  }
 
   async function handleSubmit() {
     if (!profile?.organization_id) {
@@ -254,7 +279,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
 
   async function handleDelete() {
     if (!invoiceId) return
-    if (!window.confirm('Supprimer cette facture définitivement ?\n\n⚠️ En fiscalité française, supprimer une facture émise crée un trou dans la numérotation. Préfère "Annuler" pour conserver la trace.')) return
+    if (!window.confirm('Supprimer ce brouillon de facture définitivement ?')) return
     setDeleting(true)
     try {
       await deleteInvoice(invoiceId)
@@ -416,8 +441,8 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
     try {
       await cancelInvoice(invoiceId, reason)
       setStatus('cancelled')
-      setFlash('Facture annulée.')
-      setTimeout(() => setFlash(null), 2500)
+      setFlash('Facture annulée. Pour la refaire corrigée : « Dupliquer ».')
+      setTimeout(() => setFlash(null), 5000)
       onSaved?.(invoiceId)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
@@ -446,6 +471,23 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
           <p className="text-ink-2 text-sm">Chargement…</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {notice && !isEdit && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--acc)', background: 'var(--acc-lt, #E8EEF8)', borderRadius: 8, padding: '9px 12px', lineHeight: 1.45 }}>
+                <Copy size={14} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>{notice}</span>
+              </div>
+            )}
+            {locked && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--ink2)', background: 'var(--bg2, #F1F3F6)', borderRadius: 8, padding: '9px 12px', lineHeight: 1.45 }}>
+                <Lock size={14} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>
+                  {status === 'cancelled'
+                    ? 'Facture annulée : elle reste dans la numérotation et ne se modifie plus. Pour la refaire corrigée : « Dupliquer ».'
+                    : 'Facture émise : son contenu ne se modifie plus. Pour corriger une erreur, annulez-la puis refaites-la avec « Dupliquer ».'}
+                </span>
+              </div>
+            )}
+            <fieldset disabled={locked} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {/* Client */}
             <div className="card-section">
               <div className="card-section-title">Client</div>
@@ -618,7 +660,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
                       </div>
                       <div className="ql-tot">{formatAmount(lineHt)}</div>
                       <div className="ql-act">
-                        {lines.length > 1 && (
+                        {lines.length > 1 && !locked && (
                           <button
                             type="button"
                             className="ql-remove"
@@ -632,12 +674,14 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
                     </div>
                   )
                 })}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', flexWrap: 'wrap' }}>
-                  <button type="button" className="quote-add-line" onClick={addLine}>
-                    <Plus size={13} strokeWidth={2} /> Ajouter une ligne
-                  </button>
-                  <CatalogPicker onPick={addCatalogItem} />
-                </div>
+                {!locked && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', flexWrap: 'wrap' }}>
+                    <button type="button" className="quote-add-line" onClick={addLine}>
+                      <Plus size={13} strokeWidth={2} /> Ajouter une ligne
+                    </button>
+                    <CatalogPicker onPick={addCatalogItem} />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -669,6 +713,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
                 style={{ minHeight: 80 }}
               />
             </div>
+            </fieldset>
 
             {error && <span className="ferr on">{error}</span>}
             {flash && <p className="text-grn text-sm" style={{ margin: 0 }}>✅ {flash}</p>}
@@ -698,16 +743,18 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
                 </div>
                 {status !== 'cancelled' && (
                   <div className="quote-workflow-actions">
-                    <button
-                      type="button"
-                      className="btn-sm"
-                      onClick={() => void handleGeneratePdf()}
-                      disabled={generatingPdf}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                    >
-                      <FileText size={13} strokeWidth={2} />
-                      {generatingPdf ? 'Génération…' : pdfUrl ? 'Régénérer PDF' : 'Générer PDF'}
-                    </button>
+                    {(!locked || !pdfUrl) && (
+                      <button
+                        type="button"
+                        className="btn-sm"
+                        onClick={() => void handleGeneratePdf()}
+                        disabled={generatingPdf}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <FileText size={13} strokeWidth={2} />
+                        {generatingPdf ? 'Génération…' : pdfUrl ? 'Régénérer PDF' : 'Générer PDF'}
+                      </button>
+                    )}
                     {pdfUrl && (
                       <a
                         href={pdfUrl}
@@ -767,44 +814,44 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
             )}
 
             <div className="modal-foot">
-              {isEdit && (
+              {isEdit && status === 'draft' && (
                 <button
                   type="button"
                   className="mf del"
                   onClick={() => void handleDelete()}
                   disabled={anyLoading}
-                  style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                  title="Suppression définitive — préfère 'Annuler la facture' pour conserver la trace fiscale"
+                  style={{ marginRight: onDuplicate ? undefined : 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
                   <Trash2 size={14} strokeWidth={1.8} />
                   {deleting ? 'Suppression…' : 'Supprimer'}
                 </button>
               )}
+              {isEdit && onDuplicate && (
+                <button
+                  type="button"
+                  className="mf out"
+                  onClick={handleDuplicate}
+                  disabled={anyLoading}
+                  style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  title="Nouvelle facture en brouillon avec le même client et les mêmes lignes"
+                >
+                  <Copy size={14} strokeWidth={1.8} /> Dupliquer
+                </button>
+              )}
               <button type="button" className="mf out" onClick={onClose} disabled={anyLoading}>
-                Annuler
+                {locked ? 'Fermer' : 'Annuler'}
               </button>
-              <button
-                type="button"
-                className="mf prim"
-                onClick={() => void handleSubmit()}
-                disabled={anyLoading || (isEdit && (status === 'paid' || status === 'cancelled'))}
-                title={
-                  status === 'paid'
-                    ? 'Facture soldée : ses lignes ne sont plus modifiables'
-                    : status === 'cancelled'
-                      ? 'Facture annulée : ses lignes ne sont plus modifiables'
-                      : ''
-                }
-              >
-                {submitting ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer la facture'}
-              </button>
+              {!locked && (
+                <button
+                  type="button"
+                  className="mf prim"
+                  onClick={() => void handleSubmit()}
+                  disabled={anyLoading}
+                >
+                  {submitting ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer la facture'}
+                </button>
+              )}
             </div>
-
-            {(status === 'paid' || status === 'cancelled') && (
-              <p className="text-ink-3 text-xs font-light" style={{ margin: 0, textAlign: 'right' }}>
-                <Edit3 size={10} style={{ display: 'inline-block', verticalAlign: '-1px' }} /> Pour modifier cette facture, annule d'abord son règlement ou son annulation.
-              </p>
-            )}
           </div>
         )}
       </div>

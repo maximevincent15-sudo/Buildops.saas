@@ -1,6 +1,7 @@
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { VAT_MENTION_TEXT } from '../../parametres/api'
 import type { InvoicingSettings } from '../../parametres/api'
 import { PdfLogo } from '../../parametres/pdf/PdfLogo'
 import { formatCompanyNumber } from '../../clients/companyLookup'
@@ -373,6 +374,7 @@ export function QuotePdf({ quote, organizationName, settings, clientNumber }: Pr
             {settings.no_discount_text && (
               <Text>{settings.no_discount_text}</Text>
             )}
+            {settings.vat_mention === 'franchise' && <Text>{VAT_MENTION_TEXT.franchise}</Text>}
           </View>
         )}
 
