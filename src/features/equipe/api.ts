@@ -44,12 +44,30 @@ export async function listMembers(): Promise<TeamMember[]> {
   }))
 }
 
+/**
+ * Change le rôle d'un membre via la RPC set_member_role : le rôle n'est plus
+ * modifiable directement dans profiles (sinon chacun pourrait se nommer admin).
+ * Vérifié côté serveur : appelant admin, même organisation, pas soi-même,
+ * jamais le dernier admin.
+ */
 export async function updateMemberRole(profileId: string, role: UserRole): Promise<void> {
-  const { error } = await supabase
-    .from('profiles')
-    .update({ user_role: role })
-    .eq('id', profileId)
-  if (error) throw error
+  const { data, error } = await supabase.rpc('set_member_role', {
+    p_member: profileId,
+    p_role: role,
+  })
+  if (error) throw new Error(`Erreur base de données : ${error.message}`)
+  if (data?.error) {
+    const messages: Record<string, string> = {
+      not_authenticated: 'Vous devez être connecté(e)',
+      not_admin: 'Seuls les administrateurs peuvent changer un rôle',
+      bad_role: 'Rôle inconnu',
+      cannot_change_self: 'Vous ne pouvez pas changer votre propre rôle',
+      not_same_org: "Ce membre n'appartient pas à votre organisation",
+      last_admin: 'Impossible de retirer le dernier administrateur',
+    }
+    const errCode = data.error as string
+    throw new Error(messages[errCode] ?? `Erreur : ${errCode}`)
+  }
 }
 
 /**
