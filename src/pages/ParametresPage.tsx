@@ -9,6 +9,7 @@ import { useSubscription } from '../features/billing/hooks'
 import { getInvoicingSettings, updateOrganizationName, upsertInvoicingSettings } from '../features/parametres/api'
 import type { UpsertInvoicingInput } from '../features/parametres/api'
 import { loadDemoData } from '../features/parametres/demoData'
+import { LogoCard } from '../features/parametres/components/LogoCard'
 import { ModulesCard } from '../features/parametres/components/ModulesCard'
 import { NotificationsCard } from '../features/parametres/components/NotificationsCard'
 import { NextNumberFields } from '../features/parametres/components/NextNumberFields'
@@ -223,7 +224,7 @@ export function ParametresPage() {
         <div>
           <div className="dash-title">Paramètres de l'organisation</div>
           <div className="dash-sub">
-            Ces informations apparaîtront automatiquement sur tes devis et factures.
+            Ces informations apparaîtront automatiquement sur tes devis, factures et rapports.
             À renseigner une seule fois.
           </div>
         </div>
@@ -268,6 +269,15 @@ export function ParametresPage() {
           />
         </div>
       </div>
+
+      {/* Logo imprimé sur les documents : administrateurs */}
+      {(profile?.user_role ?? 'admin') === 'admin' && profile?.organization_id && (
+        <LogoCard
+          organizationId={profile.organization_id}
+          logoUrl={form.logo_url}
+          onChange={(url) => setForm((f) => ({ ...f, logo_url: url }))}
+        />
+      )}
 
       {/* Modules affichés (« mode terrain ») : administrateurs */}
       {(profile?.user_role ?? 'admin') === 'admin' && <ModulesCard />}

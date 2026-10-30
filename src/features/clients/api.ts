@@ -9,6 +9,14 @@ function companyColumns(raw: string | undefined): { siren: string | null; siret:
   return { siren: p.number.siren, siret: p.number.siret }
 }
 
+/** Index unique (organisation, n° client) : message lisible au lieu de l'erreur Postgres */
+function clientError(error: { code?: string; message: string }): Error {
+  if (error.code === '23505' && error.message.includes('client_number')) {
+    return new Error('Ce n° client est déjà utilisé par un autre client.')
+  }
+  return new Error(error.message)
+}
+
 export async function createClient(
   input: CreateClientInput,
   organizationId: string,
@@ -18,6 +26,7 @@ export async function createClient(
     .insert({
       organization_id: organizationId,
       name: input.name,
+      client_number: input.client_number?.trim() || null,
       ...companyColumns(input.company_number),
       contact_name: input.contact_name || null,
       contact_email: input.contact_email || null,
@@ -28,7 +37,7 @@ export async function createClient(
     })
     .select()
     .single()
-  if (error) throw error
+  if (error) throw clientError(error)
   return data as Client
 }
 
@@ -49,6 +58,8 @@ export async function updateClient(
     .from('clients')
     .update({
       name: input.name,
+      // Absent (ex. import sans colonne « N° client ») : on garde le n° existant
+      ...(input.client_number !== undefined ? { client_number: input.client_number.trim() || null } : {}),
       ...companyColumns(input.company_number),
       contact_name: input.contact_name || null,
       contact_email: input.contact_email || null,
@@ -60,7 +71,7 @@ export async function updateClient(
     .eq('id', id)
     .select()
     .single()
-  if (error) throw error
+  if (error) throw clientError(error)
   return data as Client
 }
 
@@ -80,4 +91,40 @@ export async function getClient(id: string): Promise<Client | null> {
     .maybeSingle()
   if (error) throw error
   return (data as Client | null) ?? null
+}
+
+/** N° client à imprimer sur un document (null si le client n'en a pas ou est introuvable) */
+export async function getClientNumber(clientId: string | null | undefined): Promise<string | null> {
+  if (!clientId) return null
+  const { data, error } = await supabase
+    .from('clients')
+    .select('client_number')
+    .eq('id', clientId)
+    .maybeSingle()
+  if (error) return null
+  return (data as { client_number: string | null } | null)?.client_number?.trim() || null
+}
+
+/**
+ * Prochain n° client : suit la numérotation déjà utilisée (préfixe et nombre de
+ * chiffres du dernier n° saisi, ex. « 0458 » → « 0459 », « CLI-12 » → « CLI-13 »),
+ * sinon C0001, C0002…
+ */
+export async function suggestNextClientNumber(organizationId: string): Promise<string> {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('client_number, created_at')
+    .eq('organization_id', organizationId)
+    .not('client_number', 'is', null)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  const numbered = ((data ?? []) as { client_number: string }[])
+    .map((r) => r.client_number.trim().match(/^(.*?)(\d+)$/))
+    .filter((m): m is RegExpMatchArray => m !== null)
+  if (numbered.length === 0) return 'C0001'
+  // Préfixe du dernier client numéroté, puis le plus grand numéro de cette série
+  const prefix = numbered[0][1]
+  const width = numbered[0][2].length
+  const max = Math.max(...numbered.filter((m) => m[1] === prefix).map((m) => Number(m[2])))
+  return `${prefix}${String(max + 1).padStart(width, '0')}`
 }

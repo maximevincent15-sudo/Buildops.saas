@@ -4,6 +4,7 @@ import { SignaturePad } from '../../../shared/ui/SignaturePad'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
+import { getClientNumber } from '../../clients/api'
 import { getInvoicingSettings } from '../../parametres/api'
 import { formatCompanyNumber, parseCompanyNumber } from '../../clients/companyLookup'
 import { ClientAutocomplete } from '../../planning/components/ClientAutocomplete'
@@ -357,10 +358,13 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       // Recharge la version la plus à jour du devis
       const fresh = await getQuote(quoteId)
       if (!fresh) throw new Error('Devis introuvable')
-      const settings = await getInvoicingSettings(profile.organization_id)
+      const [settings, clientNumber] = await Promise.all([
+        getInvoicingSettings(profile.organization_id),
+        getClientNumber(fresh.client_id),
+      ])
       const orgName = profile.organizations?.name ?? 'Maintenance'
       const element = (
-        <QuotePdf quote={fresh as QuoteWithLines} organizationName={orgName} settings={settings} />
+        <QuotePdf quote={fresh as QuoteWithLines} organizationName={orgName} settings={settings} clientNumber={clientNumber} />
       )
       const url = await generateAndUploadQuotePdf(
         element,

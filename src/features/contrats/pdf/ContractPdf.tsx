@@ -2,6 +2,7 @@ import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { formatCompanyNumber } from '../../clients/companyLookup'
 import { formatAmount, formatNumber } from '../../devis/constants'
 import type { InvoicingSettings } from '../../parametres/api'
+import { PdfLogo } from '../../parametres/pdf/PdfLogo'
 import {
   BILLING_FREQUENCY_LABELS, FREQUENCY_LABELS, contractAnnualTotals, fixedEnd, lineAnnualHt,
 } from '../schemas'
@@ -71,6 +72,7 @@ const styles = StyleSheet.create({
 
 export type ContractPdfClient = {
   name: string
+  client_number: string | null
   contact_name: string | null
   address: string | null
   contact_email: string | null
@@ -105,6 +107,7 @@ export function ContractPdf({ contract, organizationName, settings, client, site
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
+            <PdfLogo url={settings?.logo_url} />
             <Text style={styles.orgName}>{organizationName || 'Maintenance'}</Text>
             {settings && (
               <View style={styles.orgInfo}>
@@ -136,6 +139,7 @@ export function ContractPdf({ contract, organizationName, settings, client, site
           <View style={styles.partyCol}>
             <Text style={styles.label}>Le client</Text>
             <Text style={styles.partyName}>{client?.name ?? contract.client_name}</Text>
+            {client?.client_number && <Text style={styles.line}>N° client : {client.client_number}</Text>}
             {client?.contact_name && <Text style={styles.line}>{client.contact_name}</Text>}
             {client?.address && <Text style={styles.line}>{client.address}</Text>}
             {client?.contact_email && <Text style={styles.line}>{client.contact_email}</Text>}

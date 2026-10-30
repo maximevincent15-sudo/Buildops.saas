@@ -44,6 +44,7 @@ import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateRep
 import { ReportPdf } from '../features/rapports/pdf/ReportPdf'
 import type { AnomalyPdfEntry } from '../features/rapports/pdf/ReportPdf'
 import { buildUnitEntriesForIntervention } from '../features/equipment/reportHelpers'
+import { getClientNumber } from '../features/clients/api'
 import { getInvoicingSettings } from '../features/parametres/api'
 import { listAnomaliesForIntervention } from '../features/anomalies/api'
 import { ACTIVE_ANOMALY_STATUSES, ANOMALY_ACTION_LABELS } from '../features/anomalies/schemas'
@@ -451,6 +452,7 @@ export function RapportEditorPage() {
     } catch {
       anomalyEntries = []
     }
+    const clientNumber = await getClientNumber(intervention?.client_id)
     const element = (
       <ReportPdf
         intervention={intervention!}
@@ -460,6 +462,7 @@ export function RapportEditorPage() {
         unitEntries={unitEntries}
         settings={invoicingSettings}
         anomalyEntries={anomalyEntries}
+        clientNumber={clientNumber}
         interventionType={
           intervention?.intervention_type
             ? INTERVENTION_TYPE_LABELS[intervention.intervention_type]

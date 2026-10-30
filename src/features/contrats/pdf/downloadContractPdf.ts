@@ -12,7 +12,7 @@ export async function downloadContractPdf(contract: ContractWithDetails, organiz
     import('@react-pdf/renderer'),
     getInvoicingSettings(organizationId).catch(() => null),
     contract.client_id
-      ? supabase.from('clients').select('name, contact_name, address, contact_email, siren').eq('id', contract.client_id).maybeSingle()
+      ? supabase.from('clients').select('name, client_number, contact_name, address, contact_email, siren').eq('id', contract.client_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     contract.site_ids.length
       ? supabase.from('sites').select('id, name, address, postal_code, city').in('id', contract.site_ids)

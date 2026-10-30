@@ -4,6 +4,7 @@ import { fr } from 'date-fns/locale'
 import { formatCompanyNumber } from '../../clients/companyLookup'
 import { computeQuoteTotals, formatAmount, formatNumber } from '../../devis/constants'
 import type { InvoicingSettings } from '../../parametres/api'
+import { PdfLogo } from '../../parametres/pdf/PdfLogo'
 import type { InvoiceWithLines } from '../schemas'
 
 const colors = {
@@ -258,9 +259,11 @@ type Props = {
   invoice: InvoiceWithLines
   organizationName: string
   settings: InvoicingSettings | null
+  /** N° client de la fiche client (si renseigné) */
+  clientNumber?: string | null
 }
 
-export function InvoicePdf({ invoice, organizationName, settings }: Props) {
+export function InvoicePdf({ invoice, organizationName, settings, clientNumber }: Props) {
   const totals = computeQuoteTotals(
     invoice.lines.map((l) => ({
       quantity: Number(l.quantity),
@@ -292,6 +295,7 @@ export function InvoicePdf({ invoice, organizationName, settings }: Props) {
         {/* HEADER */}
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
+            <PdfLogo url={settings?.logo_url} />
             <Text style={styles.orgName}>{organizationName || 'Maintenance'}</Text>
             {settings && (
               <View style={styles.orgInfo}>
@@ -352,6 +356,7 @@ export function InvoicePdf({ invoice, organizationName, settings }: Props) {
           <View style={styles.addressCol}>
             <Text style={styles.addressLabel}>Facturé à</Text>
             <Text style={styles.addressName}>{invoice.client_name}</Text>
+            {clientNumber && <Text style={styles.addressLine}>N° client : {clientNumber}</Text>}
             {invoice.client_contact_name && <Text style={styles.addressLine}>{invoice.client_contact_name}</Text>}
             {invoice.client_address && <Text style={styles.addressLine}>{invoice.client_address}</Text>}
             {invoice.client_email && <Text style={styles.addressLine}>{invoice.client_email}</Text>}

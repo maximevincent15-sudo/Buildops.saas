@@ -16,6 +16,7 @@ function isValidEmail(s: string): boolean {
  *
  * Champs acceptés (colonnes du fichier) :
  *  - Nom* : raison sociale du client
+ *  - N° client : code client (ex. C0001), unique dans l'entreprise
  *  - Contact : personne à contacter
  *  - Email : email du contact (validé)
  *  - Téléphone : libre
@@ -42,6 +43,13 @@ export const clientsImportDefinition: ImportDefinition = {
       required: true,
       example: 'Valoris SA',
       hint: "Raison sociale ou nom d'enseigne",
+    },
+    {
+      key: 'client_number',
+      label: 'N° client',
+      aliases: ['Code client', 'Numéro client', 'Numéro de client', 'N° de client', 'Réf client', 'Référence client', 'Compte client', 'N° compte'],
+      example: 'C0001',
+      hint: 'Optionnel — imprimé sur les devis, factures et rapports',
     },
     {
       key: 'contact_name',
@@ -169,6 +177,8 @@ export const clientsImportDefinition: ImportDefinition = {
     const companyNumber = row.company_number ?? ''
     const input: CreateClientInput = {
       name: (row.name ?? '').trim(),
+      // Colonne absente ou vide : on ne touche pas au n° d'un client existant
+      client_number: row.client_number?.trim() || undefined,
       company_number: parseCompanyNumber(companyNumber).ok ? companyNumber : undefined,
       contact_name: row.contact_name ?? undefined,
       contact_email: row.contact_email ?? undefined,

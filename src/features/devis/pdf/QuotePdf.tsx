@@ -2,6 +2,7 @@ import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/render
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import type { InvoicingSettings } from '../../parametres/api'
+import { PdfLogo } from '../../parametres/pdf/PdfLogo'
 import { formatCompanyNumber } from '../../clients/companyLookup'
 import { computeQuoteTotals, formatAmount, formatNumber } from '../constants'
 import type { QuoteWithLines } from '../schemas'
@@ -208,9 +209,11 @@ type Props = {
   quote: QuoteWithLines
   organizationName: string
   settings: InvoicingSettings | null
+  /** N° client de la fiche client (si renseigné) */
+  clientNumber?: string | null
 }
 
-export function QuotePdf({ quote, organizationName, settings }: Props) {
+export function QuotePdf({ quote, organizationName, settings, clientNumber }: Props) {
   const totals = computeQuoteTotals(
     quote.lines.map((l) => ({
       quantity: Number(l.quantity),
@@ -232,6 +235,7 @@ export function QuotePdf({ quote, organizationName, settings }: Props) {
         {/* HEADER */}
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
+            <PdfLogo url={settings?.logo_url} />
             <Text style={styles.orgName}>{organizationName || 'Maintenance'}</Text>
             {settings && (
               <View style={styles.orgInfo}>
@@ -263,6 +267,7 @@ export function QuotePdf({ quote, organizationName, settings }: Props) {
           <View style={styles.addressCol}>
             <Text style={styles.addressLabel}>Client</Text>
             <Text style={styles.addressName}>{quote.client_name}</Text>
+            {clientNumber && <Text style={styles.addressLine}>N° client : {clientNumber}</Text>}
             {quote.client_contact_name && (
               <Text style={styles.addressLine}>{quote.client_contact_name}</Text>
             )}

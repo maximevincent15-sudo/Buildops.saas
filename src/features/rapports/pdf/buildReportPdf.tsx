@@ -1,6 +1,7 @@
 import { normalizeIntervention, INTERVENTION_TYPE_LABELS } from '../../planning/schemas'
 import type { Intervention } from '../../planning/schemas'
 import { listAnomaliesForIntervention } from '../../anomalies/api'
+import { getClientNumber } from '../../clients/api'
 import { listEquipmentUnitsByIds, listZones } from '../../equipment/api'
 import { buildUnitEntriesForIntervention } from '../../equipment/reportHelpers'
 import { EQUIPMENT_FAMILY_LABELS } from '../../equipment/schemas'
@@ -49,10 +50,11 @@ export async function generateReportPdfForIntervention(
     responses: byType[t] ?? [],
   }))
 
-  const [unitEntries, settings, anomalies] = await Promise.all([
+  const [unitEntries, settings, anomalies, clientNumber] = await Promise.all([
     buildUnitEntriesForIntervention(interventionId, intervention.site_id).catch(() => []),
     getInvoicingSettings(organizationId).catch(() => null),
     listAnomaliesForIntervention(interventionId).catch(() => []),
+    getClientNumber(intervention.client_id),
   ])
 
   let anomalyEntries: AnomalyPdfEntry[] = []
@@ -87,6 +89,7 @@ export async function generateReportPdfForIntervention(
       unitEntries={unitEntries}
       settings={settings}
       anomalyEntries={anomalyEntries}
+      clientNumber={clientNumber}
       interventionType={
         intervention.intervention_type ? INTERVENTION_TYPE_LABELS[intervention.intervention_type] : null
       }

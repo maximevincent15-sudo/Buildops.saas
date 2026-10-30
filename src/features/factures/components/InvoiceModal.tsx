@@ -5,6 +5,7 @@ import { useAuthStore } from '../../auth/store'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { VAT_RATES, computeQuoteTotals, formatAmount } from '../../devis/constants'
 import type { QuoteLineInput } from '../../devis/schemas'
+import { getClientNumber } from '../../clients/api'
 import { getInvoicingSettings } from '../../parametres/api'
 import { CatalogPicker } from '../../catalogue/components/CatalogPicker'
 import type { CatalogItem } from '../../catalogue/schemas'
@@ -274,10 +275,13 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed }: Props)
     try {
       const fresh = await getInvoice(invoiceId)
       if (!fresh) throw new Error('Facture introuvable')
-      const settings = await getInvoicingSettings(profile.organization_id)
+      const [settings, clientNumber] = await Promise.all([
+        getInvoicingSettings(profile.organization_id),
+        getClientNumber(fresh.client_id),
+      ])
       const orgName = profile.organizations?.name ?? 'Maintenance'
       const element = (
-        <InvoicePdf invoice={fresh as InvoiceWithLines} organizationName={orgName} settings={settings} />
+        <InvoicePdf invoice={fresh as InvoiceWithLines} organizationName={orgName} settings={settings} clientNumber={clientNumber} />
       )
       const url = await generateAndUploadInvoicePdf(
         element,

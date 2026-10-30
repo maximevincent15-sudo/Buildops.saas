@@ -14,6 +14,7 @@ import {
 import type { EquipmentType } from '../../../shared/constants/interventions'
 import { EQUIPMENT_FAMILIES } from '../../equipment/schemas'
 import type { InvoicingSettings } from '../../parametres/api'
+import { PdfLogo } from '../../parametres/pdf/PdfLogo'
 import type { Intervention } from '../../planning/schemas'
 import type { ChecklistItem } from '../checklists'
 import { computeConformity } from '../conformity'
@@ -482,12 +483,14 @@ type Props = {
   interventionType?: string | null
   /** Date de la prochaine intervention planifiée (ISO date). */
   nextInterventionDate?: string | null
+  /** N° client de la fiche client (si renseigné). */
+  clientNumber?: string | null
 }
 
 export function ReportPdf({
   intervention, report, sections, organizationName,
   unitEntries, settings, anomalyEntries,
-  interventionType, nextInterventionDate,
+  interventionType, nextInterventionDate, clientNumber,
 }: Props) {
   const interventionEquipsLabel = formatEquipmentTypes(intervention.equipment_types)
 
@@ -627,7 +630,10 @@ export function ReportPdf({
       <Page size="A4" style={styles.page}>
         {/* HEADER */}
         <View style={styles.header} fixed>
-          <Text style={styles.orgName}>{organizationName || 'Maintenance'}</Text>
+          <View style={{ flex: 1 }}>
+            <PdfLogo url={settings?.logo_url} height={34} />
+            <Text style={styles.orgName}>{organizationName || 'Maintenance'}</Text>
+          </View>
           <View style={styles.headerMeta}>
             <Text style={styles.reportLabel}>Rapport d'intervention</Text>
             <Text style={styles.reportRef}>{intervention.reference}</Text>
@@ -778,6 +784,12 @@ export function ReportPdf({
               <Text style={styles.infoLabel}>Client</Text>
               <Text style={styles.infoValue}>{intervention.client_name}</Text>
             </View>
+            {clientNumber && (
+              <View style={styles.infoItemHalf}>
+                <Text style={styles.infoLabel}>N° client</Text>
+                <Text style={styles.infoValue}>{clientNumber}</Text>
+              </View>
+            )}
             {intervention.site_name && (
               <View style={styles.infoItemHalf}>
                 <Text style={styles.infoLabel}>Site</Text>

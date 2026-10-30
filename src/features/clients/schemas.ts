@@ -3,6 +3,8 @@ import { parseCompanyNumber } from './companyLookup'
 
 export const createClientSchema = z.object({
   name: z.string().min(1, 'Nom du client requis'),
+  // N° client (ex. C0001), proposé automatiquement et modifiable
+  client_number: z.string().max(30, '30 caractères maximum').optional(),
   // SIREN (9) ou SIRET (14), optionnel — éclaté en siren / siret par l'API
   company_number: z.string().optional().superRefine((v, ctx) => {
     const p = parseCompanyNumber(v)
@@ -33,6 +35,8 @@ export type Client = {
   id: string
   organization_id: string
   name: string
+  /** N° client propre à l'entreprise (ex. C0001) */
+  client_number: string | null
   siren: string | null
   siret: string | null
   contact_name: string | null

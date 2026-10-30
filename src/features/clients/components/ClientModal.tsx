@@ -9,7 +9,7 @@ import { ReportHistoryList } from '../../rapports/components/ReportHistoryList'
 import { ClientContractsSection } from '../../contrats/components/ClientContractsSection'
 import { useModuleEnabled } from '../../parametres/modules'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
-import { createClient, deleteClient, updateClient } from '../api'
+import { createClient, deleteClient, suggestNextClientNumber, updateClient } from '../api'
 import { formatCompanyNumber, useCompanyLookup } from '../companyLookup'
 import type { CompanyInfo, CompanyLookupState } from '../companyLookup'
 import { createClientSchema } from '../schemas'
@@ -28,6 +28,7 @@ function toFormValues(c: Client | null | undefined): Partial<CreateClientInput> 
   if (!c) return {}
   return {
     name: c.name,
+    client_number: c.client_number ?? '',
     company_number: c.siret ?? c.siren ?? '',
     contact_name: c.contact_name ?? '',
     contact_email: c.contact_email ?? '',
@@ -67,6 +68,18 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
       appliedRef.current = null
     }
   }, [open, client, reset])
+
+  // N° client : on propose le suivant tant que la case est vide (modifiable)
+  useEffect(() => {
+    if (!open || client?.client_number || !profile?.organization_id) return
+    let alive = true
+    void suggestNextClientNumber(profile.organization_id)
+      .then((next) => {
+        if (alive && !getValues('client_number')?.trim()) setValue('client_number', next)
+      })
+      .catch(() => { /* pas de proposition : la case reste vide */ })
+    return () => { alive = false }
+  }, [open, client, profile?.organization_id, getValues, setValue])
 
   // SIREN / SIRET → pré-remplissage nom + adresse depuis l'annuaire des entreprises
   const companyNumber = useWatch({ control, name: 'company_number' })
@@ -160,24 +173,31 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div className="fg">
-            <label>
-              SIREN / SIRET{' '}
-              <span style={{ color: 'var(--ink3)', fontWeight: 400 }}>(optionnel)</span>
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              placeholder="Ex : 552 081 317 — remplit le nom et l'adresse"
-              {...register('company_number')}
-            />
-            <CompanyFeedback
-              state={lookup}
-              error={errors.company_number?.message}
-              canApply={canApply}
-              onApply={() => lookup.status === 'ok' && applyCompany(lookup.company)}
-            />
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div className="fg" style={{ flex: '0 1 140px', minWidth: 120 }}>
+              <label>N° client</label>
+              <input type="text" autoComplete="off" placeholder="C0001" maxLength={30} {...register('client_number')} />
+              {errors.client_number && <span className="ferr on">{errors.client_number.message}</span>}
+            </div>
+            <div className="fg" style={{ flex: '1 1 260px', minWidth: 0 }}>
+              <label>
+                SIREN / SIRET{' '}
+                <span style={{ color: 'var(--ink3)', fontWeight: 400 }}>(optionnel)</span>
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="Ex : 552 081 317 — remplit le nom et l'adresse"
+                {...register('company_number')}
+              />
+              <CompanyFeedback
+                state={lookup}
+                error={errors.company_number?.message}
+                canApply={canApply}
+                onApply={() => lookup.status === 'ok' && applyCompany(lookup.company)}
+              />
+            </div>
           </div>
 
           <div className="fg">

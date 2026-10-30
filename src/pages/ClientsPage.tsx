@@ -75,7 +75,7 @@ export function ClientsPage() {
     return clients.flatMap((client) => {
       const clientSites = sitesByClient.get(client.id) ?? []
       const ownMatch = matchesSearch(search, [
-        client.name, client.contact_name, client.contact_email, client.contact_phone,
+        client.name, client.client_number, client.contact_name, client.contact_email, client.contact_phone,
         client.address, client.siret, client.siren,
       ])
       const matchedSites = clientSites.filter((site) =>
@@ -144,7 +144,7 @@ export function ClientsPage() {
                 <input
                   className="input-sm"
                   type="search"
-                  placeholder="Rechercher (nom, contact, ville, téléphone, site…)"
+                  placeholder="Rechercher (nom, n° client, contact, ville, téléphone, site…)"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   style={{ paddingLeft: 30, width: '100%' }}
@@ -184,7 +184,14 @@ export function ClientsPage() {
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === 'Enter') openEdit(c) }}
                 >
-                  <div className="client-name">{c.name}</div>
+                  <div className="client-name">
+                    {c.client_number && (
+                      <span style={{ display: 'inline-block', background: 'var(--acc-lt)', color: 'var(--acc)', fontWeight: 700, fontSize: 11, padding: '1px 6px', borderRadius: 5, marginRight: 6, verticalAlign: '1px' }}>
+                        {c.client_number}
+                      </span>
+                    )}
+                    {c.name}
+                  </div>
                   {matchedSites.length > 0 && (
                     <div className="client-line" style={{ color: 'var(--acc)' }}>
                       <Building2 size={12} strokeWidth={2} />
