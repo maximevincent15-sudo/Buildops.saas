@@ -560,6 +560,9 @@ export function ReportPdf({
   )
   const unitControlsActive = conformity.unitControlsActive
   const isConform = conformity.isConform
+  // Le registre ne liste que les équipements contrôlés ; les non vérifiés ont leur rubrique
+  const verifiedEntries = (unitEntries ?? []).filter((e) => e.verdict !== 'non_verifie')
+  const notVerifiedEntries = (unitEntries ?? []).filter((e) => e.verdict === 'non_verifie')
   const summary = { answered, total: totalItems, okCount, nokCount, naCount, isConform }
   void computeReportSummary // évite l'avertissement lint (on garde l'import pour compat future)
 
@@ -736,7 +739,7 @@ export function ReportPdf({
                 Contrôlés
               </Text>
               <Text style={{ fontSize: 13, fontFamily: 'Helvetica-Bold', color: colors.ink, marginTop: 1 }}>
-                {(unitEntries?.length ?? summary.total) || summary.total}
+                {verifiedEntries.length || summary.total}
               </Text>
             </View>
             <View style={{ flex: 1, padding: 6, backgroundColor: '#FDECEC', borderRadius: 4 }}>
@@ -766,6 +769,25 @@ export function ReportPdf({
             </Text>
             {anomalyEntries.map((entry, i) => (
               <AnomalyBlock key={entry.anomaly.id ?? i} entry={entry} />
+            ))}
+          </View>
+        )}
+
+        {/* ÉQUIPEMENTS NON VÉRIFIÉS : prévus dans la visite mais pas contrôlés */}
+        {notVerifiedEntries.length > 0 && (
+          <View style={[styles.summaryBox, { borderLeftColor: colors.org, backgroundColor: colors.orgLt }]}>
+            <Text style={styles.summaryTitle}>
+              {notVerifiedEntries.length} équipement{notVerifiedEntries.length > 1 ? 's' : ''} non vérifié{notVerifiedEntries.length > 1 ? 's' : ''} lors de cette visite
+            </Text>
+            <Text style={[styles.summaryItem, { color: colors.ink2, marginBottom: 2 }]}>
+              Ce rapport ne {notVerifiedEntries.length > 1 ? 'les' : 'le'} couvre pas : leur contrôle reste à faire.
+            </Text>
+            {groupNotVerified(notVerifiedEntries).map((g) => (
+              <Text key={g.key} style={styles.summaryItem}>
+                <Text style={{ fontFamily: 'Helvetica-Bold' }}>{g.familyLabel} ({g.serials.length})</Text>
+                {` : ${g.serials.map(unitNumber).join(', ')}`}
+                {g.reason ? ` — ${g.reason}` : ''}
+              </Text>
             ))}
           </View>
         )}
@@ -803,7 +825,7 @@ export function ReportPdf({
               </View>
             )}
             <View style={styles.infoItemFull}>
-              <Text style={styles.infoLabel}>Équipements contrôlés</Text>
+              <Text style={styles.infoLabel}>{notVerifiedEntries.length > 0 ? 'Équipements prévus' : 'Équipements contrôlés'}</Text>
               <Text style={styles.infoValue}>{interventionEquipsLabel}</Text>
             </View>
             <View style={styles.infoItemHalf}>
@@ -867,16 +889,16 @@ export function ReportPdf({
         </View>
 
         {/* REGISTRE APSAD NOMINATIF (si contrôles unitaires) */}
-        {unitEntries && unitEntries.length > 0 && (
+        {verifiedEntries.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              Registre nominatif — {unitEntries.length} équipement{unitEntries.length > 1 ? 's' : ''} contrôlé{unitEntries.length > 1 ? 's' : ''}
+              Registre nominatif — {verifiedEntries.length} équipement{verifiedEntries.length > 1 ? 's' : ''} contrôlé{verifiedEntries.length > 1 ? 's' : ''}
             </Text>
 
             {/* Compteurs par verdict */}
             {(() => {
-              const cnt = { conforme: 0, surveiller: 0, reformer: 0, non_verifie: 0 }
-              for (const e of unitEntries) cnt[e.verdict]++
+              const cnt = { conforme: 0, surveiller: 0, reformer: 0, non_verifie: notVerifiedEntries.length }
+              for (const e of verifiedEntries) cnt[e.verdict]++
               return (
                 <View style={styles.unitStatsRow}>
                   <View style={[styles.unitStatChip, { borderColor: colors.grn, backgroundColor: colors.grnLt }]}>
@@ -902,7 +924,7 @@ export function ReportPdf({
             })()}
 
             {/* Un tableau par famille d'équipement (extincteurs, RIA, BAES…), comme les rapports */}
-            {groupRegistryByFamily(unitEntries).map((g) => {
+            {groupRegistryByFamily(verifiedEntries).map((g) => {
               const c = { conforme: 0, surveiller: 0, reformer: 0, non_verifie: 0 }
               for (const e of g.entries) c[e.verdict]++
               const counts = [
@@ -966,7 +988,7 @@ export function ReportPdf({
         )}
 
         {/* CONTRÔLES PAR ZONE — rapport par unité : chaque zone du site, chaque équipement */}
-        {unitControlsActive && unitEntries && <ZoneControls entries={unitEntries} />}
+        {unitControlsActive && <ZoneControls entries={verifiedEntries} />}
 
         {/* CHECKLIST — une section par famille (rapports legacy sans contrôles unitaires) */}
         {!unitControlsActive && effectiveSections.map((section) => {
@@ -1214,6 +1236,32 @@ const VERDICT_COLORS: Record<UnitReportEntry['verdict'], { fg: string; bg: strin
   surveiller: { fg: colors.org, bg: colors.orgLt },
   reformer: { fg: colors.red, bg: colors.redLt },
   non_verifie: { fg: colors.gry, bg: colors.gryLt },
+}
+
+/** « N°12 » pour un numéro simple, « EXT-03 » tel quel s'il a déjà un préfixe */
+function unitNumber(serial: string): string {
+  return /^\d/.test(serial) ? `N°${serial}` : serial
+}
+
+/** Équipements non vérifiés regroupés par famille et par motif, numéros triés */
+function groupNotVerified(entries: UnitReportEntry[]): Array<{ key: string; familyLabel: string; reason: string | null; serials: string[] }> {
+  const out: Array<{ key: string; familyLabel: string; reason: string | null; serials: string[] }> = []
+  for (const family of groupRegistryByFamily(entries)) {
+    const byReason = new Map<string, string[]>()
+    for (const e of family.entries) {
+      const reason = e.observation?.trim() ?? ''
+      byReason.set(reason, [...(byReason.get(reason) ?? []), e.unitSerial])
+    }
+    for (const [reason, serials] of byReason) {
+      out.push({
+        key: `${family.key}::${reason}`,
+        familyLabel: family.label,
+        reason: reason || null,
+        serials: serials.sort((a, b) => a.localeCompare(b, 'fr', { numeric: true })),
+      })
+    }
+  }
+  return out
 }
 
 /** Lignes du registre regroupées par famille, dans l'ordre habituel (extincteurs, RIA, BAES…) */

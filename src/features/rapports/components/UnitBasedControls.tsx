@@ -67,6 +67,11 @@ type Props = {
   onProgressChange?: (checked: number, total: number) => void
   /** Verdicts des équipements contrôlés dans cette intervention (pour la conformité du rapport) */
   onVerdictsChange?: (items: UnitVerdictItem[]) => void
+  /** Équipements du chantier sans aucun contrôle dans cette intervention (vérifiés avant de
+   *  finaliser) ; null tant que le parc n'est pas chargé */
+  onUncheckedChange?: (items: UncheckedUnitItem[] | null) => void
+  /** Change de valeur pour recharger les contrôles (après un marquage « non vérifié ») */
+  reloadKey?: number
   /** Chantier : familles (types de l'intervention) et zones prévues ; vide = tout le site */
   scopeFamilies?: EquipmentFamily[]
   scopeZoneIds?: string[]
@@ -79,6 +84,12 @@ export type UnitVerdictItem = {
   verdict: CheckVerdict
   /** Heure du contrôle (pour le suivi du temps réel) */
   checkedAt: string | null
+}
+
+export type UncheckedUnitItem = {
+  unitId: string
+  family: EquipmentFamily
+  serial: string
 }
 
 // Cache des templates par famille (partagé sur cette instance)
@@ -94,6 +105,8 @@ export function UnitBasedControls({
   readOnly,
   onProgressChange,
   onVerdictsChange,
+  onUncheckedChange,
+  reloadKey,
   scopeFamilies,
   scopeZoneIds,
 }: Props) {
@@ -103,6 +116,7 @@ export function UnitBasedControls({
   const [templateCache, setTemplateCache] = useState<TemplateCache>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const [activeZoneId, setActiveZoneId] = useState<string | 'all'>('all')
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null)
@@ -132,6 +146,7 @@ export function UnitBasedControls({
     }
     setLoading(true)
     setError(null)
+    setLoadFailed(false)
     try {
       const [z, u, c, site] = await Promise.all([
         listZones(siteId),
@@ -151,6 +166,7 @@ export function UnitBasedControls({
       setTemplateCache(cache)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur chargement')
+      setLoadFailed(true)
     } finally {
       setLoading(false)
     }
@@ -159,7 +175,7 @@ export function UnitBasedControls({
   useEffect(() => {
     void load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteId, interventionId])
+  }, [siteId, interventionId, reloadKey])
 
   // ─── Périmètre du chantier (types et zones de l'intervention) ───
   const scopeFamilyKey = (scopeFamilies ?? []).join(',')
@@ -209,6 +225,24 @@ export function UnitBasedControls({
     }
     onVerdictsChange(items)
   }, [checks, units, onVerdictsChange])
+
+  // Équipements prévus dans la visite (le chantier, ou tout le site sans chantier)
+  // qui n'ont aucun contrôle : ils ne doivent pas passer pour vérifiés.
+  // Chantier sans équipement correspondant sur le site : rien n'est attendu.
+  useEffect(() => {
+    if (!onUncheckedChange) return
+    if (loading || loadFailed) {
+      onUncheckedChange(null)
+      return
+    }
+    const expected = scopeActive ? (scopeEmpty ? [] : scopedUnits) : units
+    const withCheck = new Set(checks.map((c) => c.equipment_unit_id))
+    onUncheckedChange(
+      expected
+        .filter((u) => !withCheck.has(u.id))
+        .map((u) => ({ unitId: u.id, family: u.family, serial: u.serial_number })),
+    )
+  }, [loading, loadFailed, checks, units, scopedUnits, scopeActive, scopeEmpty, onUncheckedChange])
 
   const checksByUnit = useMemo(() => {
     const map = new Map<string, EquipmentCheck>()
@@ -707,7 +741,7 @@ export function UnitBasedControls({
                 </div>
               </div>
               <div style={unitTileVerdictStyle(verdict)}>
-                {verdict === 'non_verifie' ? '—' : CHECK_VERDICT_LABELS[verdict]}
+                {check ? CHECK_VERDICT_LABELS[verdict] : '—'}
               </div>
             </button>
             </Fragment>

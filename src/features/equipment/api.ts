@@ -453,6 +453,38 @@ export async function upsertCheck(
   return check
 }
 
+/**
+ * Marque « non vérifiés » les équipements du chantier qui n'ont pas été
+ * contrôlés (motif dans l'observation), avant de finaliser le rapport : ils
+ * figurent au rapport comme non vérifiés et leur date de dernier contrôle ne
+ * bouge pas. Un contrôle déjà enregistré n'est jamais écrasé.
+ */
+export async function markUnitsNotChecked(
+  interventionId: string,
+  organizationId: string,
+  unitIds: string[],
+  reason: string,
+  technician: { technicianId?: string | null; technicianName?: string | null } = {},
+): Promise<void> {
+  const now = new Date().toISOString()
+  const rows = unitIds.map((unitId) => ({
+    organization_id: organizationId,
+    intervention_id: interventionId,
+    equipment_unit_id: unitId,
+    verdict: 'non_verifie',
+    observation: reason,
+    technician_id: technician.technicianId ?? null,
+    technician_name: technician.technicianName ?? null,
+    checked_at: now,
+  }))
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await supabase
+      .from('equipment_checks')
+      .upsert(rows.slice(i, i + 500), { onConflict: 'intervention_id,equipment_unit_id', ignoreDuplicates: true })
+    if (error) throw error
+  }
+}
+
 export async function deleteCheck(id: string): Promise<void> {
   const { error } = await supabase.from('equipment_checks').delete().eq('id', id)
   if (error) throw error

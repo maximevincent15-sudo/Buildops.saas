@@ -280,6 +280,11 @@ export function AlertesPage() {
                     <div className="alert-meta">
                       {equipLabel} · contrôle {freqLabel.toLowerCase()} · dernière interv. {formatDate(a.lastInterventionDate)} ({a.lastInterventionReference})
                     </div>
+                    {a.uncheckedCount > 0 && (
+                      <div className="alert-meta" style={{ color: '#C45A1A' }}>
+                        {a.uncheckedCount} équipement{a.uncheckedCount > 1 ? 's' : ''} non vérifié{a.uncheckedCount > 1 ? 's' : ''} lors de cette intervention : contrôle à reprendre
+                      </div>
+                    )}
                   </div>
                   <div className="alert-due">
                     <div className="alert-due-date">{formatDate(a.nextDueDate)}</div>

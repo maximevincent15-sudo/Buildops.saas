@@ -36,7 +36,7 @@ import { CHECKLISTS } from '../features/rapports/checklists'
 import { computeConformity } from '../features/rapports/conformity'
 import { ChecklistSection } from '../features/rapports/components/ChecklistSection'
 import { UnitBasedControls } from '../features/rapports/components/UnitBasedControls'
-import type { UnitVerdictItem } from '../features/rapports/components/UnitBasedControls'
+import type { UncheckedUnitItem, UnitVerdictItem } from '../features/rapports/components/UnitBasedControls'
 import { ReportHistoryList } from '../features/rapports/components/ReportHistoryList'
 import { TimeSpentCard } from '../features/rapports/components/TimeSpentCard'
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
@@ -48,8 +48,9 @@ import { getClientNumber } from '../features/clients/api'
 import { getInvoicingSettings } from '../features/parametres/api'
 import { listAnomaliesForIntervention } from '../features/anomalies/api'
 import { ACTIVE_ANOMALY_STATUSES, ANOMALY_ACTION_LABELS } from '../features/anomalies/schemas'
-import { listEquipmentUnitsByIds, listZones } from '../features/equipment/api'
-import { EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
+import { listEquipmentUnitsByIds, listZones, markUnitsNotChecked } from '../features/equipment/api'
+import { flushQueue, getPendingCount } from '../features/equipment/offlineQueue'
+import { EQUIPMENT_FAMILIES, EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
 import { familiesForTypes } from '../features/equipment/identification'
 import { useModuleEnabled } from '../features/parametres/modules'
@@ -78,6 +79,32 @@ import type { StoredPhoto } from '../shared/lib/storage'
 import { supabase } from '../shared/lib/supabase'
 import { PhotoUploader } from '../shared/ui/PhotoUploader'
 import { SignaturePad } from '../shared/ui/SignaturePad'
+
+/** Motifs proposés pour un équipement non contrôlé (imprimés sur le rapport du client) */
+const NOT_CHECKED_REASONS = [
+  'Non contrôlé lors de cette visite',
+  'Inaccessible',
+  'Absent ou introuvable sur place',
+  'Contrôle prévu lors d\'une autre visite',
+] as const
+
+/** « N°12 » pour un numéro simple, « EXT-03 » tel quel s'il a déjà un préfixe */
+function unitNumber(serial: string): string {
+  return /^\d/.test(serial) ? `N°${serial}` : serial
+}
+
+/** Équipements non contrôlés regroupés par famille, numéros triés */
+function groupUncheckedByFamily(items: UncheckedUnitItem[]): Array<{ label: string; serials: string[] }> {
+  return EQUIPMENT_FAMILIES
+    .map((f) => ({
+      label: EQUIPMENT_FAMILY_LABELS[f],
+      serials: items
+        .filter((u) => u.family === f)
+        .map((u) => u.serial)
+        .sort((a, b) => a.localeCompare(b, 'fr', { numeric: true })),
+    }))
+    .filter((g) => g.serials.length > 0)
+}
 
 export function RapportEditorPage() {
   const { interventionId } = useParams<{ interventionId: string }>()
@@ -117,6 +144,11 @@ export function RapportEditorPage() {
   const [reopening, setReopening] = useState(false)
   // Verdicts des contrôles équipement par équipement (remontés par UnitBasedControls)
   const [unitVerdicts, setUnitVerdicts] = useState<UnitVerdictItem[]>([])
+  // Équipements du chantier sans contrôle (null tant que le parc n'est pas chargé)
+  const [uncheckedUnits, setUncheckedUnits] = useState<UncheckedUnitItem[] | null>(null)
+  const [notCheckedOpen, setNotCheckedOpen] = useState(false)
+  const [notCheckedReason, setNotCheckedReason] = useState<string>(NOT_CHECKED_REASONS[0])
+  const [unitsReloadKey, setUnitsReloadKey] = useState(0)
   // Devis correctif : complété à l'ouverture avec les anomalies équipement
   const [quoteSeedFull, setQuoteSeedFull] = useState<Partial<UpsertQuoteInput> | null>(null)
 
@@ -324,12 +356,16 @@ export function RapportEditorPage() {
     totalByType[t] = (CHECKLISTS[t] ?? []).length
   }
   const globalSummary = computeGlobalSummary(checklistByType, totalByType)
-  // Conformité du rapport : checklist globale + verdicts équipement par équipement
-  // (même calcul que le PDF, l'email et le portail client)
-  const conformity = computeConformity(globalSummary, unitVerdicts.map((u) => u.verdict))
-  const unitAnomalyItems = unitVerdicts.filter((u) => u.verdict === 'surveiller' || u.verdict === 'reformer')
-
   const isCompleted = !!completedAt
+  // Conformité du rapport : checklist globale + verdicts équipement par équipement
+  // (même calcul que le PDF, l'email et le portail client). Avant la finalisation,
+  // les équipements du chantier pas encore contrôlés comptent comme non vérifiés.
+  const pendingUnchecked = isCompleted ? [] : uncheckedUnits ?? []
+  const conformity = computeConformity(globalSummary, [
+    ...unitVerdicts.map((u) => u.verdict),
+    ...pendingUnchecked.map(() => 'non_verifie' as const),
+  ])
+  const unitAnomalyItems = unitVerdicts.filter((u) => u.verdict === 'surveiller' || u.verdict === 'reformer')
   const orgId = profile.organization_id
   const iid = interventionId
   const orgName = profile.organizations?.name ?? ''
@@ -498,6 +534,17 @@ export function RapportEditorPage() {
   }
 
   async function handleFinalize() {
+    // Contrôles enregistrés hors ligne : ils doivent être envoyés avant le PDF
+    if (getPendingCount() > 0) {
+      const res = await flushQueue()
+      if (res.failed > 0) {
+        alert(
+          `${res.failed} contrôle(s) enregistré(s) hors ligne ne sont pas encore envoyés.\n\n`
+          + 'Reconnecte-toi puis clique sur « Synchroniser » avant de finaliser.',
+        )
+        return
+      }
+    }
     // Gardes obligatoires avant finalisation — sur TOUS les types contrôlés
     if (nokWithoutPhoto.length > 0) {
       alert(
@@ -515,16 +562,12 @@ export function RapportEditorPage() {
       )
       return
     }
-    // Rapport équipement par équipement : la checklist globale reste vide,
-    // on ne signale que les équipements sans verdict.
-    const unanswered = conformity.unitControlsActive
-      ? conformity.unitsTotal - conformity.unitsChecked
-      : globalSummary.total - globalSummary.answered
-    if (unanswered > 0) {
+    // Rapport équipement par équipement : la checklist globale reste vide. Les
+    // équipements sans contrôle sont traités à la fin (fenêtre « non contrôlés »).
+    const unanswered = globalSummary.total - globalSummary.answered
+    if (!conformity.unitControlsActive && unanswered > 0) {
       const ok = window.confirm(
-        conformity.unitControlsActive
-          ? `${unanswered} équipement(s) sans verdict.\n\nFinaliser quand même ?`
-          : `${unanswered} point(s) de contrôle non renseigné(s) (toutes équipements confondus).\n\nFinaliser quand même ?`,
+        `${unanswered} point(s) de contrôle non renseigné(s) (toutes équipements confondus).\n\nFinaliser quand même ?`,
       )
       if (!ok) return
     }
@@ -551,6 +594,39 @@ export function RapportEditorPage() {
       )
       if (!ok) return
     }
+    // Un équipement du chantier sans contrôle ne doit pas passer pour vérifié :
+    // le contrôler, ou le marquer non vérifié avec un motif.
+    if (intervention?.site_id && uncheckedUnits === null) {
+      alert('Les équipements du site ne sont pas encore chargés. Patiente un instant (ou recharge la page), puis finalise.')
+      return
+    }
+    if (uncheckedUnits && uncheckedUnits.length > 0) {
+      setNotCheckedOpen(true)
+      return
+    }
+    await runFinalize()
+  }
+
+  /** Fenêtre « non contrôlés » : marque les équipements non vérifiés puis finalise */
+  async function handleConfirmNotChecked() {
+    if (!uncheckedUnits || uncheckedUnits.length === 0) return
+    setSaving(true)
+    setError(null)
+    try {
+      await markUnitsNotChecked(iid, orgId, uncheckedUnits.map((u) => u.unitId), notCheckedReason, {
+        technicianId: intervention?.technician_id,
+        technicianName: intervention?.technician_name,
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur inconnue')
+      setSaving(false)
+      return
+    }
+    setNotCheckedOpen(false)
+    await runFinalize()
+  }
+
+  async function runFinalize() {
     setSaving(true)
     setError(null)
     try {
@@ -593,6 +669,8 @@ export function RapportEditorPage() {
       navigate('/planning')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
+      // Les équipements marqués non vérifiés sont déjà enregistrés : on recharge
+      setUnitsReloadKey((k) => k + 1)
     } finally {
       setSaving(false)
     }
@@ -947,6 +1025,8 @@ export function RapportEditorPage() {
         technicianName={intervention.technician_name}
         readOnly={isCompleted}
         onVerdictsChange={setUnitVerdicts}
+        onUncheckedChange={setUncheckedUnits}
+        reloadKey={unitsReloadKey}
         scopeFamilies={scopeFamilies}
         scopeZoneIds={intervention.zone_ids ?? undefined}
       />
@@ -1202,6 +1282,57 @@ export function RapportEditorPage() {
             setTimeout(() => setFlash(null), 3000)
           }}
         />
+      )}
+
+      {/* Fenêtre « équipements non contrôlés » avant la finalisation */}
+      {notCheckedOpen && uncheckedUnits && uncheckedUnits.length > 0 && (
+        <div className="overlay open" onClick={(e) => { if (e.target === e.currentTarget && !saving) setNotCheckedOpen(false) }}>
+          <div className="modal" style={{ maxWidth: 560 }}>
+            <div className="modal-head">
+              <span className="modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <AlertTriangle size={16} strokeWidth={2} />
+                Équipements non contrôlés
+              </span>
+              <button type="button" className="modal-x" onClick={() => setNotCheckedOpen(false)} disabled={saving} aria-label="Fermer">×</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <p className="text-ink-2 text-sm font-light" style={{ margin: 0 }}>
+                <strong>{uncheckedUnits.length} équipement{uncheckedUnits.length > 1 ? 's' : ''}</strong> prévu{uncheckedUnits.length > 1 ? 's' : ''} dans
+                cette visite {uncheckedUnits.length > 1 ? 'n\'ont' : 'n\'a'} pas été contrôlé{uncheckedUnits.length > 1 ? 's' : ''} :
+              </p>
+              <ul style={{ margin: 0, paddingLeft: '1.1rem', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {groupUncheckedByFamily(uncheckedUnits).map((g) => (
+                  <li key={g.label} className="text-sm">
+                    <strong>{g.label} ({g.serials.length})</strong>
+                    <span className="text-ink-2 font-light">
+                      {' : '}{g.serials.slice(0, 15).map(unitNumber).join(', ')}
+                      {g.serials.length > 15 ? ` et ${g.serials.length - 15} autres` : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-ink-2 text-sm font-light" style={{ margin: 0 }}>
+                Contrôle-les avant de finaliser, ou indique pourquoi ils n'ont pas été vus : ils figureront
+                comme <strong>non vérifiés</strong> sur le rapport et leur échéance ne sera pas repoussée.
+              </p>
+              <div className="fg">
+                <label>Motif</label>
+                <select value={notCheckedReason} onChange={(e) => setNotCheckedReason(e.target.value)} disabled={saving}>
+                  {NOT_CHECKED_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div className="modal-foot">
+                <button type="button" className="mf out" onClick={() => setNotCheckedOpen(false)} disabled={saving}>
+                  Revenir au contrôle
+                </button>
+                <button type="button" className="mf prim" onClick={() => void handleConfirmNotChecked()} disabled={saving}>
+                  {saving ? 'Finalisation…' : 'Marquer non vérifiés et finaliser'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modale envoi au client */}
