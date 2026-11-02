@@ -29,6 +29,24 @@ export async function signIn({ email, password }: LoginInput, captchaToken?: str
   return data
 }
 
+/**
+ * Origine de l'inscription (site partenaire, ex. ?utm_source=verification-incendie.fr) :
+ * lue dans l'adresse d'arrivée sur l'app (au chargement, avant toute redirection)
+ * puis dans l'adresse courante, et enregistrée avec le compte (métadonnées
+ * signup_source / signup_medium / signup_campaign). Rien n'est stocké dans le navigateur.
+ */
+function readSignupSource(search: string): Record<string, string> {
+  const params = new URLSearchParams(search)
+  const out: Record<string, string> = {}
+  for (const [key, field] of [['utm_source', 'signup_source'], ['utm_medium', 'signup_medium'], ['utm_campaign', 'signup_campaign']]) {
+    const value = params.get(key)?.trim().slice(0, 100)
+    if (value) out[field] = value
+  }
+  return out
+}
+
+const signupSourceAtLaunch = readSignupSource(window.location.search)
+
 export async function signUp(
   { firstName, lastName, siret, companyName, email, password }: RegisterInput,
   captchaToken?: string,
@@ -42,6 +60,8 @@ export async function signUp(
         last_name: lastName,
         company_name: companyName,
         siret,
+        ...signupSourceAtLaunch,
+        ...readSignupSource(window.location.search),
       },
       ...(captchaToken ? { captchaToken } : {}),
     },
