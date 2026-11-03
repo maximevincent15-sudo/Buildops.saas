@@ -270,6 +270,7 @@ export function QuotePdf({ quote, organizationName, settings, clientNumber }: Pr
             <Text style={styles.addressLabel}>Client</Text>
             <Text style={styles.addressName}>{quote.client_name}</Text>
             {clientNumber && <Text style={styles.addressLine}>N° client : {clientNumber}</Text>}
+            {quote.dossier_number && <Text style={styles.addressLine}>N° de dossier : {quote.dossier_number}</Text>}
             {quote.client_contact_name && (
               <Text style={styles.addressLine}>{quote.client_contact_name}</Text>
             )}

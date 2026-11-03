@@ -64,7 +64,7 @@ export async function loadMonthBilling(month: string): Promise<{ proposals: Bill
 }
 
 type ClientRow = { id: string; name: string; siren: string | null; contact_name: string | null; contact_email: string | null; address: string | null }
-type SiteRow = { id: string; name: string; address: string | null; postal_code: string | null; city: string | null }
+type SiteRow = { id: string; name: string; address: string | null; postal_code: string | null; city: string | null; dossier_number: string | null }
 
 export type BillingResult = { created: Array<{ id: string; reference: string; clientName: string }>; errors: string[] }
 
@@ -74,7 +74,7 @@ export async function createBillingInvoices(proposals: BillingProposal[], organi
   const siteIds = Array.from(new Set(proposals.flatMap((p) => p.contract.site_ids)))
   const [clientsRes, sitesRes] = await Promise.all([
     clientIds.length ? supabase.from('clients').select('id, name, siren, contact_name, contact_email, address').in('id', clientIds) : Promise.resolve({ data: [], error: null }),
-    siteIds.length ? supabase.from('sites').select('id, name, address, postal_code, city').in('id', siteIds) : Promise.resolve({ data: [], error: null }),
+    siteIds.length ? supabase.from('sites').select('id, name, address, postal_code, city, dossier_number').in('id', siteIds) : Promise.resolve({ data: [], error: null }),
   ])
   if (clientsRes.error) throw clientsRes.error
   if (sitesRes.error) throw sitesRes.error
@@ -107,6 +107,7 @@ export async function createBillingInvoices(proposals: BillingProposal[], organi
           intervention_id: p.visits.length === 1 ? p.visits[0]!.id : undefined,
           site_name: site?.name ?? undefined,
           site_address: siteAddress || undefined,
+          dossier_number: site?.dossier_number ?? undefined,
           issue_date: issueDate,
           due_date: dueDate,
           notes,

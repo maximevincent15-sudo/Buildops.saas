@@ -7,6 +7,8 @@ import { AutoGrowTextarea } from '../../../shared/ui/AutoGrowTextarea'
 import { VAT_RATES, computeQuoteTotals, formatAmount } from '../../devis/constants'
 import type { QuoteLineInput } from '../../devis/schemas'
 import { getClientNumber } from '../../clients/api'
+import { loadDocumentContext } from '../../clients/documentContext'
+import { listClientDossierNumbers } from '../../equipment/api'
 import { getInvoicingSettings } from '../../parametres/api'
 import { CatalogPicker } from '../../catalogue/components/CatalogPicker'
 import type { CatalogItem } from '../../catalogue/schemas'
@@ -80,6 +82,12 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
   const [clientSiren, setClientSiren] = useState('')
   const [siteName, setSiteName] = useState('')
   const [siteAddress, setSiteAddress] = useState('')
+  // N° de dossier du chantier (repris du devis ou du site) et suggestions du client
+  const [dossierNumber, setDossierNumber] = useState('')
+  const [dossierOptions, setDossierOptions] = useState<string[]>([])
+  // Devis et visite d'origine : conservés à l'enregistrement
+  const [quoteId, setQuoteId] = useState('')
+  const [interventionId, setInterventionId] = useState('')
   const [issueDate, setIssueDate] = useState(todayIso())
   const [dueDate, setDueDate] = useState(defaultDueDate(todayIso()))
   const [notes, setNotes] = useState('')
@@ -117,6 +125,9 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
           setClientSiren(inv.client_siren ?? '')
           setSiteName(inv.site_name ?? '')
           setSiteAddress(inv.site_address ?? '')
+          setDossierNumber(inv.dossier_number ?? '')
+          setQuoteId(inv.quote_id ?? '')
+          setInterventionId(inv.intervention_id ?? '')
           setIssueDate(inv.issue_date)
           setDueDate(inv.due_date ?? defaultDueDate(inv.issue_date))
           setNotes(inv.notes ?? '')
@@ -154,6 +165,19 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
       setClientSiren(seed?.client_siren ?? '')
       setSiteName(seed?.site_name ?? '')
       setSiteAddress(seed?.site_address ?? '')
+      setDossierNumber(seed?.dossier_number ?? '')
+      setQuoteId(seed?.quote_id ?? '')
+      setInterventionId(seed?.intervention_id ?? '')
+      // Complète avec la fiche client et le N° de dossier (devis d'origine ou site de la visite)
+      void loadDocumentContext({ clientId: seed?.client_id, interventionId: seed?.intervention_id, quoteId: seed?.quote_id }).then(({ client, dossierNumber: dossier }) => {
+        if (client) {
+          setClientContact((v) => v || client.contact_name || '')
+          setClientEmail((v) => v || client.contact_email || '')
+          setClientAddress((v) => v || client.address || '')
+          setClientSiren((v) => v || client.siren || '')
+        }
+        if (dossier) setDossierNumber((v) => v || dossier)
+      })
       const initIssue = seed?.issue_date ?? todayIso()
       setIssueDate(initIssue)
       setDueDate(seed?.due_date ?? defaultDueDate(initIssue))
@@ -170,6 +194,13 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, invoiceId])
+
+  // Suggestions de N° de dossier : ceux des sites du client
+  useEffect(() => {
+    let alive = true
+    void listClientDossierNumbers(clientId).then((list) => { if (alive) setDossierOptions(list) })
+    return () => { alive = false }
+  }, [clientId])
 
   function updateLine(index: number, patch: Partial<QuoteLineInput>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)))
@@ -220,6 +251,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
       client_siren: clientSiren || undefined,
       site_name: siteName || undefined,
       site_address: siteAddress || undefined,
+      dossier_number: dossierNumber || undefined,
       notes: notes || undefined,
       lines: lines
         .filter((l) => l.description.trim())
@@ -254,8 +286,11 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
         client_siren: parseCompanyNumber(clientSiren).ok
           ? clientSiren.replace(/\D/g, '').slice(0, 9) || undefined
           : undefined,
+        quote_id: quoteId || undefined,
+        intervention_id: interventionId || undefined,
         site_name: siteName || undefined,
         site_address: siteAddress || undefined,
+        dossier_number: dossierNumber || undefined,
         issue_date: issueDate,
         due_date: dueDate || undefined,
         notes: notes || undefined,
@@ -576,6 +611,22 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                     placeholder="Commence à taper le numéro et la rue…"
                   />
                 </div>
+              </div>
+              <div className="mrow">
+                <div className="fg">
+                  <label>N° de dossier</label>
+                  <input
+                    type="text"
+                    placeholder="Ex : D-2026-014"
+                    value={dossierNumber}
+                    onChange={(e) => setDossierNumber(e.target.value)}
+                    list="invoice-dossier-numbers"
+                  />
+                  <datalist id="invoice-dossier-numbers">
+                    {dossierOptions.map((n) => <option key={n} value={n} />)}
+                  </datalist>
+                </div>
+                <div />
               </div>
             </div>
 

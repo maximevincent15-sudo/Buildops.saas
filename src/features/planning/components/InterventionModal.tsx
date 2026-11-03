@@ -442,7 +442,7 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                     >
                       <option value="">— Choisir le site —</option>
                       {sites.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
+                        <option key={s.id} value={s.id}>{s.name}{s.dossier_number ? ` · dossier ${s.dossier_number}` : ''}</option>
                       ))}
                       <option value="__free__">Autre lieu (sans liste d'équipements)</option>
                     </select>

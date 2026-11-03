@@ -52,6 +52,7 @@ export async function createSite(
       contact_phone: input.contact_phone || null,
       access_notes: input.access_notes || null,
       notes: input.notes || null,
+      dossier_number: input.dossier_number?.trim() || null,
     })
     .select()
     .single()
@@ -72,6 +73,7 @@ export async function updateSite(
   if (input.contact_phone !== undefined) patch.contact_phone = input.contact_phone || null
   if (input.access_notes !== undefined) patch.access_notes = input.access_notes || null
   if (input.notes !== undefined) patch.notes = input.notes || null
+  if (input.dossier_number !== undefined) patch.dossier_number = input.dossier_number?.trim() || null
   const { data, error } = await supabase
     .from('sites')
     .update(patch)
@@ -80,6 +82,41 @@ export async function updateSite(
     .single()
   if (error) throw error
   return data as Site
+}
+
+/** N° de dossier du site d'une intervention (null si pas de site ou pas de numéro) */
+export async function dossierNumberForIntervention(interventionId: string | null | undefined): Promise<string | null> {
+  if (!interventionId) return null
+  const { data: itv } = await supabase
+    .from('interventions')
+    .select('site_id')
+    .eq('id', interventionId)
+    .maybeSingle()
+  return dossierNumberForSite((itv as { site_id: string | null } | null)?.site_id)
+}
+
+/** N° de dossier d'un site (null si absent) */
+export async function dossierNumberForSite(siteId: string | null | undefined): Promise<string | null> {
+  if (!siteId) return null
+  const { data } = await supabase
+    .from('sites')
+    .select('dossier_number')
+    .eq('id', siteId)
+    .maybeSingle()
+  return (data as { dossier_number: string | null } | null)?.dossier_number?.trim() || null
+}
+
+/** N° de dossier des sites d'un client (suggestions sur les devis et factures), triés */
+export async function listClientDossierNumbers(clientId: string | null | undefined): Promise<string[]> {
+  if (!clientId) return []
+  const { data, error } = await supabase
+    .from('sites')
+    .select('dossier_number')
+    .eq('client_id', clientId)
+    .not('dossier_number', 'is', null)
+  if (error) return []
+  const numbers = (data as Array<{ dossier_number: string | null }>).map((r) => r.dossier_number?.trim() ?? '').filter(Boolean)
+  return Array.from(new Set(numbers)).sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }))
 }
 
 export async function deleteSite(id: string): Promise<void> {

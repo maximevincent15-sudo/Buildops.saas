@@ -217,6 +217,7 @@ export function DevisPage() {
                       <strong>{q.reference}</strong>
                       <span className="quote-row-client"> — {q.client_name}</span>
                       {q.site_name && <span className="text-ink-3"> · {q.site_name}</span>}
+                      {q.dossier_number && <span className="text-ink-3"> · dossier {q.dossier_number}</span>}
                     </div>
                     <div className="quote-row-meta">
                       Émis le {formatDate(q.issue_date)}

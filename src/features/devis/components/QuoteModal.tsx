@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { getClientNumber } from '../../clients/api'
+import { loadDocumentContext } from '../../clients/documentContext'
+import { listClientDossierNumbers } from '../../equipment/api'
 import { getInvoicingSettings } from '../../parametres/api'
 import { formatCompanyNumber, parseCompanyNumber } from '../../clients/companyLookup'
 import { ClientAutocomplete } from '../../planning/components/ClientAutocomplete'
@@ -106,6 +108,9 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
   const [clientSiren, setClientSiren] = useState('')
   const [siteName, setSiteName] = useState('')
   const [siteAddress, setSiteAddress] = useState('')
+  // N° de dossier du chantier (repris du site de la visite) et suggestions du client
+  const [dossierNumber, setDossierNumber] = useState('')
+  const [dossierOptions, setDossierOptions] = useState<string[]>([])
   const [issueDate, setIssueDate] = useState(todayIso())
   const [validityDate, setValidityDate] = useState(defaultValidityDate())
   const [notes, setNotes] = useState('')
@@ -136,6 +141,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
           setClientSiren(q.client_siren ?? '')
           setSiteName(q.site_name ?? '')
           setSiteAddress(q.site_address ?? '')
+          setDossierNumber(q.dossier_number ?? '')
           setIssueDate(q.issue_date)
           setValidityDate(q.validity_date ?? '')
           setNotes(q.notes ?? '')
@@ -174,6 +180,17 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       setClientSiren(seed?.client_siren ?? '')
       setSiteName(seed?.site_name ?? '')
       setSiteAddress(seed?.site_address ?? '')
+      setDossierNumber(seed?.dossier_number ?? '')
+      // Complète avec la fiche client et le N° de dossier du site (devis correctif, suite de visite)
+      void loadDocumentContext({ clientId: seed?.client_id, interventionId: seed?.intervention_id }).then(({ client, dossierNumber: dossier }) => {
+        if (client) {
+          setClientContact((v) => v || client.contact_name || '')
+          setClientEmail((v) => v || client.contact_email || '')
+          setClientAddress((v) => v || client.address || '')
+          setClientSiren((v) => v || client.siren || '')
+        }
+        if (dossier) setDossierNumber((v) => v || dossier)
+      })
       setIssueDate(seed?.issue_date ?? todayIso())
       setValidityDate(seed?.validity_date ?? defaultValidityDate())
       setNotes(seed?.notes ?? '')
@@ -195,6 +212,13 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
     setSignOpen(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, quoteIdProp])
+
+  // Suggestions de N° de dossier : ceux des sites du client
+  useEffect(() => {
+    let alive = true
+    void listClientDossierNumbers(clientId).then((list) => { if (alive) setDossierOptions(list) })
+    return () => { alive = false }
+  }, [clientId])
 
   function updateLine(index: number, patch: Partial<QuoteLineInput>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)))
@@ -251,6 +275,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       intervention_id: interventionId || undefined,
       site_name: siteName || undefined,
       site_address: siteAddress || undefined,
+      dossier_number: dossierNumber || undefined,
       issue_date: issueDate,
       validity_date: validityDate || undefined,
       notes: notes || undefined,
@@ -295,6 +320,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       client_siren: clientSiren || undefined,
       site_name: siteName || undefined,
       site_address: siteAddress || undefined,
+      dossier_number: dossierNumber || undefined,
       notes: notes || undefined,
       lines: lines
         .filter((l) => l.description.trim())
@@ -708,6 +734,22 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                     placeholder="Commence à taper le numéro et la rue…"
                   />
                 </div>
+              </div>
+              <div className="mrow">
+                <div className="fg">
+                  <label>N° de dossier</label>
+                  <input
+                    type="text"
+                    placeholder="Ex : D-2026-014"
+                    value={dossierNumber}
+                    onChange={(e) => setDossierNumber(e.target.value)}
+                    list="quote-dossier-numbers"
+                  />
+                  <datalist id="quote-dossier-numbers">
+                    {dossierOptions.map((n) => <option key={n} value={n} />)}
+                  </datalist>
+                </div>
+                <div />
               </div>
             </div>
 

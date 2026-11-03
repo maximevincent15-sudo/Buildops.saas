@@ -148,6 +148,7 @@ export function EquipementsPage() {
         const hay = normalizeSearch([
           clientsById.get(u.client_id)?.name ?? '',
           sitesById.get(u.site_id)?.name ?? '',
+          sitesById.get(u.site_id)?.dossier_number ?? '',
           u.serial_number,
           unitRepere(u),
           u.subtype ?? '',
@@ -354,6 +355,7 @@ export function EquipementsPage() {
         </div>
         <select
           className="input-sm"
+          style={{ maxWidth: 340 }}
           value={siteFilter}
           onChange={(e) => setSiteFilter(e.target.value)}
         >
@@ -363,6 +365,7 @@ export function EquipementsPage() {
             return (
               <option key={s.id} value={s.id}>
                 {clientName && clientName !== s.name ? `${clientName} · ${s.name}` : s.name}
+                {s.dossier_number ? ` · ${s.dossier_number}` : ''}
               </option>
             )
           })}

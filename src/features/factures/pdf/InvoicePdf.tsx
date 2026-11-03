@@ -359,6 +359,7 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber }
             <Text style={styles.addressLabel}>Facturé à</Text>
             <Text style={styles.addressName}>{invoice.client_name}</Text>
             {clientNumber && <Text style={styles.addressLine}>N° client : {clientNumber}</Text>}
+            {invoice.dossier_number && <Text style={styles.addressLine}>N° de dossier : {invoice.dossier_number}</Text>}
             {invoice.client_contact_name && <Text style={styles.addressLine}>{invoice.client_contact_name}</Text>}
             {invoice.client_address && <Text style={styles.addressLine}>{invoice.client_address}</Text>}
             {invoice.client_email && <Text style={styles.addressLine}>{invoice.client_email}</Text>}

@@ -48,7 +48,7 @@ import { getClientNumber } from '../features/clients/api'
 import { getInvoicingSettings } from '../features/parametres/api'
 import { listAnomaliesForIntervention } from '../features/anomalies/api'
 import { ACTIVE_ANOMALY_STATUSES, ANOMALY_ACTION_LABELS } from '../features/anomalies/schemas'
-import { listEquipmentUnitsByIds, listZones, markUnitsNotChecked } from '../features/equipment/api'
+import { dossierNumberForSite, listEquipmentUnitsByIds, listZones, markUnitsNotChecked } from '../features/equipment/api'
 import { flushQueue, getPendingCount } from '../features/equipment/offlineQueue'
 import { EQUIPMENT_FAMILIES, EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
@@ -149,6 +149,8 @@ export function RapportEditorPage() {
   const [notCheckedOpen, setNotCheckedOpen] = useState(false)
   const [notCheckedReason, setNotCheckedReason] = useState<string>(NOT_CHECKED_REASONS[0])
   const [unitsReloadKey, setUnitsReloadKey] = useState(0)
+  // N° de dossier du site (affiché sous le titre et imprimé sur le PDF)
+  const [dossierNumber, setDossierNumber] = useState<string | null>(null)
   // Devis correctif : complété à l'ouverture avec les anomalies équipement
   const [quoteSeedFull, setQuoteSeedFull] = useState<Partial<UpsertQuoteInput> | null>(null)
 
@@ -167,6 +169,7 @@ export function RapportEditorPage() {
         if (!alive) return
         const normalized = normalizeIntervention(interv as Intervention)
         setIntervention(normalized)
+        void dossierNumberForSite(normalized.site_id).then((n) => { if (alive) setDossierNumber(n) })
         const types = resolveEquipmentTypes(normalized) as EquipmentType[]
         if (types.length > 0 && !equipmentType) {
           setEquipmentType(types[0]!)
@@ -488,7 +491,10 @@ export function RapportEditorPage() {
     } catch {
       anomalyEntries = []
     }
-    const clientNumber = await getClientNumber(intervention?.client_id)
+    const [clientNumber, siteDossier] = await Promise.all([
+      getClientNumber(intervention?.client_id),
+      dossierNumberForSite(intervention?.site_id),
+    ])
     const element = (
       <ReportPdf
         intervention={intervention!}
@@ -499,6 +505,7 @@ export function RapportEditorPage() {
         settings={invoicingSettings}
         anomalyEntries={anomalyEntries}
         clientNumber={clientNumber}
+        dossierNumber={siteDossier}
         interventionType={
           intervention?.intervention_type
             ? INTERVENTION_TYPE_LABELS[intervention.intervention_type]
@@ -791,8 +798,10 @@ export function RapportEditorPage() {
     setQuoteSeedFull({
       client_id: intervention!.client_id ?? undefined,
       client_name: intervention!.client_name,
+      intervention_id: iid,
       site_name: intervention!.site_name ?? undefined,
       site_address: intervention!.address ?? undefined,
+      dossier_number: dossierNumber ?? undefined,
       notes: `Suite au rapport ${intervention!.reference} — anomalies à corriger.`,
       lines,
     })
@@ -820,6 +829,7 @@ export function RapportEditorPage() {
           </div>
           <div className="dash-sub">
             {intervention.client_name} · {equipmentsLabel} · prévu le {scheduledLabel}
+            {dossierNumber && <> · dossier <strong>{dossierNumber}</strong></>}
           </div>
         </div>
         <div className="dash-acts">

@@ -17,6 +17,8 @@ export const upsertInvoiceSchema = z.object({
   quote_id: z.string().optional(),
   site_name: z.string().optional(),
   site_address: z.string().optional(),
+  /** N° de dossier du chantier (repris du site) */
+  dossier_number: z.string().optional(),
   issue_date: z.string().min(1, 'Date d\'émission requise'),
   due_date: z.string().optional(),
   notes: z.string().optional(),
@@ -39,6 +41,7 @@ export type Invoice = {
   intervention_id: string | null
   site_name: string | null
   site_address: string | null
+  dossier_number: string | null
   issue_date: string
   due_date: string | null
   sent_at: string | null

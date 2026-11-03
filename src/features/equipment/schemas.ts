@@ -63,6 +63,8 @@ export const createSiteSchema = z.object({
   contact_phone: z.string().optional(),
   access_notes: z.string().optional(),
   notes: z.string().optional(),
+  /** N° de dossier du chantier (les sites qui le partagent forment un seul dossier) */
+  dossier_number: z.string().optional(),
 })
 export type CreateSiteInput = z.infer<typeof createSiteSchema>
 
@@ -78,6 +80,8 @@ export type Site = {
   contact_phone: string | null
   access_notes: string | null
   notes: string | null
+  /** N° de dossier du chantier (ex. « D-2026-014 »), commun à plusieurs sites si besoin */
+  dossier_number: string | null
   created_at: string
   updated_at: string
   created_by: string | null

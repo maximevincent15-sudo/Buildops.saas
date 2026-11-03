@@ -485,12 +485,14 @@ type Props = {
   nextInterventionDate?: string | null
   /** N° client de la fiche client (si renseigné). */
   clientNumber?: string | null
+  /** N° de dossier du site (si renseigné). */
+  dossierNumber?: string | null
 }
 
 export function ReportPdf({
   intervention, report, sections, organizationName,
   unitEntries, settings, anomalyEntries,
-  interventionType, nextInterventionDate, clientNumber,
+  interventionType, nextInterventionDate, clientNumber, dossierNumber,
 }: Props) {
   const interventionEquipsLabel = formatEquipmentTypes(intervention.equipment_types)
 
@@ -816,6 +818,12 @@ export function ReportPdf({
               <View style={styles.infoItemHalf}>
                 <Text style={styles.infoLabel}>Site</Text>
                 <Text style={styles.infoValue}>{intervention.site_name}</Text>
+              </View>
+            )}
+            {dossierNumber && (
+              <View style={styles.infoItemHalf}>
+                <Text style={styles.infoLabel}>N° de dossier</Text>
+                <Text style={styles.infoValue}>{dossierNumber}</Text>
               </View>
             )}
             {intervention.address && (

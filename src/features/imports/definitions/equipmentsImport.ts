@@ -7,6 +7,7 @@ import {
   listEquipmentUnits,
   listSites,
   listZones,
+  updateSite,
 } from '../../equipment/api'
 import {
   EQUIPMENT_FAMILIES,
@@ -35,6 +36,7 @@ type EquipCache = {
   sitesToCreate?: Set<string> // key: `${client_id}::${normalizedSiteName}`
   createdSites?: Map<string, string> // même clé → site_id créé pendant l'import
   zonesLoadedSites?: Set<string>
+  dossierFilledSites?: Set<string> // sites existants dont le N° de dossier a été complété
 }
 
 async function getSitesIndex(cache: Record<string, unknown>): Promise<Map<string, Site[]>> {
@@ -125,6 +127,13 @@ export const equipmentsImportDefinition: ImportDefinition = {
       aliases: ['Adresse site', 'Adresse', 'Adresse d\'intervention'],
       example: '12 avenue de la Gare, 82000 Montauban',
       hint: 'Utilisée uniquement si le site est créé',
+    },
+    {
+      key: 'dossier_number',
+      label: 'N° de dossier',
+      aliases: ['Dossier', 'N° dossier', 'Numéro de dossier', 'N° de chantier', 'N° chantier', 'Numéro de chantier', 'N° affaire', 'Affaire'],
+      example: 'D-2026-014',
+      hint: 'Optionnel — enregistré sur le site (complété si le site existant n\'en a pas)',
     },
     {
       key: 'family',
@@ -277,6 +286,12 @@ export const equipmentsImportDefinition: ImportDefinition = {
       }
     }
 
+    // N° de dossier : un site existant déjà numéroté garde son numéro
+    const dossier = (row.dossier_number ?? '').trim()
+    if (dossier && site?.dossier_number && site.dossier_number !== dossier) {
+      messages.push(`Site "${siteName}" déjà rattaché au dossier ${site.dossier_number} : numéro du fichier ignoré`)
+    }
+
     // Années
     if (row.install_year && parseYear(row.install_year) === null) {
       messages.push(`Année "${row.install_year}" non reconnue (ignorée)`)
@@ -289,6 +304,7 @@ export const equipmentsImportDefinition: ImportDefinition = {
       __resolved_client_id: site?.client_id ?? client?.id ?? null,
       __resolved_family: family,
       __create_site: createSite ? '1' : null,
+      __site_dossier: site?.dossier_number ?? null,
     }
 
     // Doublon dans le fichier (même site + famille + n°)
@@ -377,7 +393,12 @@ async function prepareUnitInput(
       siteId = c.createdSites.get(siteKey) ?? null
       if (!siteId) {
         const site = await createSite(
-          { client_id: clientId, name: siteName, address: row.site_address ?? undefined },
+          {
+            client_id: clientId,
+            name: siteName,
+            address: row.site_address ?? undefined,
+            dossier_number: row.dossier_number ?? undefined,
+          },
           context.organizationId,
         )
         siteId = site.id
@@ -385,6 +406,16 @@ async function prepareUnitInput(
       }
     }
     if (!siteId) throw new Error('Site non résolu')
+
+    // Site existant sans N° de dossier : complété une fois avec celui du fichier
+    const dossier = (row.dossier_number ?? '').trim()
+    if (dossier && row.__resolved_site_id && !row.__site_dossier) {
+      if (!c.dossierFilledSites) c.dossierFilledSites = new Set()
+      if (!c.dossierFilledSites.has(siteId)) {
+        c.dossierFilledSites.add(siteId)
+        await updateSite(siteId, { dossier_number: dossier })
+      }
+    }
 
     // Zone : lookup + création à la volée
     let zoneId: string | undefined

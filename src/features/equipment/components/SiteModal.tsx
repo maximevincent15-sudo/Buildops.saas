@@ -34,6 +34,7 @@ function toFormValues(
     contact_phone: s.contact_phone ?? '',
     access_notes: s.access_notes ?? '',
     notes: s.notes ?? '',
+    dossier_number: s.dossier_number ?? '',
   }
 }
 
@@ -67,9 +68,14 @@ export function SiteModal({
     reset(toFormValues(site, defaultClientId))
     setSubmitError(null)
     listClients()
-      .then(setClients)
+      .then((list) => {
+        setClients(list)
+        // Les options arrivent après le formulaire : on resélectionne le client
+        const clientId = site?.client_id ?? defaultClientId
+        if (clientId) setValue('client_id', clientId)
+      })
       .catch(() => setClients([]))
-  }, [open, site, defaultClientId, reset])
+  }, [open, site, defaultClientId, reset, setValue])
 
   async function onSubmit(data: CreateSiteInput) {
     if (!profile?.organization_id) {
@@ -150,6 +156,18 @@ export function SiteModal({
               {...register('name')}
             />
             {errors.name && <span className="ferr on">{errors.name.message}</span>}
+          </div>
+
+          <div className="fg">
+            <label>N° de dossier <span className="text-ink-3 text-xs font-light">(optionnel)</span></label>
+            <input
+              type="text"
+              placeholder="Ex : D-2026-014"
+              {...register('dossier_number')}
+            />
+            <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
+              Repris sur les rapports, devis et factures. Plusieurs sites peuvent partager le même numéro : ils forment un seul dossier.
+            </span>
           </div>
 
           <div className="fg">

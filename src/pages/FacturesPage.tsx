@@ -270,6 +270,7 @@ export function FacturesPage() {
                       <strong>{i.reference}</strong>
                       <span className="quote-row-client"> — {i.client_name}</span>
                       {i.site_name && <span className="text-ink-3"> · {i.site_name}</span>}
+                      {i.dossier_number && <span className="text-ink-3"> · dossier {i.dossier_number}</span>}
                     </div>
                     <div className="quote-row-meta">
                       Émise le {formatDate(i.issue_date)}
