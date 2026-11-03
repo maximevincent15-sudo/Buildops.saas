@@ -114,6 +114,7 @@ export function enqueueCheck(
     intervention_id: input.intervention_id,
     equipment_unit_id: input.equipment_unit_id,
     family_template_id: input.family_template_id ?? null,
+    checklist_key: input.checklist_key ?? null,
     checklist: (input.checklist ?? {}) as Record<string, CheckItemValue>,
     observation: input.observation ?? null,
     verdict: (input.verdict ?? 'non_verifie') as CheckVerdict,

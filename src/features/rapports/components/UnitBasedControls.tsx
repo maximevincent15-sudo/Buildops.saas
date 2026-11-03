@@ -34,6 +34,8 @@ import { QrScanner } from '../../equipment/components/QrScanner'
 import { UnitPhotoField } from '../../equipment/components/UnitPhotoField'
 import { attributesSummary, compareUnitsByRound, unitLocation, unitRepere, unitTypeLine, zoneLabel } from '../../equipment/identification'
 import { upsertCheckSmart } from '../../equipment/offlineQueue'
+import { loadChecklistContext, setUnitChecklistKey, unitListFor, unitLists } from '../../checklists/api'
+import type { ChecklistContext, EffectiveList } from '../../checklists/api'
 import {
   CHECK_VERDICT_LABELS,
   EQUIPMENT_FAMILIES,
@@ -141,6 +143,8 @@ export function UnitBasedControls({
   const [siteClientId, setSiteClientId] = useState<string | null>(null)
   // Équipements qui ont une anomalie en cours : jamais passés conformes d'un coup
   const [anomalyUnitIds, setAnomalyUnitIds] = useState<Set<string> | null>(null)
+  // Listes de contrôle de l'entreprise (sinon listes Firovia)
+  const [checklistCtx, setChecklistCtx] = useState<ChecklistContext | null>(null)
   const [bulkBusy, setBulkBusy] = useState<string | null>(null)
 
   async function load() {
@@ -169,6 +173,7 @@ export function UnitBasedControls({
       templates.forEach((t) => { if (t) cache.set(t.family, t) })
       setTemplateCache(cache)
       setAnomalyUnitIds(await listUnitIdsWithActiveAnomalies(u.map((x) => x.id)).catch(() => null))
+      setChecklistCtx(await loadChecklistContext(organizationId))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur chargement')
       setLoadFailed(true)
@@ -346,6 +351,7 @@ export function UnitBasedControls({
 
   async function handleSaveCheck(patch: {
     checklist: Record<string, CheckItemValue>
+    checklistKey: string | null
     observation: string | null
     verdict: CheckVerdict
     photos: CheckPhoto[]
@@ -353,11 +359,19 @@ export function UnitBasedControls({
     if (!editingUnit) return
     try {
       const template = templateCache.get(editingUnit.family) ?? null
+      // Liste choisie : gardée sur l'appareil pour les prochaines visites
+      if (patch.checklistKey && patch.checklistKey !== (editingUnit.checklist_key ?? null)) {
+        const unitId = editingUnit.id
+        void setUnitChecklistKey(unitId, patch.checklistKey)
+          .then(() => setUnits((prev) => prev.map((x) => (x.id === unitId ? { ...x, checklist_key: patch.checklistKey } : x))))
+          .catch(() => {})
+      }
       const saved = await upsertCheckSmart(
         {
           intervention_id: interventionId,
           equipment_unit_id: editingUnit.id,
           family_template_id: template?.id ?? null,
+          checklist_key: patch.checklistKey,
           checklist: patch.checklist,
           observation: patch.observation,
           verdict: patch.verdict,
@@ -415,6 +429,7 @@ export function UnitBasedControls({
             intervention_id: interventionId,
             equipment_unit_id: u.id,
             family_template_id: template?.id ?? null,
+            checklist_key: unitListFor(checklistCtx, u.family, u.checklist_key)?.key ?? null,
             checklist: {},
             observation: null,
             verdict: 'conforme',
@@ -499,6 +514,8 @@ export function UnitBasedControls({
           outOfScope={scopeActive && !inScope(editingUnit)}
           unit={editingUnit}
           template={templateCache.get(editingUnit.family) ?? null}
+          lists={unitLists(checklistCtx, editingUnit.family)}
+          initialListKey={checksByUnit.get(editingUnit.id)?.checklist_key ?? editingUnit.checklist_key ?? null}
           existing={checksByUnit.get(editingUnit.id) ?? null}
           onClose={() => setEditingUnitId(null)}
           onSave={handleSaveCheck}
@@ -860,10 +877,15 @@ export function UnitBasedControls({
 type ModalProps = {
   unit: EquipmentUnit
   template: FamilyTemplate | null
+  /** Listes de contrôle possibles pour la famille (la première par défaut) */
+  lists: EffectiveList[]
+  /** Liste du contrôle existant, sinon celle gardée sur l'appareil */
+  initialListKey: string | null
   existing: EquipmentCheck | null
   onClose: () => void
   onSave: (patch: {
     checklist: Record<string, CheckItemValue>
+    checklistKey: string | null
     observation: string | null
     verdict: CheckVerdict
     photos: CheckPhoto[]
@@ -882,7 +904,7 @@ type ModalProps = {
 }
 
 function UnitCheckModal({
-  unit, template, existing, onClose, onSave, readOnly,
+  unit, template, lists, initialListKey, existing, onClose, onSave, readOnly,
   organizationId, interventionId, technicianName, zone, onUnitChange, hasNext, outOfScope,
 }: ModalProps) {
   const [photoError, setPhotoError] = useState<string | null>(null)
@@ -903,6 +925,11 @@ function UnitCheckModal({
   const [checklist, setChecklist] = useState<Record<string, CheckItemValue>>(
     existing?.checklist ?? {},
   )
+  // Liste de contrôle : celle du contrôle existant ou de l'appareil, sinon la première
+  const [listKey, setListKey] = useState<string | null>(
+    (initialListKey && lists.some((l) => l.key === initialListKey) ? initialListKey : lists[0]?.key) ?? null,
+  )
+  const list = lists.find((l) => l.key === listKey) ?? null
   const [observation, setObservation] = useState(existing?.observation ?? '')
   const [verdict, setVerdict] = useState<CheckVerdict>(existing?.verdict ?? 'non_verifie')
   const [photos, setPhotos] = useState<CheckPhoto[]>(existing?.photos ?? [])
@@ -1002,6 +1029,7 @@ function UnitCheckModal({
     try {
       await onSave({
         checklist,
+        checklistKey: list?.key ?? null,
         observation: observation.trim() || null,
         verdict,
         photos,
@@ -1052,7 +1080,7 @@ function UnitCheckModal({
     if (e.target === e.currentTarget) onClose()
   }
 
-  const items = template?.checklist ?? []
+  const items = list?.items ?? template?.checklist ?? []
   const observationTypes = template?.observation_types ?? []
   const answered = Object.keys(checklist).length
 
@@ -1160,11 +1188,22 @@ function UnitCheckModal({
           {items.length > 0 && (
             <div>
               <div style={sectionTitleStyle}>
-                <span>Checklist ({template?.reference_code ?? 'contrôle'})</span>
+                <span>Checklist{list && lists.length < 2 ? ` : ${list.name}` : ''}</span>
                 <span style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 500 }}>
                   {answered} / {items.length}
                 </span>
               </div>
+              {lists.length > 1 && (
+                <select
+                  value={listKey ?? ''}
+                  disabled={readOnly}
+                  onChange={(e) => { setListKey(e.target.value); setChecklist({}) }}
+                  aria-label="Liste de contrôle"
+                  style={{ width: '100%', marginBottom: 8 }}
+                >
+                  {lists.map((l) => <option key={l.key} value={l.key}>{l.name}</option>)}
+                </select>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {items.map((item) => {
                   const val = checklist[item.id]

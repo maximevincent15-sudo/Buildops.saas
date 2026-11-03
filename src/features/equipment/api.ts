@@ -447,6 +447,7 @@ export async function upsertCheck(
     intervention_id: input.intervention_id,
     equipment_unit_id: input.equipment_unit_id,
     family_template_id: input.family_template_id ?? null,
+    checklist_key: input.checklist_key ?? null,
     checklist: input.checklist ?? {},
     observation: input.observation ?? null,
     verdict: input.verdict ?? 'non_verifie',

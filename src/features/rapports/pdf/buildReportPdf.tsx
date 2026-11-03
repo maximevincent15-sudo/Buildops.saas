@@ -10,7 +10,7 @@ import { supabase } from '../../../shared/lib/supabase'
 import { EQUIPMENT_TYPES, resolveEquipmentTypes } from '../../../shared/constants/interventions'
 import type { EquipmentType } from '../../../shared/constants/interventions'
 import { getReportByIntervention, setReportPdfUrl } from '../api'
-import { CHECKLISTS } from '../checklists'
+import { loadChecklistContext, visitItems } from '../../checklists/api'
 import { responsesToByType } from '../schemas'
 import type { ChecklistResponse } from '../schemas'
 import { ClassicReportPdf } from './ClassicReportPdf'
@@ -45,10 +45,11 @@ export async function generateReportPdfForIntervention(
     (report.checklist ?? []) as ChecklistResponse[],
     report.equipment_type ?? null,
   )
+  const checklistCtx = await loadChecklistContext(organizationId)
   const sections = (resolveEquipmentTypes(intervention) as EquipmentType[]).map((t) => ({
     type: t,
     label: EQUIPMENT_TYPES[t] ?? t,
-    items: CHECKLISTS[t] ?? [],
+    items: visitItems(checklistCtx, t),
     responses: byType[t] ?? [],
   }))
 

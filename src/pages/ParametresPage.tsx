@@ -1,4 +1,4 @@
-import { Building2, CheckCircle2, Download, FileText, Save, Sparkles, Users } from 'lucide-react'
+import { Building2, CheckCircle2, Download, FileText, ListChecks, Save, Sparkles, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchProfile } from '../features/auth/api'
@@ -261,6 +261,21 @@ export function ParametresPage() {
       {/* Notifications par mail (administrateurs) */}
       {(profile?.user_role ?? 'admin') === 'admin' && <NotificationsCard />}
       {(profile?.user_role ?? 'admin') === 'admin' && <ReportTemplateCard />}
+      {(profile?.user_role ?? 'admin') === 'admin' && (
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <div className="card-top">
+            <span className="card-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <ListChecks size={14} strokeWidth={1.8} />
+              Checklists de contrôle
+            </span>
+            <Link to="/parametres/checklists" className="btn-sm">Modifier les checklists</Link>
+          </div>
+          <p className="text-ink-3 text-sm font-light" style={{ margin: 0 }}>
+            Adapte les points vérifiés pendant les visites, type par type : renomme, ajoute, retire ou réordonne des points,
+            et crée plusieurs listes par appareil (par exemple désenfumage naturel ou mécanique).
+          </p>
+        </div>
+      )}
 
       {/* Bloc 1 : identité légale */}
       <div className="card" style={{ marginBottom: '1rem' }}>

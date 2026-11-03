@@ -158,6 +158,8 @@ export type EquipmentUnit = {
   photo_path: string | null
   photo_url: string | null
   attributes: Record<string, string>
+  /** Liste de contrôle choisie pour l'appareil (gardée d'une visite à l'autre) */
+  checklist_key?: string | null
   created_at: string
   updated_at: string
   created_by: string | null
@@ -212,6 +214,8 @@ export type EquipmentCheck = {
   intervention_id: string
   equipment_unit_id: string
   family_template_id: string | null
+  /** Liste de contrôle utilisée (clé Firovia ou id de checklist_templates) */
+  checklist_key?: string | null
   /** { "<itemId>": "ok" | "na" } */
   checklist: Record<string, CheckItemValue>
   observation: string | null
@@ -229,6 +233,7 @@ export type UpsertEquipmentCheckInput = {
   intervention_id: string
   equipment_unit_id: string
   family_template_id?: string | null
+  checklist_key?: string | null
   checklist?: Record<string, CheckItemValue>
   observation?: string | null
   verdict?: CheckVerdict

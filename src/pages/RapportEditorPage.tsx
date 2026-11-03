@@ -33,7 +33,8 @@ import { notifyReportCompleted } from '../features/notifications/api'
 import { recipientsForClientId } from '../features/clients/recipients'
 import { sendDocumentEmail } from '../features/email/api'
 import { buildDefaultBody, buildDefaultSubject } from '../features/rapports/components/SendToClientModal'
-import { CHECKLISTS } from '../features/rapports/checklists'
+import { loadChecklistContext, visitItems } from '../features/checklists/api'
+import type { ChecklistContext } from '../features/checklists/api'
 import { computeConformity } from '../features/rapports/conformity'
 import { ChecklistSection } from '../features/rapports/components/ChecklistSection'
 import { UnitBasedControls } from '../features/rapports/components/UnitBasedControls'
@@ -159,6 +160,14 @@ export function RapportEditorPage() {
   const [notCheckedOpen, setNotCheckedOpen] = useState(false)
   const [notCheckedReason, setNotCheckedReason] = useState<string>(NOT_CHECKED_REASONS[0])
   const [unitsReloadKey, setUnitsReloadKey] = useState(0)
+  // Checklists de la visite : celles de l'entreprise, sinon les listes Firovia
+  const [checklistCtx, setChecklistCtx] = useState<ChecklistContext | null>(null)
+  const checklistOrgId = profile?.organization_id ?? null
+  useEffect(() => {
+    let alive = true
+    void loadChecklistContext(checklistOrgId).then((ctx) => { if (alive) setChecklistCtx(ctx) })
+    return () => { alive = false }
+  }, [checklistOrgId])
   // N° de dossier du site (affiché sous le titre et imprimé sur le PDF)
   const [dossierNumber, setDossierNumber] = useState<string | null>(null)
   // Devis correctif : complété à l'ouverture avec les anomalies équipement
@@ -239,7 +248,7 @@ export function RapportEditorPage() {
     // Parcourt TOUS les types contrôlés et leurs anomalies
     const allAnomalies: Array<{ label: string; action?: string; note?: string; type: string }> = []
     for (const [type, responses] of Object.entries(checklistByType)) {
-      const itemsForType = CHECKLISTS[type as EquipmentType] ?? []
+      const itemsForType = visitItems(checklistCtx, type as EquipmentType)
       for (const it of itemsForType) {
         const r = responses.find((c) => c.id === it.id)
         if (r?.value === 'nok') {
@@ -288,14 +297,14 @@ export function RapportEditorPage() {
       recurrence_active: false,
       notes,
     }
-  }, [intervention, equipmentType, checklistByType, unitVerdicts])
+  }, [intervention, equipmentType, checklistByType, unitVerdicts, checklistCtx])
 
   // Seed pour la création d'un devis correctif depuis les anomalies du rapport
   const quoteSeed = useMemo<Partial<UpsertQuoteInput> | null>(() => {
     if (!intervention) return null
     const allAnomalies: Array<{ label: string; action?: string; note?: string; type: string }> = []
     for (const [type, responses] of Object.entries(checklistByType)) {
-      const itemsForType = CHECKLISTS[type as EquipmentType] ?? []
+      const itemsForType = visitItems(checklistCtx, type as EquipmentType)
       for (const it of itemsForType) {
         const r = responses.find((c) => c.id === it.id)
         if (r?.value === 'nok') {
@@ -326,7 +335,7 @@ export function RapportEditorPage() {
       notes: `Suite au rapport ${intervention.reference} — anomalies à corriger.`,
       lines,
     }
-  }, [intervention, checklistByType])
+  }, [intervention, checklistByType, checklistCtx])
 
   if (loading) {
     return (
@@ -357,7 +366,7 @@ export function RapportEditorPage() {
   }
 
   // Items du type actuellement affiché (pour la section checklist visible)
-  const items = equipmentType ? CHECKLISTS[equipmentType] ?? [] : []
+  const items = equipmentType ? visitItems(checklistCtx, equipmentType) : []
   // Checklist du type actuellement affiché
   const currentChecklist: ChecklistResponse[] = equipmentType
     ? (checklistByType[equipmentType] ?? [])
@@ -368,7 +377,7 @@ export function RapportEditorPage() {
   // Synthèse GLOBALE couvrant tous les types (pour tampon + bouton correctif)
   const totalByType: Record<string, number> = {}
   for (const t of availableTypes) {
-    totalByType[t] = (CHECKLISTS[t] ?? []).length
+    totalByType[t] = visitItems(checklistCtx, t).length
   }
   const globalSummary = computeGlobalSummary(checklistByType, totalByType)
   const isCompleted = !!completedAt
@@ -389,7 +398,7 @@ export function RapportEditorPage() {
   const nokWithoutPhoto: Array<{ type: EquipmentType; label: string }> = []
   const nokWithoutAction: Array<{ type: EquipmentType; label: string }> = []
   for (const t of availableTypes) {
-    const itemsForType = CHECKLISTS[t] ?? []
+    const itemsForType = visitItems(checklistCtx, t)
     const responsesForType = checklistByType[t] ?? []
     for (const it of itemsForType) {
       const r = responsesForType.find((c) => c.id === it.id)
@@ -408,7 +417,7 @@ export function RapportEditorPage() {
   // Anomalies GLOBALES pour la synthèse (tous types)
   const anomalies: Array<{ label: string; action?: string; note?: string; typeLabel: string }> = []
   for (const t of availableTypes) {
-    const itemsForType = CHECKLISTS[t] ?? []
+    const itemsForType = visitItems(checklistCtx, t)
     const responsesForType = checklistByType[t] ?? []
     for (const it of itemsForType) {
       const r = responsesForType.find((c) => c.id === it.id)
@@ -454,7 +463,7 @@ export function RapportEditorPage() {
     const sections = availableTypes.map((t) => ({
       type: t,
       label: EQUIPMENT_TYPES[t] ?? t,
-      items: CHECKLISTS[t] ?? [],
+      items: visitItems(checklistCtx, t),
       responses: checklistByType[t] ?? [],
     }))
     // Registre nominatif (Slice E) — chargé si le site a des équipements
@@ -940,7 +949,7 @@ export function RapportEditorPage() {
           <div className="equip-pills" style={{ marginTop: '.4rem' }}>
             {availableTypes.map((t) => {
               const doneCount = (checklistByType[t] ?? []).filter((r) => r.value).length
-              const totalCount = (CHECKLISTS[t] ?? []).length
+              const totalCount = visitItems(checklistCtx, t).length
               const hasNok = (checklistByType[t] ?? []).some((r) => r.value === 'nok')
               return (
                 <button

@@ -15,6 +15,7 @@ import { ImportTechniciansPage } from './pages/ImportTechniciansPage'
 import { ImportVehiclesPage } from './pages/ImportVehiclesPage'
 import { ArchivagePage } from './pages/ArchivagePage'
 import { DossierPage } from './pages/DossierPage'
+import { ChecklistsPage } from './pages/ChecklistsPage'
 import { DossiersPage } from './pages/DossiersPage'
 import { ClientPortalPage } from './pages/ClientPortalPage'
 import { PublicRegistryPage } from './pages/PublicRegistryPage'
@@ -103,6 +104,7 @@ function App() {
           <Route path="/dossiers" element={<AdminGate><DossiersPage /></AdminGate>} />
           <Route path="/dossiers/:number" element={<AdminGate><DossierPage /></AdminGate>} />
           <Route path="/parametres" element={<AdminGate><ParametresPage /></AdminGate>} />
+          <Route path="/parametres/checklists" element={<AdminGate><ChecklistsPage /></AdminGate>} />
           <Route path="/abonnement" element={<AdminGate><AbonnementPage /></AdminGate>} />
           <Route path="/admin/prospects" element={<AdminProspectsPage />} />
           <Route path="/equipe" element={<AdminGate><EquipePage /></AdminGate>} />

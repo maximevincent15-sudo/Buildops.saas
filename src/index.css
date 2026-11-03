@@ -784,6 +784,19 @@ h1, h2, h3, h4, h5, h6 {
   .ql-add-detail:hover { color: var(--acc); text-decoration: underline; }
   @media (hover: none) { .ql-add-detail { visibility: visible; } }
 
+  /* Checklists de contrôle (Paramètres) */
+  .cl-items { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .cl-item { display: flex; align-items: center; gap: 6px; }
+  .cl-item input { flex: 1; min-width: 0; padding: .45rem .6rem; border: .5px solid var(--brd2); border-radius: calc(var(--r) - 2px); font-size: .85rem; font-family: 'DM Sans', sans-serif; background: var(--wht); }
+  .cl-num { width: 22px; text-align: right; font-size: .75rem; color: var(--ink3); flex: none; }
+  .cl-icon { width: 28px; height: 28px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: .5px solid var(--brd2); border-radius: 6px; background: var(--wht); color: var(--ink2); cursor: pointer; }
+  .cl-icon:disabled { opacity: .35; cursor: default; }
+  .cl-icon.danger:hover:not(:disabled) { color: var(--red); border-color: var(--red); background: var(--red-lt); }
+  .cl-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+  .cl-block { padding: 12px 0; border-top: .5px solid var(--brd); }
+  .cl-block:first-of-type { border-top: none; padding-top: 0; }
+  .cl-block-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; margin-bottom: 8px; }
+
   /* Barre de mise en forme des lignes */
   .lf-bar {
     display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;

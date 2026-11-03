@@ -1,7 +1,7 @@
+import { loadChecklistContext, unitListFor } from '../checklists/api'
 import {
   listChecksByIntervention,
   listEquipmentUnitsByIds,
-  listFamilyTemplates,
   listZones,
 } from './api'
 import {
@@ -29,11 +29,12 @@ export async function buildUnitEntriesForIntervention(
   if (checks.length === 0) return []
 
   // Seulement les équipements contrôlés, pas tout le parc du site
-  const [units, zones, templates] = await Promise.all([
+  const [units, zones, ctx] = await Promise.all([
     listEquipmentUnitsByIds(checks.map((c) => c.equipment_unit_id)),
     listZones(siteId),
-    listFamilyTemplates().catch(() => [] as FamilyTemplate[]),
+    loadChecklistContext(checks[0]?.organization_id),
   ])
+  const templates = ctx.familyTemplates
 
   const unitsById = new Map<string, EquipmentUnit>()
   for (const u of units) if (u.site_id === siteId) unitsById.set(u.id, u)
@@ -54,10 +55,12 @@ export async function buildUnitEntriesForIntervention(
     if (!u) continue
     const zone = u.zone_id ? zonesById.get(u.zone_id) ?? null : null
 
-    const template =
-      (c.family_template_id ? templatesById.get(c.family_template_id) : undefined)
-      ?? templatesByFamily.get(u.family)
-    const items = template?.checklist ?? []
+    // Liste utilisée pour ce contrôle ; anciens contrôles : la liste Firovia d'alors
+    const items = c.checklist_key
+      ? unitListFor(ctx, u.family, c.checklist_key)?.items ?? []
+      : (c.family_template_id ? templatesById.get(c.family_template_id) : undefined)?.checklist
+        ?? templatesByFamily.get(u.family)?.checklist
+        ?? []
     const answers = c.checklist ?? {}
     const naItems = items.filter((it) => answers[it.id] === 'na').map((it) => it.label)
     const uncheckedItems = items.filter((it) => !answers[it.id]).map((it) => it.label)
