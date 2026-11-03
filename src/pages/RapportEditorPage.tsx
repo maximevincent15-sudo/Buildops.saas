@@ -829,7 +829,13 @@ export function RapportEditorPage() {
           </div>
           <div className="dash-sub">
             {intervention.client_name} · {equipmentsLabel} · prévu le {scheduledLabel}
-            {dossierNumber && <> · dossier <strong>{dossierNumber}</strong></>}
+            {dossierNumber && (
+              <> · dossier{' '}
+                {(profile?.user_role ?? 'admin') === 'admin'
+                  ? <Link to={`/dossiers/${encodeURIComponent(dossierNumber)}`}><strong>{dossierNumber}</strong></Link>
+                  : <strong>{dossierNumber}</strong>}
+              </>
+            )}
           </div>
         </div>
         <div className="dash-acts">

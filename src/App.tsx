@@ -14,6 +14,8 @@ import { ImportInterventionsPage } from './pages/ImportInterventionsPage'
 import { ImportTechniciansPage } from './pages/ImportTechniciansPage'
 import { ImportVehiclesPage } from './pages/ImportVehiclesPage'
 import { ArchivagePage } from './pages/ArchivagePage'
+import { DossierPage } from './pages/DossierPage'
+import { DossiersPage } from './pages/DossiersPage'
 import { ClientPortalPage } from './pages/ClientPortalPage'
 import { PublicRegistryPage } from './pages/PublicRegistryPage'
 import { DevisPage } from './pages/DevisPage'
@@ -98,6 +100,8 @@ function App() {
           <Route path="/contrats" element={<AdminGate><ModuleGate module="contrats"><ContratsPage /></ModuleGate></AdminGate>} />
           <Route path="/catalogue/import" element={<AdminGate><ModuleGate module="catalogue"><ImportCatalogPage /></ModuleGate></AdminGate>} />
           <Route path="/archivage" element={<AdminGate><ArchivagePage /></AdminGate>} />
+          <Route path="/dossiers" element={<AdminGate><DossiersPage /></AdminGate>} />
+          <Route path="/dossiers/:number" element={<AdminGate><DossierPage /></AdminGate>} />
           <Route path="/parametres" element={<AdminGate><ParametresPage /></AdminGate>} />
           <Route path="/abonnement" element={<AdminGate><AbonnementPage /></AdminGate>} />
           <Route path="/admin/prospects" element={<AdminProspectsPage />} />

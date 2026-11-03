@@ -1640,6 +1640,50 @@ h1, h2, h3, h4, h5, h6 {
     .portal-form-card .mrow { grid-template-columns: 1fr; }
   }
 
+  /* DOSSIERS — repères et photos */
+  .dossier-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .7rem;
+    margin-bottom: 1rem;
+  }
+  .dossier-kpi {
+    background: var(--wht);
+    border: .5px solid var(--brd);
+    border-radius: var(--r);
+    padding: .7rem .9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .dossier-kpi span { font-size: .72rem; color: var(--ink3); text-transform: uppercase; letter-spacing: .04em; }
+  .dossier-kpi strong { font-family: 'Syne', sans-serif; font-size: 1.05rem; color: var(--ink); }
+  .dossier-photos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: .6rem;
+  }
+  .dossier-photo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-decoration: none;
+    color: var(--ink2);
+    font-size: .7rem;
+    line-height: 1.3;
+  }
+  .dossier-photo img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: calc(var(--r) - 2px);
+    border: .5px solid var(--brd);
+    background: var(--bg);
+  }
+  @media (max-width: 640px) {
+    .dossier-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
   /* ARCHIVAGE — filtres et liste */
   .archive-filters {
     display: flex;

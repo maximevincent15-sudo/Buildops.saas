@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   Archive,
+  FolderOpen,
   Bell,
   BookOpen,
   Boxes,
@@ -73,6 +74,7 @@ const facturation: NavItem[] = [
 ]
 
 const documents: NavItem[] = [
+  { to: '/dossiers', Icon: FolderOpen, label: 'Dossiers' },
   { to: '/archivage', Icon: Archive, label: 'Archivage' },
 ]
 

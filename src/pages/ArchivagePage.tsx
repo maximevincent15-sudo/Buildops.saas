@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FileSearch,
   FileText,
+  FolderOpen,
   Receipt,
   Search,
   Upload,
@@ -18,6 +19,7 @@ import { useAuthStore } from '../features/auth/store'
 import { listArchivedDocuments } from '../features/archivage/api'
 import type { ArchivedDocument } from '../features/archivage/api'
 import { LegacyImportModal } from '../features/archivage/components/LegacyImportModal'
+import { DossierArchiveList } from '../features/dossiers/components/DossierArchiveList'
 import { formatAmount } from '../features/devis/constants'
 import { matchesSearch } from '../shared/lib/search'
 
@@ -74,6 +76,8 @@ export function ArchivagePage() {
   const [yearFilter, setYearFilter] = useState<string>('all')
 
   const [importOpen, setImportOpen] = useState(false)
+  // Vue : documents un par un, ou dossiers complets (?vue=dossiers)
+  const [view, setView] = useState<'documents' | 'dossiers'>(() => (searchParams.get('vue') === 'dossiers' ? 'dossiers' : 'documents'))
 
   async function load() {
     setLoading(true)
@@ -192,6 +196,29 @@ export function ArchivagePage() {
         onImported={() => void load()}
       />
 
+      <div style={{ display: 'flex', gap: '.5rem', marginBottom: '.8rem', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className={`filter-pill${view === 'documents' ? ' on' : ''}`}
+          onClick={() => setView('documents')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+        >
+          <FileText size={12} strokeWidth={2} />
+          Documents ({counts.all})
+        </button>
+        <button
+          type="button"
+          className={`filter-pill${view === 'dossiers' ? ' on' : ''}`}
+          onClick={() => setView('dossiers')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          title="Chaque chantier complet : visites, rapports, devis, factures, documents et photos"
+        >
+          <FolderOpen size={12} strokeWidth={2} />
+          Dossiers complets
+        </button>
+      </div>
+
+      {view === 'dossiers' ? <DossierArchiveList /> : (<>
       {/* Filtres */}
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="archive-filters">
@@ -402,6 +429,7 @@ export function ArchivagePage() {
           </>
         )}
       </div>
+      </>)}
     </>
   )
 }

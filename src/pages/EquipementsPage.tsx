@@ -1,6 +1,7 @@
-import { Building2, Layers, Pencil, Plus, Printer, QrCode, Search, Upload, X } from 'lucide-react'
+import { Building2, FolderOpen, Layers, Pencil, Plus, Printer, QrCode, Search, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useAuthStore } from '../features/auth/store'
 import { listClients } from '../features/clients/api'
 import type { Client } from '../features/clients/schemas'
 import { listEquipmentUnits, listSites } from '../features/equipment/api'
@@ -64,7 +65,9 @@ export function EquipementsPage() {
   const [scanOpen, setScanOpen] = useState(false)
   const [scanNotice, setScanNotice] = useState<string | null>(null)
   const [familyFilter, setFamilyFilter] = useState<FamilyFilter>('all')
-  const [siteFilter, setSiteFilter] = useState<string>('all')
+  // Site choisi par lien (?site=<id>, depuis la page d'un dossier)
+  const [siteFilter, setSiteFilter] = useState<string>(() => new URLSearchParams(window.location.search).get('site') ?? 'all')
+  const isAdmin = (useAuthStore((s) => s.profile)?.user_role ?? 'admin') === 'admin'
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
   async function load() {
@@ -387,6 +390,17 @@ export function EquipementsPage() {
             <Pencil size={13} strokeWidth={2} />
             Modifier ce site
           </button>
+        )}
+        {isAdmin && siteFilter !== 'all' && sitesById.get(siteFilter)?.dossier_number && (
+          <Link
+            to={`/dossiers/${encodeURIComponent(sitesById.get(siteFilter)!.dossier_number!)}`}
+            className="btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            title="Ouvrir le dossier de ce site : visites, rapports, devis, factures, documents"
+          >
+            <FolderOpen size={13} strokeWidth={2} />
+            Dossier
+          </Link>
         )}
         <select
           className="input-sm"

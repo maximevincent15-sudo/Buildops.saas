@@ -2,7 +2,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { Download, FileText, Mail, Plus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
 import { listQuotes } from '../features/devis/api'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
@@ -41,10 +41,21 @@ export function DevisPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<QuoteStatus | 'all'>('all')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  // Ouverture directe via ?open=<id> (depuis la page d'un dossier)
+  const [modalOpen, setModalOpen] = useState(() => !!new URLSearchParams(window.location.search).get('open'))
+  const [editingId, setEditingId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('open'))
   // Copie d'un devis : création pré-remplie
   const [duplicate, setDuplicate] = useState<{ seed: Partial<UpsertQuoteInput>; from: string } | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Paramètre ?open= consommé : retiré pour ne pas rouvrir au rechargement
+  useEffect(() => {
+    if (!searchParams.get('open')) return
+    const next = new URLSearchParams(searchParams)
+    next.delete('open')
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function load() {
     setLoading(true)
