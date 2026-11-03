@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { quoteLineInputSchema } from '../devis/schemas'
 import type { QuoteLineInput } from '../devis/schemas'
+import type { LineFormat } from '../../shared/lib/lineFormat'
 import type { InvoiceStatus } from './constants'
 
 // On réutilise tel quel le schema de ligne du devis (même structure).
@@ -72,6 +73,7 @@ export type InvoiceLine = {
   unit_price_ht: number
   vat_rate: number
   line_total_ht: number
+  format?: LineFormat | null
   created_at: string
 }
 

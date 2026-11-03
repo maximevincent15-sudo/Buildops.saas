@@ -1,4 +1,5 @@
 import { supabase } from '../../shared/lib/supabase'
+import { cleanLineFormat } from '../../shared/lib/lineFormat'
 import { computeQuoteTotals } from '../devis/constants'
 import { getQuote } from '../devis/api'
 import type { Invoice, InvoiceLine, InvoiceWithLines, UpsertInvoiceInput } from './schemas'
@@ -84,6 +85,7 @@ export async function createInvoice(
     quantity: l.quantity,
     unit_price_ht: l.unit_price_ht,
     vat_rate: l.vat_rate,
+    format: cleanLineFormat(l.format),
   }))
   const { error: lErr } = await supabase.from('invoice_lines').insert(linesPayload)
   if (lErr) throw lErr
@@ -143,6 +145,7 @@ export async function updateInvoice(
     quantity: l.quantity,
     unit_price_ht: l.unit_price_ht,
     vat_rate: l.vat_rate,
+    format: cleanLineFormat(l.format),
   }))
   const { error: lErr } = await supabase.from('invoice_lines').insert(linesPayload)
   if (lErr) throw lErr
@@ -281,6 +284,7 @@ export async function createInvoiceFromQuote(
         quantity: Number(l.quantity),
         unit_price_ht: Number(l.unit_price_ht),
         vat_rate: Number(l.vat_rate),
+        format: l.format ?? null,
       })),
     },
     organizationId,

@@ -1,4 +1,5 @@
 import { supabase } from '../../shared/lib/supabase'
+import { cleanLineFormat } from '../../shared/lib/lineFormat'
 import { computeQuoteTotals } from './constants'
 import type { Quote, QuoteLine, QuoteWithLines, UpsertQuoteInput } from './schemas'
 
@@ -79,6 +80,7 @@ export async function createQuote(
     quantity: l.quantity,
     unit_price_ht: l.unit_price_ht,
     vat_rate: l.vat_rate,
+    format: cleanLineFormat(l.format),
   }))
   const { error: lErr } = await supabase.from('quote_lines').insert(linesPayload)
   if (lErr) throw lErr
@@ -138,6 +140,7 @@ export async function updateQuote(
     quantity: l.quantity,
     unit_price_ht: l.unit_price_ht,
     vat_rate: l.vat_rate,
+    format: cleanLineFormat(l.format),
   }))
   const { error: lErr } = await supabase.from('quote_lines').insert(linesPayload)
   if (lErr) throw lErr

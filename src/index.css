@@ -769,6 +769,41 @@ h1, h2, h3, h4, h5, h6 {
   /* Description sur plusieurs lignes : les autres colonnes restent en haut */
   .quote-line { align-items: start; }
   .quote-line textarea { display: block; line-height: 1.4; }
+  /* Précision sous la désignation : plus petite et grise, comme sur le PDF */
+  .ql-desc-field { display: flex; flex-direction: column; gap: 3px; }
+  .quote-line textarea.ql-detail { font-size: .74rem; color: var(--ink2); padding: .3rem .55rem; background: var(--bg); }
+  .ql-add-detail {
+    align-self: flex-start;
+    border: none; background: none; padding: 0 .2rem;
+    font-size: .7rem; color: var(--ink3); cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    visibility: hidden;
+  }
+  .ql-desc-field:hover .ql-add-detail,
+  .ql-desc-field:focus-within .ql-add-detail { visibility: visible; }
+  .ql-add-detail:hover { color: var(--acc); text-decoration: underline; }
+  @media (hover: none) { .ql-add-detail { visibility: visible; } }
+
+  /* Barre de mise en forme des lignes */
+  .lf-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    padding: 6px 8px; margin: 0 0 10px;
+    border: .5px solid var(--brd2); border-radius: var(--r);
+    background: var(--wht);
+  }
+  .lf-target { font-size: .72rem; color: var(--ink3); min-width: 0; flex: 1 1 180px; }
+  .lf-group { display: inline-flex; gap: 2px; padding-left: 8px; border-left: .5px solid var(--brd); }
+  .lf-group:first-of-type { border-left: none; padding-left: 0; }
+  .lf-btn {
+    width: 28px; height: 28px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: .5px solid transparent; border-radius: 6px;
+    background: transparent; color: var(--ink); cursor: pointer;
+  }
+  .lf-btn:hover:not(:disabled) { background: var(--bg); border-color: var(--brd2); }
+  .lf-btn.on { background: var(--acc-lt, #E8EEF8); border-color: var(--acc); color: var(--acc); }
+  .lf-btn:disabled { opacity: .35; cursor: default; }
+  .lf-swatch { width: 14px; height: 14px; border-radius: 50%; display: block; border: .5px solid rgba(0, 0, 0, .15); }
   .quote-line .ql-tot { padding-top: .45rem; }
   .quote-line .ql-tot {
     text-align: right;

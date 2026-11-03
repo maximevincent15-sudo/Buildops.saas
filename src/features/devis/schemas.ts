@@ -1,5 +1,14 @@
 import { z } from 'zod'
+import type { LineFormat } from '../../shared/lib/lineFormat'
 import type { QuoteStatus } from './constants'
+
+const lineTextStyleSchema = z.object({
+  bold: z.boolean().optional(),
+  italic: z.boolean().optional(),
+  underline: z.boolean().optional(),
+  size: z.enum(['sm', 'lg']).optional(),
+  color: z.enum(['grey', 'blue', 'red', 'green']).optional(),
+})
 
 export const quoteLineInputSchema = z.object({
   /** id existant pour update, undefined pour nouvelle ligne */
@@ -9,6 +18,8 @@ export const quoteLineInputSchema = z.object({
   quantity: z.number().positive(),
   unit_price_ht: z.number().min(0),
   vat_rate: z.number().min(0).max(100),
+  /** Mise en forme de la désignation et de la précision (null = normal) */
+  format: z.object({ main: lineTextStyleSchema.optional(), detail: lineTextStyleSchema.optional() }).nullable().optional(),
 })
 
 export type QuoteLineInput = z.infer<typeof quoteLineInputSchema>
@@ -78,6 +89,7 @@ export type QuoteLine = {
   unit_price_ht: number
   vat_rate: number
   line_total_ht: number
+  format?: LineFormat | null
   created_at: string
 }
 

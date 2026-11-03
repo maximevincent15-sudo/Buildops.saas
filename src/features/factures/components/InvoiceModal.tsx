@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
-import { AutoGrowTextarea } from '../../../shared/ui/AutoGrowTextarea'
+import { cleanLineFormat } from '../../../shared/lib/lineFormat'
+import type { LinePart } from '../../../shared/lib/lineFormat'
 import { VAT_RATES, computeQuoteTotals, formatAmount } from '../../devis/constants'
 import type { QuoteLineInput } from '../../devis/schemas'
 import { getClientNumber } from '../../clients/api'
@@ -11,6 +12,8 @@ import { loadDocumentContext } from '../../clients/documentContext'
 import { listClientDossierNumbers } from '../../equipment/api'
 import { getInvoicingSettings } from '../../parametres/api'
 import { CatalogPicker } from '../../catalogue/components/CatalogPicker'
+import { LineDescriptionField } from '../../devis/components/LineDescriptionField'
+import { LineFormatToolbar } from '../../devis/components/LineFormatToolbar'
 import type { CatalogItem } from '../../catalogue/schemas'
 import { formatCompanyNumber, parseCompanyNumber } from '../../clients/companyLookup'
 import { ClientAutocomplete } from '../../planning/components/ClientAutocomplete'
@@ -92,6 +95,8 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
   const [dueDate, setDueDate] = useState(defaultDueDate(todayIso()))
   const [notes, setNotes] = useState('')
   const [lines, setLines] = useState<QuoteLineInput[]>([{ ...EMPTY_LINE }])
+  // Zone de texte où se trouve le curseur, mise en forme par la barre
+  const [formatTarget, setFormatTarget] = useState<{ index: number; part: LinePart } | null>(null)
 
   // Workflow
   const [status, setStatus] = useState<InvoiceStatus>('draft')
@@ -137,6 +142,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                   id: l.id,
                   position: l.position,
                   description: l.description,
+                  format: l.format ?? null,
                   quantity: Number(l.quantity),
                   unit_price_ht: Number(l.unit_price_ht),
                   vat_rate: Number(l.vat_rate),
@@ -223,6 +229,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
 
   function removeLine(index: number) {
     setLines((prev) => prev.length > 1 ? prev.filter((_, i) => i !== index) : prev)
+    setFormatTarget(null)
   }
 
   const totals = computeQuoteTotals(
@@ -255,7 +262,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
       notes: notes || undefined,
       lines: lines
         .filter((l) => l.description.trim())
-        .map((l, i) => ({ position: i, description: l.description, quantity: l.quantity, unit_price_ht: l.unit_price_ht, vat_rate: l.vat_rate })),
+        .map((l, i) => ({ position: i, description: l.description, format: cleanLineFormat(l.format), quantity: l.quantity, unit_price_ht: l.unit_price_ht, vat_rate: l.vat_rate })),
     }, reference)
   }
 
@@ -661,6 +668,15 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
             {/* Lignes */}
             <div className="card-section">
               <div className="card-section-title">Lignes de la facture</div>
+              <LineFormatToolbar
+                target={formatTarget && lines[formatTarget.index] ? formatTarget : null}
+                style={formatTarget ? lines[formatTarget.index]?.format?.[formatTarget.part] : undefined}
+                onChange={(style) => {
+                  if (!formatTarget) return
+                  const line = lines[formatTarget.index]
+                  if (line) updateLine(formatTarget.index, { format: cleanLineFormat({ ...line.format, [formatTarget.part]: style }) })
+                }}
+              />
               <div className="quote-lines">
                 <div className="quote-line-header">
                   <div className="ql-desc">Description</div>
@@ -675,10 +691,12 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                   return (
                     <div className="quote-line" key={i}>
                       <div className="ql-desc">
-                        <AutoGrowTextarea
+                        <LineDescriptionField
                           placeholder="Description de la prestation"
                           value={line.description}
-                          onChange={(e) => updateLine(i, { description: e.target.value })}
+                          format={line.format}
+                          onChange={(description) => updateLine(i, { description })}
+                          onFocusPart={(part) => setFormatTarget({ index: i, part })}
                         />
                       </div>
                       <div className="ql-qty">
@@ -732,7 +750,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                     </button>
                     <CatalogPicker onPick={addCatalogItem} />
                     <span className="text-ink-3 text-xs font-light">
-                      Entrée dans une description : ajoute une précision dessous (délai de livraison, référence…).
+                      Entrée dans la désignation : ajoute une précision dessous (délai de livraison, référence…). La barre au-dessus met en forme le texte où se trouve le curseur.
                     </span>
                   </div>
                 )}

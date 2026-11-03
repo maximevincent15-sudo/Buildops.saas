@@ -1,4 +1,6 @@
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
+import { lineStylePdf } from '../../../shared/lib/lineFormat'
+import type { LineFormat } from '../../../shared/lib/lineFormat'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { VAT_MENTION_TEXT } from '../../parametres/api'
@@ -309,7 +311,7 @@ export function QuotePdf({ quote, organizationName, settings, clientNumber }: Pr
           const ht = Number(l.quantity) * Number(l.unit_price_ht)
           return (
             <View key={l.id} style={styles.tableRow} wrap={false}>
-              <LineDescription text={l.description} />
+              <LineDescription text={l.description} format={l.format} />
               <Text style={styles.colQty}>{formatNumber(Number(l.quantity), 2)}</Text>
               <Text style={styles.colPu}>{formatAmount(Number(l.unit_price_ht))}</Text>
               <Text style={styles.colVat}>{formatNumber(Number(l.vat_rate), 1)}%</Text>
@@ -394,14 +396,14 @@ export function QuotePdf({ quote, organizationName, settings, clientNumber }: Pr
   )
 }
 
-/** Description d'une ligne : la première ligne, puis les précisions (délai, référence…) en plus petit */
-function LineDescription({ text }: { text: string }) {
+/** Description d'une ligne : la désignation, puis la précision (délai, référence…) en plus petit, avec leur mise en forme */
+function LineDescription({ text, format }: { text: string; format?: LineFormat | null }) {
   const [first, ...rest] = text.split('\n')
   const details = rest.join('\n').trim()
   return (
     <View style={styles.colDesc}>
-      <Text>{first}</Text>
-      {details ? <Text style={styles.descDetail}>{details}</Text> : null}
+      <Text style={lineStylePdf(format?.main, 9.5)}>{first}</Text>
+      {details ? <Text style={[styles.descDetail, lineStylePdf(format?.detail, 8)]}>{details}</Text> : null}
     </View>
   )
 }
