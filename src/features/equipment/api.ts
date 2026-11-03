@@ -1,6 +1,7 @@
 import { compressImage } from '../../shared/lib/image'
 import { FileTooLargeError, MAX_UPLOAD_SIZE_BYTES } from '../../shared/lib/storage'
 import { supabase } from '../../shared/lib/supabase'
+import { applySiteDossierToVisits } from '../dossiers/numbers'
 import type {
   Site,
   CreateSiteInput,
@@ -81,42 +82,31 @@ export async function updateSite(
     .select()
     .single()
   if (error) throw error
+  if (input.dossier_number?.trim()) await applySiteDossierToVisits(id, input.dossier_number).catch(() => {})
   return data as Site
 }
 
-/** N° de dossier du site d'une intervention (null si pas de site ou pas de numéro) */
+/** N° de dossier d'une intervention, celui de son année (null si elle n'en a pas) */
 export async function dossierNumberForIntervention(interventionId: string | null | undefined): Promise<string | null> {
   if (!interventionId) return null
   const { data: itv } = await supabase
     .from('interventions')
-    .select('site_id')
+    .select('dossier_number')
     .eq('id', interventionId)
     .maybeSingle()
-  return dossierNumberForSite((itv as { site_id: string | null } | null)?.site_id)
+  return (itv as { dossier_number: string | null } | null)?.dossier_number?.trim() || null
 }
 
-/** N° de dossier d'un site (null si absent) */
-export async function dossierNumberForSite(siteId: string | null | undefined): Promise<string | null> {
-  if (!siteId) return null
-  const { data } = await supabase
-    .from('sites')
-    .select('dossier_number')
-    .eq('id', siteId)
-    .maybeSingle()
-  return (data as { dossier_number: string | null } | null)?.dossier_number?.trim() || null
-}
-
-/** N° de dossier des sites d'un client (suggestions sur les devis et factures), triés */
+/** N° de dossier d'un client, de ses sites et de ses visites (suggestions sur les devis, factures et visites), du plus récent au plus ancien */
 export async function listClientDossierNumbers(clientId: string | null | undefined): Promise<string[]> {
   if (!clientId) return []
-  const { data, error } = await supabase
-    .from('sites')
-    .select('dossier_number')
-    .eq('client_id', clientId)
-    .not('dossier_number', 'is', null)
-  if (error) return []
-  const numbers = (data as Array<{ dossier_number: string | null }>).map((r) => r.dossier_number?.trim() ?? '').filter(Boolean)
-  return Array.from(new Set(numbers)).sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }))
+  const [sitesRes, visitsRes] = await Promise.all([
+    supabase.from('sites').select('dossier_number').eq('client_id', clientId).not('dossier_number', 'is', null),
+    supabase.from('interventions').select('dossier_number').eq('client_id', clientId).not('dossier_number', 'is', null),
+  ])
+  const rows = [...((sitesRes.data ?? []) as Array<{ dossier_number: string | null }>), ...((visitsRes.data ?? []) as Array<{ dossier_number: string | null }>)]
+  const numbers = rows.map((r) => r.dossier_number?.trim() ?? '').filter(Boolean)
+  return Array.from(new Set(numbers)).sort((a, b) => b.localeCompare(a, 'fr', { numeric: true }))
 }
 
 export async function deleteSite(id: string): Promise<void> {

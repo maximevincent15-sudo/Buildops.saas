@@ -49,7 +49,7 @@ import { getClientNumber } from '../features/clients/api'
 import { getInvoicingSettings } from '../features/parametres/api'
 import { listAnomaliesForIntervention } from '../features/anomalies/api'
 import { ACTIVE_ANOMALY_STATUSES, ANOMALY_ACTION_LABELS } from '../features/anomalies/schemas'
-import { dossierNumberForSite, listEquipmentUnitsByIds, listZones, markUnitsNotChecked } from '../features/equipment/api'
+import { listEquipmentUnitsByIds, listZones, markUnitsNotChecked } from '../features/equipment/api'
 import { flushQueue, getPendingCount } from '../features/equipment/offlineQueue'
 import { EQUIPMENT_FAMILIES, EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
@@ -175,7 +175,7 @@ export function RapportEditorPage() {
         if (!alive) return
         const normalized = normalizeIntervention(interv as Intervention)
         setIntervention(normalized)
-        void dossierNumberForSite(normalized.site_id).then((n) => { if (alive) setDossierNumber(n) })
+        setDossierNumber(normalized.dossier_number?.trim() || null)
         const types = resolveEquipmentTypes(normalized) as EquipmentType[]
         if (types.length > 0 && !equipmentType) {
           setEquipmentType(types[0]!)
@@ -497,10 +497,8 @@ export function RapportEditorPage() {
     } catch {
       anomalyEntries = []
     }
-    const [clientNumber, siteDossier] = await Promise.all([
-      getClientNumber(intervention?.client_id),
-      dossierNumberForSite(intervention?.site_id),
-    ])
+    const clientNumber = await getClientNumber(intervention?.client_id)
+    const visitDossier = intervention?.dossier_number?.trim() || null
     const element = (
       <ReportPdf
         intervention={intervention!}
@@ -511,7 +509,7 @@ export function RapportEditorPage() {
         settings={invoicingSettings}
         anomalyEntries={anomalyEntries}
         clientNumber={clientNumber}
-        dossierNumber={siteDossier}
+        dossierNumber={visitDossier}
         interventionType={
           intervention?.intervention_type
             ? INTERVENTION_TYPE_LABELS[intervention.intervention_type]

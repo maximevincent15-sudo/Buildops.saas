@@ -46,6 +46,8 @@ export const createInterventionSchema = z.object({
   client_id: z.string().optional(),
   site_name: z.string().optional(),
   site_id: z.string().uuid().optional().nullable(),
+  /** N° de dossier de l'année (un nouveau numéro chaque année pour le même chantier) */
+  dossier_number: z.string().optional(),
   address: z.string().optional(),
   equipment_types: z
     .array(equipmentTypeEnum)
@@ -95,6 +97,8 @@ export type Intervention = {
   client_id: string | null
   site_name: string | null
   site_id: string | null
+  /** N° de dossier de la visite (celui de son année) */
+  dossier_number?: string | null
   address: string | null
   /** @deprecated ancienne colonne (un seul type). Utiliser equipment_types. */
   equipment_type: string | null

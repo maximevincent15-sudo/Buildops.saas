@@ -27,7 +27,7 @@ export function DossierArchiveList() {
   }, [])
 
   const filtered = useMemo(
-    () => dossiers.filter((d) => matchesSearch(search, [d.number, ...d.clientNames, ...d.siteNames])),
+    () => dossiers.filter((d) => matchesSearch(search, [d.number, ...d.years, ...d.clientNames, ...d.siteNames])),
     [dossiers, search],
   )
 
@@ -68,7 +68,7 @@ export function DossierArchiveList() {
           <FolderOpen size={32} strokeWidth={1.5} className="text-ink-3" style={{ margin: '0 auto .5rem' }} />
           <p className="text-ink-2 font-light" style={{ marginBottom: '.5rem' }}>Aucun dossier pour l'instant.</p>
           <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 460, margin: '0 auto' }}>
-            Donne un N° de dossier à un site (Équipements, choisis le site, puis « Modifier ce site ») : le dossier complet du chantier apparaît ici.
+            Donne un N° de dossier à un site (Équipements, choisis le site, puis « Modifier ce site ») ou à une visite (Planning) : le dossier complet du chantier apparaît ici, un par année.
           </p>
         </div>
       )}
@@ -84,6 +84,7 @@ export function DossierArchiveList() {
                   <div className="archive-title">
                     <span className="archive-kind">Dossier</span>
                     <strong>{d.number}</strong>
+                    {d.years.length > 0 && <span className="archive-light"> · {d.years.join(', ')}</span>}
                     {d.clientNames.length > 0 && <span className="archive-light"> — {d.clientNames.join(', ')}</span>}
                   </div>
                   <div className="archive-meta">

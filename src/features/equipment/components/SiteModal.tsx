@@ -159,14 +159,14 @@ export function SiteModal({
           </div>
 
           <div className="fg">
-            <label>N° de dossier <span className="text-ink-3 text-xs font-light">(optionnel)</span></label>
+            <label>N° de dossier en cours <span className="text-ink-3 text-xs font-light">(optionnel)</span></label>
             <input
               type="text"
               placeholder="Ex : D-2026-014"
               {...register('dossier_number')}
             />
             <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
-              Repris sur les rapports, devis et factures. Plusieurs sites peuvent partager le même numéro : ils forment un seul dossier.
+              Celui de cette année : repris sur les visites, rapports, devis et factures. L'an prochain, le nouveau numéro saisi sur une visite le remplace ici ; les anciennes visites gardent le leur. Plusieurs sites peuvent partager le même numéro : ils forment un seul dossier.
             </span>
           </div>
 

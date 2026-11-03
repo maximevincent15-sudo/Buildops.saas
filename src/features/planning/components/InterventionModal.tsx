@@ -1,11 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Bell, Check, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
 import { getClient } from '../../clients/api'
-import { listSites, listZones } from '../../equipment/api'
+import { listClientDossierNumbers, listSites, listZones } from '../../equipment/api'
+import { suggestDossierNumber } from '../../dossiers/numbers'
 import type { Site, Zone } from '../../equipment/schemas'
 import { RelanceModal } from '../../relances/components/RelanceModal'
 import {
@@ -74,6 +75,7 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
       intervention_type: 'preventive',
       client_id: '',
       technician_id: '',
+      dossier_number: '',
       recurrence_active: true,
       material_needed: [],
       slot: 'fullday',
@@ -91,6 +93,7 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
     client_id: i.client_id ?? '',
     site_name: i.site_name ?? '',
     site_id: i.site_id ?? null,
+    dossier_number: i.dossier_number ?? '',
     address: i.address ?? '',
     equipment_types: types,
     scheduled_date: i.scheduled_date ?? '',
@@ -136,6 +139,10 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
   const [customMaterial, setCustomMaterial] = useState('')
   // « Autre lieu » choisi explicitement : pas de site enregistré, donc pas de parc dans le rapport
   const [freeSite, setFreeSite] = useState(false)
+  // N° de dossier : proposé selon le site et l'année de la visite, tant qu'il n'est pas saisi à la main
+  const dossierTouched = useRef(false)
+  const [dossierHint, setDossierHint] = useState<{ key: string; previous: string | null } | null>(null)
+  const [dossierOptions, setDossierOptions] = useState<string[]>([])
 
   const {
     register,
@@ -183,6 +190,7 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
     setStep(1)
     setSubmitError(null)
     setCustomMaterial('')
+    dossierTouched.current = false
     // Ancienne intervention sur un lieu saisi à la main : on garde « Autre lieu »
     setFreeSite(!!intervention && !intervention.site_id && !!intervention.site_name?.trim())
   }, [open, intervention, seed, reset])
@@ -196,6 +204,32 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
     }
     listSites(clientId).then(setSites).catch(() => setSites([]))
   }, [open, clientId])
+
+  // N° de dossier déjà utilisés pour ce client (suggestions)
+  useEffect(() => {
+    if (!open || !clientId) return
+    let alive = true
+    void listClientDossierNumbers(clientId).then((list) => { if (alive) setDossierOptions(list) })
+    return () => { alive = false }
+  }, [open, clientId])
+
+  // N° de dossier proposé : celui de l'année de la visite pour ce site. Une
+  // visite qui a déjà son numéro le garde ; une saisie à la main n'est
+  // jamais écrasée.
+  const dossierKey = `${siteId ?? ''}|${(scheduledDate || '').slice(0, 4)}`
+  const ownDossier = intervention?.dossier_number?.trim() || null
+  useEffect(() => {
+    if (!open || !siteId || ownDossier) return
+    let alive = true
+    void suggestDossierNumber(siteId, scheduledDate || null, intervention?.id)
+      .then((s) => {
+        if (!alive) return
+        if (!dossierTouched.current) setValue('dossier_number', s.value ?? '')
+        setDossierHint({ key: dossierKey, previous: s.value ? null : s.previous })
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [open, siteId, scheduledDate, ownDossier, intervention?.id, dossierKey, setValue])
 
   // Charge les zones du site
   useEffect(() => {
@@ -234,6 +268,8 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
 
   /** Client avec des sites : le site est obligatoire (il donne la liste des équipements du rapport) */
   const siteMissing = !!clientId && sites.length > 0 && !siteId && !freeSite
+  // Nouvelle année sans numéro : rappel du dernier numéro du chantier
+  const showDossierReminder = !!siteId && !(watch('dossier_number') ?? '').trim() && dossierHint?.key === dossierKey && !!dossierHint.previous
   const SITE_REQUIRED_MSG = 'Choisis le site du chantier : le rapport affichera ses équipements.'
 
   async function onSubmit(data: CreateInterventionInput) {
@@ -668,6 +704,38 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
               </div>
 
               <div className="fg">
+                <label>N° de dossier <span className="text-ink-3 text-xs font-light">(celui de cette année)</span></label>
+                <input
+                  type="text"
+                  placeholder="Ex : D-2026-014"
+                  list="intervention-dossier-options"
+                  {...register('dossier_number', { onChange: () => { dossierTouched.current = true } })}
+                />
+                <datalist id="intervention-dossier-options">
+                  {dossierOptions.map((n) => <option key={n} value={n} />)}
+                </datalist>
+                {showDossierReminder ? (
+                  <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
+                    Nouvelle année : saisis le N° de dossier {(scheduledDate || '').slice(0, 4) || 'de cette année'} de ce chantier. Dernier numéro : {dossierHint!.previous}.{' '}
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={() => {
+                        dossierTouched.current = true
+                        setValue('dossier_number', dossierHint!.previous ?? '')
+                      }}
+                    >
+                      Reprendre {dossierHint!.previous}
+                    </button>
+                  </span>
+                ) : (
+                  <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
+                    Repris sur le rapport, les devis et les factures de la visite. Chaque année a son numéro.
+                  </span>
+                )}
+              </div>
+
+              <div className="fg">
                 <label>Priorité</label>
                 <select {...register('priority')}>
                   {Object.entries(INTERVENTION_PRIORITIES).map(([val, label]) => (
@@ -788,6 +856,7 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                 <div style={recapTitleStyle}>Récapitulatif</div>
                 <RecapLine k="Client" v={watch('client_name') || '—'} />
                 <RecapLine k="Site" v={selectedSite?.name || watch('site_name') || '—'} />
+                <RecapLine k="N° de dossier" v={watch('dossier_number') || '—'} />
                 <RecapLine
                   k="Adresse chantier"
                   v={watch('chantier_address') || '—'}

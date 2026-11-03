@@ -2,7 +2,7 @@ import { normalizeIntervention, INTERVENTION_TYPE_LABELS } from '../../planning/
 import type { Intervention } from '../../planning/schemas'
 import { listAnomaliesForIntervention } from '../../anomalies/api'
 import { getClientNumber } from '../../clients/api'
-import { dossierNumberForSite, listEquipmentUnitsByIds, listZones } from '../../equipment/api'
+import { listEquipmentUnitsByIds, listZones } from '../../equipment/api'
 import { buildUnitEntriesForIntervention } from '../../equipment/reportHelpers'
 import { EQUIPMENT_FAMILY_LABELS } from '../../equipment/schemas'
 import { getInvoicingSettings } from '../../parametres/api'
@@ -55,7 +55,7 @@ export async function generateReportPdfForIntervention(
     getInvoicingSettings(organizationId).catch(() => null),
     listAnomaliesForIntervention(interventionId).catch(() => []),
     getClientNumber(intervention.client_id),
-    dossierNumberForSite(intervention.site_id),
+    intervention.dossier_number?.trim() || null,
   ])
 
   let anomalyEntries: AnomalyPdfEntry[] = []

@@ -1,5 +1,6 @@
 import { supabase } from '../../shared/lib/supabase'
 import { createIntervention } from '../planning/api'
+import { suggestDossierNumber } from '../dossiers/numbers'
 import type { EquipmentType } from '../../shared/constants/interventions'
 import type { EquipmentFamily } from '../equipment/schemas'
 import { FAMILY_TO_EQUIPMENT_TYPE, revisedPrice } from './schemas'
@@ -215,11 +216,14 @@ export async function planContractVisits(contract: ContractWithDetails, organiza
       Array.from(families).map((f) => FAMILY_TO_EQUIPMENT_TYPE[f]).filter((t): t is EquipmentType => !!t),
     ))
 
+    // Visite « à planifier » : N° de dossier de l'année en cours du site
+    const dossier = await suggestDossierNumber(site.id, null).catch(() => null)
     const visit = await createIntervention({
       client_name: contract.client_name,
       client_id: contract.client_id ?? site.client_id,
       site_name: site.name,
       site_id: site.id,
+      dossier_number: dossier?.value ?? undefined,
       address: [site.address, [site.postal_code, site.city].filter(Boolean).join(' ')].filter(Boolean).join(', '),
       chantier_address: site.address ?? '',
       chantier_postal_code: site.postal_code ?? '',

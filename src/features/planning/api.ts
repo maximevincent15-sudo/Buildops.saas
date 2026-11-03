@@ -1,5 +1,6 @@
 import { supabase } from '../../shared/lib/supabase'
 import { INSPECTION_FREQUENCIES_DAYS } from '../alertes/frequencies'
+import { suggestDossierNumber, syncSiteDossierNumber } from '../dossiers/numbers'
 import type { EquipmentType } from '../../shared/constants/interventions'
 import { isRecurringInterventionType, normalizeIntervention } from './schemas'
 import type { CreateInterventionInput, Intervention } from './schemas'
@@ -12,6 +13,8 @@ function toDbPayload(input: CreateInterventionInput) {
     client_id: input.client_id || null,
     site_name: input.site_name || null,
     site_id: input.site_id || null,
+    // Absent de l'entrée : on ne touche pas au numéro déjà enregistré
+    ...(input.dossier_number !== undefined ? { dossier_number: input.dossier_number.trim() || null } : {}),
     address: input.address || null,
     equipment_type: firstEquipment,
     equipment_types: input.equipment_types,
@@ -59,7 +62,9 @@ export async function createIntervention(
     .select()
     .single()
   if (error) throw error
-  return normalizeIntervention(data as Intervention)
+  const created = normalizeIntervention(data as Intervention)
+  await syncSiteDossierNumber(created).catch(() => {})
+  return created
 }
 
 export async function listInterventions(): Promise<Intervention[]> {
@@ -116,7 +121,9 @@ export async function updateIntervention(
     .select()
     .single()
   if (error) throw error
-  return normalizeIntervention(data as Intervention)
+  const updated = normalizeIntervention(data as Intervention)
+  await syncSiteDossierNumber(updated).catch(() => {})
+  return updated
 }
 
 /**
@@ -342,6 +349,17 @@ export async function createNextScheduledIntervention(
   }
   if (contractTerminatedOn && nextDate > contractTerminatedOn) return null
 
+  // N° de dossier : celui de l'année de la visite suivante (rien s'il faut
+  // en saisir un nouveau, l'année ayant changé)
+  let dossierNumber: string | null = null
+  try {
+    dossierNumber = parentInter.site_id
+      ? (await suggestDossierNumber(parentInter.site_id, nextDate)).value
+      : parentInter.scheduled_date?.slice(0, 4) === nextDate.slice(0, 4) ? parentInter.dossier_number ?? null : null
+  } catch {
+    dossierNumber = null
+  }
+
   // 4) Crée la nouvelle intervention
   const firstEquipment = parentInter.equipment_types[0] ?? null
   const { data: created, error: createErr } = await supabase
@@ -354,6 +372,7 @@ export async function createNextScheduledIntervention(
       // Lien au site : sans lui, la liste des équipements du site n'apparaît
       // pas dans le rapport de la visite suivante
       site_id: parentInter.site_id,
+      dossier_number: dossierNumber,
       zone_ids: parentInter.zone_ids,
       address: parentInter.address,
       equipment_type: firstEquipment,

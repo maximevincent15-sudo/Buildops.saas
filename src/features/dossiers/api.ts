@@ -7,9 +7,10 @@ import { normalizeIntervention } from '../planning/schemas'
 import type { Intervention } from '../planning/schemas'
 
 /**
- * Dossier d'un chantier : les sites qui portent le même N° de dossier, et
- * tout ce qui s'y rattache (visites et rapports, devis, factures, photos,
- * documents ajoutés à la main).
+ * Dossier d'un chantier pour une année : les visites qui portent le N° de
+ * dossier (l'année suivante, le chantier a un nouveau numéro), leurs sites,
+ * et tout ce qui s'y rattache (rapports, devis, factures, photos, documents
+ * ajoutés à la main).
  */
 
 export const DOSSIER_DOCUMENT_KINDS = ['delivery_note', 'plan', 'certificate', 'report', 'photo', 'other'] as const
@@ -44,6 +45,8 @@ export type DossierSummary = {
   number: string
   clientNames: string[]
   siteNames: string[]
+  /** Années des visites du dossier */
+  years: string[]
 }
 
 export type DossierSite = Site & { unitCount: number }
@@ -67,6 +70,7 @@ export type DossierQuote = {
   total_ttc: number
   pdf_url: string | null
   site_name: string | null
+  dossier_number?: string | null
 }
 
 export type DossierInvoice = DossierQuote & { amount_paid: number | null; quote_id: string | null }
@@ -80,6 +84,10 @@ export type DossierPhoto = {
 
 export type DossierDetail = {
   number: string
+  /** Années des visites du dossier */
+  years: string[]
+  /** Dossiers des autres années du même chantier (mêmes sites) */
+  otherYears: Array<{ number: string; years: string[] }>
   clients: Array<{ id: string; name: string; client_number: string | null }>
   sites: DossierSite[]
   visits: DossierVisit[]
@@ -111,29 +119,42 @@ function byId<T extends { id: string }>(lists: T[][]): T[] {
 
 const compareNumbers = (a: string, b: string) => b.localeCompare(a, 'fr', { numeric: true })
 
-/** Tous les dossiers de l'entreprise (numéros portés par les sites, devis, factures ou documents) */
+const yearOf = (v: { scheduled_date: string | null; created_at: string }) => (v.scheduled_date ?? v.created_at).slice(0, 4)
+const sortedYears = (years: Iterable<string>) => Array.from(new Set(years)).sort()
+
+/** Tous les dossiers de l'entreprise (numéros portés par les visites, sites, devis, factures ou documents) */
 export async function listDossiers(): Promise<DossierSummary[]> {
-  const [sitesRes, clientsRes, quotesRes, invoicesRes, docsRes] = await Promise.all([
+  const [visitsRes, sitesRes, clientsRes, quotesRes, invoicesRes, docsRes] = await Promise.all([
+    supabase.from('interventions').select('dossier_number, client_name, site_name, scheduled_date, created_at').not('dossier_number', 'is', null),
     supabase.from('sites').select('name, client_id, dossier_number').not('dossier_number', 'is', null),
     supabase.from('clients').select('id, name'),
     supabase.from('quotes').select('dossier_number, client_name').not('dossier_number', 'is', null),
     supabase.from('invoices').select('dossier_number, client_name').not('dossier_number', 'is', null),
     supabase.from('dossier_documents').select('dossier_number'),
   ])
+  if (visitsRes.error) throw visitsRes.error
   if (sitesRes.error) throw sitesRes.error
   const clientName = new Map(((clientsRes.data ?? []) as Array<{ id: string; name: string }>).map((c) => [c.id, c.name]))
 
-  const map = new Map<string, { clients: Set<string>; sites: string[] }>()
+  const map = new Map<string, { clients: Set<string>; sites: Set<string>; years: Set<string> }>()
   const entry = (n: string | null) => {
     const k = n?.trim()
     if (!k) return null
-    if (!map.has(k)) map.set(k, { clients: new Set(), sites: [] })
+    if (!map.has(k)) map.set(k, { clients: new Set(), sites: new Set(), years: new Set() })
     return map.get(k)!
+  }
+  type VisitRow = { dossier_number: string | null; client_name: string; site_name: string | null; scheduled_date: string | null; created_at: string }
+  for (const v of (visitsRes.data ?? []) as VisitRow[]) {
+    const e = entry(v.dossier_number)
+    if (!e) continue
+    e.years.add(yearOf(v))
+    if (v.site_name) e.sites.add(v.site_name)
+    if (v.client_name) e.clients.add(v.client_name)
   }
   for (const s of (sitesRes.data ?? []) as Array<{ name: string; client_id: string; dossier_number: string | null }>) {
     const e = entry(s.dossier_number)
     if (!e) continue
-    e.sites.push(s.name)
+    e.sites.add(s.name)
     const c = clientName.get(s.client_id)
     if (c) e.clients.add(c)
   }
@@ -147,60 +168,89 @@ export async function listDossiers(): Promise<DossierSummary[]> {
     .map(([number, e]) => ({
       number,
       clientNames: Array.from(e.clients).sort((a, b) => a.localeCompare(b, 'fr')),
-      siteNames: e.sites.sort((a, b) => a.localeCompare(b, 'fr')),
+      siteNames: Array.from(e.sites).sort((a, b) => a.localeCompare(b, 'fr')),
+      years: sortedYears(e.years),
     }))
     .sort((a, b) => compareNumbers(a.number, b.number))
 }
 
-/** Le dossier complet d'un N° */
+/** Le dossier complet d'un N° (une année d'un chantier) */
 export async function getDossier(number: string): Promise<DossierDetail> {
-  const { data: siteRows, error: sErr } = await supabase
-    .from('sites')
-    .select('*')
-    .eq('dossier_number', number)
-    .order('name', { ascending: true })
-  if (sErr) throw sErr
-  const sitesRaw = (siteRows ?? []) as Site[]
-  const siteIds = sitesRaw.map((s) => s.id)
-  const clientIds = Array.from(new Set(sitesRaw.map((s) => s.client_id)))
-  const siteNames = sitesRaw.map((s) => s.name)
-
-  // Visites : celles des sites, et l'historique importé (nom du site, sans lien)
-  const [clientsRaw, bySite, byName, unitCounts] = await Promise.all([
-    selectIn<{ id: string; name: string; client_number: string | null }>(clientIds, (c) =>
-      supabase.from('clients').select('id, name, client_number').in('id', c)),
-    selectIn<Intervention>(siteIds, (c) => supabase.from('interventions').select('*').in('site_id', c)),
-    clientIds.length && siteNames.length
-      ? supabase.from('interventions').select('*').in('client_id', clientIds).is('site_id', null).in('site_name', siteNames)
-          .then(({ data, error }) => { if (error) throw error; return (data ?? []) as Intervention[] })
-      : Promise.resolve([] as Intervention[]),
-    Promise.all(sitesRaw.map((s) =>
-      supabase.from('equipment_units').select('id', { count: 'exact', head: true }).eq('site_id', s.id).neq('status', 'removed')
-        .then(({ count }) => count ?? 0))),
+  // Visites qui portent le numéro, et sites dont c'est le numéro en cours
+  const [visitsRes, sitesRes] = await Promise.all([
+    supabase.from('interventions').select('*').eq('dossier_number', number),
+    supabase.from('sites').select('*').eq('dossier_number', number),
   ])
-  const interventions = byId([bySite, byName])
+  if (visitsRes.error) throw visitsRes.error
+  if (sitesRes.error) throw sitesRes.error
+  const interventions = ((visitsRes.data ?? []) as Intervention[])
     .map(normalizeIntervention)
     .sort((a, b) => (b.scheduled_date ?? b.created_at).localeCompare(a.scheduled_date ?? a.created_at))
   const interventionIds = interventions.map((i) => i.id)
+  const years = sortedYears(interventions.map(yearOf))
+
+  // Sites des visites qui ont depuis changé de numéro (année passée)
+  const currentSites = (sitesRes.data ?? []) as Site[]
+  const currentIds = new Set(currentSites.map((s) => s.id))
+  const pastSites = await selectIn<Site>(
+    interventions.map((i) => i.site_id ?? '').filter((id) => id && !currentIds.has(id)),
+    (c) => supabase.from('sites').select('*').in('id', c),
+  )
+  const sitesRaw = [...currentSites, ...pastSites].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+  const siteIds = sitesRaw.map((s) => s.id)
+  const clientIds = Array.from(new Set([...sitesRaw.map((s) => s.client_id), ...interventions.map((i) => i.client_id ?? '')].filter(Boolean)))
+  const siteNames = Array.from(new Set([...sitesRaw.map((s) => s.name), ...interventions.map((i) => i.site_name ?? '')].filter(Boolean)))
+
+  type OtherVisitRow = { dossier_number: string; scheduled_date: string | null; created_at: string }
+  const [clientsRaw, unitCounts, otherVisits] = await Promise.all([
+    selectIn<{ id: string; name: string; client_number: string | null }>(clientIds, (c) =>
+      supabase.from('clients').select('id, name, client_number').in('id', c)),
+    Promise.all(sitesRaw.map((s) =>
+      supabase.from('equipment_units').select('id', { count: 'exact', head: true }).eq('site_id', s.id).neq('status', 'removed')
+        .then(({ count }) => count ?? 0))),
+    // Les autres années du même chantier : numéros des autres visites de ses sites
+    selectIn<OtherVisitRow>(siteIds, (c) => supabase.from('interventions')
+      .select('dossier_number, scheduled_date, created_at').in('site_id', c).not('dossier_number', 'is', null).neq('dossier_number', number)),
+  ])
+  const otherMap = new Map<string, Set<string>>()
+  for (const v of otherVisits) {
+    const n = v.dossier_number.trim()
+    if (!n) continue
+    if (!otherMap.has(n)) otherMap.set(n, new Set())
+    otherMap.get(n)!.add(yearOf(v))
+  }
+  for (const s of sitesRaw) {
+    const n = s.dossier_number?.trim()
+    if (n && n !== number && !otherMap.has(n)) otherMap.set(n, new Set())
+  }
+  const otherYears = Array.from(otherMap.entries())
+    .map(([n, ys]) => ({ number: n, years: sortedYears(ys) }))
+    .sort((a, b) => (b.years.at(-1) ?? '9999').localeCompare(a.years.at(-1) ?? '9999') || compareNumbers(a.number, b.number))
 
   type ReportRow = DossierReport & { photos: Array<{ url?: string }> | null }
   type CheckRow = { intervention_id: string; equipment_unit_id: string; photos: Array<{ url?: string }> | null; checked_at: string | null }
   type AnomalyRow = { intervention_id: string | null; title: string; photos: Array<{ url?: string }> | null; created_at: string }
-  const quoteCols = 'id, reference, status, issue_date, total_ttc, pdf_url, site_name'
-  const invoiceCols = 'id, reference, status, issue_date, total_ttc, amount_paid, pdf_url, site_name, quote_id'
-  // Devis et factures saisis sans lien, au nom exact d'un site du dossier (même client)
+  const quoteCols = 'id, reference, status, issue_date, total_ttc, pdf_url, site_name, dossier_number'
+  const invoiceCols = 'id, reference, status, issue_date, total_ttc, amount_paid, pdf_url, site_name, quote_id, dossier_number'
+  // Devis et factures saisis sans numéro ni lien, au nom exact d'un site du
+  // dossier (même client), datés d'une année du dossier
+  const docYears = years.length > 0 ? years : [String(new Date().getFullYear())]
   const bySiteName = (table: 'quotes' | 'invoices', cols: string) =>
     clientIds.length && siteNames.length
-      ? supabase.from(table).select(cols).in('client_id', clientIds).in('site_name', siteNames)
+      ? supabase.from(table).select(cols).in('client_id', clientIds).in('site_name', siteNames).is('dossier_number', null)
+          .gte('issue_date', `${docYears[0]}-01-01`).lte('issue_date', `${docYears[docYears.length - 1]}-12-31`)
           .then(({ data, error }) => { if (error) throw error; return (data ?? []) as unknown[] })
       : Promise.resolve([] as unknown[])
+  // Rattachés à une visite du dossier, sauf s'ils portent un autre numéro
+  const sameDossier = <T extends { dossier_number?: string | null }>(rows: T[]) =>
+    rows.filter((r) => !r.dossier_number?.trim() || r.dossier_number.trim() === number)
 
   const [reports, quotesByNumber, quotesByVisit, quotesBySite, checks, anomalies, docsRes] = await Promise.all([
     selectIn<ReportRow>(interventionIds, (c) => supabase.from('reports')
       .select('id, intervention_id, completed_at, pdf_url, is_conform, anomaly_count, photos').in('intervention_id', c)),
     supabase.from('quotes').select(quoteCols).eq('dossier_number', number)
       .then(({ data, error }) => { if (error) throw error; return (data ?? []) as DossierQuote[] }),
-    selectIn<DossierQuote>(interventionIds, (c) => supabase.from('quotes').select(quoteCols).in('intervention_id', c)),
+    selectIn<DossierQuote>(interventionIds, (c) => supabase.from('quotes').select(quoteCols).in('intervention_id', c)).then(sameDossier),
     bySiteName('quotes', quoteCols) as Promise<DossierQuote[]>,
     selectIn<CheckRow>(interventionIds, (c) => supabase.from('equipment_checks')
       .select('intervention_id, equipment_unit_id, photos, checked_at').in('intervention_id', c)),
@@ -214,8 +264,8 @@ export async function getDossier(number: string): Promise<DossierDetail> {
   const [invoicesByNumber, invoicesByVisit, invoicesByQuote, invoicesBySite] = await Promise.all([
     supabase.from('invoices').select(invoiceCols).eq('dossier_number', number)
       .then(({ data, error }) => { if (error) throw error; return (data ?? []) as DossierInvoice[] }),
-    selectIn<DossierInvoice>(interventionIds, (c) => supabase.from('invoices').select(invoiceCols).in('intervention_id', c)),
-    selectIn<DossierInvoice>(linkedQuotes.map((q) => q.id), (c) => supabase.from('invoices').select(invoiceCols).in('quote_id', c)),
+    selectIn<DossierInvoice>(interventionIds, (c) => supabase.from('invoices').select(invoiceCols).in('intervention_id', c)).then(sameDossier),
+    selectIn<DossierInvoice>(linkedQuotes.map((q) => q.id), (c) => supabase.from('invoices').select(invoiceCols).in('quote_id', c)).then(sameDossier),
     bySiteName('invoices', invoiceCols) as Promise<DossierInvoice[]>,
   ])
   const invoices = byId([invoicesByNumber, invoicesByVisit, invoicesByQuote, invoicesBySite]).sort((a, b) => b.issue_date.localeCompare(a.issue_date))
@@ -250,6 +300,8 @@ export async function getDossier(number: string): Promise<DossierDetail> {
 
   return {
     number,
+    years,
+    otherYears,
     clients: clientsRaw,
     sites: sitesRaw.map((s, i) => ({ ...s, unitCount: unitCounts[i] ?? 0 })),
     visits: interventions.map((i) => ({ intervention: i, report: reportByVisit.get(i.id) ?? null })),

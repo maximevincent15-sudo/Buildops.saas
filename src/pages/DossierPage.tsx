@@ -167,9 +167,23 @@ export function DossierPage() {
             Dossier {dossier.number}
           </div>
           <div className="dash-sub">
+            {dossier.years.length > 0 && `${dossier.years.join(', ')} · `}
             {clientLabel || 'Client non renseigné'}
             {sites.length > 0 && ` · ${sites.length} site${sites.length > 1 ? 's' : ''} · ${unitTotal} équipement${unitTotal > 1 ? 's' : ''}`}
           </div>
+          {dossier.otherYears.length > 0 && (
+            <div className="text-ink-3 text-xs" style={{ marginTop: 6 }}>
+              Autres années du chantier :{' '}
+              {dossier.otherYears.map((o, idx) => (
+                <span key={o.number}>
+                  {idx > 0 && ' · '}
+                  <Link to={`/dossiers/${encodeURIComponent(o.number)}`}>
+                    {o.years.length > 0 ? `${o.years.join(', ')} : ` : 'en cours : '}{o.number}
+                  </Link>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="dash-acts">
           <button type="button" className="btn-sm acc" onClick={() => setDocOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -196,7 +210,7 @@ export function DossierPage() {
       {isEmpty && (
         <div className="card" style={{ marginBottom: '1rem' }}>
           <p className="text-ink-2 text-sm font-light" style={{ margin: 0 }}>
-            Aucun site ne porte ce numéro. Pour rattacher un site : Équipements, choisis le site, puis « Modifier ce site ».
+            Aucune visite ni aucun site ne porte ce numéro. Pour rattacher une visite : Planning, ouvre la visite et saisis son N° de dossier.
           </p>
         </div>
       )}
@@ -251,7 +265,7 @@ export function DossierPage() {
 
       <Section icon={<ClipboardCheck size={14} strokeWidth={1.8} />} title="Visites et rapports" count={visits.length}>
         {visits.length === 0 ? (
-          <Empty>Aucune visite. Planifie la prochaine depuis le Planning, en choisissant le site.</Empty>
+          <Empty>Aucune visite. Planifie la prochaine depuis le Planning : choisis le site et saisis ce N° de dossier.</Empty>
         ) : (
           <div className="archive-list">
             {visits.map((v) => {

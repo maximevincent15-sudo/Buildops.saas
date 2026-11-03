@@ -109,6 +109,13 @@ export const interventionsImportDefinition: ImportDefinition = {
   fields: [
     { key: 'client_name', label: 'Client', required: true, example: 'Valoris SA' },
     { key: 'site_name', label: 'Site', example: 'Bâtiment A' },
+    {
+      key: 'dossier_number',
+      label: 'N° de dossier',
+      aliases: ['Dossier', 'N° dossier', 'Numéro de dossier', 'N° de chantier', 'N° chantier', 'Numéro de chantier', 'N° affaire', 'Affaire'],
+      example: 'D-2026-014',
+      hint: 'Optionnel — celui de l\'année de la visite',
+    },
     { key: 'address', label: 'Adresse', example: '12 rue des Lilas, 75010 Paris' },
     {
       key: 'equipment_types',
@@ -237,6 +244,7 @@ export const interventionsImportDefinition: ImportDefinition = {
       client_id: client.id,
       site_name: site?.name ?? row.site_name ?? undefined,
       site_id: site?.id ?? undefined,
+      dossier_number: row.dossier_number?.trim() || undefined,
       address: row.address ?? undefined,
       equipment_types: equipments,
       scheduled_date: scheduledDate ?? undefined,
