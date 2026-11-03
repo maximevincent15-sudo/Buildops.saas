@@ -189,7 +189,8 @@ export function ClassicReportPdf({
   const annex1: AnnexEntry[] = []
   const annex2: AnnexEntry[] = []
   let blocking = false
-  if (report.observations?.trim()) annex1.push({ head: 'Observations générales', text: report.observations.trim(), photos: [] })
+  if (report.observations?.trim()) annex1.push({ head: 'Observations générales', text: pdfText(report.observations.trim()), photos: [] })
+  if (report.nonconformities?.trim()) annex2.push({ head: 'Constat du vérificateur', text: pdfText(report.nonconformities.trim()), photos: [] })
   const unitRef = (a: AnomalyPdfEntry) => [
     a.unitSerial ? unitNumber(a.unitSerial) : null,
     a.unitFamilyLabel,
@@ -286,6 +287,12 @@ export function ClassicReportPdf({
               {counts.notVerified > 0 ? `, ${counts.notVerified} non vérifié${counts.notVerified > 1 ? 's' : ''} lors de cette visite` : ''}.
             </Text>
           )}
+          {report.conclusion?.trim() ? (
+            <View style={{ marginTop: 8 }}>
+              <Text style={styles.annexHead}>Conclusion du vérificateur</Text>
+              <Text style={styles.annexText}>{pdfText(report.conclusion.trim())}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* II. Équipements, secteur par secteur */}

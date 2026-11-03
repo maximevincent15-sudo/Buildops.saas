@@ -25,6 +25,8 @@ async function insertReport(
       equipment_type: input.equipment_type ?? null,
       checklist: input.checklist,
       observations: input.observations || null,
+      nonconformities: input.nonconformities?.trim() || null,
+      conclusion: input.conclusion?.trim() || null,
       signed_by_name: input.signed_by_name || null,
       signature_data_url: input.signature_data_url ?? null,
       signature_status: input.signature_status ?? 'pending',
@@ -58,6 +60,8 @@ async function updateExistingReport(
   if (input.signature_note !== undefined) {
     payload.signature_note = input.signature_note || null
   }
+  if (input.nonconformities !== undefined) payload.nonconformities = input.nonconformities.trim() || null
+  if (input.conclusion !== undefined) payload.conclusion = input.conclusion.trim() || null
   if (completedAt !== undefined) {
     payload.completed_at = completedAt
   }

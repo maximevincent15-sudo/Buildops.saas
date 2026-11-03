@@ -53,6 +53,9 @@ export const upsertReportSchema = z.object({
   // Type d'équipement contrôlé par défaut (premier affiché au chargement).
   equipment_type: z.string().optional(),
   observations: z.string().optional(),
+  /** Texte libre du technicien (migration 20261103200000) */
+  nonconformities: z.string().optional(),
+  conclusion: z.string().optional(),
   signed_by_name: z.string().optional(),
   signature_data_url: z.string().nullable().optional(),
   signature_status: z.enum(SIGNATURE_STATUSES).optional(),
@@ -82,6 +85,9 @@ export type Report = {
    */
   checklist: ChecklistResponse[]
   observations: string | null
+  /** Non-conformités constatées et conclusion, rédigées par le technicien */
+  nonconformities?: string | null
+  conclusion?: string | null
   signed_by_name: string | null
   signature_data_url: string | null
   signature_status: SignatureStatus

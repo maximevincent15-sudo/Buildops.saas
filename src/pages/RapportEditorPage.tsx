@@ -121,6 +121,8 @@ export function RapportEditorPage() {
   // On garde TOUTES les checklists en mémoire pour que changer de type ne perde rien.
   const [checklistByType, setChecklistByType] = useState<ChecklistByType>({})
   const [observations, setObservations] = useState('')
+  const [nonconformities, setNonconformities] = useState('')
+  const [conclusion, setConclusion] = useState('')
   const [signedBy, setSignedBy] = useState('')
   const [signature, setSignature] = useState<string | null>(null)
   const [signatureStatus, setSignatureStatus] = useState<SignatureStatus>('pending')
@@ -194,6 +196,8 @@ export function RapportEditorPage() {
           )
           setChecklistByType(byType)
           setObservations(report.observations ?? '')
+          setNonconformities(report.nonconformities ?? '')
+          setConclusion(report.conclusion ?? '')
           setSignedBy(report.signed_by_name ?? '')
           setSignature(report.signature_data_url ?? null)
           setSignatureStatus(report.signature_status ?? 'pending')
@@ -427,6 +431,8 @@ export function RapportEditorPage() {
       equipment_type: equipmentType,
       checklist: byTypeToResponses(checklistByType),
       observations: observations || null,
+      nonconformities: nonconformities.trim() || null,
+      conclusion: conclusion.trim() || null,
       signed_by_name: signedBy || null,
       signature_data_url: signature,
       signature_status: signatureStatus,
@@ -530,6 +536,8 @@ export function RapportEditorPage() {
         checklist: byTypeToResponses(checklistByType),
         equipment_type: equipmentType ?? undefined,
         observations,
+        nonconformities,
+        conclusion,
         signed_by_name: signedBy,
         signature_data_url: signature,
         signature_status: signatureStatus,
@@ -647,6 +655,8 @@ export function RapportEditorPage() {
         checklist: byTypeToResponses(checklistByType),
         equipment_type: equipmentType ?? undefined,
         observations,
+        nonconformities,
+        conclusion,
         signed_by_name: signedBy,
         signature_data_url: signature,
         signature_status: signatureStatus,
@@ -1136,12 +1146,38 @@ export function RapportEditorPage() {
 
       <div className="card" style={{ marginTop: '1rem' }}>
         <div className="card-top">
-          <span className="card-title">Observations générales</span>
+          <span className="card-title">Compte rendu du technicien</span>
+          {!isCompleted && <span className="text-ink-3 text-xs font-light">Sur téléphone : le micro du clavier permet de dicter</span>}
         </div>
+        <label className="report-text-label" htmlFor="report-observations">Observations et améliorations proposées</label>
         <textarea
+          id="report-observations"
           value={observations}
           onChange={(e) => setObservations(e.target.value)}
-          placeholder="Ex: remarques globales sur l'état du site, accès, informations pour la prochaine visite…"
+          placeholder="Ex : remarques sur l'état du site, accès, améliorations à proposer, informations pour la prochaine visite…"
+          disabled={isCompleted}
+          className="report-textarea"
+        />
+        <label className="report-text-label" htmlFor="report-nonconformities">Non-conformités constatées</label>
+        <textarea
+          id="report-nonconformities"
+          value={nonconformities}
+          onChange={(e) => setNonconformities(e.target.value)}
+          placeholder="Ex : porte coupe-feu du 2e étage maintenue ouverte par une cale ; plan d'évacuation absent au RDC…"
+          disabled={isCompleted}
+          className="report-textarea"
+        />
+        {!isCompleted && nonconformities.trim() && conformity.isConform === true && (
+          <p className="text-ink-3 text-xs" style={{ margin: '4px 0 0' }}>
+            Le rapport reste marqué conforme : si un équipement est en cause, passe-le aussi en « À surveiller » ou « À réformer ».
+          </p>
+        )}
+        <label className="report-text-label" htmlFor="report-conclusion">Conclusion</label>
+        <textarea
+          id="report-conclusion"
+          value={conclusion}
+          onChange={(e) => setConclusion(e.target.value)}
+          placeholder="Ex : installations en état de fonctionner, sous réserve du remplacement de l'extincteur EXT-02."
           disabled={isCompleted}
           className="report-textarea"
         />

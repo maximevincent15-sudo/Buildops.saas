@@ -1915,6 +1915,8 @@ h1, h2, h3, h4, h5, h6 {
   }
   .report-textarea:focus { border-color: var(--acc); box-shadow: 0 0 0 3px rgba(58, 92, 168, .12); }
   .report-textarea:disabled { opacity: .7; cursor: not-allowed; }
+  .report-text-label { display: block; font-size: .8rem; font-weight: 600; color: var(--ink2); margin: .9rem 0 .35rem; }
+  .report-text-label:first-of-type { margin-top: 0; }
 
   .report-input {
     width: 100%;

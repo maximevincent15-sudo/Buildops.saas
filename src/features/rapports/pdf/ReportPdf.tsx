@@ -1079,11 +1079,23 @@ export function ReportPdf({
           )
         })}
 
-        {/* OBSERVATIONS */}
+        {/* OBSERVATIONS, NON-CONFORMITÉS ET CONCLUSION DU TECHNICIEN */}
         {report.observations ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Observations générales</Text>
             <Text style={styles.observations}>{report.observations}</Text>
+          </View>
+        ) : null}
+        {report.nonconformities?.trim() ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Non-conformités constatées</Text>
+            <Text style={styles.observations}>{report.nonconformities.trim()}</Text>
+          </View>
+        ) : null}
+        {report.conclusion?.trim() ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Conclusion</Text>
+            <Text style={styles.observations}>{report.conclusion.trim()}</Text>
           </View>
         ) : null}
 
