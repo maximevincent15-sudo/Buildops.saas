@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
+import { AutoGrowTextarea } from '../../../shared/ui/AutoGrowTextarea'
 import { VAT_RATES, computeQuoteTotals, formatAmount } from '../../devis/constants'
 import type { QuoteLineInput } from '../../devis/schemas'
 import { getClientNumber } from '../../clients/api'
@@ -623,8 +624,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                   return (
                     <div className="quote-line" key={i}>
                       <div className="ql-desc">
-                        <input
-                          type="text"
+                        <AutoGrowTextarea
                           placeholder="Description de la prestation"
                           value={line.description}
                           onChange={(e) => updateLine(i, { description: e.target.value })}
@@ -680,6 +680,9 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                       <Plus size={13} strokeWidth={2} /> Ajouter une ligne
                     </button>
                     <CatalogPicker onPick={addCatalogItem} />
+                    <span className="text-ink-3 text-xs font-light">
+                      Entrée dans une description : ajoute une précision dessous (délai de livraison, référence…).
+                    </span>
                   </div>
                 )}
               </div>

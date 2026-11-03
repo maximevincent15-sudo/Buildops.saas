@@ -103,6 +103,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   colDesc: { flex: 4 },
+  descDetail: { fontSize: 8, color: colors.ink2, marginTop: 2 },
   colQty: { flex: 1, textAlign: 'right' },
   colPu: { flex: 1.4, textAlign: 'right' },
   colVat: { flex: 0.8, textAlign: 'right' },
@@ -307,7 +308,7 @@ export function QuotePdf({ quote, organizationName, settings, clientNumber }: Pr
           const ht = Number(l.quantity) * Number(l.unit_price_ht)
           return (
             <View key={l.id} style={styles.tableRow} wrap={false}>
-              <Text style={styles.colDesc}>{l.description}</Text>
+              <LineDescription text={l.description} />
               <Text style={styles.colQty}>{formatNumber(Number(l.quantity), 2)}</Text>
               <Text style={styles.colPu}>{formatAmount(Number(l.unit_price_ht))}</Text>
               <Text style={styles.colVat}>{formatNumber(Number(l.vat_rate), 1)}%</Text>
@@ -389,5 +390,17 @@ export function QuotePdf({ quote, organizationName, settings, clientNumber }: Pr
         </Text>
       </Page>
     </Document>
+  )
+}
+
+/** Description d'une ligne : la première ligne, puis les précisions (délai, référence…) en plus petit */
+function LineDescription({ text }: { text: string }) {
+  const [first, ...rest] = text.split('\n')
+  const details = rest.join('\n').trim()
+  return (
+    <View style={styles.colDesc}>
+      <Text>{first}</Text>
+      {details ? <Text style={styles.descDetail}>{details}</Text> : null}
+    </View>
   )
 }

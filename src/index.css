@@ -755,6 +755,7 @@ h1, h2, h3, h4, h5, h6 {
   }
   .quote-line input[type="text"],
   .quote-line input[type="number"],
+  .quote-line textarea,
   .quote-line select {
     width: 100%;
     padding: .4rem .55rem;
@@ -765,6 +766,10 @@ h1, h2, h3, h4, h5, h6 {
     background: var(--wht);
   }
   .quote-line input[type="number"] { text-align: right; }
+  /* Description sur plusieurs lignes : les autres colonnes restent en haut */
+  .quote-line { align-items: start; }
+  .quote-line textarea { display: block; line-height: 1.4; }
+  .quote-line .ql-tot { padding-top: .45rem; }
   .quote-line .ql-tot {
     text-align: right;
     font-family: 'Syne', sans-serif;
@@ -1633,54 +1638,6 @@ h1, h2, h3, h4, h5, h6 {
     .portal-card { flex-wrap: wrap; }
     .portal-card-amount { text-align: left; }
     .portal-form-card .mrow { grid-template-columns: 1fr; }
-  }
-
-  /* PARAMÈTRES — Aide configuration email */
-  .email-help-box {
-    background: var(--bg);
-    border: .5px solid var(--brd);
-    border-radius: var(--r);
-    padding: .8rem 1rem;
-    margin-top: .5rem;
-  }
-  .email-help-box summary {
-    cursor: pointer;
-    font-weight: 500;
-    font-size: .85rem;
-    color: var(--ink2);
-    padding: 4px 0;
-  }
-  .email-help-box[open] summary {
-    margin-bottom: .8rem;
-    color: var(--ink);
-  }
-  .email-help-steps {
-    margin: 0;
-    padding-left: 1.4rem;
-    font-size: .82rem;
-    line-height: 1.7;
-    color: var(--ink2);
-  }
-  .email-help-steps li { margin-bottom: .8rem; }
-  .email-help-steps li:last-child { margin-bottom: 0; }
-  .email-help-steps a { color: var(--acc); }
-  .email-help-steps code {
-    background: rgba(58, 92, 168, .1);
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-size: .85em;
-    font-family: 'Courier New', monospace;
-  }
-  .email-help-code {
-    background: var(--ink);
-    color: #aebbd6;
-    padding: .8rem 1rem;
-    border-radius: calc(var(--r) - 2px);
-    font-family: 'Courier New', monospace;
-    font-size: .78rem;
-    overflow-x: auto;
-    margin: .5rem 0 0;
-    white-space: pre;
   }
 
   /* ARCHIVAGE — filtres et liste */

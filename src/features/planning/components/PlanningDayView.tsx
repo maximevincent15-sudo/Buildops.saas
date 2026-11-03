@@ -10,9 +10,13 @@ import type { InterventionStatus } from '../../../shared/constants/interventions
 import type { PlanningBlock } from '../blocksApi'
 import { DayEventList } from '../events/DayEvents'
 import type { Intervention } from '../schemas'
+import { typeColorStyle } from '../typeColors'
+import type { PlanningColorMode } from '../typeColors'
 
 type Props = {
   interventions: Intervention[]
+  /** Couleur des interventions : par type d'équipement ou par statut */
+  colorMode?: PlanningColorMode
   onClickIntervention: (i: Intervention) => void
   /** Événements d'agenda du jour (visio, rendez-vous…) : bande « Agenda » en haut */
   events?: PlanningBlock[]
@@ -43,7 +47,7 @@ function sameIsoDay(dateStr: string | null, target: Date): boolean {
  *   "Non assigné" pour celles sans technician_name.
  * - Read-only : clic = ouvre le modal d'édition standard.
  */
-export function PlanningDayView({ interventions, onClickIntervention, events = [], onAddEvent, onOpenEvent }: Props) {
+export function PlanningDayView({ interventions, colorMode = 'status', onClickIntervention, events = [], onAddEvent, onOpenEvent }: Props) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
   const dayInterventions = useMemo(
@@ -258,6 +262,7 @@ export function PlanningDayView({ interventions, onClickIntervention, events = [
                           textAlign: 'left',
                           padding: '.55rem .65rem',
                           cursor: 'pointer',
+                          ...(colorMode === 'type' ? typeColorStyle(i.equipment_types, i.status) : {}),
                         }}
                       >
                         <div className="week-item-ref" style={{ fontSize: '.7rem', fontWeight: 700 }}>

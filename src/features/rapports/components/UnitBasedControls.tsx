@@ -828,6 +828,8 @@ function UnitCheckModal({
   const [existingAnomalies, setExistingAnomalies] = useState<Anomaly[]>([])
   // Mini-formulaire d'anomalie affiché quand le verdict n'est pas conforme
   const [anomalyTitle, setAnomalyTitle] = useState('')
+  // Résumé repris de l'observation tant que le technicien ne l'a pas tapé lui-même
+  const [anomalyTitleTouched, setAnomalyTitleTouched] = useState(false)
   const [anomalyAction, setAnomalyAction] = useState<AnomalyAction | ''>('')
   const [anomalyPriority, setAnomalyPriority] = useState<AnomalyPriority>('normal')
   const [anomalyDueDate, setAnomalyDueDate] = useState('')
@@ -846,15 +848,21 @@ function UnitCheckModal({
     return () => { cancelled = true }
   }, [unit.id])
 
-  // Défaut priorité selon verdict
+  // Défaut priorité selon verdict ; « À réformer » = remplacement par défaut
   useEffect(() => {
-    if (verdict === 'reformer') setAnomalyPriority('high')
+    if (verdict === 'reformer') {
+      setAnomalyPriority('high')
+      setAnomalyAction((a) => a || 'replacement')
+    }
     else if (verdict === 'surveiller') setAnomalyPriority('normal')
   }, [verdict])
 
   const needsAnomalyForm = verdict === 'surveiller' || verdict === 'reformer'
+
+  // Pas de double saisie : le résumé reprend l'observation choisie
+  const anomalySummary = (anomalyTitleTouched ? anomalyTitle : observation).trim()
   const anomalyFormValid = !needsAnomalyForm
-    || (anomalyTitle.trim().length >= 3 && anomalyAction !== '')
+    || (anomalySummary.length >= 3 && anomalyAction !== '')
 
   // Slice M5 : quand le verdict est "conforme" ET qu'il y a des anomalies actives,
   // on propose de les résoudre automatiquement à l'enregistrement.
@@ -912,15 +920,18 @@ function UnitCheckModal({
       }, then)
       // Si le verdict signale une anomalie (surveiller/reformer),
       // on crée l'entité `anomalies` liée à l'unité + intervention.
-      if (needsAnomalyForm && anomalyTitle.trim().length >= 3 && anomalyAction !== '') {
+      if (needsAnomalyForm && anomalySummary.length >= 3 && anomalyAction !== '') {
         try {
           await createAnomaly(
             {
               equipment_unit_id: unit.id,
               intervention_id: interventionId,
               equipment_check_id: null,
-              title: anomalyTitle.trim(),
-              description: observation.trim() || undefined,
+              title: anomalySummary,
+              // L'observation n'est reprise en détail que si elle dit autre chose que le résumé
+              description: observation.trim() && observation.trim() !== anomalySummary
+                ? observation.trim()
+                : undefined,
               action: anomalyAction,
               priority: anomalyPriority,
               due_date: anomalyDueDate || null,
@@ -1178,8 +1189,11 @@ function UnitCheckModal({
                 <label style={anomalyLabelStyle}>Résumé de l'anomalie *</label>
                 <input
                   type="text"
-                  value={anomalyTitle}
-                  onChange={(e) => setAnomalyTitle(e.target.value)}
+                  value={anomalyTitleTouched ? anomalyTitle : observation}
+                  onChange={(e) => {
+                    setAnomalyTitle(e.target.value)
+                    setAnomalyTitleTouched(true)
+                  }}
                   placeholder="Ex : Manomètre proche zone rouge"
                   disabled={readOnly}
                   style={{ width: '100%', padding: '.55rem .8rem', fontSize: 13, fontFamily: 'inherit' }}

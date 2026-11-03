@@ -17,9 +17,13 @@ import { formatEquipmentTypesShort } from '../../../shared/constants/interventio
 import type { PlanningBlock } from '../blocksApi'
 import { DayAddButton, DayEventList } from '../events/DayEvents'
 import type { Intervention } from '../schemas'
+import { typeColorStyle } from '../typeColors'
+import type { PlanningColorMode } from '../typeColors'
 
 type Props = {
   interventions: Intervention[]
+  /** Couleur des interventions : par type d'équipement ou par statut */
+  colorMode?: PlanningColorMode
   onClickIntervention: (i: Intervention) => void
   /** Événements d'agenda (visio, rendez-vous…) : « + » au survol et liste dans chaque jour */
   events?: PlanningBlock[]
@@ -38,7 +42,7 @@ function priorityColor(priority: string, status: string): { bg: string; fg: stri
   return { bg: 'var(--acc-lt, #E8EEF8)', fg: 'var(--acc, #3A5CA8)', bar: 'var(--acc, #3A5CA8)' }
 }
 
-export function PlanningMonthView({ interventions, onClickIntervention, events = [], onAddEvent, onOpenEvent }: Props) {
+export function PlanningMonthView({ interventions, colorMode = 'status', onClickIntervention, events = [], onAddEvent, onOpenEvent }: Props) {
   const [monthStart, setMonthStart] = useState(() => startOfMonth(new Date()))
 
   const days = useMemo(() => {
@@ -168,9 +172,9 @@ export function PlanningMonthView({ interventions, onClickIntervention, events =
                       onClick={() => onClickIntervention(i)}
                       style={{
                         border: 0,
-                        borderLeft: `3px solid ${c.bar}`,
-                        background: c.bg,
-                        color: c.fg,
+                        ...(colorMode === 'type'
+                          ? typeColorStyle(i.equipment_types, i.status)
+                          : { borderLeft: `3px solid ${c.bar}`, background: c.bg, color: c.fg }),
                         padding: '3px 6px',
                         borderRadius: 4,
                         fontFamily: 'inherit',

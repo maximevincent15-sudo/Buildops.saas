@@ -6,9 +6,13 @@ import { formatEquipmentTypesShort } from '../../../shared/constants/interventio
 import type { PlanningBlock } from '../blocksApi'
 import { DayAddButton, DayEventList, EventChip } from '../events/DayEvents'
 import type { Intervention } from '../schemas'
+import { typeColorStyle } from '../typeColors'
+import type { PlanningColorMode } from '../typeColors'
 
 type Props = {
   interventions: Intervention[]
+  /** Couleur des interventions : par type d'équipement ou par statut */
+  colorMode?: PlanningColorMode
   onClickIntervention: (i: Intervention) => void
   /** Événements d'agenda (visio, rendez-vous…) : « + » et liste dans l'en-tête des jours */
   events?: PlanningBlock[]
@@ -130,7 +134,7 @@ function toIsoDate(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-export function PlanningWeekGridView({ interventions, onClickIntervention, events = [], onAddEvent, onOpenEvent }: Props) {
+export function PlanningWeekGridView({ interventions, colorMode = 'status', onClickIntervention, events = [], onAddEvent, onOpenEvent }: Props) {
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 }),
   )
@@ -346,6 +350,7 @@ export function PlanningWeekGridView({ interventions, onClickIntervention, event
                       style={{
                         ...eventStyleBase,
                         ...eventColorStyles[priorityColorClass(i.priority, i.status)],
+                        ...(colorMode === 'type' ? typeColorStyle(i.equipment_types, i.status) : {}),
                         position: 'relative',
                         padding: '2px 6px',
                         minHeight: 0,
@@ -370,6 +375,7 @@ export function PlanningWeekGridView({ interventions, onClickIntervention, event
                     style={{
                       ...eventStyleBase,
                       ...eventColorStyles[colorClass],
+                      ...(colorMode === 'type' ? typeColorStyle(i.equipment_types, i.status) : {}),
                       position: 'absolute',
                       top: box.top + topShift,
                       ...hPos(`i:${i.id}`),
@@ -452,6 +458,7 @@ export function PlanningWeekGridView({ interventions, onClickIntervention, event
                 style={{
                   ...eventStyleBase,
                   ...eventColorStyles[priorityColorClass(i.priority, i.status)],
+                  ...(colorMode === 'type' ? typeColorStyle(i.equipment_types, i.status) : {}),
                   padding: '6px 10px',
                 }}
               >

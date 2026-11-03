@@ -1,5 +1,6 @@
 import { ArrowRight, CheckCircle2, Copy, Download, FileText, Mail, PenLine, Plus, Trash2, Undo2, X, XCircle } from 'lucide-react'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
+import { AutoGrowTextarea } from '../../../shared/ui/AutoGrowTextarea'
 import { SignaturePad } from '../../../shared/ui/SignaturePad'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
@@ -751,8 +752,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                   return (
                     <div className="quote-line" key={i}>
                       <div className="ql-desc">
-                        <input
-                          type="text"
+                        <AutoGrowTextarea
                           placeholder="Ex: Remplacement manomètre extincteur 6kg ABC"
                           value={line.description}
                           onChange={(e) => updateLine(i, { description: e.target.value })}
@@ -811,6 +811,9 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                     <Plus size={13} strokeWidth={2} /> Ajouter une ligne
                   </button>
                   <CatalogPicker onPick={addCatalogItem} />
+                  <span className="text-ink-3 text-xs font-light">
+                    Entrée dans une description : ajoute une précision dessous (délai de livraison, référence…).
+                  </span>
                 </div>
               </div>
             </div>
@@ -1037,7 +1040,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
               <ul className="quote-sign-lines">
                 {lines.filter((l) => l.description.trim()).map((l, i) => (
                   <li key={i}>
-                    <span>{l.description}{l.quantity !== 1 ? ` × ${l.quantity}` : ''}</span>
+                    <span style={{ whiteSpace: 'pre-line' }}>{l.description.trim()}{l.quantity !== 1 ? ` × ${l.quantity}` : ''}</span>
                     <span>{formatAmount(l.quantity * l.unit_price_ht)} HT</span>
                   </li>
                 ))}

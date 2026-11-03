@@ -79,7 +79,7 @@ export async function createInvoice(
   const linesPayload = input.lines.map((l, i) => ({
     invoice_id: (invoice as Invoice).id,
     position: l.position ?? i,
-    description: l.description,
+    description: l.description.trim(),
     quantity: l.quantity,
     unit_price_ht: l.unit_price_ht,
     vat_rate: l.vat_rate,
@@ -137,7 +137,7 @@ export async function updateInvoice(
   const linesPayload = input.lines.map((l, i) => ({
     invoice_id: id,
     position: l.position ?? i,
-    description: l.description,
+    description: l.description.trim(),
     quantity: l.quantity,
     unit_price_ht: l.unit_price_ht,
     vat_rate: l.vat_rate,

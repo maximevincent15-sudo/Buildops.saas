@@ -5,6 +5,8 @@ import type { Technician } from '../../technicians/schemas'
 import type { PlanningBlock } from '../blocksApi'
 import { DayAddButton, DayEventList } from '../events/DayEvents'
 import type { Intervention } from '../schemas'
+import { typeColorStyle } from '../typeColors'
+import type { PlanningColorMode } from '../typeColors'
 import {
   DAY_START_MINUTES,
   EQUIPMENT_TAGS,
@@ -28,6 +30,8 @@ type Props = {
   technicians: Technician[]
   /** Interventions terminées avec des anomalies ouvertes → « Suite à décider » (id → nb d'anomalies) */
   followCounts: Map<string, number>
+  /** Couleur des cartes : par type d'équipement ou par statut */
+  colorMode?: PlanningColorMode
   weekStart: Date
   onWeekChange: (d: Date) => void
   onOpen: (i: Intervention) => void
@@ -46,6 +50,7 @@ export function PlanningTeamView({
   interventions,
   technicians,
   followCounts,
+  colorMode = 'status',
   weekStart,
   onWeekChange,
   onOpen,
@@ -153,13 +158,13 @@ export function PlanningTeamView({
         </div>
       </div>
 
-      <div className="pt-legend">
+      {colorMode === 'status' && <div className="pt-legend">
         <span><i className="pt-lg plan" />Planifiée</span>
         <span><i className="pt-lg site" />En cours</span>
         <span><i className="pt-lg done" />Terminée</span>
         <span><i className="pt-lg follow" />Suite à décider</span>
         <span><i className="pt-lg norep" />Sans rapport</span>
-      </div>
+      </div>}
 
       {visibleRows.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '2rem 1rem' }}>
@@ -223,7 +228,7 @@ export function PlanningTeamView({
                           onDrop={(e) => handleDrop(e, row, date)}
                         >
                           {cards.map((i) => (
-                            <TeamCard key={i.id} i={i} today={today} followCount={followCounts.get(i.id) ?? 0} onOpen={onOpen} />
+                            <TeamCard key={i.id} i={i} today={today} followCount={followCounts.get(i.id) ?? 0} colorMode={colorMode} onOpen={onOpen} />
                           ))}
                         </td>
                       )
@@ -239,7 +244,7 @@ export function PlanningTeamView({
   )
 }
 
-function TeamCard({ i, today, followCount, onOpen }: { i: Intervention; today: string; followCount: number; onOpen: (i: Intervention) => void }) {
+function TeamCard({ i, today, followCount, colorMode, onOpen }: { i: Intervention; today: string; followCount: number; colorMode: PlanningColorMode; onOpen: (i: Intervention) => void }) {
   let cls = 'plan'
   let status = 'Planifiée'
   if (i.status === 'en_cours') { cls = 'site'; status = 'En cours' }
@@ -259,6 +264,7 @@ function TeamCard({ i, today, followCount, onOpen }: { i: Intervention; today: s
       draggable={movable}
       onDragStart={(e) => { e.dataTransfer.setData('text/plain', i.id); e.dataTransfer.effectAllowed = 'move' }}
       onClick={() => onOpen(i)}
+      style={colorMode === 'type' ? typeColorStyle(i.equipment_types, i.status) : undefined}
       title={`${i.reference} — ${i.client_name}${i.site_name ? ` · ${i.site_name}` : ''}`}
     >
       <span className="pt-card-time">{timeLabel(i)}{i.priority === 'urgente' && <span className="pt-urg">Urgent</span>}</span>

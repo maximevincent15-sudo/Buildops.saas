@@ -74,7 +74,7 @@ export async function createQuote(
   const linesPayload = input.lines.map((l, i) => ({
     quote_id: (quote as Quote).id,
     position: l.position ?? i,
-    description: l.description,
+    description: l.description.trim(),
     quantity: l.quantity,
     unit_price_ht: l.unit_price_ht,
     vat_rate: l.vat_rate,
@@ -132,7 +132,7 @@ export async function updateQuote(
   const linesPayload = input.lines.map((l, i) => ({
     quote_id: id,
     position: l.position ?? i,
-    description: l.description,
+    description: l.description.trim(),
     quantity: l.quantity,
     unit_price_ht: l.unit_price_ht,
     vat_rate: l.vat_rate,

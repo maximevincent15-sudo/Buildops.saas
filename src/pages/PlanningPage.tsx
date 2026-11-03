@@ -39,6 +39,8 @@ import { InterventionStatusBadge } from '../features/planning/components/Interve
 import { PlanningDayView } from '../features/planning/components/PlanningDayView'
 import { PlanningMonthView } from '../features/planning/components/PlanningMonthView'
 import { PlanningWeekGridView } from '../features/planning/components/PlanningWeekGridView'
+import { TYPE_COLORS, readStoredColorMode, storeColorMode } from '../features/planning/typeColors'
+import type { PlanningColorMode } from '../features/planning/typeColors'
 import { buildIcsCalendar, buildIcsForIntervention, downloadIcs } from '../features/planning/icsExport'
 import type { CreateInterventionInput, Intervention } from '../features/planning/schemas'
 import {
@@ -78,6 +80,11 @@ export function PlanningPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Intervention | null>(null)
   const [view, setViewState] = useState<ViewMode>(readStoredView)
+  const [colorMode, setColorModeState] = useState<PlanningColorMode>(readStoredColorMode)
+  function setColorMode(mode: PlanningColorMode) {
+    setColorModeState(mode)
+    storeColorMode(mode)
+  }
   const [exporting, setExporting] = useState(false)
   const profile = useAuthStore((s) => s.profile)
   const myTechnicianId = useAuthStore((s) => s.myTechnicianId)
@@ -447,6 +454,15 @@ export function PlanningPage() {
             >
               Mois
             </button>
+            <select
+              className="pt-select"
+              value={colorMode}
+              onChange={(e) => setColorMode(e.target.value as PlanningColorMode)}
+              aria-label="Couleur des interventions"
+            >
+              <option value="type">Couleurs : par type</option>
+              <option value="status">Couleurs : par statut</option>
+            </select>
             {view === 'team' && (
               <button
                 type="button"
@@ -460,6 +476,15 @@ export function PlanningPage() {
             )}
           </div>
 
+          {colorMode === 'type' && (
+            <div className="pt-legend" style={{ marginBottom: '.6rem' }}>
+              {Object.entries(TYPE_COLORS).map(([key, c]) => (
+                <span key={key}><i className="pt-lg" style={{ background: c.light, borderColor: c.strong, borderLeft: `3px solid ${c.strong}` }} />{c.label}</span>
+              ))}
+              <span className="text-ink-3">Terminées : atténuées</span>
+            </div>
+          )}
+
           <div style={{ marginBottom: '1.5rem' }}>
             {view === 'team' && (
               <div className={`pt-layout${panelVisible ? '' : ' full'}`}>
@@ -467,6 +492,7 @@ export function PlanningPage() {
                   interventions={shown}
                   technicians={technicians}
                   followCounts={followCounts}
+                  colorMode={colorMode}
                   weekStart={weekStart}
                   onWeekChange={(d) => setWeekStart(startOfWeekMonday(d))}
                   onOpen={openEdit}
@@ -491,6 +517,7 @@ export function PlanningPage() {
             {view === 'week' && (
               <PlanningWeekGridView
                 interventions={shown}
+                colorMode={colorMode}
                 onClickIntervention={openEdit}
                 events={events}
                 onAddEvent={(date) => openEventModal(null, date)}
@@ -500,6 +527,7 @@ export function PlanningPage() {
             {view === 'day' && (
               <PlanningDayView
                 interventions={shown}
+                colorMode={colorMode}
                 onClickIntervention={openEdit}
                 events={events}
                 onAddEvent={(date) => openEventModal(null, date)}
@@ -509,6 +537,7 @@ export function PlanningPage() {
             {view === 'month' && (
               <PlanningMonthView
                 interventions={shown}
+                colorMode={colorMode}
                 onClickIntervention={openEdit}
                 events={events}
                 onAddEvent={(date) => openEventModal(null, date)}
