@@ -35,6 +35,10 @@ export function qrCandidates(raw: string): string[] {
 
 type Codeable = { id: string; qr_code: string | null; serial_number: string }
 
+function stripZeros(digits: string): string {
+  return digits.replace(/^0+(?=\d)/, '')
+}
+
 /**
  * Équipement correspondant au contenu scanné : d'abord par QR code enregistré
  * (contenu complet ou morceau), puis par n° d'unité. null si rien ou ambigu.
@@ -46,6 +50,13 @@ export function matchUnitByQr<T extends Codeable>(units: T[], raw: string): T | 
   const byQr = units.filter((u) => !!u.qr_code && candidates.includes(normalizeCode(u.qr_code)))
   if (byQr.length === 1) return byQr[0]!
   if (byQr.length > 1) return byQr.find((u) => normalizeCode(u.qr_code!) === full) ?? null
+  // Code-barres numérique complété de zéros (ITF : nombre pair de chiffres) :
+  // « 00123 » désigne l'étiquette « 123 », seulement si un seul équipement correspond
+  const numeric = candidates.filter((c) => /^\d+$/.test(c)).map(stripZeros)
+  if (numeric.length > 0) {
+    const byNumber = units.filter((u) => !!u.qr_code && /^\d+$/.test(normalizeCode(u.qr_code)) && numeric.includes(stripZeros(normalizeCode(u.qr_code))))
+    if (byNumber.length === 1) return byNumber[0]!
+  }
   const bySerial = units.filter((u) => candidates.includes(normalizeCode(u.serial_number)))
   return bySerial.length === 1 ? bySerial[0]! : null
 }

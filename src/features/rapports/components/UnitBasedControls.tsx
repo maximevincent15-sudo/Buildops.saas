@@ -324,7 +324,7 @@ export function UnitBasedControls({
       const other = elsewhere.find((u) => u.site_id !== siteId)
       if (other) {
         const site = (await listSites(other.client_id).catch(() => [])).find((x) => x.id === other.site_id)
-        setScanMessage({ tone: 'warn', text: `Ce QR code appartient à ${unitRepere(other)} (${EQUIPMENT_FAMILY_LABELS[other.family]})${site ? ` du site « ${site.name} »` : " d'un autre site"}, pas à ce site.` })
+        setScanMessage({ tone: 'warn', text: `Cette étiquette appartient à ${unitRepere(other)} (${EQUIPMENT_FAMILY_LABELS[other.family]})${site ? ` du site « ${site.name} »` : " d'un autre site"}, pas à ce site.` })
         return
       }
     } catch {
@@ -617,7 +617,7 @@ export function UnitBasedControls({
           <input
             className="input-sm"
             type="search"
-            placeholder="Repère, emplacement, marque, QR…"
+            placeholder="Repère, emplacement, marque, code d'étiquette…"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setLimit(UNITS_STEP) }}
             style={{ paddingLeft: 30, width: '100%', display: 'block' }}

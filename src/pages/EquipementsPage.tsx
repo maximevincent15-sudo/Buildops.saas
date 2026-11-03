@@ -586,7 +586,7 @@ export function EquipementsPage() {
               setEditingUnit(found)
               setUnitModalOpen(true)
             } else {
-              setScanNotice(`Aucun équipement ne porte ce QR code (« ${text.trim().slice(0, 60)} »). Ouvre la fiche d'un équipement pour lui associer ce code.`)
+              setScanNotice(`Aucun équipement ne porte ce code (« ${text.trim().slice(0, 60)} »). Ouvre la fiche d'un équipement pour lui associer cette étiquette.`)
             }
           }}
         />

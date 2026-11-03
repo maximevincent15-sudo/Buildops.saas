@@ -1,6 +1,7 @@
 import { Camera, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
+import { decodeBarcodeImage } from '../barcode'
 
 type Props = {
   onResult: (text: string) => void
@@ -11,14 +12,27 @@ type Props = {
 
 type Detector = { detect: (source: CanvasImageSource) => Promise<Array<{ rawValue: string }>> }
 
-/** Détecteur natif (Chrome Android, Edge…) quand il gère les QR codes, sinon null */
-async function nativeDetector(): Promise<Detector | null> {
+/** Codes-barres des étiquettes déjà posées par les mainteneurs (Code 128, Code 39, EAN, ITF…) */
+const BARCODE_FORMATS = ['code_128', 'code_39', 'code_93', 'codabar', 'ean_13', 'ean_8', 'itf', 'upc_a', 'upc_e']
+
+/** Lit un code-barres dans une image (canvas) avec ZXing */
+async function decodeBarcode(canvas: HTMLCanvasElement): Promise<string | null> {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null
+  return decodeBarcodeImage(ctx.getImageData(0, 0, canvas.width, canvas.height))
+}
+
+type Native = { detector: Detector; qr: boolean; barcodes: boolean }
+
+/** Détecteur natif (Chrome Android, Edge…) avec les formats qu'il sait lire, sinon null */
+async function nativeDetector(): Promise<Native | null> {
   const Ctor = (window as unknown as { BarcodeDetector?: { new (o: { formats: string[] }): Detector; getSupportedFormats?: () => Promise<string[]> } }).BarcodeDetector
   if (!Ctor) return null
   try {
-    const formats = (await Ctor.getSupportedFormats?.()) ?? []
-    if (!formats.includes('qr_code')) return null
-    return new Ctor({ formats: ['qr_code'] })
+    const supported = (await Ctor.getSupportedFormats?.()) ?? []
+    const formats = ['qr_code', ...BARCODE_FORMATS].filter((f) => supported.includes(f))
+    if (formats.length === 0) return null
+    return { detector: new Ctor({ formats }), qr: formats.includes('qr_code'), barcodes: formats.some((f) => f !== 'qr_code') }
   } catch {
     return null
   }
@@ -47,9 +61,10 @@ async function decodeWithJsQr(canvas: HTMLCanvasElement): Promise<string | null>
 }
 
 /**
- * Scanner de QR code plein écran : caméra arrière en direct (BarcodeDetector
- * natif, sinon jsQR), avec repli « prendre une photo » si la caméra est
- * refusée ou indisponible.
+ * Scanner d'étiquette plein écran : QR code ou code-barres, caméra arrière en
+ * direct (BarcodeDetector natif, sinon jsQR pour les QR et ZXing pour les
+ * codes-barres), avec repli « prendre une photo » si la caméra est refusée
+ * ou indisponible.
  */
 export function QrScanner({ onResult, onClose, hint }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -94,21 +109,22 @@ export function QrScanner({ onResult, onClose, hint }: Props) {
       video.srcObject = stream
       await video.play().catch(() => {})
       setStarting(false)
-      // Lecteur natif quand il existe (Android), jsQR sinon (iPhone, Firefox…).
-      // Si le natif plante, on le laisse tomber ; s'il ne trouve rien au bout
-      // de 2,5 s, jsQR prend aussi une image sur deux (codes que le natif rate).
-      let detector = await nativeDetector()
+      // Lecteur natif quand il existe (Android), sinon jsQR pour les QR codes et
+      // ZXing pour les codes-barres (iPhone, Firefox…), une image sur deux
+      // chacun. Si le natif plante, on le laisse tomber ; s'il ne trouve rien
+      // au bout de 2,5 s, les lecteurs JS prennent aussi le relais.
+      let native = await nativeDetector()
       let nativeErrors = 0
       let frame = 0
       const startedAt = Date.now()
 
-      const readWithJsQr = async () => {
+      const grab = () => {
         const canvas = canvasRef.current!
         const scale = Math.min(1, 720 / video.videoWidth)
         canvas.width = Math.round(video.videoWidth * scale)
         canvas.height = Math.round(video.videoHeight * scale)
         canvas.getContext('2d')!.drawImage(video, 0, 0, canvas.width, canvas.height)
-        return decodeWithJsQr(canvas)
+        return canvas
       }
 
       const tick = async () => {
@@ -116,18 +132,24 @@ export function QrScanner({ onResult, onClose, hint }: Props) {
         frame++
         if (video.readyState >= 2 && video.videoWidth > 0) {
           let text: string | null = null
-          if (detector) {
+          if (native) {
             try {
-              const found = await detector.detect(video)
+              const found = await native.detector.detect(video)
               text = found[0]?.rawValue || null
               nativeErrors = 0
             } catch {
-              if (++nativeErrors >= 3) detector = null
+              if (++nativeErrors >= 3) native = null
             }
           }
-          if (!text && (!detector || (Date.now() - startedAt > 2500 && frame % 2 === 0))) {
+          const late = Date.now() - startedAt > 2500
+          const useJsQr = !native?.qr || late
+          const useZxing = !native?.barcodes || late
+          if (!text && (useJsQr || useZxing)) {
             try {
-              text = await readWithJsQr()
+              const canvas = grab()
+              // Une image sur deux pour chaque lecteur : le téléphone reste fluide
+              if (useJsQr && (!useZxing || frame % 2 === 0)) text = await decodeWithJsQr(canvas)
+              else if (useZxing) text = await decodeBarcode(canvas)
             } catch {
               // image illisible : on réessaie au tour suivant
             }
@@ -161,22 +183,23 @@ export function QrScanner({ onResult, onClose, hint }: Props) {
       canvas.width = Math.round(bitmap.width * scale)
       canvas.height = Math.round(bitmap.height * scale)
       canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-      // Lecteur natif d'abord s'il existe (plus tolérant sur les photos), puis jsQR
+      // Lecteur natif d'abord s'il existe (plus tolérant sur les photos), puis jsQR et ZXing
       let text: string | null = null
-      const detector = await nativeDetector()
-      if (detector) {
-        try { text = (await detector.detect(canvas))[0]?.rawValue || null } catch { text = null }
+      const native = await nativeDetector()
+      if (native) {
+        try { text = (await native.detector.detect(canvas))[0]?.rawValue || null } catch { text = null }
       }
       text ??= await decodeWithJsQr(canvas)
+      text ??= await decodeBarcode(canvas)
       if (text) finish(text)
-      else setError('Aucun QR code lisible sur la photo. Recommence en te rapprochant de l\'étiquette.')
+      else setError('Aucun QR code ni code-barres lisible sur la photo. Recommence en te rapprochant de l\'étiquette.')
     } catch {
       setError('Impossible de lire cette photo.')
     }
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#0E1220', display: 'flex', flexDirection: 'column' }} role="dialog" aria-label="Scanner un QR code">
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#0E1220', display: 'flex', flexDirection: 'column' }} role="dialog" aria-label="Scanner une étiquette">
       <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', color: 'white', gap: 10 }}>
         <span style={{ flex: 1, fontWeight: 700, fontSize: 17 }}>Scanner l'étiquette</span>
         <button type="button" onClick={onClose} aria-label="Fermer" style={{ background: 'rgba(255,255,255,.12)', border: 'none', color: 'white', borderRadius: 999, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -195,7 +218,7 @@ export function QrScanner({ onResult, onClose, hint }: Props) {
       </div>
 
       <div style={{ padding: '14px 16px 22px', color: 'rgba(255,255,255,.85)', fontSize: 14, textAlign: 'center' }}>
-        {error ? <p style={{ color: '#FFB4A8', marginBottom: 12 }}>{error}</p> : <p style={{ marginBottom: 12 }}>{hint ?? 'Vise le QR code de l\'étiquette : la lecture est automatique.'}</p>}
+        {error ? <p style={{ color: '#FFB4A8', marginBottom: 12 }}>{error}</p> : <p style={{ marginBottom: 12 }}>{hint ?? 'Vise le QR code ou le code-barres de l\'étiquette : la lecture est automatique.'}</p>}
         <button type="button" onClick={() => fileRef.current?.click()}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'white', color: '#1C2130', border: 'none', borderRadius: 999, padding: '11px 18px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
           <Camera size={16} /> Prendre une photo à la place

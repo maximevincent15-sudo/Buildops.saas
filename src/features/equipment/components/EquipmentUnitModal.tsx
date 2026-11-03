@@ -548,7 +548,7 @@ export function EquipmentUnitModal({
 
           {/* Code QR de l'étiquette (scan sur le terrain) */}
           <div className="fg">
-            <label>Code QR de l'étiquette (facultatif)</label>
+            <label>Code de l'étiquette : QR ou code-barres (facultatif)</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <input type="text" placeholder="Scanne l'étiquette ou saisis son code" {...register('qr_code')} style={{ flex: 1, minWidth: 0 }} />
               <button type="button" className="mf out" onClick={() => setQrScanOpen(true)}
@@ -665,7 +665,7 @@ export function EquipmentUnitModal({
         <QrScanner
           onClose={() => setQrScanOpen(false)}
           onResult={(text) => { setValue('qr_code', text.trim(), { shouldDirty: true }); setQrScanOpen(false) }}
-          hint="Vise le QR code de l'étiquette de cet équipement."
+          hint="Vise le QR code ou le code-barres de l'étiquette de cet équipement."
         />
       )}
     </div>
