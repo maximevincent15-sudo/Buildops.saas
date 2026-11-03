@@ -4,6 +4,7 @@ import type { ChangeEvent, MouseEvent } from 'react'
 import {
   createAnomaly,
   listActiveAnomaliesForUnit,
+  listUnitIdsWithActiveAnomalies,
   resolveAnomaly,
 } from '../../anomalies/api'
 import {
@@ -138,6 +139,9 @@ export function UnitBasedControls({
   const [addDraft, setAddDraft] = useState<{ qr: string | null } | null>(null)
   const [lastCreated, setLastCreated] = useState<EquipmentUnit | null>(null)
   const [siteClientId, setSiteClientId] = useState<string | null>(null)
+  // Équipements qui ont une anomalie en cours : jamais passés conformes d'un coup
+  const [anomalyUnitIds, setAnomalyUnitIds] = useState<Set<string> | null>(null)
+  const [bulkBusy, setBulkBusy] = useState<string | null>(null)
 
   async function load() {
     if (!siteId) {
@@ -164,6 +168,7 @@ export function UnitBasedControls({
       const cache = new Map<string, FamilyTemplate>()
       templates.forEach((t) => { if (t) cache.set(t.family, t) })
       setTemplateCache(cache)
+      setAnomalyUnitIds(await listUnitIdsWithActiveAnomalies(u.map((x) => x.id)).catch(() => null))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur chargement')
       setLoadFailed(true)
@@ -380,6 +385,63 @@ export function UnitBasedControls({
     }
   }
 
+  // « Tout conforme » d'un groupe (zone + type) : les équipements pas encore
+  // contrôlés passent conformes d'un coup. Ceux qui ont une anomalie en cours
+  // restent à contrôler un par un ; ceux déjà contrôlés ne changent pas.
+  async function handleBulkConform(group: string, groupUnits: EquipmentUnit[], flaggedCount: number) {
+    if (groupUnits.length === 0 || bulkBusy) return
+    const n = groupUnits.length
+    const ok = window.confirm(
+      `Marquer conforme${n > 1 ? 's' : ''} ${n > 1 ? `les ${n} équipements` : 'l\'équipement'} pas encore contrôlé${n > 1 ? 's' : ''} de « ${group} » ?\n\n`
+      + (flaggedCount > 0 ? `${flaggedCount} avec une anomalie en cours ${flaggedCount > 1 ? 'restent' : 'reste'} à contrôler un par un. ` : '')
+      + 'Ceux déjà contrôlés ne changent pas, et chaque équipement reste modifiable.',
+    )
+    if (!ok) return
+    setBulkBusy(group)
+    setScanMessage(null)
+    const saved: EquipmentCheck[] = []
+    try {
+      const flagged = anomalyUnitIds ?? await listUnitIdsWithActiveAnomalies(groupUnits.map((u) => u.id)).catch(() => null)
+      if (!flagged) {
+        setScanMessage({ tone: 'warn', text: 'Impossible de vérifier les anomalies en cours (réseau) : contrôle ces équipements un par un, ou réessaie avec du réseau.' })
+        return
+      }
+      if (!anomalyUnitIds) setAnomalyUnitIds(flagged)
+      const targets = groupUnits.filter((u) => !flagged.has(u.id))
+      for (const u of targets) {
+        const template = templateCache.get(u.family) ?? null
+        saved.push(await upsertCheckSmart(
+          {
+            intervention_id: interventionId,
+            equipment_unit_id: u.id,
+            family_template_id: template?.id ?? null,
+            checklist: {},
+            observation: null,
+            verdict: 'conforme',
+            photos: [],
+          },
+          organizationId,
+          { technicianId, technicianName },
+        ))
+      }
+      const skipped = n - targets.length + flaggedCount
+      const plural = saved.length > 1 ? 's' : ''
+      setScanMessage({
+        tone: skipped > 0 ? 'warn' : 'ok',
+        text: `${saved.length} équipement${plural} marqué${plural} conforme${plural}`
+          + (skipped > 0 ? ` · ${skipped} avec une anomalie en cours, à contrôler un par un` : ''),
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur enregistrement')
+    } finally {
+      if (saved.length > 0) {
+        const done = new Set(saved.map((c) => c.equipment_unit_id))
+        setChecks((prev) => [...prev.filter((c) => !done.has(c.equipment_unit_id)), ...saved])
+      }
+      setBulkBusy(null)
+    }
+  }
+
   if (!siteId) return null
 
   if (loading) {
@@ -531,6 +593,16 @@ export function UnitBasedControls({
     `${u.zone_id ? zoneLabel(zonesById.get(u.zone_id)) || 'Sans zone' : 'Sans zone'} · ${EQUIPMENT_FAMILY_LABELS[u.family]}`
   const groupCounts = new Map<string, number>()
   for (const u of displayedUnits) groupCounts.set(groupLabel(u), (groupCounts.get(groupLabel(u)) ?? 0) + 1)
+  // Équipements du chantier pas encore contrôlés, par groupe (« Tout conforme ») ;
+  // ceux qui ont une anomalie en cours sont comptés à part
+  const remainingByGroup = new Map<string, EquipmentUnit[]>()
+  const flaggedByGroup = new Map<string, number>()
+  for (const u of baseUnits) {
+    if (checksByUnit.get(u.id) || (scopeActive && !inScope(u))) continue
+    const g = groupLabel(u)
+    if (anomalyUnitIds?.has(u.id)) flaggedByGroup.set(g, (flaggedByGroup.get(g) ?? 0) + 1)
+    else remainingByGroup.set(g, [...(remainingByGroup.get(g) ?? []), u])
+  }
   // Pastilles par type (sur le chantier) : affichées dès qu'il y a plusieurs types
   const familyCounts = EQUIPMENT_FAMILIES
     .map((f) => {
@@ -712,8 +784,23 @@ export function UnitBasedControls({
           return (
             <Fragment key={u.id}>
             {newGroup && (
-              <div style={groupHeadStyle}>
-                {group} <span style={{ color: 'var(--ink3)', fontWeight: 500 }}>· {groupCounts.get(group) ?? 0}</span>
+              <div style={{ ...groupHeadStyle, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  {group} <span style={{ color: 'var(--ink3)', fontWeight: 500 }}>· {groupCounts.get(group) ?? 0}</span>
+                </span>
+                {!readOnly && (remainingByGroup.get(group)?.length ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    className="mf out"
+                    disabled={!!bulkBusy}
+                    onClick={() => void handleBulkConform(group, remainingByGroup.get(group) ?? [], flaggedByGroup.get(group) ?? 0)}
+                    title="Marque conformes les équipements de ce groupe pas encore contrôlés"
+                    style={bulkBtnStyle}
+                  >
+                    <Check size={13} strokeWidth={2.5} />
+                    {bulkBusy === group ? 'Enregistrement…' : `Tout conforme (${remainingByGroup.get(group)?.length})`}
+                  </button>
+                )}
               </div>
             )}
             <button
@@ -737,6 +824,7 @@ export function UnitBasedControls({
                 </div>
                 <div style={unitTileMetaStyle}>
                   {scopeActive && !inScope(u) && <span style={outOfScopeTagStyle}>hors chantier</span>}
+                  {!check && anomalyUnitIds?.has(u.id) && <span style={outOfScopeTagStyle}>anomalie en cours</span>}
                   {details}
                 </div>
               </div>
@@ -1452,12 +1540,26 @@ const scopeBannerStyle: React.CSSProperties = {
 }
 
 const groupHeadStyle: React.CSSProperties = {
+  // Intertitre sur toute la largeur de la grille des équipements
+  gridColumn: '1 / -1',
   fontSize: 11.5,
   fontWeight: 700,
   letterSpacing: '.04em',
   textTransform: 'uppercase',
   color: 'var(--ink2)',
   padding: '10px 2px 2px',
+}
+
+const bulkBtnStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
+  padding: '5px 10px',
+  fontSize: 12,
+  fontWeight: 600,
+  letterSpacing: 'normal',
+  textTransform: 'none',
+  whiteSpace: 'nowrap',
 }
 
 const outOfScopeTagStyle: React.CSSProperties = {

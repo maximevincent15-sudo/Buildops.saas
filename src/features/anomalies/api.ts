@@ -92,6 +92,22 @@ export async function listActiveAnomaliesForUnit(unitId: string): Promise<Anomal
   return listAnomalies({ equipmentUnitId: unitId, onlyActive: true })
 }
 
+/** Équipements qui ont une anomalie en cours (ouverte ou planifiée), parmi ceux donnés */
+export async function listUnitIdsWithActiveAnomalies(unitIds: string[]): Promise<Set<string>> {
+  const out = new Set<string>()
+  const ids = Array.from(new Set(unitIds))
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await supabase
+      .from('anomalies')
+      .select('equipment_unit_id')
+      .in('status', ACTIVE_ANOMALY_STATUSES as unknown as string[])
+      .in('equipment_unit_id', ids.slice(i, i + 100))
+    if (error) throw error
+    for (const r of (data ?? []) as Array<{ equipment_unit_id: string | null }>) if (r.equipment_unit_id) out.add(r.equipment_unit_id)
+  }
+  return out
+}
+
 /** Anomalies détectées lors d'une intervention (pour le PDF et le récap). */
 export async function listAnomaliesForIntervention(
   interventionId: string,
