@@ -42,8 +42,10 @@ import { ReportHistoryList } from '../features/rapports/components/ReportHistory
 import { TimeSpentCard } from '../features/rapports/components/TimeSpentCard'
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
 import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
+import { ClassicReportPdf } from '../features/rapports/pdf/ClassicReportPdf'
 import { ReportPdf } from '../features/rapports/pdf/ReportPdf'
-import type { AnomalyPdfEntry } from '../features/rapports/pdf/ReportPdf'
+import type { AnomalyPdfEntry, ReportPdfProps } from '../features/rapports/pdf/ReportPdf'
+import { loadReportExtras } from '../features/rapports/pdf/reportExtras'
 import { buildUnitEntriesForIntervention } from '../features/equipment/reportHelpers'
 import { getClientNumber } from '../features/clients/api'
 import { getInvoicingSettings } from '../features/parametres/api'
@@ -499,24 +501,24 @@ export function RapportEditorPage() {
     }
     const clientNumber = await getClientNumber(intervention?.client_id)
     const visitDossier = intervention?.dossier_number?.trim() || null
-    const element = (
-      <ReportPdf
-        intervention={intervention!}
-        report={snapshot}
-        sections={sections}
-        organizationName={orgName}
-        unitEntries={unitEntries}
-        settings={invoicingSettings}
-        anomalyEntries={anomalyEntries}
-        clientNumber={clientNumber}
-        dossierNumber={visitDossier}
-        interventionType={
-          intervention?.intervention_type
-            ? INTERVENTION_TYPE_LABELS[intervention.intervention_type]
-            : null
-        }
-      />
-    )
+    const pdfProps: ReportPdfProps = {
+      intervention: intervention!,
+      report: snapshot,
+      sections,
+      organizationName: orgName,
+      unitEntries,
+      settings: invoicingSettings,
+      anomalyEntries,
+      clientNumber,
+      dossierNumber: visitDossier,
+      interventionType: intervention?.intervention_type
+        ? INTERVENTION_TYPE_LABELS[intervention.intervention_type]
+        : null,
+    }
+    // Modèle choisi dans Paramètres : compte rendu classique ou rapport Firovia
+    const element = invoicingSettings?.report_template === 'classic'
+      ? <ClassicReportPdf {...pdfProps} {...await loadReportExtras(intervention!).catch(() => ({}))} />
+      : <ReportPdf {...pdfProps} />
     return generateAndUploadReportPdf(element, orgId, iid, intervention!.reference)
   }
 

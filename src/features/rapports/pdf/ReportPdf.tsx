@@ -468,6 +468,8 @@ export type UnitReportEntry = {
   uncheckedItems?: string[]
 }
 
+export type ReportPdfProps = Props
+
 type Props = {
   intervention: Intervention
   report: Report

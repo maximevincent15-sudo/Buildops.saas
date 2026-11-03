@@ -47,10 +47,15 @@ export type InvoicingSettings = {
   /** Préfixes de numérotation (Migration 020) */
   quote_prefix: string | null
   invoice_prefix: string | null
+  /** Modèle du rapport PDF (migration 20261103180000) */
+  report_template?: ReportTemplate
   updated_at: string
 }
 
-export type UpsertInvoicingInput = Omit<InvoicingSettings, 'organization_id' | 'updated_at'>
+/** « standard » : rapport Firovia ; « classic » : compte rendu de vérification classique */
+export type ReportTemplate = 'standard' | 'classic'
+
+export type UpsertInvoicingInput = Omit<InvoicingSettings, 'organization_id' | 'updated_at' | 'report_template'>
 
 export async function getInvoicingSettings(organizationId: string): Promise<InvoicingSettings | null> {
   const { data, error } = await supabase
@@ -97,6 +102,17 @@ export async function upsertInvoicingSettings(
     .single()
   if (error) throw error
   return data as InvoicingSettings
+}
+
+/** Modèle du rapport PDF : enregistré seul, sans toucher au reste des paramètres */
+export async function setReportTemplate(organizationId: string, template: ReportTemplate): Promise<void> {
+  const { error } = await supabase
+    .from('organization_invoicing_settings')
+    .upsert(
+      { organization_id: organizationId, report_template: template, updated_at: new Date().toISOString() },
+      { onConflict: 'organization_id' },
+    )
+  if (error) throw error
 }
 
 // ─── Prochain numéro de devis / de facture ───────────────

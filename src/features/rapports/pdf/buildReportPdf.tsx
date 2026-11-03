@@ -13,9 +13,11 @@ import { getReportByIntervention, setReportPdfUrl } from '../api'
 import { CHECKLISTS } from '../checklists'
 import { responsesToByType } from '../schemas'
 import type { ChecklistResponse } from '../schemas'
+import { ClassicReportPdf } from './ClassicReportPdf'
 import { generateAndUploadReportPdf } from './generateReportPdf'
 import { ReportPdf } from './ReportPdf'
-import type { AnomalyPdfEntry } from './ReportPdf'
+import type { AnomalyPdfEntry, ReportPdfProps } from './ReportPdf'
+import { loadReportExtras } from './reportExtras'
 
 /**
  * Génère le PDF d'un rapport déjà enregistré, à partir de la base (et non de
@@ -81,22 +83,22 @@ export async function generateReportPdfForIntervention(
     })
   }
 
-  const element = (
-    <ReportPdf
-      intervention={intervention}
-      report={report}
-      sections={sections}
-      organizationName={organizationName}
-      unitEntries={unitEntries}
-      settings={settings}
-      anomalyEntries={anomalyEntries}
-      clientNumber={clientNumber}
-      dossierNumber={dossierNumber}
-      interventionType={
-        intervention.intervention_type ? INTERVENTION_TYPE_LABELS[intervention.intervention_type] : null
-      }
-    />
-  )
+  const pdfProps: ReportPdfProps = {
+    intervention,
+    report,
+    sections,
+    organizationName,
+    unitEntries,
+    settings,
+    anomalyEntries,
+    clientNumber,
+    dossierNumber,
+    interventionType: intervention.intervention_type ? INTERVENTION_TYPE_LABELS[intervention.intervention_type] : null,
+  }
+  // Modèle choisi dans Paramètres : compte rendu classique ou rapport Firovia
+  const element = settings?.report_template === 'classic'
+    ? <ClassicReportPdf {...pdfProps} {...await loadReportExtras(intervention).catch(() => ({}))} />
+    : <ReportPdf {...pdfProps} />
   const url = await generateAndUploadReportPdf(element, organizationId, interventionId, intervention.reference)
   await setReportPdfUrl(report.id, url)
   return url

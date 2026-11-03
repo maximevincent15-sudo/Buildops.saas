@@ -11,6 +11,7 @@ import { loadDemoData } from '../features/parametres/demoData'
 import { LogoCard } from '../features/parametres/components/LogoCard'
 import { ModulesCard } from '../features/parametres/components/ModulesCard'
 import { NotificationsCard } from '../features/parametres/components/NotificationsCard'
+import { ReportTemplateCard } from '../features/parametres/components/ReportTemplateCard'
 import { NextNumberFields } from '../features/parametres/components/NextNumberFields'
 
 const EMPTY: UpsertInvoicingInput = {
@@ -259,6 +260,7 @@ export function ParametresPage() {
 
       {/* Notifications par mail (administrateurs) */}
       {(profile?.user_role ?? 'admin') === 'admin' && <NotificationsCard />}
+      {(profile?.user_role ?? 'admin') === 'admin' && <ReportTemplateCard />}
 
       {/* Bloc 1 : identité légale */}
       <div className="card" style={{ marginBottom: '1rem' }}>
