@@ -1,5 +1,8 @@
 import { listClients, createClient } from '../../clients/api'
 import type { Client } from '../../clients/schemas'
+import { listSites } from '../../equipment/api'
+import type { Site } from '../../equipment/schemas'
+import { normalize } from '../../equipment/familyResolver'
 import { createIntervention, setInterventionStatus } from '../../planning/api'
 import type { CreateInterventionInput } from '../../planning/schemas'
 import { parseFlexibleDate, resolveTechnicianByName } from '../helpers'
@@ -37,6 +40,18 @@ function parseEquipmentTypes(input: string | null | undefined): EquipmentCode[] 
     else if (p.includes('ssi') || p.includes('alarm')) result.push('ssi')
   }
   return Array.from(new Set(result))
+}
+
+/** Site du client portant ce nom (sans accents ni majuscules), chargé une fois par import */
+async function findSite(clientId: string, siteName: string, cache: Record<string, unknown>): Promise<Site | null> {
+  const c = cache as { sitesByClient?: Map<string, Site[]> }
+  if (!c.sitesByClient) {
+    const sites = await listSites()
+    c.sitesByClient = new Map()
+    for (const s of sites) c.sitesByClient.set(s.client_id, [...(c.sitesByClient.get(s.client_id) ?? []), s])
+  }
+  const wanted = normalize(siteName)
+  return c.sitesByClient.get(clientId)?.find((s) => normalize(s.name) === wanted) ?? null
 }
 
 /**
@@ -156,6 +171,11 @@ export const interventionsImportDefinition: ImportDefinition = {
     const clientExists = cache.clientsByName.has(clientName.toLowerCase())
     if (!clientExists) {
       messages.push(`Client "${clientName}" non trouvé → sera créé automatiquement`)
+    } else if (row.site_name?.trim()) {
+      const client = cache.clientsByName.get(clientName.toLowerCase())!
+      if (await findSite(client.id, row.site_name, context.cache ?? {})) {
+        messages.push(`Visite rattachée au site "${row.site_name.trim()}" et à ses équipements`)
+      }
     }
 
     // Technicien : check s'il existe
@@ -175,10 +195,16 @@ export const interventionsImportDefinition: ImportDefinition = {
       clientsByName?: Map<string, Client>
     }
 
-    // Résolution / création du client
+    // Résolution / création du client. L'import repart d'une mémoire vide
+    // (l'aperçu a la sienne) : la liste des clients est rechargée ici, sinon
+    // chaque ligne recréait un client déjà connu.
+    if (!cache.clientsByName) {
+      const existing = await listClients()
+      cache.clientsByName = new Map(existing.map((c) => [c.name.trim().toLowerCase(), c]))
+    }
     const clientName = (row.client_name ?? '').trim()
     const clientLower = clientName.toLowerCase()
-    let client = cache.clientsByName?.get(clientLower)
+    let client = cache.clientsByName.get(clientLower)
     if (!client) {
       client = await createClient(
         {
@@ -191,13 +217,16 @@ export const interventionsImportDefinition: ImportDefinition = {
         },
         context.organizationId,
       )
-      if (cache.clientsByName) cache.clientsByName.set(clientLower, client)
+      cache.clientsByName.set(clientLower, client)
     }
 
     // Résolution du tech
     const tech = row.technician_name
       ? await resolveTechnicianByName(row.technician_name, context.cache ?? {})
       : null
+
+    // Site existant du client (même nom) : la visite y est rattachée
+    const site = row.site_name ? await findSite(client.id, row.site_name, context.cache ?? {}) : null
 
     const equipments = parseEquipmentTypes(row.equipment_types) as CreateInterventionInput['equipment_types']
     const scheduledDate = parseFlexibleDate(row.scheduled_date)
@@ -206,7 +235,8 @@ export const interventionsImportDefinition: ImportDefinition = {
     const input: CreateInterventionInput = {
       client_name: clientName,
       client_id: client.id,
-      site_name: row.site_name ?? undefined,
+      site_name: site?.name ?? row.site_name ?? undefined,
+      site_id: site?.id ?? undefined,
       address: row.address ?? undefined,
       equipment_types: equipments,
       scheduled_date: scheduledDate ?? undefined,

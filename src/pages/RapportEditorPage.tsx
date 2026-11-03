@@ -18,7 +18,8 @@ import { useSubscription } from '../features/billing/hooks'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
 import { setInterventionStatus } from '../features/planning/api'
 import { INTERVENTION_TYPE_LABELS, normalizeIntervention } from '../features/planning/schemas'
-import type { Intervention } from '../features/planning/schemas'
+import type { CreateInterventionInput, Intervention } from '../features/planning/schemas'
+import { HistoricalVisitCard } from '../features/rapports/components/HistoricalVisitCard'
 import {
   finalizeReport,
   getReportByIntervention,
@@ -132,6 +133,11 @@ export function RapportEditorPage() {
   const [error, setError] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
   const [correctiveOpen, setCorrectiveOpen] = useState(false)
+  // Visite terminée sans rapport Firovia (historique importé) : vue dédiée,
+  // sauf si l'on choisit de faire quand même le rapport
+  const [writeReportAnyway, setWriteReportAnyway] = useState(false)
+  const [nextVisitSeed, setNextVisitSeed] = useState<Partial<CreateInterventionInput> | null>(null)
+  const [nextVisitRefresh, setNextVisitRefresh] = useState(0)
   // Devis : administrateurs uniquement (et module affiché)
   const devisEnabled = useModuleEnabled()('devis') && (profile?.user_role ?? 'admin') === 'admin'
   const [quoteOpen, setQuoteOpen] = useState(false)
@@ -814,6 +820,62 @@ export function RapportEditorPage() {
     ? format(new Date(intervention.scheduled_date), 'd MMMM yyyy', { locale: fr })
     : '—'
   const equipmentsLabel = formatEquipmentTypes(intervention.equipment_types)
+  const isAdmin = (profile?.user_role ?? 'admin') === 'admin'
+
+  if (intervention.status === 'terminee' && !reportId && !completedAt && !writeReportAnyway) {
+    return (
+      <>
+        <div className="dash-top">
+          <div>
+            <div className="dash-title" style={{ display: 'flex', alignItems: 'center', gap: '.7rem' }}>
+              Visite {intervention.reference}
+              <span className="badge b-grn">Terminée</span>
+            </div>
+            <div className="dash-sub">
+              {intervention.client_name}{intervention.site_name ? ` · ${intervention.site_name}` : ''} · {equipmentsLabel} · le {scheduledLabel}
+            </div>
+          </div>
+          <div className="dash-acts">
+            <Link to="/planning" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <ArrowLeft size={14} /> Planning
+            </Link>
+          </div>
+        </div>
+        {flash && <p className="text-grn text-sm" style={{ margin: '0 0 1rem' }}>{flash}</p>}
+        <HistoricalVisitCard
+          intervention={intervention}
+          dossierNumber={dossierNumber}
+          isAdmin={isAdmin}
+          refreshKey={nextVisitRefresh}
+          onWriteReport={() => setWriteReportAnyway(true)}
+          onPlanNext={(date) => setNextVisitSeed({
+            client_id: intervention.client_id ?? undefined,
+            client_name: intervention.client_name,
+            site_id: intervention.site_id ?? undefined,
+            site_name: intervention.site_name ?? undefined,
+            address: intervention.address ?? undefined,
+            equipment_types: intervention.equipment_types as CreateInterventionInput['equipment_types'],
+            scheduled_date: date,
+            priority: 'reglementaire',
+            intervention_type: 'preventive',
+          })}
+        />
+        {nextVisitSeed && (
+          <InterventionModal
+            open
+            onClose={() => setNextVisitSeed(null)}
+            seed={nextVisitSeed}
+            onChanged={() => {
+              setNextVisitSeed(null)
+              setNextVisitRefresh((n) => n + 1)
+              setFlash('Visite planifiée.')
+              setTimeout(() => setFlash(null), 3000)
+            }}
+          />
+        )}
+      </>
+    )
+  }
 
   return (
     <>

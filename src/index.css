@@ -1640,6 +1640,28 @@ h1, h2, h3, h4, h5, h6 {
     .portal-form-card .mrow { grid-template-columns: 1fr; }
   }
 
+  /* RAPPORT — visite historique (sans rapport Firovia) */
+  .historical-due {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: .8rem 1rem;
+    background: var(--bg);
+    border: .5px solid var(--brd);
+    border-radius: var(--r);
+  }
+  .link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--acc);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
   /* DOSSIERS — repères et photos */
   .dossier-kpis {
     display: grid;
