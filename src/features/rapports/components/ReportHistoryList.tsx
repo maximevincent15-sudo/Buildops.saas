@@ -8,6 +8,7 @@ import { listReportsForClient } from '../api'
 import type { ReportWithIntervention } from '../api'
 import { computeReportSummary } from '../schemas'
 import type { ChecklistResponse } from '../schemas'
+import { FileLink } from '../../../shared/ui/FileLink'
 
 type Props = {
   /** Filtre principal — fournir au moins un client */
@@ -173,8 +174,8 @@ export function ReportHistoryList({
                   </div>
                 </div>
                 {r.pdf_url && (
-                  <a
-                    href={r.pdf_url}
+                  <FileLink
+                    url={r.pdf_url}
                     target="_blank"
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}
@@ -182,7 +183,7 @@ export function ReportHistoryList({
                     title="Télécharger le PDF"
                   >
                     <Download size={11} strokeWidth={2} />
-                  </a>
+                  </FileLink>
                 )}
                 <ExternalLink size={11} strokeWidth={2} className="history-arrow" />
               </Link>

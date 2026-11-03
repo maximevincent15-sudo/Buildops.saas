@@ -2,6 +2,7 @@ import { supabase } from '../../shared/lib/supabase'
 import { computeQuoteTotals } from '../devis/constants'
 import { EXPENSE_CATEGORY_LABEL } from '../expenses/constants'
 import type { ExpenseCategory } from '../expenses/constants'
+import { openableUrls } from '../../shared/lib/privateFiles'
 
 /**
  * Export comptable d'une période, pour l'expert-comptable :
@@ -183,6 +184,9 @@ export async function exportAccounting(from: string, to: string, orgName: string
   ])
   if (invRes.error) throw invRes.error
   if (expRes.error) throw expRes.error
+  // Justificatifs privés : liens temporaires valables 7 jours dans le fichier remis au comptable
+  const receiptUrls = ((expRes.data ?? []) as Array<{ receipt_url: string | null }>).map((e) => e.receipt_url).filter((u): u is string => !!u)
+  const receiptLinks = await openableUrls(receiptUrls, 7 * 86400).catch(() => new Map<string, string>())
 
   const all = (invRes.data ?? []) as ExportInvoice[]
   const invoices = all.filter((i) => i.status !== 'cancelled')
@@ -246,13 +250,13 @@ export async function exportAccounting(from: string, to: string, orgName: string
   addSheet('Notes de frais', [
     { header: 'Date', key: 'date', width: 12 }, { header: 'Technicien', key: 'tech', width: 22 }, { header: 'Catégorie', key: 'cat', width: 18 },
     { header: 'Description', key: 'desc', width: 32 }, { header: 'Montant TTC', key: 'ttc', width: 13, money: true }, { header: 'Taux TVA', key: 'rate', width: 9 },
-    { header: 'TVA récupérable', key: 'vat', width: 14, money: true }, { header: 'Montant HT', key: 'ht', width: 12, money: true }, { header: 'Justificatif', key: 'receipt', width: 40 },
+    { header: 'TVA récupérable', key: 'vat', width: 14, money: true }, { header: 'Montant HT', key: 'ht', width: 12, money: true }, { header: 'Justificatif (lien valable 7 jours)', key: 'receipt', width: 40 },
   ], expenses.map((e) => {
     const ttc = Number(e.amount_ttc)
     const ht = round2(ttc / (1 + Number(e.vat_rate) / 100))
     return {
       date: e.spent_on, tech: e.technician_name, cat: EXPENSE_CATEGORY_LABEL[e.category as ExpenseCategory] ?? e.category, desc: e.description ?? '',
-      ttc, rate: `${String(e.vat_rate).replace('.', ',')} %`, vat: round2(ttc - ht), ht, receipt: e.receipt_url ?? '',
+      ttc, rate: `${String(e.vat_rate).replace('.', ',')} %`, vat: round2(ttc - ht), ht, receipt: e.receipt_url ? receiptLinks.get(e.receipt_url) ?? e.receipt_url : '',
     }
   }))
 

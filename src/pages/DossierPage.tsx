@@ -28,6 +28,7 @@ import { INVOICE_STATUS_BADGE, INVOICE_STATUS_LABEL } from '../features/factures
 import type { InvoiceStatus } from '../features/factures/constants'
 import { INTERVENTION_STATUSES, STATUS_BADGE_CLASSES, formatEquipmentTypes } from '../shared/constants/interventions'
 import type { InterventionStatus } from '../shared/constants/interventions'
+import { FileLink } from '../shared/ui/FileLink'
 
 const PHOTOS_STEP = 24
 
@@ -290,9 +291,9 @@ export function DossierPage() {
                   </div>
                   <div className="archive-actions">
                     {v.report?.pdf_url && (
-                      <a href={v.report.pdf_url} target="_blank" rel="noreferrer" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <FileLink url={v.report.pdf_url} target="_blank" rel="noreferrer" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <Download size={11} strokeWidth={2} /> PDF
-                      </a>
+                      </FileLink>
                     )}
                     <Link to={`/rapports/${i.id}`} className="btn-sm subtle" title="Ouvrir le rapport" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <ExternalLink size={11} strokeWidth={2} />
@@ -327,9 +328,9 @@ export function DossierPage() {
                   </div>
                   <div className="archive-actions">
                     {q.pdf_url && (
-                      <a href={q.pdf_url} target="_blank" rel="noreferrer" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <FileLink url={q.pdf_url} target="_blank" rel="noreferrer" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <Download size={11} strokeWidth={2} /> PDF
-                      </a>
+                      </FileLink>
                     )}
                     <Link to={`/devis?open=${q.id}`} className="btn-sm subtle" title="Ouvrir le devis" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <ExternalLink size={11} strokeWidth={2} />
@@ -365,9 +366,9 @@ export function DossierPage() {
                   </div>
                   <div className="archive-actions">
                     {inv.pdf_url && (
-                      <a href={inv.pdf_url} target="_blank" rel="noreferrer" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <FileLink url={inv.pdf_url} target="_blank" rel="noreferrer" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <Download size={11} strokeWidth={2} /> PDF
-                      </a>
+                      </FileLink>
                     )}
                     <Link to={`/factures?open=${inv.id}`} className="btn-sm subtle" title="Ouvrir la facture" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <ExternalLink size={11} strokeWidth={2} />
@@ -410,9 +411,9 @@ export function DossierPage() {
                   </div>
                 </div>
                 <div className="archive-actions">
-                  <a href={d.file_url} target="_blank" rel="noreferrer" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <FileLink url={d.file_url} target="_blank" rel="noreferrer" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <Download size={11} strokeWidth={2} /> Ouvrir
-                  </a>
+                  </FileLink>
                   <button type="button" className="btn-sm subtle" onClick={() => void handleDelete(d)} title="Retirer du dossier" aria-label={`Retirer ${d.title}`}>
                     <Trash2 size={11} strokeWidth={2} />
                   </button>

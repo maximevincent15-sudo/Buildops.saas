@@ -26,6 +26,7 @@ import {
 } from '../features/expenses/constants'
 import type { ExpenseStatus } from '../features/expenses/constants'
 import type { Expense } from '../features/expenses/schemas'
+import { FileLink } from '../shared/ui/FileLink'
 
 function formatDate(d: string): string {
   try {
@@ -283,14 +284,14 @@ export function ExpensesPage() {
                       {e.receipt_url ? (
                         <>
                           {' · '}
-                          <a
-                            href={e.receipt_url}
+                          <FileLink
+                            url={e.receipt_url}
                             target="_blank"
                             rel="noreferrer"
                             className="expense-receipt-link"
                           >
                             <Paperclip size={10} strokeWidth={2} /> justificatif
-                          </a>
+                          </FileLink>
                         </>
                       ) : (
                         <span className="expense-no-receipt">

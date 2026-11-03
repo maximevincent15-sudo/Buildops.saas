@@ -10,6 +10,7 @@ import { INTERVENTION_STATUSES, formatEquipmentTypes } from '../../shared/consta
 import type { InterventionStatus } from '../../shared/constants/interventions'
 import { DOSSIER_DOCUMENT_LABELS } from './api'
 import type { DossierDetail } from './api'
+import { openableUrls } from '../../shared/lib/privateFiles'
 
 export type DossierZipProgress = (label: string, done: number, total: number) => void
 
@@ -154,11 +155,13 @@ export async function exportDossierZip(
   let failed = 0
   let next = 0
   let done = 0
+  // Fichiers privés : liens temporaires demandés d'un coup
+  const openable = await openableUrls(items.map((it) => it.url)).catch(() => new Map<string, string>())
   await Promise.all(Array.from({ length: 6 }, async () => {
     while (next < items.length) {
       const item = items[next++]!
       try {
-        const res = await fetch(item.url)
+        const res = await fetch(openable.get(item.url) ?? item.url)
         if (!res.ok) throw new Error(String(res.status))
         files[item.path] = new Uint8Array(await res.arrayBuffer())
       } catch {

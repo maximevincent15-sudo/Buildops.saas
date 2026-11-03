@@ -39,6 +39,8 @@ import { generateAndUploadInvoicePdf } from '../pdf/generateInvoicePdf'
 import { InvoicePdf } from '../pdf/InvoicePdf'
 import { sendDocumentEmail } from '../../email/api'
 import { isValidEmail, recipientsForClientId, splitEmails } from '../../clients/recipients'
+import { FileLink } from '../../../shared/ui/FileLink'
+import { isPrivateFile } from '../../../shared/lib/privateFiles'
 
 type Props = {
   open: boolean
@@ -394,8 +396,11 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
         ? `\n\nÉchéance de paiement : ${new Date(dueDate).toLocaleDateString('fr-FR')}.`
         : ''
       const totalsLine = `Montant à régler : ${formatAmount(totals.total_ttc)} TTC.${dueLine}`
+      // PDF privé : joint au mail, sans lien (il faudrait être connecté pour l'ouvrir)
       const pdfLine = pdfUrl
-        ? `\n\n📄 La facture est jointe à ce mail (ou téléchargeable ici : ${pdfUrl})`
+        ? isPrivateFile(pdfUrl)
+          ? `\n\n📄 La facture est jointe à ce mail.`
+          : `\n\n📄 La facture est jointe à ce mail (ou téléchargeable ici : ${pdfUrl})`
         : `\n\n(Le PDF est disponible sur demande.)`
       const body =
         `${greet}\n\nVeuillez trouver ci-après la facture pour la prestation réalisée.\n\n${totalsLine}${pdfLine}\n\nN'hésitez pas à me contacter pour toute question.\n\nCordialement,\n${orgName}`
@@ -828,15 +833,15 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                       </button>
                     )}
                     {pdfUrl && (
-                      <a
-                        href={pdfUrl}
+                      <FileLink
+                        url={pdfUrl}
                         target="_blank"
                         rel="noreferrer"
                         className="btn-sm"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       >
                         <Download size={13} /> PDF
-                      </a>
+                      </FileLink>
                     )}
                     {status === 'draft' && pdfUrl && (
                       <button

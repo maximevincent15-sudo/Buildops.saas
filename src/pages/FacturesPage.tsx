@@ -17,6 +17,7 @@ import type { InvoiceStatus } from '../features/factures/constants'
 import type { Invoice, UpsertInvoiceInput } from '../features/factures/schemas'
 import { RelanceModal } from '../features/relances/components/RelanceModal'
 import { AccountingExportModal } from '../features/export/components/AccountingExportModal'
+import { FileLink } from '../shared/ui/FileLink'
 
 function formatDate(d: string | null): string {
   if (!d) return '—'
@@ -325,8 +326,8 @@ export function FacturesPage() {
                       </button>
                     )}
                     {i.pdf_url && (
-                      <a
-                        href={i.pdf_url}
+                      <FileLink
+                        url={i.pdf_url}
                         target="_blank"
                         rel="noreferrer"
                         onClick={(e) => e.stopPropagation()}
@@ -334,7 +335,7 @@ export function FacturesPage() {
                         title="Télécharger le PDF"
                       >
                         <Download size={12} strokeWidth={2} />
-                      </a>
+                      </FileLink>
                     )}
                   </div>
                 </div>

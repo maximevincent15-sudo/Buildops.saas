@@ -10,6 +10,7 @@ import { supabase } from '../../../shared/lib/supabase'
 import { resolveEquipmentTypes } from '../../../shared/constants/interventions'
 import type { EquipmentType } from '../../../shared/constants/interventions'
 import type { Intervention } from '../../planning/schemas'
+import { FileLink } from '../../../shared/ui/FileLink'
 
 type Props = {
   intervention: Intervention
@@ -120,9 +121,9 @@ export function HistoricalVisitCard({ intervention, dossierNumber, isAdmin, onPl
                 <div className="archive-meta">{d.file_name}</div>
               </div>
               <div className="archive-actions">
-                <a href={d.file_url} target="_blank" rel="noreferrer" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <FileLink url={d.file_url} target="_blank" rel="noreferrer" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <Download size={11} strokeWidth={2} /> Ouvrir
-                </a>
+                </FileLink>
               </div>
             </div>
           ))}

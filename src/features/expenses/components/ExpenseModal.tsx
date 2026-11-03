@@ -22,6 +22,8 @@ import {
   formatAmount,
 } from '../constants'
 import type { ExpenseCategory } from '../constants'
+import { useOpenableUrl } from '../../../shared/lib/useOpenableUrl'
+import { FileLink } from '../../../shared/ui/FileLink'
 
 type Props = {
   open: boolean
@@ -45,6 +47,8 @@ export function ExpenseModal({ open, onClose, onCreated }: Props) {
   const [vatRate, setVatRate] = useState<number>(DEFAULT_VAT_FOR_CATEGORY.meal)
   const [description, setDescription] = useState('')
   const [receipt, setReceipt] = useState<StoredReceipt | null>(null)
+  // Justificatif privé : affiché par lien temporaire
+  const receiptSrc = useOpenableUrl(receipt?.url)
   const [uploading, setUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -295,13 +299,13 @@ export function ExpenseModal({ open, onClose, onCreated }: Props) {
             </label>
             {receipt ? (
               <div className="receipt-preview">
-                <a href={receipt.url} target="_blank" rel="noreferrer" className="receipt-thumb">
+                <FileLink url={receipt.url} className="receipt-thumb">
                   {/\.pdf$/i.test(receipt.path) ? (
                     <span className="receipt-pdf">PDF</span>
                   ) : (
-                    <img src={receipt.url} alt="Justificatif" />
+                    receiptSrc ? <img src={receiptSrc} alt="Justificatif" /> : <span className="receipt-pdf">…</span>
                   )}
-                </a>
+                </FileLink>
                 <button
                   type="button"
                   className="receipt-remove"

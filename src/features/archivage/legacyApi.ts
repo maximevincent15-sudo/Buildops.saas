@@ -1,7 +1,6 @@
+import { removeStoredFile, uploadPrivateFile } from '../../shared/lib/privateFiles'
 import { supabase } from '../../shared/lib/supabase'
 import { FileTooLargeError, MAX_UPLOAD_SIZE_BYTES } from '../../shared/lib/storage'
-
-const BUCKET = 'report-photos' // Réutilisé (accepte PDF + size limit 10 Mo)
 
 export type LegacyKind = 'report' | 'quote' | 'invoice'
 
@@ -60,15 +59,8 @@ export async function importLegacyDocument(
   const safeName = sanitizeFilename(file.name)
   const path = `${organizationId}/legacy/${input.kind}/${crypto.randomUUID()}-${safeName}`
 
-  // 1. Upload PDF
-  const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, {
-    cacheControl: '3600',
-    upsert: false,
-    contentType: 'application/pdf',
-  })
-  if (upErr) throw upErr
-
-  const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path)
+  // 1. Upload PDF (stockage privé, ouvert par lien temporaire)
+  const stored = await uploadPrivateFile(path, file, { contentType: 'application/pdf' })
 
   // 2. Insert DB
   const { data, error } = await supabase
@@ -80,7 +72,7 @@ export async function importLegacyDocument(
       document_date: input.document_date,
       client_name: input.client_name.trim(),
       site_name: input.site_name?.trim() || null,
-      pdf_url: urlData.publicUrl,
+      pdf_url: stored.url,
       pdf_filename: file.name,
       amount_ttc: input.amount_ttc ?? null,
       notes: input.notes?.trim() || null,
@@ -90,7 +82,7 @@ export async function importLegacyDocument(
 
   // Rollback storage si insert échoue
   if (error) {
-    await supabase.storage.from(BUCKET).remove([path]).catch(() => {})
+    await removeStoredFile(stored.url).catch(() => {})
     throw error
   }
 

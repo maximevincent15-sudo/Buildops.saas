@@ -229,7 +229,8 @@ serve(async (req) => {
         line('Signature', signature),
         '',
         `Voir le rapport : ${APP_URL}/rapports/${i.id}`,
-        report?.pdf_url ? `PDF : ${report.pdf_url}` : null,
+        // PDF privé : pas de lien direct (il faut être connecté) ; « Voir le rapport » suffit
+        report?.pdf_url && report.pdf_url.includes('/storage/v1/object/public/') ? `PDF : ${report.pdf_url}` : null,
         anomalies > 0 ? '\nLes anomalies sont à décider dans Planning → « Suites à décider » (devis ou repasse).' : null,
         '',
         `— Firovia`,

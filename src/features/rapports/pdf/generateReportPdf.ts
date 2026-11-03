@@ -1,9 +1,7 @@
 import { pdf } from '@react-pdf/renderer'
 import type { DocumentProps } from '@react-pdf/renderer'
 import type { ReactElement } from 'react'
-import { supabase } from '../../../shared/lib/supabase'
-
-const BUCKET = 'report-photos'
+import { uploadPrivateFile } from '../../../shared/lib/privateFiles'
 
 /**
  * Rend le Document React PDF en Blob puis upload dans le bucket.
@@ -20,14 +18,8 @@ export async function generateAndUploadReportPdf(
   const filename = `rapport-${safeRef}.pdf`
   const path = `${organizationId}/interventions/${interventionId}/${filename}`
 
-  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
-    contentType: 'application/pdf',
-    upsert: true,
-    cacheControl: '60',
-  })
-  if (error) throw error
-
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
+  // Stockage privé : la base garde l'adresse de référence, ouverte par lien temporaire
+  const stored = await uploadPrivateFile(path, blob, { contentType: 'application/pdf', upsert: true })
   // Ajoute un cache buster pour forcer le rechargement quand on régénère
-  return `${data.publicUrl}?t=${Date.now()}`
+  return `${stored.url}?t=${Date.now()}`
 }

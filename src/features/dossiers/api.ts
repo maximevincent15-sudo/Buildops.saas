@@ -1,5 +1,6 @@
 import { supabase } from '../../shared/lib/supabase'
-import { deleteReportPhoto, uploadDossierFile } from '../../shared/lib/storage'
+import { removeStoredFile } from '../../shared/lib/privateFiles'
+import { uploadDossierFile } from '../../shared/lib/storage'
 import { listEquipmentUnitsByIds } from '../equipment/api'
 import { unitRepere } from '../equipment/identification'
 import type { Site } from '../equipment/schemas'
@@ -344,15 +345,15 @@ export async function addDossierDocument(input: {
     .select()
     .single()
   if (error) {
-    await deleteReportPhoto(stored.path).catch(() => {})
+    await removeStoredFile(stored.url).catch(() => {})
     throw error
   }
   return data as DossierDocument
 }
 
 /** Retire un document du dossier (fiche, puis fichier) */
-export async function deleteDossierDocument(doc: Pick<DossierDocument, 'id' | 'file_path'>): Promise<void> {
+export async function deleteDossierDocument(doc: Pick<DossierDocument, 'id' | 'file_path' | 'file_url'>): Promise<void> {
   const { error } = await supabase.from('dossier_documents').delete().eq('id', doc.id)
   if (error) throw error
-  await deleteReportPhoto(doc.file_path).catch(() => {})
+  await removeStoredFile(doc.file_url, doc.file_path).catch(() => {})
 }

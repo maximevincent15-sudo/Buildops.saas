@@ -1,5 +1,6 @@
 import { format } from 'date-fns'
 import { supabase } from '../../shared/lib/supabase'
+import { openableUrls } from '../../shared/lib/privateFiles'
 
 /**
  * Export complet des données de l'organisation (réversibilité, art. 11 des
@@ -141,11 +142,13 @@ export async function exportAllData(orgName: string, onProgress: ExportProgress 
   const CONCURRENCY = 6
   let next = 0
   let done = 0
+  // PDF privés : liens temporaires demandés d'un coup
+  const openable = await openableUrls(pdfs.map((p) => p.url)).catch(() => new Map<string, string>())
   await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
     while (next < pdfs.length) {
       const item = pdfs[next++]!
       try {
-        const res = await fetch(item.url)
+        const res = await fetch(openable.get(item.url) ?? item.url)
         if (!res.ok) throw new Error(String(res.status))
         files[item.path] = new Uint8Array(await res.arrayBuffer())
       } catch {

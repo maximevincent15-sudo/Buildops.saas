@@ -22,6 +22,7 @@ import { LegacyImportModal } from '../features/archivage/components/LegacyImport
 import { DossierArchiveList } from '../features/dossiers/components/DossierArchiveList'
 import { formatAmount } from '../features/devis/constants'
 import { matchesSearch } from '../shared/lib/search'
+import { FileLink } from '../shared/ui/FileLink'
 
 type KindFilter = 'all' | 'report' | 'quote' | 'invoice'
 
@@ -400,8 +401,8 @@ export function ArchivagePage() {
                     </div>
                     <div className="archive-actions">
                       {d.pdf_url && (
-                        <a
-                          href={d.pdf_url}
+                        <FileLink
+                          url={d.pdf_url}
                           target="_blank"
                           rel="noreferrer"
                           className="btn-sm"
@@ -409,7 +410,7 @@ export function ArchivagePage() {
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                         >
                           <Download size={11} strokeWidth={2} /> PDF
-                        </a>
+                        </FileLink>
                       )}
                       {d.kind === 'report' && d.intervention_id && (
                         <Link

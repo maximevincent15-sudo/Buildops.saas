@@ -236,33 +236,41 @@ serve(async (req) => {
     const replyTo = [legalEmail, user.email].find((e) => e && EMAIL_RE.test(e)) ?? null
     const fromName = senderName(profile?.organizations?.name, RESEND_FROM_NAME)
 
-    // PDF : uniquement depuis le stockage Supabase (jamais une adresse quelconque)
-    const isStorageUrl = (u: unknown): u is string => {
-      if (typeof u !== 'string') return false
+    // PDF : uniquement depuis le stockage de ce projet (jamais une adresse
+    // quelconque), lu avec les droits de l'utilisateur : fichiers privés
+    // (bucket « documents ») compris, limités à son entreprise.
+    const projectHost = (() => {
+      try { return new URL(Deno.env.get('SUPABASE_URL') ?? '').host } catch { return '' }
+    })()
+    const storageLocation = (u: unknown): { bucket: string; path: string } | null => {
+      if (typeof u !== 'string') return null
       try {
         const url = new URL(u)
-        return url.protocol === 'https:' && url.hostname.endsWith('.supabase.co')
-          && url.pathname.startsWith('/storage/v1/object/public/')
+        if (url.protocol !== 'https:' || !projectHost || url.host !== projectHost) return null
+        const m = /^\/storage\/v1\/object\/(?:public|authenticated)\/([^/]+)\/(.+)$/.exec(url.pathname)
+        return m ? { bucket: m[1], path: decodeURIComponent(m[2]) } : null
       } catch {
-        return false
+        return null
       }
     }
-    const pdfUrl = [payload.pdfUrl, doc.pdf_url].find(isStorageUrl) ?? null
+    const pdfLocation = [payload.pdfUrl, doc.pdf_url].map(storageLocation).find((l) => l) ?? null
     let attachments: { filename: string; content: string }[] = []
 
-    if (pdfUrl) {
+    if (pdfLocation) {
       // Téléchargement du PDF
       try {
-        const pdfRes = await fetch(pdfUrl)
-        if (pdfRes.ok) {
-          const buf = new Uint8Array(await pdfRes.arrayBuffer())
+        const { data: pdfBlob, error: dlErr } = await supabaseClient.storage
+          .from(pdfLocation.bucket)
+          .download(pdfLocation.path)
+        if (dlErr) throw dlErr
+        if (pdfBlob) {
+          const buf = new Uint8Array(await pdfBlob.arrayBuffer())
           // Convert to base64 (Resend attend du base64 dans `content`)
           let binary = ''
           for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i])
           const b64 = btoa(binary)
-          // Nom de fichier : derive de l'URL
-          const urlParts = pdfUrl.split('/')
-          const lastPart = urlParts[urlParts.length - 1]?.split('?')[0]
+          // Nom de fichier : dernier élément du chemin
+          const lastPart = pdfLocation.path.split('/').pop()
           const filename = lastPart && lastPart.endsWith('.pdf') ? lastPart : 'document.pdf'
           attachments = [{ filename, content: b64 }]
         }

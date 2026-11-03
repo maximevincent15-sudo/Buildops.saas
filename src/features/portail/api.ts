@@ -207,3 +207,22 @@ export async function requestPortalIntervention(
   if (data?.error) return { error: data.error as string }
   return { success: true, intervention_id: data.intervention_id as string }
 }
+
+/**
+ * Ouvre le PDF d'un rapport ou d'une facture depuis le portail : le serveur
+ * vérifie le jeton et le client, puis renvoie un lien temporaire. L'onglet
+ * est ouvert tout de suite (au clic) pour ne pas être bloqué.
+ */
+export async function openPortalFile(token: string, kind: 'report' | 'invoice', id: string): Promise<void> {
+  const tab = window.open('', '_blank')
+  try {
+    const { data, error } = await supabase.functions.invoke('portal-file', { body: { token, kind, id } })
+    const url = (data as { url?: string } | null)?.url
+    if (error || !url) throw error ?? new Error('Document indisponible')
+    if (tab) tab.location.href = url
+    else window.location.href = url
+  } catch (e) {
+    tab?.close()
+    throw e
+  }
+}

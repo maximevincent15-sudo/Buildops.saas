@@ -15,6 +15,7 @@ import {
 } from '../features/devis/constants'
 import type { QuoteStatus } from '../features/devis/constants'
 import type { Quote } from '../features/devis/schemas'
+import { FileLink } from '../shared/ui/FileLink'
 
 function formatDate(d: string | null): string {
   if (!d) return '—'
@@ -250,8 +251,8 @@ export function DevisPage() {
                     </span>
                   </div>
                   {q.pdf_url && (
-                    <a
-                      href={q.pdf_url}
+                    <FileLink
+                      url={q.pdf_url}
                       target="_blank"
                       rel="noreferrer"
                       onClick={(e) => e.stopPropagation()}
@@ -259,7 +260,7 @@ export function DevisPage() {
                       title="Télécharger le PDF"
                     >
                       <Download size={12} strokeWidth={2} />
-                    </a>
+                    </FileLink>
                   )}
                 </div>
               )

@@ -7,6 +7,7 @@ import { sendDocumentEmail } from '../../email/api'
 import { markReportSent } from '../api'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { isPrivateFile, openableUrls } from '../../../shared/lib/privateFiles'
 
 type Props = {
   open: boolean
@@ -64,8 +65,11 @@ Suite à notre intervention${dateLabel} sur ${input.equipmentLabel} chez ${input
         ? `\n\n⚠️ Rapport NON CONFORME : ${input.nokCount} anomalie${input.nokCount > 1 ? 's' : ''} détectée${input.nokCount > 1 ? 's' : ''}. Les actions recommandées sont détaillées dans le rapport.`
         : ''
 
+  // PDF privé : joint au mail, sans lien (il faudrait être connecté pour l'ouvrir)
   const pdfLine = input.pdfUrl
-    ? `\n\n📄 Télécharger le rapport (PDF) :\n${input.pdfUrl}`
+    ? isPrivateFile(input.pdfUrl)
+      ? `\n\n📄 Le rapport est joint à ce mail (PDF).`
+      : `\n\n📄 Télécharger le rapport (PDF) :\n${input.pdfUrl}`
     : `\n\n(Le PDF est en cours de génération — un lien sera envoyé dès qu'il est disponible.)`
 
   const closing = `\n\nJe reste à votre disposition pour toute question.\n\nCordialement,\n${input.organizationName}`
@@ -188,7 +192,9 @@ export function SendToClientModal({
   async function handleCopyLink() {
     if (!pdfUrl) return
     try {
-      await navigator.clipboard.writeText(pdfUrl)
+      // PDF privé : lien temporaire valable 7 jours, à coller dans un autre outil
+      const link = isPrivateFile(pdfUrl) ? (await openableUrls([pdfUrl], 7 * 86400)).get(pdfUrl) ?? pdfUrl : pdfUrl
+      await navigator.clipboard.writeText(link)
       setSentHint(true)
       setTimeout(() => setSentHint(false), 2000)
     } catch {
@@ -273,7 +279,7 @@ export function SendToClientModal({
                 className="mf out"
                 onClick={() => void handleCopyLink()}
                 style={{ marginRight: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                title="Copier le lien du PDF pour le coller dans un autre outil"
+                title="Copier le lien du PDF (valable 7 jours) pour le coller dans un autre outil"
               >
                 <ExternalLink size={14} strokeWidth={2} />
                 Copier le lien PDF

@@ -9,6 +9,10 @@ import {
 import type { Expense } from '../expenses/schemas'
 import { OVERTIME_TYPE_LABEL } from '../overtime/constants'
 import type { Overtime } from '../overtime/schemas'
+import { openableUrls } from '../../shared/lib/privateFiles'
+
+/** Durée de validité des liens vers les justificatifs dans les exports */
+const RECEIPT_LINK_DAYS = 7
 
 const HEADER_FILL = 'FF1C2130'    // Firovia ink foncé
 const HEADER_FONT = 'FFFFFFFF'
@@ -151,7 +155,7 @@ function buildExpensesSheet(wb: ExcelJS.Workbook, input: PayrollInput) {
     row.getCell(8).numFmt = '#,##0.00 "€"'
     // Lien sur justificatif
     if (e.receipt_url) {
-      row.getCell(10).value = { text: 'Ouvrir le justificatif', hyperlink: e.receipt_url }
+      row.getCell(10).value = { text: `Ouvrir le justificatif (lien valable ${RECEIPT_LINK_DAYS} jours)`, hyperlink: e.receipt_url }
       row.getCell(10).font = { color: { argb: 'FF2563EB' }, underline: true }
     } else {
       row.getCell(10).font = { italic: true, color: { argb: 'FFB45309' } }
@@ -295,7 +299,13 @@ export async function generatePayrollXlsx(input: PayrollInput): Promise<Blob> {
   wb.creator = 'Firovia'
   wb.created = new Date()
 
-  buildExpensesSheet(wb, input)
+  // Justificatifs privés : liens temporaires valables 7 jours dans le fichier remis
+  const receipts = input.expenses.map((e) => e.receipt_url).filter((u): u is string => !!u)
+  const links = await openableUrls(receipts, RECEIPT_LINK_DAYS * 86400).catch(() => new Map<string, string>())
+  buildExpensesSheet(wb, {
+    ...input,
+    expenses: input.expenses.map((e) => (e.receipt_url ? { ...e, receipt_url: links.get(e.receipt_url) ?? e.receipt_url } : e)),
+  })
   buildOvertimeSheet(wb, input)
 
   const buffer = await wb.xlsx.writeBuffer()

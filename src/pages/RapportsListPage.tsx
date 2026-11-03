@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { listReports } from '../features/rapports/api'
 import type { ReportWithIntervention } from '../features/rapports/api'
 import { formatEquipmentTypesShort } from '../shared/constants/interventions'
+import { FileLink } from '../shared/ui/FileLink'
 
 function formatDate(d: string | null): string {
   if (!d) return '—'
@@ -157,8 +158,8 @@ export function RapportsListPage() {
                     <td>{formatDate(r.completed_at)}</td>
                     <td>
                       {r.pdf_url ? (
-                        <a
-                          href={r.pdf_url}
+                        <FileLink
+                          url={r.pdf_url}
                           target="_blank"
                           rel="noreferrer"
                           className="act-btn done"
@@ -166,7 +167,7 @@ export function RapportsListPage() {
                         >
                           <Download size={11} />
                           Télécharger
-                        </a>
+                        </FileLink>
                       ) : (
                         <Link
                           to={`/rapports/${interv.id}`}

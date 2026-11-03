@@ -25,6 +25,7 @@ import {
   getPortalInvoices,
   getPortalReports,
   getPortalUpcoming,
+  openPortalFile,
   requestPortalIntervention,
   validatePortalToken,
 } from '../features/portail/api'
@@ -256,15 +257,14 @@ function ReportsTab({ token }: { token: string }) {
               </div>
             </div>
             {r.pdf_url && (
-              <a
-                href={r.pdf_url}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
                 className="portal-card-cta"
+                onClick={() => void openPortalFile(token, 'report', r.id).catch(() => window.alert('Le document n\'a pas pu être ouvert. Réessayez dans un instant.'))}
               >
                 <Download size={14} strokeWidth={2} />
                 <span>PDF</span>
-              </a>
+              </button>
             )}
           </div>
         )
@@ -351,15 +351,14 @@ function InvoicesTab({ token }: { token: string }) {
               )}
             </div>
             {i.pdf_url && (
-              <a
-                href={i.pdf_url}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
                 className="portal-card-cta"
+                onClick={() => void openPortalFile(token, 'invoice', i.id).catch(() => window.alert('Le document n\'a pas pu être ouvert. Réessayez dans un instant.'))}
               >
                 <Download size={14} strokeWidth={2} />
                 <span>PDF</span>
-              </a>
+              </button>
             )}
           </div>
         )

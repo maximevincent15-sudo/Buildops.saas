@@ -1567,6 +1567,9 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 500;
     text-decoration: none;
     transition: all .15s;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
   }
   .portal-card-cta:hover { background: var(--acc); }
 

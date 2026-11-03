@@ -37,6 +37,8 @@ import { CatalogPicker } from '../../catalogue/components/CatalogPicker'
 import { LineDescriptionField } from './LineDescriptionField'
 import { LineFormatToolbar } from './LineFormatToolbar'
 import type { CatalogItem } from '../../catalogue/schemas'
+import { FileLink } from '../../../shared/ui/FileLink'
+import { isPrivateFile } from '../../../shared/lib/privateFiles'
 
 type Props = {
   open: boolean
@@ -449,8 +451,11 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       const orgName = profile?.organizations?.name ?? 'Maintenance'
       const greet = clientContact ? `Bonjour ${clientContact.trim()},` : 'Bonjour,'
       const totalsLine = `Montant : ${formatAmount(totals.total_ttc)} TTC.`
+      // PDF privé : joint au mail, sans lien (il faudrait être connecté pour l'ouvrir)
       const pdfLine = pdfUrl
-        ? `\n\n📄 Le devis est joint à ce mail (ou téléchargeable ici : ${pdfUrl})`
+        ? isPrivateFile(pdfUrl)
+          ? `\n\n📄 Le devis est joint à ce mail.`
+          : `\n\n📄 Le devis est joint à ce mail (ou téléchargeable ici : ${pdfUrl})`
         : `\n\n(Le PDF est disponible sur demande.)`
       const body =
         `${greet}\n\nVeuillez trouver ci-après le devis pour la prestation envisagée.\n\n${totalsLine}${pdfLine}\n\nJe reste à votre disposition pour toute question.\n\nCordialement,\n${orgName}`
@@ -557,7 +562,9 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       const orgName = profile?.organizations?.name ?? 'Maintenance'
       const greet = clientContact ? `Bonjour ${clientContact.trim()},` : 'Bonjour,'
       const pdfLine = pdfUrl
-        ? `\n\n📄 Le devis signé est joint à ce mail (ou téléchargeable ici : ${pdfUrl})`
+        ? isPrivateFile(pdfUrl)
+          ? `\n\n📄 Le devis signé est joint à ce mail.`
+          : `\n\n📄 Le devis signé est joint à ce mail (ou téléchargeable ici : ${pdfUrl})`
         : ''
       const body =
         `${greet}\n\nMerci pour votre accord. Vous trouverez ci-joint votre exemplaire du devis ${reference}, signé.\n\nMontant : ${formatAmount(totals.total_ttc)} TTC.${pdfLine}\n\nJe reste à votre disposition pour toute question.\n\nCordialement,\n${orgName}`
@@ -941,8 +948,8 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                     {generatingPdf ? 'Génération…' : pdfUrl ? 'Régénérer PDF' : 'Générer PDF'}
                   </button>
                   {pdfUrl && (
-                    <a
-                      href={pdfUrl}
+                    <FileLink
+                      url={pdfUrl}
                       target="_blank"
                       rel="noreferrer"
                       className="btn-sm"
@@ -950,7 +957,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >
                       <Download size={13} /> PDF
-                    </a>
+                    </FileLink>
                   )}
                   {(currentStatus === 'draft' || currentStatus === 'sent') && (
                     <button

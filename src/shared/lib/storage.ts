@@ -1,3 +1,4 @@
+import { uploadPrivateFile } from './privateFiles'
 import { supabase } from './supabase'
 
 const BUCKET = 'report-photos'
@@ -96,13 +97,7 @@ export async function uploadDossierFile(
 
   const folder = sanitizeFilename(dossierNumber) || 'sans-numero'
   const path = `${organizationId}/dossiers/${folder}/${crypto.randomUUID()}-${sanitizeFilename(file.name)}`
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    cacheControl: '3600',
-    upsert: false,
-    contentType,
-  })
-  if (error) throw error
-
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
-  return { path, url: data.publicUrl, contentType }
+  // Stockage privé : ouvert par lien temporaire, réservé aux administrateurs
+  const stored = await uploadPrivateFile(path, file, { contentType })
+  return { ...stored, contentType }
 }

@@ -83,6 +83,7 @@ import type { StoredPhoto } from '../shared/lib/storage'
 import { supabase } from '../shared/lib/supabase'
 import { PhotoUploader } from '../shared/ui/PhotoUploader'
 import { SignaturePad } from '../shared/ui/SignaturePad'
+import { FileLink } from '../shared/ui/FileLink'
 
 /** Motifs proposés pour un équipement non contrôlé (imprimés sur le rapport du client) */
 const NOT_CHECKED_REASONS = [
@@ -921,15 +922,15 @@ export function RapportEditorPage() {
         </div>
         <div className="dash-acts">
           {pdfUrl && (
-            <a
-              href={pdfUrl}
+            <FileLink
+              url={pdfUrl}
               target="_blank"
               rel="noreferrer"
               className="btn-sm acc"
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               <Download size={14} /> Télécharger PDF
-            </a>
+            </FileLink>
           )}
           <Link to="/planning" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <ArrowLeft size={14} /> Planning
