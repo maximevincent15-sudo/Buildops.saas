@@ -734,6 +734,30 @@ export function ParametresPage() {
           </div>
         )}
       </div>
+
+      {/* Barre d'enregistrement toujours visible (la page compte une douzaine de cartes) */}
+      <div
+        style={{
+          position: 'sticky', bottom: 12, zIndex: 5, marginTop: '1rem',
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '.8rem', flexWrap: 'wrap',
+          padding: '.7rem 1rem', borderRadius: 14,
+          background: 'var(--wht)', border: '1px solid var(--brd2)', boxShadow: '0 6px 20px rgba(28,33,48,.10)',
+        }}
+      >
+        <span className="text-ink-3 text-xs font-light" style={{ marginRight: 'auto' }}>
+          {error ? <span className="text-red">{error}</span> : flash ? <span className="text-grn">{flash}</span> : 'Nom, identité, adresse, banque, préfixes et mentions : enregistrés avec ce bouton.'}
+        </span>
+        <button
+          type="button"
+          className="mf prim"
+          onClick={() => void handleSave()}
+          disabled={saving}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <Save size={14} strokeWidth={2} />
+          {saving ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      </div>
     </>
   )
 }

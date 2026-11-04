@@ -12,8 +12,9 @@ export async function analyzeRows(
   ctx: ImportContext,
 ): Promise<RowAnalysis[]> {
   const analyses: RowAnalysis[] = []
+  const fullCtx: ImportContext = { ...ctx, rows: parsed }
   for (let i = 0; i < parsed.length; i++) {
-    const analysis = await definition.validateRow(parsed[i], ctx)
+    const analysis = await definition.validateRow(parsed[i], fullCtx)
     analyses.push({
       ...analysis,
       index: i,

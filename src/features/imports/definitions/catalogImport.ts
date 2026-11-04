@@ -52,6 +52,9 @@ function toInput(row: Record<string, string | null>): CatalogItemInput {
 export const catalogImportDefinition: ImportDefinition = {
   entityLabel: 'article',
   entityLabelPlural: 'articles',
+  afterImport: {
+    list: { label: 'Voir le catalogue', to: '/catalogue' },
+  },
   templateFilename: 'catalogue-firovia.xlsx',
   description:
     'Importe ta liste de prix depuis Excel ou CSV : désignation et prix de vente HT sont obligatoires. ' +

@@ -31,6 +31,10 @@ function isValidEmail(s: string): boolean {
 export const clientsImportDefinition: ImportDefinition = {
   entityLabel: 'client',
   entityLabelPlural: 'clients',
+  afterImport: {
+    list: { label: 'Voir les clients', to: '/clients' },
+    next: { label: 'Importer le parc d’équipements', to: '/equipements/import', hint: 'Étape suivante : les équipements de vos clients, site par site (les sites se créent à l’import).' },
+  },
   templateFilename: 'clients-firovia.xlsx',
   description:
     'Importe la liste de tes clients depuis Excel, CSV ou l\'export de ton logiciel actuel (Optim-BTP, Batigest, logiciel maison…). ' +

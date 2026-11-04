@@ -7,6 +7,7 @@ import { useAuthStore } from '../../auth/store'
 import { getClient } from '../../clients/api'
 import { listClientDossierNumbers, listSiteFamilies, listSites, listZones } from '../../equipment/api'
 import { typesForFamilies } from '../../equipment/identification'
+import { SLOT_MINUTES } from '../team/teamUtils'
 import { suggestDossierNumber } from '../../dossiers/numbers'
 import type { Site, Zone } from '../../equipment/schemas'
 import { RelanceModal } from '../../relances/components/RelanceModal'
@@ -87,7 +88,7 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
       recurrence_active: true,
       material_needed: [],
       slot: 'fullday',
-      duration_minutes: 120,
+      duration_minutes: SLOT_MINUTES.fullday,
     }
   }
   const types =
@@ -738,7 +739,11 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                       <button
                         key={opt.value}
                         type="button"
-                        onClick={() => setValue('slot', opt.value)}
+                        onClick={() => {
+                          setValue('slot', opt.value)
+                          // La charge du planning et le « prévu » du rapport suivent le créneau
+                          setValue('duration_minutes', SLOT_MINUTES[opt.value])
+                        }}
                         style={{ ...slotBtnStyle, ...(on ? slotBtnActiveStyle : {}) }}
                       >
                         <div style={{ fontWeight: 700, fontSize: 13.5 }}>{opt.label}</div>
@@ -957,7 +962,12 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                 <RecapLine
                   k="Date · heure"
                   v={
-                    [scheduledDate, watch('start_time')]
+                    [
+                      scheduledDate
+                        ? new Date(`${scheduledDate}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                        : null,
+                      watch('start_time') ? String(watch('start_time')).slice(0, 5).replace(':', 'h') : null,
+                    ]
                       .filter(Boolean)
                       .join(' · ') || '—'
                   }

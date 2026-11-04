@@ -37,6 +37,31 @@ type EquipCache = {
   createdSites?: Map<string, string> // même clé → site_id créé pendant l'import
   zonesLoadedSites?: Set<string>
   dossierFilledSites?: Set<string> // sites existants dont le N° de dossier a été complété
+  brandSpelling?: Map<string, string> // marque sans casse → écriture retenue pour le fichier
+}
+
+/**
+ * Une même marque écrite de plusieurs façons dans le fichier (« sicli »,
+ * « SICLI ») : on garde l'écriture la plus fréquente (à égalité, celle qui
+ * a des majuscules), pour un parc lisible et des filtres justes.
+ */
+function brandSpellings(rows: Record<string, string | null>[]): Map<string, string> {
+  const counts = new Map<string, Map<string, number>>()
+  for (const r of rows) {
+    const b = (r.brand ?? '').trim()
+    if (!b) continue
+    const key = b.toLocaleLowerCase('fr')
+    const m = counts.get(key) ?? new Map<string, number>()
+    m.set(b, (m.get(b) ?? 0) + 1)
+    counts.set(key, m)
+  }
+  const out = new Map<string, string>()
+  for (const [key, m] of counts) {
+    const best = [...m.entries()].sort((a, b) =>
+      b[1] - a[1] || Number(/\p{Lu}/u.test(b[0])) - Number(/\p{Lu}/u.test(a[0])))[0]![0]
+    out.set(key, best)
+  }
+  return out
 }
 
 async function getSitesIndex(cache: Record<string, unknown>): Promise<Map<string, Site[]>> {
@@ -99,6 +124,10 @@ function invalid(row: Record<string, string | null>, message: string): RowAnalys
 export const equipmentsImportDefinition: ImportDefinition = {
   entityLabel: 'équipement',
   entityLabelPlural: 'équipements',
+  afterImport: {
+    list: { label: 'Voir les équipements', to: '/equipements' },
+    next: { label: 'Planifier les visites', to: '/alertes', hint: 'Étape suivante : les sites importés sans visite prévue sont listés dans Alertes, avec « Planifier ».' },
+  },
   templateFilename: 'equipements-firovia.xlsx',
   description:
     "Importe un registre d'équipements depuis Excel, CSV ou l'export de ton logiciel actuel. " +
@@ -297,8 +326,17 @@ export const equipmentsImportDefinition: ImportDefinition = {
       messages.push(`Année "${row.install_year}" non reconnue (ignorée)`)
     }
 
+    // Marque : même écriture sur tout le fichier
+    if (!c.brandSpelling) c.brandSpelling = brandSpellings(context.rows ?? [row])
+    const rawBrand = (row.brand ?? '').trim()
+    const brand = rawBrand ? c.brandSpelling.get(rawBrand.toLocaleLowerCase('fr')) ?? rawBrand : null
+    if (brand && brand !== rawBrand) messages.push(`Marque « ${rawBrand} » écrite « ${brand} » comme dans le reste du fichier`)
+
     const values: Record<string, string | null> = {
       ...row,
+      brand,
+      // Famille déduite du type : affichée dans l'aperçu
+      family: row.family || EQUIPMENT_FAMILY_LABELS[family],
       serial_number: serial,
       __resolved_site_id: site?.id ?? null,
       __resolved_client_id: site?.client_id ?? client?.id ?? null,

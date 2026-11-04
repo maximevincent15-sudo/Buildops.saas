@@ -915,8 +915,9 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                   <Copy size={14} strokeWidth={1.8} /> Dupliquer
                 </button>
               )}
+              {/* « Fermer » sur une facture existante : « Annuler » se confondait avec « Annuler la facture » */}
               <button type="button" className="mf out" onClick={onClose} disabled={anyLoading}>
-                {locked ? 'Fermer' : 'Annuler'}
+                {locked || isEdit ? 'Fermer' : 'Annuler'}
               </button>
               {!locked && (
                 <button

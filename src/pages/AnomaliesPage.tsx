@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, RotateCcw, XCircle } from 'lucide-react'
+import { AlertTriangle, Check, FileText, RotateCcw, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -26,6 +26,11 @@ import { unitRepere } from '../features/equipment/identification'
 import type { EquipmentUnit, Site } from '../features/equipment/schemas'
 import { listClients } from '../features/clients/api'
 import type { Client } from '../features/clients/schemas'
+import { useAuthStore } from '../features/auth/store'
+import { QuoteModal } from '../features/devis/components/QuoteModal'
+import type { UpsertQuoteInput } from '../features/devis/schemas'
+import { useModuleEnabled } from '../features/parametres/modules'
+import { joinDescription } from '../shared/lib/lineFormat'
 
 type StatusFilter = 'active' | AnomalyStatus | 'all'
 type PriorityFilter = 'all' | AnomalyPriority
@@ -122,6 +127,33 @@ export function AnomaliesPage() {
     return { open, planned, overdue, highPriority }
   }, [anomalies])
 
+  // Devis correctif depuis une anomalie : administrateurs, module Devis affiché
+  const profile = useAuthStore((s) => s.profile)
+  const devisEnabled = useModuleEnabled()('devis') && (profile?.user_role ?? 'admin') === 'admin'
+  const [quoteSeed, setQuoteSeed] = useState<Partial<UpsertQuoteInput> | null>(null)
+  const [flash, setFlash] = useState<string | null>(null)
+
+  function openCorrectiveQuote(a: Anomaly, unit: EquipmentUnit | null, site: Site | null, client: Client | null) {
+    const where = unit ? [unitRepere(unit), unit.implantation].filter(Boolean).join(' · ') : ''
+    setQuoteSeed({
+      client_id: client?.id,
+      client_name: client?.name ?? '',
+      site_name: site?.name ?? undefined,
+      intervention_id: a.intervention_id ?? undefined,
+      notes: `Suite à l'anomalie relevée le ${new Date(a.detected_at).toLocaleDateString('fr-FR')}.`,
+      lines: [{
+        position: 0,
+        description: joinDescription(
+          `${a.title}${a.action ? ` — ${ANOMALY_ACTION_LABELS[a.action]}` : ''}`,
+          [where, a.description].filter(Boolean).join(' · '),
+        ),
+        quantity: 1,
+        unit_price_ht: 0,
+        vat_rate: 20,
+      }],
+    })
+  }
+
   async function handleResolve(id: string) {
     try {
       await resolveAnomaly(id)
@@ -163,6 +195,8 @@ export function AnomaliesPage() {
           </div>
         </div>
       </div>
+
+      {flash && <p className="text-grn text-sm" style={{ marginBottom: 12 }}>{flash}</p>}
 
       {error && (
         <p className="text-red text-sm" style={{ marginBottom: 12 }}>
@@ -322,6 +356,18 @@ export function AnomaliesPage() {
                         Voir intervention
                       </Link>
                     )}
+                    {devisEnabled && ACTIVE_ANOMALY_STATUSES.includes(a.status) && (
+                      <button
+                        type="button"
+                        className="btn-sm"
+                        onClick={() => openCorrectiveQuote(a, unit, site, client)}
+                        title="Devis pré-rempli avec cette anomalie (prix à compléter)"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5 }}
+                      >
+                        <FileText size={12} strokeWidth={2} />
+                        Devis correctif
+                      </button>
+                    )}
                     {ACTIVE_ANOMALY_STATUSES.includes(a.status) && (
                       <button
                         type="button"
@@ -363,6 +409,19 @@ export function AnomaliesPage() {
           </div>
         )}
       </div>
+
+      {quoteSeed && (
+        <QuoteModal
+          open
+          onClose={() => setQuoteSeed(null)}
+          seed={quoteSeed}
+          onSaved={() => {
+            setQuoteSeed(null)
+            setFlash('Devis créé : retrouvez-le dans Devis pour compléter les prix et l’envoyer.')
+            setTimeout(() => setFlash(null), 5000)
+          }}
+        />
+      )}
     </div>
   )
 }

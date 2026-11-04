@@ -99,6 +99,11 @@ export type ImportDefinition = {
   ) => Promise<Array<{ outcome: 'created' | 'updated' | 'skipped' } | { error: string }>>
   /** Taille des lots pour importBatch (500 par défaut). */
   batchSize?: number
+  /** Écran « Import terminé » : liens vers la liste importée et l'étape suivante */
+  afterImport?: {
+    list: { label: string; to: string }
+    next?: { label: string; to: string; hint: string }
+  }
 }
 
 /** Contexte commun passé à chaque fonction (ex: organization_id). */
@@ -106,4 +111,6 @@ export type ImportContext = {
   organizationId: string
   /** Cache éventuel (ex: map des clients existants par nom pour dédup rapide). */
   cache?: Record<string, unknown>
+  /** Toutes les lignes lues dans le fichier (pour harmoniser une colonne sur tout le fichier) */
+  rows?: Record<string, string | null>[]
 }

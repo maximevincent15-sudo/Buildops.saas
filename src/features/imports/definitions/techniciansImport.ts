@@ -17,6 +17,10 @@ function isValidEmail(s: string): boolean {
 export const techniciansImportDefinition: ImportDefinition = {
   entityLabel: 'technicien',
   entityLabelPlural: 'techniciens',
+  afterImport: {
+    list: { label: 'Voir les techniciens', to: '/techniciens' },
+    next: { label: 'Inviter vos techniciens', to: '/techniciens', hint: 'Étape suivante : ouvrez chaque fiche et cliquez sur « Inviter à se connecter » pour qu’ils voient leur journée sur téléphone.' },
+  },
   templateFilename: 'techniciens-firovia.xlsx',
   description:
     'Importe la liste de tes techniciens depuis Excel ou CSV. Prénom et nom sont obligatoires, le reste est facultatif.',

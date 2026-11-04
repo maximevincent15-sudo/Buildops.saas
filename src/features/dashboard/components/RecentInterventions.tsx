@@ -6,25 +6,24 @@ import { listRecentInterventions } from '../../planning/api'
 import type { Intervention } from '../../planning/schemas'
 import { formatEquipmentTypesShort } from '../../../shared/constants/interventions'
 
-function timeOrDate(d: string | null): string {
-  if (!d) return '—'
+/**
+ * Heure (aujourd'hui) ou date de l'intervention. La date prévue est un jour
+ * sans heure (« 2026-11-04 ») : on la lit en heure locale, sinon elle
+ * devient « 01:00 » ; l'heure vient de start_time. L'année s'affiche si ce
+ * n'est pas l'année en cours.
+ */
+function timeOrDate(r: Pick<Intervention, 'scheduled_date' | 'start_time' | 'created_at'>): { label: string; year?: number } {
   try {
-    const date = new Date(d)
-    // Si la date est aujourd'hui et qu'on a un horaire valide, on l'affiche
-    if (date.toString() === 'Invalid Date') return '—'
+    const date = r.scheduled_date ? new Date(`${r.scheduled_date.slice(0, 10)}T12:00:00`) : new Date(r.created_at)
+    if (Number.isNaN(date.getTime())) return { label: '—' }
     if (isToday(date)) {
-      // Heure si dispo (HH:MM)
-      const hh = date.getHours()
-      const mm = date.getMinutes()
-      if (hh !== 0 || mm !== 0) {
-        return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
-      }
-      return 'Auj.'
+      return { label: r.scheduled_date && r.start_time ? r.start_time.slice(0, 5).replace(':', 'h') : 'Auj.' }
     }
-    if (isYesterday(date)) return 'Hier'
-    return format(date, 'd MMM', { locale: fr })
+    if (isYesterday(date)) return { label: 'Hier' }
+    const year = date.getFullYear()
+    return { label: format(date, 'd MMM', { locale: fr }), year: year === new Date().getFullYear() ? undefined : year }
   } catch {
-    return '—'
+    return { label: '—' }
   }
 }
 
@@ -90,7 +89,7 @@ export function RecentInterventions() {
       {!loading && rows.length > 0 && (
         <div className="b-list">
           {rows.map((r) => {
-            const time = timeOrDate(r.scheduled_date ?? r.created_at)
+            const time = timeOrDate(r)
             const equip = formatEquipmentTypesShort(r)
             const pill = statusPill(r.status)
             const subParts: string[] = []
@@ -99,7 +98,10 @@ export function RecentInterventions() {
             if (equip) subParts.push(equip)
             return (
               <div key={r.id} className="b-list-item">
-                <div className="b-inter-time">{time}</div>
+                <div className="b-inter-time">
+                  {time.label}
+                  {time.year && <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink3)' }}>{time.year}</div>}
+                </div>
                 <div className="b-inter-info">
                   <div className="b-inter-c">{r.client_name}</div>
                   <div className="b-inter-s">{subParts.join(' · ')}</div>

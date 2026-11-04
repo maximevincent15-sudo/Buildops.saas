@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowRight,
   Check,
   CheckCircle2,
   Download,
@@ -10,6 +11,7 @@ import {
   X,
 } from 'lucide-react'
 import { useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { ChangeEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { parseImportFile } from '../parsers'
@@ -365,15 +367,26 @@ export function ImportWizard({ definition, onDone }: Props) {
         )}
 
         <div style={{ display: 'flex', gap: '.7rem', marginTop: '1.2rem', flexWrap: 'wrap' }}>
+          {definition.afterImport?.next && (
+            <Link to={definition.afterImport.next.to} className="btn-sm acc" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {definition.afterImport.next.label} <ArrowRight size={13} />
+            </Link>
+          )}
+          {definition.afterImport && (
+            <Link to={definition.afterImport.list.to} className="btn-sm">{definition.afterImport.list.label}</Link>
+          )}
           <button
             type="button"
-            className="btn-sm acc"
+            className={definition.afterImport?.next ? 'btn-sm' : 'btn-sm acc'}
             onClick={resetWizard}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
             <Upload size={13} /> Importer un autre fichier
           </button>
         </div>
+        {definition.afterImport?.next && importResult.created + importResult.updated > 0 && (
+          <p className="text-ink-3 text-xs font-light" style={{ margin: '.7rem 0 0' }}>{definition.afterImport.next.hint}</p>
+        )}
       </div>
     )
   }

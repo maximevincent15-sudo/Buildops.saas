@@ -48,7 +48,8 @@ export function formatTime(minutes: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
-const SLOT_MINUTES: Record<string, number> = { morning: 240, afternoon: 240, fullday: 480, multiday: 480 }
+/** Durée de travail d'un créneau (minutes) */
+export const SLOT_MINUTES: Record<string, number> = { morning: 240, afternoon: 240, fullday: 480, multiday: 480 }
 const SLOT_START: Record<string, number> = { morning: 8 * 60, afternoon: 13 * 60 + 30, fullday: 8 * 60, multiday: 8 * 60 }
 const SLOT_LABELS: Record<string, string> = { morning: 'Matin', afternoon: 'Après-midi', fullday: 'Journée', multiday: 'Plusieurs jours' }
 
