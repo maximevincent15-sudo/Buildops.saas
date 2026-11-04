@@ -116,6 +116,25 @@ export async function deleteSite(id: string): Promise<void> {
 
 // ─── Zones ───────────────────────────────────────────────
 
+/** Familles du parc en service d'un site (pour cocher les types d'une visite) */
+export async function listSiteFamilies(siteId: string): Promise<string[]> {
+  const families = new Set<string>()
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from('equipment_units')
+      .select('family')
+      .eq('site_id', siteId)
+      .not('status', 'in', '(removed,replaced)')
+      .order('id', { ascending: true })
+      .range(from, from + 999)
+    if (error) throw error
+    const rows = (data ?? []) as { family: string }[]
+    for (const r of rows) families.add(r.family)
+    if (rows.length < 1000) break
+  }
+  return [...families]
+}
+
 export async function listZones(siteId: string): Promise<Zone[]> {
   const { data, error } = await supabase
     .from('zones')

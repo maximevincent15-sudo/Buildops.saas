@@ -5,7 +5,8 @@ import type { MouseEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
 import { getClient } from '../../clients/api'
-import { listClientDossierNumbers, listSites, listZones } from '../../equipment/api'
+import { listClientDossierNumbers, listSiteFamilies, listSites, listZones } from '../../equipment/api'
+import { typesForFamilies } from '../../equipment/identification'
 import { suggestDossierNumber } from '../../dossiers/numbers'
 import type { Site, Zone } from '../../equipment/schemas'
 import { RelanceModal } from '../../relances/components/RelanceModal'
@@ -66,6 +67,13 @@ const SLOT_LABEL: Record<Slot, string> = {
 }
 
 // ─── Helpers ───────────────────────────────────────────────
+
+/** Date locale AAAA-MM-JJ dans n jours */
+function isoDay(offset: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + offset)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 function toFormValues(i: Intervention | null | undefined): Partial<CreateInterventionInput> {
   if (!i) {
@@ -143,6 +151,10 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
   const dossierTouched = useRef(false)
   const [dossierHint, setDossierHint] = useState<{ key: string; previous: string | null } | null>(null)
   const [dossierOptions, setDossierOptions] = useState<string[]>([])
+  // Nouvelle visite : adresse de la fiche client (si le site n'en a pas)
+  const [clientAddress, setClientAddress] = useState<string | null>(null)
+  // Types d'équipement choisis à la main (ou fournis) : on ne les recalcule plus d'après le parc
+  const typesTouched = useRef(false)
 
   const {
     register,
@@ -191,6 +203,7 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
     setSubmitError(null)
     setCustomMaterial('')
     dossierTouched.current = false
+    typesTouched.current = !!intervention || !!seed?.equipment_types?.length
     // Ancienne intervention sur un lieu saisi à la main : on garde « Autre lieu »
     setFreeSite(!!intervention && !intervention.site_id && !!intervention.site_name?.trim())
   }, [open, intervention, seed, reset])
@@ -202,8 +215,44 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
       setSites([])
       return
     }
-    listSites(clientId).then(setSites).catch(() => setSites([]))
-  }, [open, clientId])
+    let alive = true
+    listSites(clientId)
+      .then((list) => {
+        if (!alive) return
+        setSites(list)
+        // Nouvelle visite d'un client à site unique : site présélectionné
+        if (!isEdit && list.length === 1 && !getValues('site_id')) {
+          setValue('site_id', list[0]!.id)
+          setValue('site_name', list[0]!.name)
+        }
+      })
+      .catch(() => { if (alive) setSites([]) })
+    return () => { alive = false }
+  }, [open, clientId, isEdit, getValues, setValue])
+
+  // Nouvelle visite : adresse de la fiche client
+  useEffect(() => {
+    if (!open || isEdit || !clientId) return
+    let alive = true
+    void getClient(clientId)
+      .then((c) => { if (alive) setClientAddress(c?.address?.trim() || null) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [open, isEdit, clientId])
+
+  // Nouvelle visite : types cochés d'après le parc du site (tant qu'on n'y a pas touché)
+  useEffect(() => {
+    if (!open || isEdit || !siteId) return
+    let alive = true
+    void listSiteFamilies(siteId)
+      .then((families) => {
+        if (!alive || typesTouched.current) return
+        const types = typesForFamilies(families) as EquipmentType[]
+        if (types.length > 0) setValue('equipment_types', types)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [open, isEdit, siteId, setValue])
 
   // N° de dossier déjà utilisés pour ce client (suggestions)
   useEffect(() => {
@@ -240,6 +289,15 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
     }
     listZones(siteId).then(setZones).catch(() => setZones([]))
   }, [open, siteId])
+
+  // Nouvelle visite sans adresse de site : celle de la fiche client, si le
+  // client n'a pas d'autre site (sinon ce serait souvent le siège, pas le chantier)
+  useEffect(() => {
+    if (!open || isEdit || !clientAddress || sites.length > 1) return
+    const site = siteId ? sites.find((s) => s.id === siteId) : null
+    if (site?.address) return
+    if (!getValues('chantier_address')) setValue('chantier_address', clientAddress)
+  }, [open, isEdit, clientAddress, siteId, sites, getValues, setValue])
 
   // Pré-remplit l'adresse chantier depuis le site quand on choisit un site
   useEffect(() => {
@@ -639,6 +697,7 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                   render={({ field }) => {
                     const selected = (field.value ?? []) as EquipmentType[]
                     const toggle = (code: EquipmentType) => {
+                      typesTouched.current = true
                       if (selected.includes(code)) {
                         field.onChange(selected.filter((c) => c !== code))
                       } else {
@@ -696,6 +755,16 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                 <div className="fg">
                   <label>Date prévue</label>
                   <input type="date" {...register('scheduled_date')} />
+                  <span className="text-ink-3 text-xs font-light">
+                    <button type="button" className="link-btn" onClick={() => setValue('scheduled_date', isoDay(0), { shouldDirty: true })}>
+                      Aujourd'hui
+                    </button>
+                    {' · '}
+                    <button type="button" className="link-btn" onClick={() => setValue('scheduled_date', isoDay(1), { shouldDirty: true })}>
+                      Demain
+                    </button>
+                    {' · vide = « À planifier »'}
+                  </span>
                 </div>
                 <div className="fg">
                   <label>Heure d'arrivée</label>

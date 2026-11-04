@@ -22,6 +22,7 @@ import { countActiveTechnicians } from '../features/billing/api'
 import { computeAccountLimit } from '../features/billing/constants'
 import { useSubscription } from '../features/billing/hooks'
 import {
+  buildInvitationMailto,
   buildInvitationUrl,
   cancelInvitation,
   createInvitation,
@@ -146,20 +147,11 @@ export function EquipePage() {
   }
 
   function handleSendByEmail(invitation: Invitation) {
-    const url = buildInvitationUrl(invitation.token)
-    const orgName = profile?.organizations?.name ?? 'notre équipe'
-    const subject = `Invitation à rejoindre ${orgName} sur Firovia`
-    const body =
-      `Bonjour,\n\n` +
-      `Tu es invité(e) à rejoindre l'équipe ${orgName} sur Firovia en tant que ${ROLE_LABEL[invitation.role].toLowerCase()}.\n\n` +
-      `Clique sur ce lien pour créer ton compte et rejoindre l'équipe :\n${url}\n\n` +
-      `Le lien expire le ${formatDate(invitation.expires_at)}.\n\n` +
-      `À bientôt,\n${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim()
-    const params = new URLSearchParams()
-    params.set('subject', subject)
-    params.set('body', body)
-    const qs = params.toString().replace(/\+/g, '%20')
-    window.location.href = `mailto:${encodeURIComponent(invitation.email)}?${qs}`
+    window.location.href = buildInvitationMailto(
+      invitation,
+      profile?.organizations?.name ?? 'notre équipe',
+      `${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim(),
+    )
   }
 
   async function handleCancel(id: string) {

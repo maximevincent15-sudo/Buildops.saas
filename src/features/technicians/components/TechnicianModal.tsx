@@ -40,6 +40,7 @@ export function TechnicianModal({ open, onClose, onChanged, technician }: Props)
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateTechnicianInput>({
     resolver: zodResolver(createTechnicianSchema),
@@ -177,7 +178,11 @@ export function TechnicianModal({ open, onClose, onChanged, technician }: Props)
 
           {/* Compte de connexion (administrateurs) : vue « Ma journée », notifications */}
           {isEdit && technician && (profile?.user_role ?? 'admin') === 'admin' && (
-            <TechnicianAccountLink technician={technician} onLinked={() => onChanged?.()} />
+            <TechnicianAccountLink
+              technician={technician}
+              onLinked={() => onChanged?.()}
+              onEmailSaved={(mail) => setValue('email', mail, { shouldDirty: true })}
+            />
           )}
 
           {isEdit && technician && profile?.organization_id && (

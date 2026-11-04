@@ -179,6 +179,8 @@ export function RapportEditorPage() {
   const [notCheckedOpen, setNotCheckedOpen] = useState(false)
   const [notCheckedReason, setNotCheckedReason] = useState<string>(NOT_CHECKED_REASONS[0])
   const [unitsReloadKey, setUnitsReloadKey] = useState(0)
+  // Rapport appareil par appareil : la checklist d'ensemble est facultative, repliée
+  const [globalChecklistOpen, setGlobalChecklistOpen] = useState(false)
   // Checklists de la visite : celles de l'entreprise, sinon les listes Firovia
   const [checklistCtx, setChecklistCtx] = useState<ChecklistContext | null>(null)
   const checklistOrgId = profile?.organization_id ?? null
@@ -409,6 +411,10 @@ export function RapportEditorPage() {
     ...pendingUnchecked.map(() => 'non_verifie' as const),
   ])
   const unitAnomalyItems = unitVerdicts.filter((u) => u.verdict === 'surveiller' || u.verdict === 'reformer')
+  // Le chantier a des équipements : le contrôle se fait appareil par appareil
+  const unitMode = conformity.unitsTotal > 0
+  const globalAnswered = availableTypes.some((t) => (checklistByType[t] ?? []).some((r) => r.value))
+  const showGlobalChecklist = !unitMode || globalChecklistOpen || globalAnswered
   const orgId = profile.organization_id
   const iid = interventionId
   const orgName = profile.organizations?.name ?? ''
@@ -611,10 +617,10 @@ export function RapportEditorPage() {
       )
       return
     }
-    // Rapport équipement par équipement : la checklist globale reste vide. Les
+    // Rapport équipement par équipement : la checklist d'ensemble est facultative. Les
     // équipements sans contrôle sont traités à la fin (fenêtre « non contrôlés »).
     const unanswered = globalSummary.total - globalSummary.answered
-    if (!conformity.unitControlsActive && unanswered > 0) {
+    if (!conformity.unitControlsActive && !unitMode && unanswered > 0) {
       const ok = window.confirm(
         `${unanswered} point(s) de contrôle non renseigné(s) (toutes équipements confondus).\n\nFinaliser quand même ?`,
       )
@@ -970,8 +976,8 @@ export function RapportEditorPage() {
         </div>
       </div>
 
-      {/* Sélecteur d'équipement si l'intervention en a plusieurs */}
-      {availableTypes.length > 1 && (
+      {/* Sélecteur d'équipement si l'intervention en a plusieurs (rapport sans contrôle appareil par appareil) */}
+      {availableTypes.length > 1 && !unitMode && (
         <div className="card" style={{ marginBottom: '1rem' }}>
           <div className="card-top">
             <span className="card-title">Équipement contrôlé dans ce rapport</span>
@@ -1072,7 +1078,7 @@ export function RapportEditorPage() {
             })()}
             {conformity.isConform === null && (
               <div className="report-summary-title">
-                {conformity.unitControlsActive
+                {conformity.unitControlsActive || unitMode
                   ? `${conformity.unitsChecked} / ${conformity.unitsTotal} équipements contrôlés`
                   : `${globalSummary.answered} / ${globalSummary.total} points renseignés`}
               </div>
@@ -1161,14 +1167,46 @@ export function RapportEditorPage() {
         scopeZoneIds={intervention.zone_ids ?? undefined}
       />
 
-      {items.length > 0 && (
+      {items.length > 0 && !showGlobalChecklist && (
         <div className="card">
           <div className="card-top">
-            <span className="card-title">Checklist globale — {equipmentType ? EQUIPMENT_TYPES[equipmentType] : ''}</span>
+            <span className="card-title">Checklist d'ensemble du site <span className="text-ink-3 text-xs font-light">(facultative)</span></span>
+            <button type="button" className="btn-sm" onClick={() => setGlobalChecklistOpen(true)}>Afficher</button>
+          </div>
+          <p className="text-ink-3 text-sm font-light" style={{ margin: 0 }}>
+            Le contrôle se fait appareil par appareil ci-dessus. Cette liste ne sert que pour des points communs au site.
+          </p>
+        </div>
+      )}
+
+      {items.length > 0 && showGlobalChecklist && (
+        <div className="card">
+          <div className="card-top">
+            <span className="card-title">
+              {unitMode ? 'Checklist d\'ensemble' : 'Checklist globale'} — {equipmentType ? EQUIPMENT_TYPES[equipmentType] : ''}
+              {unitMode && <span className="text-ink-3 text-xs font-light"> (facultative)</span>}
+            </span>
             <span className="text-ink-3 text-xs font-light">
               {summary.answered}/{summary.total} renseignés
             </span>
           </div>
+          {unitMode && availableTypes.length > 1 && (
+            <div className="equip-pills" style={{ margin: '.2rem 0 .8rem' }}>
+              {availableTypes.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`equip-pill${equipmentType === t ? ' on' : ''}`}
+                  onClick={() => setEquipmentType(t)}
+                >
+                  {EQUIPMENT_TYPES[t]}
+                  <span className="equip-pill-count">
+                    {(checklistByType[t] ?? []).filter((r) => r.value).length}/{visitItems(checklistCtx, t).length}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
           <ChecklistSection
             items={items}
             responses={currentChecklist}

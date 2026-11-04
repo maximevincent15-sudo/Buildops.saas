@@ -112,3 +112,12 @@ export async function setTechnicianUser(technicianId: string, userId: string | n
   const code = (data as { error?: string } | null)?.error
   if (code) throw new Error(LINK_ERRORS[code] ?? 'Liaison impossible.')
 }
+
+/** Email de la fiche : c'est lui qui relie automatiquement le compte invité à la fiche */
+export async function setTechnicianEmail(technicianId: string, email: string): Promise<void> {
+  const { error } = await supabase
+    .from('technicians')
+    .update({ email: email.trim().toLowerCase() })
+    .eq('id', technicianId)
+  if (error) throw error
+}

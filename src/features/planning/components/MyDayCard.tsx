@@ -5,13 +5,9 @@ import { useAuthStore } from '../../auth/store'
 import { formatEquipmentTypesShort } from '../../../shared/constants/interventions'
 import { listMyInterventions, setInterventionStatus } from '../api'
 import type { Intervention } from '../schemas'
+import { interventionAddress as addressOf } from '../address'
 
 const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
-function addressOf(i: Intervention): string {
-  const chantier = [i.chantier_address, [i.chantier_postal_code, i.chantier_city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
-  return chantier || i.address || ''
-}
 
 function dayLabel(date: string | null): string {
   if (!date) return 'Sans date'

@@ -207,6 +207,28 @@ export function buildInvitationUrl(token: string): string {
   return `${base}/auth?invite=${token}`
 }
 
+/**
+ * Lien « mailto: » qui ouvre la messagerie de l'administrateur avec
+ * l'invitation prête à envoyer (le lien est valable jusqu'à expires_at).
+ */
+export function buildInvitationMailto(invitation: Invitation, orgName: string, signature: string): string {
+  const url = buildInvitationUrl(invitation.token)
+  const role = invitation.role === 'admin' ? 'administrateur' : 'membre'
+  const expires = new Date(invitation.expires_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+  const subject = `Invitation à rejoindre ${orgName} sur Firovia`
+  const body =
+    `Bonjour,\n\n` +
+    `Tu es invité(e) à rejoindre l'équipe ${orgName} sur Firovia en tant que ${role}.\n\n` +
+    `Clique sur ce lien pour créer ton compte et rejoindre l'équipe :\n${url}\n\n` +
+    `Le lien expire le ${expires}.\n\n` +
+    `À bientôt,\n${signature}`.trim()
+  const params = new URLSearchParams()
+  params.set('subject', subject)
+  params.set('body', body)
+  const qs = params.toString().replace(/\+/g, '%20')
+  return `mailto:${encodeURIComponent(invitation.email)}?${qs}`
+}
+
 // ─── Acceptation / preview ───────────────────────────────────────────
 
 export type InvitationPreview = {

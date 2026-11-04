@@ -1,6 +1,8 @@
 import { isToday } from 'date-fns'
 import { Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { listAnomalies } from '../../anomalies/api'
 import { formatBlockTime, listBlocksForRange } from '../../planning/blocksApi'
 import type { PlanningBlock } from '../../planning/blocksApi'
 import { listInterventions } from '../../planning/api'
@@ -9,12 +11,21 @@ type BriefCounts = {
   todayCount: number
   toFinalize: number
   toPlan: number
+  /** Anomalies ouvertes (ni planifiées, ni résolues) */
+  openAnomalies: number
+  /** Visites terminées qui ont encore une anomalie ouverte : « Suite à décider » */
+  toDecide: number
 }
 
-function computeCounts(interventions: { status: string; scheduled_date: string | null }[]): BriefCounts {
+function computeCounts(
+  interventions: { id: string; status: string; scheduled_date: string | null }[],
+  anomalies: { intervention_id: string | null }[],
+): BriefCounts {
   let todayCount = 0
   let toFinalize = 0
   let toPlan = 0
+  const withAnomaly = new Set(anomalies.map((a) => a.intervention_id).filter(Boolean))
+  const toDecide = interventions.filter((i) => i.status === 'terminee' && withAnomaly.has(i.id)).length
   for (const i of interventions) {
     if (i.status === 'a_planifier') toPlan += 1
     if (i.status === 'en_cours') toFinalize += 1
@@ -26,7 +37,7 @@ function computeCounts(interventions: { status: string; scheduled_date: string |
       todayCount += 1
     }
   }
-  return { todayCount, toFinalize, toPlan }
+  return { todayCount, toFinalize, toPlan, openAnomalies: anomalies.length, toDecide }
 }
 
 function plural(n: number, singular: string, pluralForm: string) {
@@ -43,6 +54,11 @@ function buildMessage(c: BriefCounts): { title: string; text: React.ReactNode } 
   }
   if (c.toPlan > 0) {
     parts.push(`**${c.toPlan}** ${plural(c.toPlan, 'intervention à planifier', 'interventions à planifier')}`)
+  }
+  if (c.toDecide > 0) {
+    parts.push(`**${c.toDecide}** ${plural(c.toDecide, 'visite terminée avec une suite à décider', 'visites terminées avec une suite à décider')}`)
+  } else if (c.openAnomalies > 0) {
+    parts.push(`**${c.openAnomalies}** ${plural(c.openAnomalies, 'anomalie ouverte', 'anomalies ouvertes')}`)
   }
 
   if (parts.length === 0) {
@@ -105,10 +121,10 @@ export function DailyBriefing() {
     const day = String(today.getDate()).padStart(2, '0')
     const iso = `${year}-${month}-${day}`
 
-    Promise.all([listInterventions(), listBlocksForRange(iso, iso)])
-      .then(([interventions, blocks]) => {
+    Promise.all([listInterventions(), listBlocksForRange(iso, iso), listAnomalies({ status: 'open' }).catch(() => [])])
+      .then(([interventions, blocks, anomalies]) => {
         if (!alive) return
-        setCounts(computeCounts(interventions))
+        setCounts(computeCounts(interventions, anomalies))
         setTodayBlocks(blocks)
       })
       .catch(() => { /* silencieux */ })
@@ -128,6 +144,17 @@ export function DailyBriefing() {
         <div className="b-briefing-t">{title}</div>
         <div className="b-briefing-d">
           {text}
+          {(counts.toDecide > 0 || counts.openAnomalies > 0) && (
+            <>
+              {' '}
+              <Link
+                to={counts.toDecide > 0 ? '/planning' : '/anomalies'}
+                style={{ color: 'inherit', textDecoration: 'underline', whiteSpace: 'nowrap' }}
+              >
+                {counts.toDecide > 0 ? 'Décider la suite' : 'Voir les anomalies'} →
+              </Link>
+            </>
+          )}
           {renderBlocksLine(todayBlocks)}
         </div>
       </div>

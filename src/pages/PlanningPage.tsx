@@ -34,6 +34,7 @@ import { listBlocksForRange } from '../features/planning/blocksApi'
 import type { PlanningBlock } from '../features/planning/blocksApi'
 import { PlanningEventModal } from '../features/planning/events/PlanningEventModal'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
+import { InterventionSheet } from '../features/planning/components/InterventionSheet'
 import { InterventionRowActions } from '../features/planning/components/InterventionRowActions'
 import { InterventionStatusBadge } from '../features/planning/components/InterventionStatusBadge'
 import { PlanningDayView } from '../features/planning/components/PlanningDayView'
@@ -182,6 +183,14 @@ export function PlanningPage() {
   function openEdit(i: Intervention) {
     setEditing(i)
     setModalOpen(true)
+  }
+
+  // Sur téléphone, toucher une intervention ouvre la fiche rapide (« Démarrer »),
+  // la modification complète reste à un bouton
+  const [sheet, setSheet] = useState<Intervention | null>(null)
+  function openIntervention(i: Intervention) {
+    if (window.matchMedia('(max-width: 768px)').matches) setSheet(i)
+    else openEdit(i)
   }
 
   function closeModal() {
@@ -495,7 +504,7 @@ export function PlanningPage() {
                   colorMode={colorMode}
                   weekStart={weekStart}
                   onWeekChange={(d) => setWeekStart(startOfWeekMonday(d))}
-                  onOpen={openEdit}
+                  onOpen={openIntervention}
                   onSchedule={(id, row, date, start) => void handleSchedule(id, row, date, start)}
                 />
                 {panelVisible && (
@@ -507,7 +516,7 @@ export function PlanningPage() {
                     noReports={noReports}
                     technicians={technicians}
                     busyId={busyId}
-                    onOpen={openEdit}
+                    onOpen={openIntervention}
                     onCreateQuote={devisEnabled ? handleCreateQuote : undefined}
                     onScheduleRevisit={(f) => void handleScheduleRevisit(f)}
                   />
@@ -518,7 +527,7 @@ export function PlanningPage() {
               <PlanningWeekGridView
                 interventions={shown}
                 colorMode={colorMode}
-                onClickIntervention={openEdit}
+                onClickIntervention={openIntervention}
                 events={events}
                 onAddEvent={(date) => openEventModal(null, date)}
                 onOpenEvent={(e) => openEventModal(e, e.date)}
@@ -528,7 +537,7 @@ export function PlanningPage() {
               <PlanningDayView
                 interventions={shown}
                 colorMode={colorMode}
-                onClickIntervention={openEdit}
+                onClickIntervention={openIntervention}
                 events={events}
                 onAddEvent={(date) => openEventModal(null, date)}
                 onOpenEvent={(e) => openEventModal(e, e.date)}
@@ -538,7 +547,7 @@ export function PlanningPage() {
               <PlanningMonthView
                 interventions={shown}
                 colorMode={colorMode}
-                onClickIntervention={openEdit}
+                onClickIntervention={openIntervention}
                 events={events}
                 onAddEvent={(date) => openEventModal(null, date)}
                 onOpenEvent={(e) => openEventModal(e, e.date)}
@@ -571,7 +580,7 @@ export function PlanningPage() {
                 {shown.map((i) => (
                   <tr
                     key={i.id}
-                    onClick={() => openEdit(i)}
+                    onClick={() => openIntervention(i)}
                     style={{ cursor: 'pointer' }}
                   >
                     <td>
@@ -670,6 +679,18 @@ export function PlanningPage() {
         onChanged={() => void load()}
         intervention={editing}
       />
+
+      {sheet && (
+        <InterventionSheet
+          intervention={sheet}
+          onClose={() => setSheet(null)}
+          onEdit={() => {
+            const i = sheet
+            setSheet(null)
+            openEdit(i)
+          }}
+        />
+      )}
 
       {/* Devis correctif pré-rempli depuis les anomalies (« Suite à décider ») */}
       {quoteSeed && (
