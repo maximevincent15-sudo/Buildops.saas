@@ -31,6 +31,8 @@ import {
 } from '../../equipment/api'
 import { QuickUnitSheet } from '../../equipment/components/QuickUnitSheet'
 import { QrScanner } from '../../equipment/components/QrScanner'
+import { LinkLabelSheet } from '../../equipment/components/LinkLabelSheet'
+import { firoviaLabelCode } from '../../equipment/labels'
 import { UnitPhotoField } from '../../equipment/components/UnitPhotoField'
 import { attributesSummary, compareUnitsByRound, unitLocation, unitRepere, unitTypeLine, zoneLabel } from '../../equipment/identification'
 import { upsertCheckSmart } from '../../equipment/offlineQueue'
@@ -140,6 +142,8 @@ export function UnitBasedControls({
   const [chainScan, setChainScan] = useState(true)
   // Inventaire au scan : fiche d'ajout ouverte (qr = contenu de l'étiquette, null sans étiquette)
   const [addDraft, setAddDraft] = useState<{ qr: string | null } | null>(null)
+  // Étiquette inconnue scannée : à associer à un appareil existant ou à un nouvel appareil
+  const [linkDraft, setLinkDraft] = useState<{ code: string } | null>(null)
   const [lastCreated, setLastCreated] = useState<EquipmentUnit | null>(null)
   const [siteClientId, setSiteClientId] = useState<string | null>(null)
   // Équipements qui ont une anomalie en cours : jamais passés conformes d'un coup
@@ -341,8 +345,29 @@ export function UnitBasedControls({
     } catch {
       // recherche impossible (réseau) : on propose quand même la création
     }
+    // Appareils déjà enregistrés sans étiquette (parc importé) : on propose de l'y associer
+    if (units.some((u) => !u.qr_code)) {
+      setScanMessage(null)
+      setLinkDraft({ code: text.trim() })
+      return
+    }
     setScanMessage({ tone: 'warn', text: 'Nouvelle étiquette : vérifiez la fiche pour ajouter cet équipement au site.' })
     setAddDraft({ qr: text.trim() })
+  }
+
+  /**
+   * Associe une étiquette à un appareil du site. Refuse un code déjà porté par
+   * un autre appareil (de ce site ou d'un autre).
+   */
+  async function linkLabel(unit: EquipmentUnit, code: string): Promise<EquipmentUnit> {
+    const value = code.trim()
+    const here = matchUnitByQr(units.filter((u) => !!u.qr_code), value)
+    if (here && here.id !== unit.id) throw new Error(`Cette étiquette est déjà celle de ${unitRepere(here)}.`)
+    const elsewhere = (await findUnitsByQrCodes(qrRawParts(value))).find((u) => u.id !== unit.id)
+    if (elsewhere) throw new Error(`Cette étiquette est déjà celle de ${unitRepere(elsewhere)}${elsewhere.site_id !== siteId ? ', sur un autre site' : ''}.`)
+    const updated = await updateEquipmentUnit(unit.id, { qr_code: value })
+    setUnits((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+    return updated
   }
 
   const editingUnit = useMemo(
@@ -495,6 +520,27 @@ export function UnitBasedControls({
         />
       )}
 
+      {linkDraft && (
+        <LinkLabelSheet
+          code={linkDraft.code}
+          candidates={units.filter((u) => !u.qr_code).sort(compareUnitsByRound(zonesById))}
+          zonesById={zonesById}
+          isInScope={(u) => !scopeActive || inScope(u)}
+          onLink={async (unit) => {
+            await linkLabel(unit, linkDraft.code)
+            setLinkDraft(null)
+            setScanMessage({ tone: 'ok', text: `Étiquette associée à ${unitRepere(unit)}` })
+            setFromScan(true)
+            setEditingUnitId(unit.id)
+          }}
+          onCreate={() => {
+            setAddDraft({ qr: linkDraft.code })
+            setLinkDraft(null)
+          }}
+          onClose={() => { setLinkDraft(null); setFromScan(false) }}
+        />
+      )}
+
       {addDraft && effectiveClientId && (
         <QuickUnitSheet
           siteId={siteId}
@@ -528,6 +574,7 @@ export function UnitBasedControls({
           technicianName={technicianName}
           zone={editingUnit.zone_id ? zonesById.get(editingUnit.zone_id) ?? null : null}
           onUnitChange={(u) => setUnits((prev) => prev.map((x) => (x.id === u.id ? u : x)))}
+          onLinkLabel={(code) => linkLabel(editingUnit, code)}
         />
       )}
     </>
@@ -899,6 +946,8 @@ type ModalProps = {
   interventionId: string
   technicianName?: string | null
   zone: Zone | null
+  /** Associe une étiquette scannée à l'appareil (refusée si elle est déjà ailleurs) */
+  onLinkLabel: (code: string) => Promise<EquipmentUnit>
   /** Photo de repérage ajoutée ou changée pendant le contrôle */
   onUnitChange: (unit: EquipmentUnit) => void
   /** Un autre équipement reste à contrôler : bouton « Enregistrer et suivant » */
@@ -909,9 +958,28 @@ type ModalProps = {
 
 function UnitCheckModal({
   unit, template, lists, initialListKey, existing, onClose, onSave, readOnly,
-  organizationId, interventionId, technicianName, zone, onUnitChange, hasNext, outOfScope,
+  organizationId, interventionId, technicianName, zone, onUnitChange, onLinkLabel, hasNext, outOfScope,
 }: ModalProps) {
   const [photoError, setPhotoError] = useState<string | null>(null)
+  // Étiquette collée sur place : scannée puis associée à l'appareil
+  const [labelScanOpen, setLabelScanOpen] = useState(false)
+  const [labelBusy, setLabelBusy] = useState(false)
+  const [labelMessage, setLabelMessage] = useState<{ ok: boolean; text: string } | null>(null)
+
+  async function handleLabelScanned(text: string) {
+    setLabelScanOpen(false)
+    setLabelBusy(true)
+    setLabelMessage(null)
+    try {
+      const updated = await onLinkLabel(text)
+      onUnitChange(updated)
+      setLabelMessage({ ok: true, text: 'Étiquette associée à cet appareil.' })
+    } catch (e) {
+      setLabelMessage({ ok: false, text: e instanceof Error ? e.message : 'Association impossible. Vérifiez votre connexion.' })
+    } finally {
+      setLabelBusy(false)
+    }
+  }
 
   /** Photo de repérage enregistrée tout de suite sur l'équipement */
   async function handleUnitPhoto(p: { path: string; url: string } | null) {
@@ -1141,7 +1209,35 @@ function UnitCheckModal({
             {attributesSummary(unit.family, unit.attributes) && (
               <MetaLine k="Caractéristiques" v={attributesSummary(unit.family, unit.attributes)} />
             )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12.5, color: 'var(--ink2)' }}>
+                Étiquette : {unit.qr_code
+                  ? <strong>{(firoviaLabelCode(unit.qr_code) ?? unit.qr_code).slice(0, 40)}</strong>
+                  : <span style={{ color: 'var(--ink3)' }}>aucune</span>}
+              </span>
+              {!readOnly && (
+                <button
+                  type="button"
+                  className="btn-sm"
+                  onClick={() => { setLabelMessage(null); setLabelScanOpen(true) }}
+                  disabled={labelBusy}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <QrCode size={13} />
+                  {labelBusy ? 'Association…' : unit.qr_code ? 'Changer d’étiquette' : 'Associer une étiquette'}
+                </button>
+              )}
+            </div>
+            {labelMessage && (
+              <span className={labelMessage.ok ? 'text-grn text-xs' : 'ferr on'} style={{ display: 'block', marginTop: 4 }}>{labelMessage.text}</span>
+            )}
           </div>
+          {labelScanOpen && (
+            <QrScanner
+              onClose={() => setLabelScanOpen(false)}
+              onResult={(text) => { void handleLabelScanned(text) }}
+            />
+          )}
 
           {/* Anomalies déjà ouvertes sur cette unité (Slice M3 + M5) */}
           {existingAnomalies.length > 0 && (
