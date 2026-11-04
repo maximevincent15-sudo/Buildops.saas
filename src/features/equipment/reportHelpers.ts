@@ -11,6 +11,7 @@ import {
 import type { EquipmentUnit, FamilyTemplate, Zone } from './schemas'
 import type { UnitReportEntry } from '../rapports/pdf/ReportPdf'
 import { unitTypeLine } from './identification'
+import { operationLabels } from './operations'
 
 /**
  * Construit la liste des lignes du registre APSAD nominatif pour un rapport
@@ -79,6 +80,9 @@ export async function buildUnitEntriesForIntervention(
       verdict: c.verdict,
       verdictLabel: CHECK_VERDICT_LABELS[c.verdict],
       observation: c.observation,
+      operations: c.verdict === 'non_verifie' ? [] : operationLabels(u.family, c.operations),
+      recapType: [u.attributes?.agent, u.attributes?.capacite].filter(Boolean).join(' ')
+        || u.subtype?.trim() || EQUIPMENT_FAMILY_LABELS[u.family],
       totalItems: items.length || undefined,
       checkedCount: items.length - uncheckedItems.length,
       naItems,

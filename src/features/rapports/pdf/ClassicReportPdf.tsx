@@ -22,6 +22,8 @@ type Props = ReportPdfProps & {
   previousVisitDate?: string | null
   /** Adresse du client, destinataire du compte rendu */
   clientAddress?: string | null
+  /** Habilitations du vérificateur valables le jour de la visite */
+  technicianQualifications?: string[]
 }
 
 const ink = '#1C2130'
@@ -128,7 +130,7 @@ export function ClassicReportPdf({
   intervention, report, sections, organizationName,
   unitEntries = [], settings, anomalyEntries = [],
   interventionType, clientNumber, dossierNumber,
-  previousVisitDate, clientAddress,
+  previousVisitDate, clientAddress, technicianQualifications = [],
 }: Props) {
   // ─── Entreprise et site ───
   const orgLines = [
@@ -136,6 +138,9 @@ export function ClassicReportPdf({
     [settings?.legal_postal_code, settings?.legal_city].filter(Boolean).join(' ').trim(),
     [settings?.legal_phone?.trim() ? `Tél. ${settings.legal_phone.trim()}` : null, settings?.legal_email?.trim()].filter(Boolean).join(' · '),
     settings?.siret ? `SIRET ${settings.siret}` : null,
+    settings?.certification_rules?.trim()
+      ? `Certification ${settings.certification_rules.trim()}${settings.certification_number?.trim() ? ` · n° ${settings.certification_number.trim()}` : ''}`
+      : null,
   ].filter((l): l is string => !!l)
   const siteAddress = [
     intervention.chantier_address?.trim(),
@@ -170,6 +175,22 @@ export function ClassicReportPdf({
     if (zone) zone.entries.push(e)
     else zones.push({ key: label, label, entries: [e] })
   }
+
+  // ─── Récapitulatif des appareils vérifiés : famille, type, nombre, opérations ───
+  type RecapRow = { family: string; type: string; count: number; ops: Map<string, number> }
+  const recap: RecapRow[] = []
+  for (const e of unitEntries) {
+    if (e.verdict === 'non_verifie') continue
+    const type = e.recapType?.trim() || e.subtype?.trim() || e.familyLabel
+    let row = recap.find((r) => r.family === e.familyLabel && r.type.toLowerCase() === type.toLowerCase())
+    if (!row) recap.push(row = { family: e.familyLabel, type, count: 0, ops: new Map() })
+    row.count++
+    for (const op of e.operations ?? []) {
+      if (op === 'Vérification') continue
+      row.ops.set(op, (row.ops.get(op) ?? 0) + 1)
+    }
+  }
+  recap.sort((a, b) => a.family.localeCompare(b.family, 'fr') || a.type.localeCompare(b.type, 'fr', { numeric: true }))
 
   // ─── Points de contrôle (checklists par type) ───
   const checklistTables = sections
@@ -266,6 +287,7 @@ export function ClassicReportPdf({
           <InfoRow k="Date(s) de la vérification" v={datesLabel} />
           <InfoRow k="Vérification précédente" v={frDate(previousVisitDate) ? `le ${frDate(previousVisitDate)}` : null} />
           <InfoRow k="Vérificateur" v={intervention.technician_name} />
+          {technicianQualifications.length > 0 ? <InfoRow k="Qualification" v={technicianQualifications.join(' ; ')} /> : null}
           {interventionType ? <InfoRow k="Nature de l'intervention" v={interventionType} /> : null}
         </View>
 
@@ -306,26 +328,59 @@ export function ClassicReportPdf({
                 <View wrap={false} minPresenceAhead={30}>
                   <Text style={styles.zoneTitle}>{pdfText(z.label)}</Text>
                   <View style={styles.th}>
-                    <Text style={[styles.thCell, { width: '11%' }]}>N°</Text>
-                    <Text style={[styles.thCell, { width: '33%' }]}>Désignation</Text>
-                    <Text style={[styles.thCell, { width: '20%' }]}>Emplacement</Text>
-                    <Text style={[styles.thCell, { width: '14%' }]}>En état ?</Text>
-                    <Text style={[styles.thCell, { width: '22%' }]}>Observation</Text>
+                    <Text style={[styles.thCell, { width: '10%' }]}>N°</Text>
+                    <Text style={[styles.thCell, { width: '27%' }]}>Désignation</Text>
+                    <Text style={[styles.thCell, { width: '17%' }]}>Emplacement</Text>
+                    <Text style={[styles.thCell, { width: '14%' }]}>Opérations</Text>
+                    <Text style={[styles.thCell, { width: '13%' }]}>En état ?</Text>
+                    <Text style={[styles.thCell, { width: '19%' }]}>Observation</Text>
                   </View>
                 </View>
                 <View>
                   {z.entries.map((e, i) => (
                     <View key={`${e.unitSerial}-${i}`} style={styles.tr} wrap={false}>
-                      <Text style={[styles.td, { width: '11%', fontFamily: 'Helvetica-Bold' }]}>{pdfText(unitNumber(e.unitSerial))}</Text>
-                      <Text style={[styles.td, { width: '33%' }]}>{designation(e)}</Text>
-                      <Text style={[styles.td, { width: '20%' }]}>{pdfText(e.implantation) || '—'}</Text>
-                      <Text style={[styles.td, { width: '14%', fontFamily: e.verdict === 'conforme' ? 'Helvetica' : 'Helvetica-Bold' }]}>{STATE_LABELS[e.verdict]}</Text>
-                      <Text style={[styles.td, { width: '22%', color: ink2 }]}>{pdfText(e.observation) || ''}</Text>
+                      <Text style={[styles.td, { width: '10%', fontFamily: 'Helvetica-Bold' }]}>{pdfText(unitNumber(e.unitSerial))}</Text>
+                      <Text style={[styles.td, { width: '27%' }]}>{designation(e)}</Text>
+                      <Text style={[styles.td, { width: '17%' }]}>{pdfText(e.implantation) || '—'}</Text>
+                      <Text style={[styles.td, { width: '14%' }]}>{pdfText((e.operations ?? []).join(', ')) || '—'}</Text>
+                      <Text style={[styles.td, { width: '13%', fontFamily: e.verdict === 'conforme' ? 'Helvetica' : 'Helvetica-Bold' }]}>{STATE_LABELS[e.verdict]}</Text>
+                      <Text style={[styles.td, { width: '19%', color: ink2 }]}>{pdfText(e.observation) || ''}</Text>
                     </View>
                   ))}
                 </View>
               </View>
             ))}
+
+            {/* Récapitulatif : le nombre d'appareils vérifiés par type et les opérations */}
+            {recap.length > 0 && (
+              <View style={{ marginTop: 10 }}>
+                {/* Titre et en-tête jamais seuls en bas de page ; un long parc continue sur la page suivante */}
+                <View wrap={false} minPresenceAhead={30}>
+                  <Text style={styles.zoneTitle}>Récapitulatif des appareils vérifiés</Text>
+                  <View style={styles.th}>
+                    <Text style={[styles.thCell, { width: '22%' }]}>Famille</Text>
+                    <Text style={[styles.thCell, { width: '38%' }]}>Type</Text>
+                    <Text style={[styles.thCell, { width: '10%', textAlign: 'right' }]}>Nombre</Text>
+                    <Text style={[styles.thCell, { width: '30%' }]}>Opérations en plus de la vérification</Text>
+                  </View>
+                </View>
+                {recap.map((r) => (
+                  <View key={`${r.family}-${r.type}`} style={styles.tr} wrap={false}>
+                    <Text style={[styles.td, { width: '22%' }]}>{pdfText(r.family)}</Text>
+                    <Text style={[styles.td, { width: '38%' }]}>{pdfText(r.type)}</Text>
+                    <Text style={[styles.td, { width: '10%', textAlign: 'right', fontFamily: 'Helvetica-Bold' }]}>{r.count}</Text>
+                    <Text style={[styles.td, { width: '30%', color: ink2 }]}>
+                      {[...r.ops.entries()].map(([op, n]) => `${op} : ${n}`).join(' · ') || '—'}
+                    </Text>
+                  </View>
+                ))}
+                <View style={styles.tr} wrap={false}>
+                  <Text style={[styles.td, { width: '60%', fontFamily: 'Helvetica-Bold' }]}>Total</Text>
+                  <Text style={[styles.td, { width: '10%', textAlign: 'right', fontFamily: 'Helvetica-Bold' }]}>{recap.reduce((s, r) => s + r.count, 0)}</Text>
+                  <Text style={[styles.td, { width: '30%' }]}> </Text>
+                </View>
+              </View>
+            )}
           </View>
         )}
 

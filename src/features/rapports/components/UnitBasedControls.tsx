@@ -34,6 +34,7 @@ import { QrScanner } from '../../equipment/components/QrScanner'
 import { UnitPhotoField } from '../../equipment/components/UnitPhotoField'
 import { attributesSummary, compareUnitsByRound, unitLocation, unitRepere, unitTypeLine, zoneLabel } from '../../equipment/identification'
 import { upsertCheckSmart } from '../../equipment/offlineQueue'
+import { DEFAULT_OPERATIONS, UNIT_OPERATIONS } from '../../equipment/operations'
 import { loadChecklistContext, setUnitChecklistKey, unitListFor, unitLists } from '../../checklists/api'
 import type { ChecklistContext, EffectiveList } from '../../checklists/api'
 import {
@@ -354,6 +355,7 @@ export function UnitBasedControls({
     checklistKey: string | null
     observation: string | null
     verdict: CheckVerdict
+    operations: string[]
     photos: CheckPhoto[]
   }, then: 'close' | 'next' = 'close') {
     if (!editingUnit) return
@@ -375,6 +377,7 @@ export function UnitBasedControls({
           checklist: patch.checklist,
           observation: patch.observation,
           verdict: patch.verdict,
+          operations: patch.operations,
           photos: patch.photos,
         },
         organizationId,
@@ -888,6 +891,7 @@ type ModalProps = {
     checklistKey: string | null
     observation: string | null
     verdict: CheckVerdict
+    operations: string[]
     photos: CheckPhoto[]
   }, then?: 'close' | 'next') => Promise<void> | void
   readOnly?: boolean
@@ -932,6 +936,14 @@ function UnitCheckModal({
   const list = lists.find((l) => l.key === listKey) ?? null
   const [observation, setObservation] = useState(existing?.observation ?? '')
   const [verdict, setVerdict] = useState<CheckVerdict>(existing?.verdict ?? 'non_verifie')
+  // Opérations réalisées : « Vérification » par défaut
+  const familyOperations = UNIT_OPERATIONS[unit.family] ?? []
+  const [operations, setOperations] = useState<string[]>(
+    existing?.operations && existing.operations.length > 0 ? existing.operations : DEFAULT_OPERATIONS,
+  )
+  function toggleOperation(key: string) {
+    setOperations((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]))
+  }
   const [photos, setPhotos] = useState<CheckPhoto[]>(existing?.photos ?? [])
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -1032,6 +1044,7 @@ function UnitCheckModal({
         checklistKey: list?.key ?? null,
         observation: observation.trim() || null,
         verdict,
+        operations,
         photos,
       }, then)
       // Si le verdict signale une anomalie (surveiller/reformer),
@@ -1300,6 +1313,28 @@ function UnitCheckModal({
               })}
             </div>
           </div>
+
+          {/* Opérations réalisées (imprimées au compte rendu) */}
+          {familyOperations.length > 0 && (
+            <div>
+              <div style={sectionTitleStyle}>
+                <span>Opérations réalisées</span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {familyOperations.map((op) => (
+                  <button
+                    key={op.key}
+                    type="button"
+                    className={`filter-pill${operations.includes(op.key) ? ' on' : ''}`}
+                    onClick={() => toggleOperation(op.key)}
+                    disabled={readOnly}
+                  >
+                    {op.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Détails de l'anomalie (obligatoire si verdict ≠ conforme) — Slice M3 */}
           {needsAnomalyForm && (

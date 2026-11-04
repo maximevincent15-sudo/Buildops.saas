@@ -237,6 +237,8 @@ export type EquipmentCheck = {
   checklist: Record<string, CheckItemValue>
   observation: string | null
   verdict: CheckVerdict
+  /** Opérations réalisées (voir operations.ts) ; vide sur les anciens contrôles */
+  operations?: string[]
   photos: CheckPhoto[]
   technician_id: string | null
   technician_name: string | null
@@ -254,6 +256,7 @@ export type UpsertEquipmentCheckInput = {
   checklist?: Record<string, CheckItemValue>
   observation?: string | null
   verdict?: CheckVerdict
+  operations?: string[]
   photos?: CheckPhoto[]
   technician_id?: string | null
   technician_name?: string | null

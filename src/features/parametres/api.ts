@@ -35,6 +35,9 @@ export type InvoicingSettings = {
   legal_postal_code: string | null
   legal_phone: string | null
   legal_email: string | null
+  /** Certification déclarée par l'entreprise (ex. « APSAD R4 ») et n° de certificat (migration 20261104120000) */
+  certification_rules: string | null
+  certification_number: string | null
   iban: string | null
   bic: string | null
   bank_name: string | null
@@ -83,6 +86,8 @@ export async function upsertInvoicingSettings(
     legal_postal_code: input.legal_postal_code?.trim() || null,
     legal_phone: input.legal_phone?.trim() || null,
     legal_email: input.legal_email?.trim() || null,
+    certification_rules: input.certification_rules?.trim() || null,
+    certification_number: input.certification_number?.trim() || null,
     iban: input.iban?.trim() || null,
     bic: input.bic?.trim() || null,
     bank_name: input.bank_name?.trim() || null,

@@ -15,6 +15,7 @@ import type {
   UpsertEquipmentCheckInput,
 } from './schemas'
 import { VERDICT_TO_UNIT_STATUS } from './schemas'
+import { DEFAULT_OPERATIONS } from './operations'
 
 // ─── Sites ───────────────────────────────────────────────
 
@@ -470,6 +471,8 @@ export async function upsertCheck(
     checklist: input.checklist ?? {},
     observation: input.observation ?? null,
     verdict: input.verdict ?? 'non_verifie',
+    // Opérations : « Vérification » par défaut dès qu'un verdict est posé
+    operations: input.operations ?? ((input.verdict ?? 'non_verifie') === 'non_verifie' ? [] : DEFAULT_OPERATIONS),
     photos: input.photos ?? [],
     technician_id: input.technician_id ?? options.technicianId ?? null,
     technician_name: input.technician_name ?? options.technicianName ?? null,

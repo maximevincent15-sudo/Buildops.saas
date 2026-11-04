@@ -461,6 +461,10 @@ export type UnitReportEntry = {
   verdict: 'non_verifie' | 'conforme' | 'surveiller' | 'reformer'
   verdictLabel: string
   observation: string | null
+  /** Opérations réalisées (libellés), « Vérification » par défaut */
+  operations?: string[]
+  /** Type pour le récapitulatif du parc : agent et capacité, sinon le type saisi */
+  recapType?: string
   /** Détail checklist de l'unité (absent pour les appels legacy). */
   checkedCount?: number
   totalItems?: number
@@ -627,6 +631,9 @@ export function ReportPdf({
     settings?.siret ? `SIRET ${settings.siret}` : null,
     settings?.vat_number ? `TVA ${settings.vat_number}` : null,
     settings?.ape_code ? `APE ${settings.ape_code}` : null,
+    settings?.certification_rules?.trim()
+      ? `Certification ${settings.certification_rules.trim()}${settings.certification_number?.trim() ? ` n° ${settings.certification_number.trim()}` : ''}`
+      : null,
   ]
     .filter(Boolean)
     .join(' · ')
@@ -1364,8 +1371,10 @@ function ZoneControls({ entries }: { entries: UnitReportEntry[] }) {
               const showUnchecked =
                 e.verdict !== 'non_verifie' && !checklistEmpty
                 && !!e.uncheckedItems && e.uncheckedItems.length > 0
+              const extraOps = (e.operations ?? []).filter((op) => op !== 'Vérification')
               const hasDetail =
                 !!e.observation
+                || extraOps.length > 0
                 || showUnchecked
                 || (e.naItems && e.naItems.length > 0)
 
@@ -1396,6 +1405,12 @@ function ZoneControls({ entries }: { entries: UnitReportEntry[] }) {
 
                   {hasDetail && (
                     <View style={{ marginTop: 3, marginLeft: 8 }}>
+                      {extraOps.length > 0 && (
+                        <Text style={{ fontSize: 8, color: colors.ink2 }}>
+                          <Text style={{ fontFamily: 'Helvetica-Bold' }}>Opérations : </Text>
+                          {extraOps.join(' · ')}
+                        </Text>
+                      )}
                       {e.observation && (
                         <Text style={{ fontSize: 8, color: colors.ink2 }}>
                           <Text style={{ fontFamily: 'Helvetica-Bold' }}>Observation : </Text>

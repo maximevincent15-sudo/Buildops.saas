@@ -33,6 +33,8 @@ const EMPTY: UpsertInvoicingInput = {
   legal_postal_code: null,
   legal_phone: null,
   legal_email: null,
+  certification_rules: null,
+  certification_number: null,
   iban: null,
   bic: null,
   bank_name: null,
@@ -59,6 +61,8 @@ function pickInvoicing(s: InvoicingSettings): UpsertInvoicingInput {
     legal_postal_code: s.legal_postal_code,
     legal_phone: s.legal_phone,
     legal_email: s.legal_email,
+    certification_rules: s.certification_rules ?? null,
+    certification_number: s.certification_number ?? null,
     iban: s.iban,
     bic: s.bic,
     bank_name: s.bank_name,
@@ -397,6 +401,31 @@ export function ParametresPage() {
             </span>
           )}
         </div>
+        <div className="mrow">
+          <div className="fg">
+            <label>Certification <span className="text-ink-3 text-xs font-light">(si l'entreprise est certifiée)</span></label>
+            <input
+              type="text"
+              placeholder="Ex : APSAD R4, R5"
+              value={form.certification_rules ?? ''}
+              onChange={(e) => setField('certification_rules', e.target.value)}
+              maxLength={60}
+            />
+          </div>
+          <div className="fg">
+            <label>N° de certificat</label>
+            <input
+              type="text"
+              placeholder="N° figurant sur votre certificat"
+              value={form.certification_number ?? ''}
+              onChange={(e) => setField('certification_number', e.target.value)}
+              maxLength={40}
+            />
+          </div>
+        </div>
+        <span className="text-ink-3 text-xs font-light">
+          Imprimés sur vos comptes rendus de vérification, tels que vous les saisissez.
+        </span>
       </div>
 
       {/* Bloc 2 : adresse + contact */}
