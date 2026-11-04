@@ -39,7 +39,7 @@ export function InterventionSheet({ intervention: i, onClose, onEdit }: Props) {
       navigate(`/rapports/${i.id}`)
     } catch {
       setStarting(false)
-      alert('Impossible de démarrer. Vérifie ta connexion et réessaie.')
+      alert('Impossible de démarrer. Vérifiez votre connexion et réessayez.')
     }
   }
 

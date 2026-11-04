@@ -16,7 +16,7 @@ export const vehiclesImportDefinition: ImportDefinition = {
   entityLabelPlural: 'véhicules',
   templateFilename: 'vehicules-firovia.xlsx',
   description:
-    "Importe ton parc véhicules. La plaque est obligatoire. Les dates peuvent être au format JJ/MM/AAAA ou AAAA-MM-JJ. Le nom du technicien assigné est optionnel — s'il n'existe pas dans tes techniciens Firovia, on mettra le véhicule au pool commun.",
+    "Importez votre parc véhicules. La plaque est obligatoire. Les dates peuvent être au format JJ/MM/AAAA ou AAAA-MM-JJ. Le nom du technicien assigné est optionnel — s'il n'existe pas dans vos techniciens Firovia, on mettra le véhicule au pool commun.",
   fields: [
     { key: 'license_plate', label: 'Plaque', required: true, example: 'AB-123-CD' },
     { key: 'brand', label: 'Marque', example: 'Renault' },

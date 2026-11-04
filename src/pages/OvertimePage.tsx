@@ -201,7 +201,7 @@ export function OvertimePage() {
             </p>
             {tab === 'pending' && (
               <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 420, margin: '0 auto' }}>
-                Clique sur "Nouvelle saisie" pour enregistrer des heures sup (ex: 2h le mardi soir pour un dépannage urgent).
+                Cliquez sur "Nouvelle saisie" pour enregistrer des heures sup (ex: 2h le mardi soir pour un dépannage urgent).
               </p>
             )}
           </div>

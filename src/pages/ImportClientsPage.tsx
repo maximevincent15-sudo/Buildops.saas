@@ -13,7 +13,7 @@ export function ImportClientsPage() {
             Importer des clients
           </div>
           <div className="dash-sub">
-            Migre tes clients depuis ton outil actuel en quelques clics (Excel, CSV, Google Sheets, Optim-BTP…)
+            Migrez vos clients depuis votre outil actuel en quelques clics (Excel, CSV, Google Sheets, Optim-BTP…)
           </div>
         </div>
         <Link

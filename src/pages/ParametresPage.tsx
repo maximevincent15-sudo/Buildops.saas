@@ -132,15 +132,15 @@ export function ParametresPage() {
     if (!profile?.organization_id) return
     if (!window.confirm(
       'Charger les données de démo ?\n\n' +
-      'Cela va créer dans ton organisation :\n' +
+      'Cela va créer dans votre organisation :\n' +
       '• 11 clients fictifs avec leurs sites et leur parc (~100 équipements)\n' +
       '• 4 techniciens, leurs habilitations et 2 véhicules\n' +
       '• 3 rapports signés avec PDF, dont un non conforme\n' +
       '• le planning de la semaine et des visites à planifier\n' +
       '• 3 devis, des factures sur 6 mois, notes de frais et heures sup\n\n' +
       'Les contacts ont des adresses @demo.firovia.fr : pour un envoi\n' +
-      'de test, saisis ta propre adresse dans la fenêtre d\'envoi.\n\n' +
-      'Compte 1 à 2 minutes. Continuer ?'
+      'de test, saisissez votre propre adresse dans la fenêtre d\'envoi.\n\n' +
+      'Comptez 1 à 2 minutes. Continuer ?'
     )) return
     setDemoLoading(true)
     setError(null)
@@ -150,7 +150,7 @@ export function ParametresPage() {
       await loadDemoData(profile.organization_id, profile.organizations?.name ?? '', (label, current, total) => {
         setDemoStep({ label, current, total })
       })
-      setFlash('Données de démo chargées avec succès. Explore les pages pour voir le résultat.')
+      setFlash('Données de démo chargées avec succès. Explorez les pages pour voir le résultat.')
       setTimeout(() => setFlash(null), 6000)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors du chargement de la démo')
@@ -194,7 +194,7 @@ export function ParametresPage() {
         ? form.siret!
         : await getOrganizationSiret(profile.organization_id)
       if (!siret) {
-        setError('Saisis d\'abord le SIRET (14 chiffres).')
+        setError('Saisissez d\'abord le SIRET (14 chiffres).')
         return
       }
       const found = await fetchLegalIdentity(siret)
@@ -208,7 +208,7 @@ export function ParametresPage() {
         ? `Repris de l'annuaire des entreprises (SIRET ${formatSiret(siret)}) : vérifiez, complétez, puis cliquez sur « Enregistrer ».`
         : 'Les champs étaient déjà remplis : rien n\'a été remplacé.')
     } catch {
-      setError('Annuaire des entreprises injoignable, réessaie dans un instant.')
+      setError('Annuaire des entreprises injoignable, réessayez dans un instant.')
     } finally {
       setPrefilling(false)
     }
@@ -266,7 +266,7 @@ export function ParametresPage() {
         <div>
           <div className="dash-title">Paramètres de l'organisation</div>
           <div className="dash-sub">
-            Ces informations apparaîtront automatiquement sur tes devis, factures et rapports.
+            Ces informations apparaîtront automatiquement sur vos devis, factures et rapports.
             À renseigner une seule fois.
           </div>
         </div>
@@ -477,8 +477,8 @@ export function ParametresPage() {
             <Link to="/parametres/checklists" className="btn-sm">Modifier les checklists</Link>
           </div>
           <p className="text-ink-3 text-sm font-light" style={{ margin: 0 }}>
-            Adapte les points vérifiés pendant les visites, type par type : renomme, ajoute, retire ou réordonne des points,
-            et crée plusieurs listes par appareil (par exemple désenfumage naturel ou mécanique).
+            Adaptez les points vérifiés pendant les visites, type par type : renommez, ajoutez, retirez ou réordonnez des points,
+            et créez plusieurs listes par appareil (par exemple désenfumage naturel ou mécanique).
           </p>
         </div>
       )}
@@ -530,7 +530,7 @@ export function ParametresPage() {
             Numérotation
           </span>
           <span className="text-ink-3 text-xs font-light">
-            Personnalise les préfixes de tes devis et factures.
+            Personnalisez les préfixes de vos devis et factures.
           </span>
         </div>
         <div className="mrow">
@@ -633,8 +633,8 @@ export function ParametresPage() {
             </span>
           </div>
           <p className="text-ink-2 text-sm font-light" style={{ margin: '0 0 .8rem' }}>
-            Invite tes collaborateurs à rejoindre ton organisation Firovia. Chaque membre peut avoir
-            son propre compte et son propre accès — utile pour que tes techniciens saisissent leurs
+            Invitez vos collaborateurs à rejoindre votre organisation Firovia. Chaque membre peut avoir
+            son propre compte et son propre accès — utile pour que vos techniciens saisissent leurs
             notes de frais et heures sup directement.
           </p>
           <Link
@@ -702,7 +702,7 @@ export function ParametresPage() {
           </span>
         </div>
         <p className="text-ink-2 text-sm font-light" style={{ margin: '0 0 .8rem' }}>
-          Crée en un clic un compte complet et fictif : clients avec leurs sites et leur parc, techniciens,
+          Créez en un clic un compte complet et fictif : clients avec leurs sites et leur parc, techniciens,
           rapports signés, planning de la semaine, devis et factures. Pratique pour tester le SaaS
           rapidement ou pour une démo commerciale.
         </p>

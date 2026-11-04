@@ -132,7 +132,7 @@ export function TechniciensPage() {
               Aucun technicien pour le moment.
             </p>
             <p className="text-ink-3 text-xs font-light" style={{ marginBottom: '1.2rem' }}>
-              Ajoute tes techniciens pour les assigner aux interventions en un clic.
+              Ajoutez vos techniciens pour les assigner aux interventions en un clic.
             </p>
             <button type="button" className="btn-sm acc" onClick={openCreate}>
               + Créer un technicien
@@ -143,7 +143,7 @@ export function TechniciensPage() {
         {!loading && !error && visible.length === 0 && total > 0 && (
           <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
             <p className="text-ink-3 text-sm font-light">
-              Aucun technicien actif. Clique sur "Tous" pour voir les inactifs.
+              Aucun technicien actif. Cliquez sur "Tous" pour voir les inactifs.
             </p>
           </div>
         )}
@@ -151,7 +151,7 @@ export function TechniciensPage() {
         {!loading && !error && visible.length > 0 && (
           <>
             <p className="text-ink-3 text-xs font-light" style={{ marginBottom: '.75rem' }}>
-              Clique sur une fiche pour modifier ou désactiver un technicien.
+              Cliquez sur une fiche pour modifier ou désactiver un technicien.
             </p>
             <div className="clients-grid">
               {visible.map((t) => (

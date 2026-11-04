@@ -89,9 +89,9 @@ export function QuickUnitSheet({
   const yearInvalid = yearNum !== undefined && (!Number.isInteger(yearNum) || yearNum < 1900 || yearNum > 2100)
 
   const info = initial.parsed.filled.length > 0
-    ? `Rempli depuis le QR code : ${initial.parsed.filled.join(', ')}. Vérifie avant d'ajouter.`
+    ? `Rempli depuis le QR code : ${initial.parsed.filled.join(', ')}. Vérifiez avant d'ajouter.`
     : previous
-      ? 'Pré-rempli avec l\'appareil précédent : vérifie le N° et l\'emplacement.'
+      ? 'Pré-rempli avec l\'appareil précédent : vérifiez le N° et l\'emplacement.'
       : null
 
   function changeFamily(f: EquipmentFamily) {
@@ -104,7 +104,7 @@ export function QuickUnitSheet({
   }
 
   async function submit(then: 'check' | 'next') {
-    if (!serial.trim()) { setError('Indique le N° de l\'équipement.'); return }
+    if (!serial.trim()) { setError('Indiquez le N° de l\'équipement.'); return }
     if (duplicate) { setError(`Le N° ${serial.trim()} existe déjà pour cette famille sur ce site.`); return }
     if (yearInvalid) { setError('Année invalide.'); return }
     setSaving(then)
@@ -138,8 +138,8 @@ export function QuickUnitSheet({
     } catch (e) {
       const msg = e instanceof Error ? e.message : ''
       setError(/duplicate|unique/i.test(msg)
-        ? `Le N° ${serial.trim()} existe déjà sur ce site (peut-être un équipement retiré). Choisis un autre N°.`
-        : msg || 'Ajout impossible. Vérifie ta connexion et réessaie.')
+        ? `Le N° ${serial.trim()} existe déjà sur ce site (peut-être un équipement retiré). Choisissez un autre N°.`
+        : msg || 'Ajout impossible. Vérifiez votre connexion et réessayez.')
       setSaving(null)
     }
   }

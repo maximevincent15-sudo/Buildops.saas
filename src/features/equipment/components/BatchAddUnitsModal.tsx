@@ -95,11 +95,11 @@ export function BatchAddUnitsModal({ open, onClose, onCreated }: Props) {
 
   async function handleSubmit() {
     if (!profile?.organization_id) {
-      setError('Profil non chargé. Reconnecte-toi.')
+      setError('Profil non chargé. Reconnectez-vous.')
       return
     }
     if (!clientId || !siteId) {
-      setError('Choisis un client et un site.')
+      setError('Choisissez un client et un site.')
       return
     }
     if (count < 1 || count > 500) {
@@ -145,7 +145,7 @@ export function BatchAddUnitsModal({ open, onClose, onCreated }: Props) {
       ) {
         setError(
           `Certains N° existent déjà pour cette famille sur ce site (par ex. N°12 semble présent). ` +
-          `Change le N° de départ ou supprime les unités existantes d'abord.`,
+          `Changez le N° de départ ou supprimez les unités existantes d'abord.`,
         )
       } else {
         setError(`${msg}`)
@@ -174,8 +174,8 @@ export function BatchAddUnitsModal({ open, onClose, onCreated }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '.5rem 0' }}>
           <div style={helpBoxStyle}>
             Idéal pour saisir un nouveau site :
-            <strong> choisis une zone + une famille + un modèle,
-            saisis combien d'unités identiques.</strong> Firovia les crée toutes
+            <strong> choisissez une zone + une famille + un modèle,
+            saisissez combien d'unités identiques.</strong> Firovia les crée toutes
             avec des N° incrémentaux.
           </div>
 

@@ -60,7 +60,7 @@ export function PayrollExportModal({ open, onClose }: Props) {
 
   async function handleExport() {
     if (!fromDate || !toDate) {
-      setError('Choisis une période.')
+      setError('Choisissez une période.')
       return
     }
     if (fromDate > toDate) {
@@ -130,7 +130,7 @@ export function PayrollExportModal({ open, onClose }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <p className="text-ink-2 text-sm font-light" style={{ margin: 0 }}>
             Génère un fichier <strong>.xlsx</strong> avec 2 onglets (Notes de frais + Heures sup)
-            à transmettre à ton expert-comptable.
+            à transmettre à votre expert-comptable.
           </p>
 
           <div className="fg">

@@ -37,8 +37,8 @@ export const clientsImportDefinition: ImportDefinition = {
   },
   templateFilename: 'clients-firovia.xlsx',
   description:
-    'Importe la liste de tes clients depuis Excel, CSV ou l\'export de ton logiciel actuel (Optim-BTP, Batigest, logiciel maison…). ' +
-    'Les intitulés courants sont reconnus automatiquement (Raison sociale, Tél, Mail, CP, Ville, SIRET…) ; sinon, renomme tes colonnes comme dans le template.',
+    'Importez la liste de vos clients depuis Excel, CSV ou l\'export de votre logiciel actuel (Optim-BTP, Batigest, logiciel maison…). ' +
+    'Les intitulés courants sont reconnus automatiquement (Raison sociale, Tél, Mail, CP, Ville, SIRET…) ; sinon, renommez vos colonnes comme dans le template.',
   fields: [
     {
       key: 'name',

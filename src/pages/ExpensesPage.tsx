@@ -257,7 +257,7 @@ export function ExpensesPage() {
             </p>
             {tab === 'pending' && (
               <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 420, margin: '0 auto' }}>
-                Clique sur "Nouvelle note" pour saisir un frais (repas, achat fournisseur, carburant…) avec la photo du ticket.
+                Cliquez sur "Nouvelle note" pour saisir un frais (repas, achat fournisseur, carburant…) avec la photo du ticket.
               </p>
             )}
           </div>

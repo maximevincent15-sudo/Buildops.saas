@@ -226,7 +226,7 @@ export function EquipmentUnitModal({
     try {
       const r = await scanEquipmentLabel(file)
       if (!r.readable) {
-        setScanMessage({ ok: false, text: 'Étiquette illisible : reprends la photo plus près, bien à plat et sans reflet.' })
+        setScanMessage({ ok: false, text: 'Étiquette illisible : reprenez la photo plus près, bien à plat et sans reflet.' })
         return
       }
       const filled: string[] = []
@@ -249,13 +249,13 @@ export function EquipmentUnitModal({
       }
       setScanMessage(
         filled.length > 0
-          ? { ok: true, text: `Rempli depuis l'étiquette : ${filled.join(', ')}. Vérifie avant d'enregistrer.` }
+          ? { ok: true, text: `Rempli depuis l'étiquette : ${filled.join(', ')}. Vérifiez avant d'enregistrer.` }
           : { ok: false, text: 'Aucune information exploitable trouvée sur la photo.' },
       )
     } catch (err) {
       setScanMessage({
         ok: false,
-        text: err instanceof LabelScanError ? err.message : 'La lecture a échoué. Réessaie ou remplis à la main.',
+        text: err instanceof LabelScanError ? err.message : 'La lecture a échoué. Réessayez ou remplissez à la main.',
       })
     } finally {
       setScanning(false)
@@ -264,7 +264,7 @@ export function EquipmentUnitModal({
 
   async function onSubmit(data: CreateEquipmentUnitInput) {
     if (!profile?.organization_id) {
-      setSubmitError('Profil non chargé. Reconnecte-toi.')
+      setSubmitError('Profil non chargé. Reconnectez-vous.')
       return
     }
     setSubmitError(null)
@@ -364,7 +364,7 @@ export function EquipmentUnitModal({
               <label>Site</label>
               <select {...register('site_id')} disabled={isEdit || !watchedClientId}>
                 <option value="">
-                  {!watchedClientId ? '— Choisis un client d\'abord —' : '— Choisir un site —'}
+                  {!watchedClientId ? '— Choisissez un client d\'abord —' : '— Choisir un site —'}
                 </option>
                 {sites.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
@@ -373,7 +373,7 @@ export function EquipmentUnitModal({
               {errors.site_id && <span className="ferr on">Site requis</span>}
               {watchedClientId && sites.length === 0 && (
                 <span className="text-ink-2 text-sm" style={{ marginTop: 4, fontSize: 12 }}>
-                  Aucun site pour ce client. Crée-en un d'abord.
+                  Aucun site pour ce client. Créez-en un d'abord.
                 </span>
               )}
             </div>
@@ -384,7 +384,7 @@ export function EquipmentUnitModal({
             <label>Zone <span className="text-ink-3 text-xs font-light">(bâtiment, étage…)</span></label>
             <select {...register('zone_id')} disabled={!watchedSiteId}>
               <option value="">
-                {!watchedSiteId ? '— Choisis un site d\'abord —' : '— Aucune zone —'}
+                {!watchedSiteId ? '— Choisissez un site d\'abord —' : '— Aucune zone —'}
               </option>
               {zones.map((z) => (
                 <option key={z.id} value={z.id}>
@@ -454,7 +454,7 @@ export function EquipmentUnitModal({
                   </span>
                 ) : (
                   <span style={{ color: 'var(--ink2)' }}>
-                    <strong style={{ color: 'var(--ink)' }}>Scanner l'étiquette</strong> : prends la plaque en photo,
+                    <strong style={{ color: 'var(--ink)' }}>Scanner l'étiquette</strong> : prenez la plaque en photo,
                     la marque, le type et l'année se remplissent tout seuls.
                   </span>
                 )}
@@ -552,7 +552,7 @@ export function EquipmentUnitModal({
           <div className="fg">
             <label>Code de l'étiquette : QR ou code-barres (facultatif)</label>
             <div style={{ display: 'flex', gap: 8 }}>
-              <input type="text" placeholder="Scanne l'étiquette ou saisis son code" {...register('qr_code')} style={{ flex: 1, minWidth: 0 }} />
+              <input type="text" placeholder="Scannez l'étiquette ou saisissez son code" {...register('qr_code')} style={{ flex: 1, minWidth: 0 }} />
               <button type="button" className="mf out" onClick={() => setQrScanOpen(true)}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
                 <QrCode size={14} strokeWidth={2} /> Scanner
@@ -672,7 +672,7 @@ export function EquipmentUnitModal({
         <QrScanner
           onClose={() => setQrScanOpen(false)}
           onResult={(text) => { setValue('qr_code', text.trim(), { shouldDirty: true }); setQrScanOpen(false) }}
-          hint="Vise le QR code ou le code-barres de l'étiquette de cet équipement."
+          hint="Visez le QR code ou le code-barres de l'étiquette de cet équipement."
         />
       )}
     </div>

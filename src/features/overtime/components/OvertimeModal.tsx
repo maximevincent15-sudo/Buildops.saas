@@ -66,12 +66,12 @@ export function OvertimeModal({ open, onClose, onCreated }: Props) {
     }
     const tech = technicians.find((t) => t.id === techId)
     if (!tech) {
-      setError('Choisis un technicien.')
+      setError('Choisissez un technicien.')
       return
     }
     const hours = parseFloat(hoursStr.replace(',', '.'))
     if (!Number.isFinite(hours) || hours <= 0 || hours > 24) {
-      setError('Saisis un nombre d\'heures valide (entre 0 et 24).')
+      setError('Saisissez un nombre d\'heures valide (entre 0 et 24).')
       return
     }
 
@@ -124,7 +124,7 @@ export function OvertimeModal({ open, onClose, onCreated }: Props) {
               </select>
               {technicians.length === 0 && (
                 <span className="text-ink-3 text-xs font-light">
-                  Aucun technicien actif. Crée-en un d'abord.
+                  Aucun technicien actif. Créez-en un d'abord.
                 </span>
               )}
             </div>

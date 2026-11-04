@@ -53,7 +53,7 @@ export function LogoCard({ organizationId, logoUrl, onChange }: Props) {
           Logo de l'entreprise
         </span>
         <span className="text-ink-3 text-xs font-light">
-          Imprimé en tête de tes devis, factures, rapports et contrats.
+          Imprimé en tête de vos devis, factures, rapports et contrats.
         </span>
       </div>
 
@@ -97,7 +97,7 @@ export function LogoCard({ organizationId, logoUrl, onChange }: Props) {
           </div>
           <span className="text-ink-3 text-xs font-light" style={{ lineHeight: 1.5 }}>
             PNG ou JPG, 1 Mo maximum. Un logo en largeur, sur fond blanc ou transparent, rend le mieux.
-            Les documents déjà générés ne changent pas : régénère le PDF pour y mettre le nouveau logo.
+            Les documents déjà générés ne changent pas : régénérez le PDF pour y mettre le nouveau logo.
           </span>
           {error && <span className="ferr on">{error}</span>}
         </div>

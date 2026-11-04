@@ -176,7 +176,7 @@ export function EquipePage() {
 
   async function handleChangeRole(memberId: string, newRole: UserRole, isCurrentUser: boolean) {
     if (isCurrentUser) {
-      alert('Tu ne peux pas modifier ton propre rôle pour éviter de te bloquer.')
+      alert('Vous ne pouvez pas modifier votre propre rôle pour éviter de vous bloquer.')
       return
     }
     if (!window.confirm(`Changer le rôle de ce membre en "${ROLE_LABEL[newRole]}" ?`)) return
@@ -190,7 +190,7 @@ export function EquipePage() {
 
   async function handleRemoveMember(member: TeamMember, isCurrentUser: boolean) {
     if (isCurrentUser) {
-      alert('Tu ne peux pas te retirer toi-même de l\'équipe. Demande à un autre admin de le faire.')
+      alert('Vous ne pouvez pas vous retirer vous-même de l\'équipe. Demandez à un autre admin de le faire.')
       return
     }
     // Sécurité : empêcher de retirer le dernier admin
@@ -249,7 +249,7 @@ export function EquipePage() {
         <div>
           <div className="dash-title">Équipe</div>
           <div className="dash-sub">
-            Invite tes employés à rejoindre ton organisation Firovia.
+            Invitez vos employés à rejoindre votre organisation Firovia.
             {!loading && accountLimit !== null && (
               <span style={{ marginLeft: 8, color: atAccountLimit ? 'var(--org, #C45A1A)' : 'var(--ink3)' }}>
                 · {usedAccounts} / {accountLimit} comptes utilisés (un par technicien facturé + comptes bureau)
@@ -355,7 +355,7 @@ export function EquipePage() {
 
         {!loading && members.length === 0 && (
           <p className="text-ink-3 text-sm font-light" style={{ margin: 0 }}>
-            Aucun membre. Invite ton premier collaborateur ci-dessus.
+            Aucun membre. Invitez votre premier collaborateur ci-dessus.
           </p>
         )}
 
@@ -373,7 +373,7 @@ export function EquipePage() {
                   <div className="member-main">
                     <div className="member-name">
                       {fullName}
-                      {isCurrentUser && <span className="member-you"> · toi</span>}
+                      {isCurrentUser && <span className="member-you"> · vous</span>}
                     </div>
                     <div className="member-meta">
                       {ROLE_LABEL[m.user_role]} · {ROLE_DESC[m.user_role]}
@@ -441,8 +441,8 @@ export function EquipePage() {
             {!generatedInvitation ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <p className="text-ink-2 text-sm font-light" style={{ margin: 0 }}>
-                  Génère un lien d'invitation à envoyer par email à ton collègue.
-                  Il pourra créer son compte et rejoindre automatiquement ton organisation.
+                  Générez un lien d'invitation à envoyer par email à votre collègue.
+                  Il pourra créer son compte et rejoindre automatiquement votre organisation.
                 </p>
                 <div className="fg">
                   <label>Email du membre à inviter</label>

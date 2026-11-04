@@ -108,7 +108,7 @@ export function buildDevisRelance(ctx: RelanceContext): {
     `Je reviens vers vous concernant le devis${ref} ${issued}.${amountLine}\n\n` +
     `Avez-vous pu en prendre connaissance ? Je reste disponible pour échanger sur les points qui méritent éclaircissement, ` +
     `ou pour ajuster certaines lignes si besoin.\n\n` +
-    `N'hésite pas à me revenir pour qu'on planifie ensemble.\n\n` +
+    `N'hésitez pas à me revenir pour qu'on planifie ensemble.\n\n` +
     `${signature(ctx)}`
   return { subject, body }
 }
@@ -143,7 +143,7 @@ export function buildGeneralMessage(ctx: RelanceContext): {
   const subject = `Message — ${ctx.organizationName}`
   const body =
     `${greeting(ctx)}\n\n` +
-    `[Saisis ton message ici]\n\n` +
+    `[Saisissez votre message ici]\n\n` +
     `${signature(ctx)}`
   return { subject, body }
 }

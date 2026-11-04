@@ -168,7 +168,7 @@ export function PlanningTeamView({
 
       {visibleRows.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-          <p className="text-ink-2 text-sm">Aucun technicien à afficher. Ajoute tes techniciens dans RH → Techniciens.</p>
+          <p className="text-ink-2 text-sm">Aucun technicien à afficher. Ajoutez vos techniciens dans RH → Techniciens.</p>
         </div>
       ) : (
         <div className="pt-grid-wrap">

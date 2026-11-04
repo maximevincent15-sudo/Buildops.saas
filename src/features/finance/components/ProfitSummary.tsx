@@ -66,7 +66,7 @@ export function ProfitSummary({ profit, monthKeys }: Props) {
           <Link to="/parametres#charges-fixes" style={{ color: 'var(--acc)' }}>Modifier mes charges fixes</Link>
         ) : (
           <Link to="/parametres#charges-fixes" style={{ color: 'var(--acc)', fontWeight: 600 }}>
-            Renseigne tes charges fixes (salaires, loyer…) pour voir ton bénéfice ou ta perte →
+            Renseignez vos charges fixes (salaires, loyer…) pour voir votre bénéfice ou votre perte →
           </Link>
         )}
       </p>

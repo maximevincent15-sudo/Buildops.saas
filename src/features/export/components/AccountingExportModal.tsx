@@ -91,7 +91,7 @@ export function AccountingExportModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <p className="text-ink-2 text-sm font-light" style={{ margin: '0 0 .9rem' }}>
-          À envoyer à ton expert-comptable : factures, journal des ventes (format FEC, importable dans son logiciel),
+          À envoyer à votre expert-comptable : factures, journal des ventes (format FEC, importable dans son logiciel),
           TVA collectée par taux et notes de frais validées.
         </p>
 
@@ -118,7 +118,7 @@ export function AccountingExportModal({ onClose }: { onClose: () => void }) {
           <div className="card" style={{ marginTop: '.4rem', background: '#E6F4EB', border: '1px solid #B7DFC7', color: '#0E7A3F', fontSize: '.85rem' }}>
             Export téléchargé : {result.invoiceCount} facture{result.invoiceCount > 1 ? 's' : ''} ({formatAmount(result.totalHt)} HT),{' '}
             {result.expenseCount} note{result.expenseCount > 1 ? 's' : ''} de frais.
-            {result.balanced ? ' Journal équilibré.' : ' Attention : journal déséquilibré, vérifie les factures.'}
+            {result.balanced ? ' Journal équilibré.' : ' Attention : journal déséquilibré, vérifiez les factures.'}
             {result.cancelledCount > 0 && ` ${result.cancelledCount} facture${result.cancelledCount > 1 ? 's' : ''} annulée${result.cancelledCount > 1 ? 's' : ''} à régulariser par un avoir.`}
           </div>
         )}

@@ -56,7 +56,7 @@ export function ImportWizard({ definition, onDone }: Props) {
 
   async function handleFile(file: File) {
     if (!orgId) {
-      setError('Organisation non chargée, reconnecte-toi.')
+      setError('Organisation non chargée, reconnectez-vous.')
       return
     }
     setLoadingParse(true)
@@ -64,7 +64,7 @@ export function ImportWizard({ definition, onDone }: Props) {
     try {
       const parsed = await parseImportFile(file, definition.fields)
       if (parsed.length === 0) {
-        setError('Le fichier ne contient aucune ligne exploitable. Vérifie que les en-têtes correspondent au template.')
+        setError('Le fichier ne contient aucune ligne exploitable. Vérifiez que les en-têtes correspondent au template.')
         setLoadingParse(false)
         return
       }
@@ -141,7 +141,7 @@ export function ImportWizard({ definition, onDone }: Props) {
       <>
         <div className="card" style={{ marginBottom: '1rem' }}>
           <div className="card-top">
-            <span className="card-title">1. Télécharge le template</span>
+            <span className="card-title">1. Téléchargez le template</span>
           </div>
           <p className="text-ink-2 text-sm font-light" style={{ margin: '0 0 .8rem' }}>
             {definition.description}
@@ -157,13 +157,13 @@ export function ImportWizard({ definition, onDone }: Props) {
           </button>
           <p className="text-ink-3 text-xs font-light" style={{ marginTop: '.8rem' }}>
             Le template contient les colonnes attendues avec un exemple et des indications.
-            Remplis-le avec tes données existantes (copier-coller depuis Excel possible) et importe-le ensuite.
+            Remplissez-le avec vos données existantes (copier-coller depuis Excel possible) et importez-le ensuite.
           </p>
         </div>
 
         <div className="card">
           <div className="card-top">
-            <span className="card-title">2. Importe le fichier rempli</span>
+            <span className="card-title">2. Importez le fichier rempli</span>
           </div>
           <div
             className={`import-dropzone${dragOver ? ' over' : ''}`}
@@ -174,7 +174,7 @@ export function ImportWizard({ definition, onDone }: Props) {
           >
             <Upload size={32} strokeWidth={1.5} />
             <div className="import-dropzone-title">
-              {loadingParse ? 'Analyse du fichier…' : 'Glisse ton fichier ici ou clique pour choisir'}
+              {loadingParse ? 'Analyse du fichier…' : 'Glissez votre fichier ici ou cliquez pour choisir'}
             </div>
             <div className="import-dropzone-sub">
               Formats acceptés : <strong>.xlsx</strong>, <strong>.csv</strong>

@@ -46,7 +46,7 @@ export function MyDayCard() {
       navigate(`/rapports/${i.id}`)
     } catch {
       setBusy(null)
-      alert('Impossible de démarrer. Vérifie ta connexion et réessaie.')
+      alert('Impossible de démarrer. Vérifiez votre connexion et réessayez.')
     }
   }
 

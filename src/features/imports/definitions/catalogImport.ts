@@ -57,7 +57,7 @@ export const catalogImportDefinition: ImportDefinition = {
   },
   templateFilename: 'catalogue-firovia.xlsx',
   description:
-    'Importe ta liste de prix depuis Excel ou CSV : désignation et prix de vente HT sont obligatoires. ' +
+    'Importez votre liste de prix depuis Excel ou CSV : désignation et prix de vente HT sont obligatoires. ' +
     'Catégories acceptées : prestation, fourniture, main-d\'œuvre, déplacement, autre. TVA par défaut : 20 %.',
   fields: [
     { key: 'label', label: 'Désignation', required: true, aliases: ['Libellé', 'Article', 'Description', 'Produit'], example: 'Extincteur CO2 2 kg' },

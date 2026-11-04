@@ -153,8 +153,8 @@ export async function getNextNumbers(organizationId: string): Promise<NextNumber
 
 const NEXT_NUMBER_ERRORS: Record<string, string> = {
   not_admin: 'Seul un administrateur peut changer la numérotation.',
-  bad_number: 'Indique un numéro entre 1 et 999 999.',
-  would_reuse: 'Ce numéro de devis est déjà utilisé : choisis un numéro plus grand.',
+  bad_number: 'Indiquez un numéro entre 1 et 999 999.',
+  would_reuse: 'Ce numéro de devis est déjà utilisé : choisissez un numéro plus grand.',
   invoices_already_issued: 'Des factures ont déjà été créées cette année : leur numérotation doit rester continue et ne peut plus être changée.',
 }
 

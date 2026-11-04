@@ -165,8 +165,8 @@ export function ContractModal({ open, onClose, onSaved, contract }: Props) {
 
   async function handleSave() {
     if (!organizationId) return
-    if (!clientName.trim()) { setError('Choisis le client du contrat.'); return }
-    if (!lines.some((l) => l.description.trim())) { setError('Ajoute au moins une prestation (ou un forfait).'); return }
+    if (!clientName.trim()) { setError('Choisissez le client du contrat.'); return }
+    if (!lines.some((l) => l.description.trim())) { setError('Ajoutez au moins une prestation (ou un forfait).'); return }
     setSaving(true)
     setError(null)
     try {
@@ -277,7 +277,7 @@ export function ContractModal({ open, onClose, onSaved, contract }: Props) {
   }
 
   async function handleDelete() {
-    if (!contract || !window.confirm(`Supprimer le contrat ${contract.reference} ?\n\nSes visites restent au planning, détachées du contrat. Pour arrêter un contrat en cours, préfère « Résilier ».`)) return
+    if (!contract || !window.confirm(`Supprimer le contrat ${contract.reference} ?\n\nSes visites restent au planning, détachées du contrat. Pour arrêter un contrat en cours, préférez « Résilier ».`)) return
     setSaving(true)
     try {
       await deleteContract(contract.id)
@@ -339,7 +339,7 @@ export function ContractModal({ open, onClose, onSaved, contract }: Props) {
             <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center', flexWrap: 'wrap', padding: '.75rem .9rem', borderRadius: 10, background: endDays < 0 ? '#FBEAEA' : '#FDF1E7', border: `1px solid ${endDays < 0 ? '#F2C4C4' : '#F0C9A6'}`, fontSize: '.85rem' }}>
               <span style={{ flex: '1 1 320px' }}>
                 {endDays < 0 ? <>Ce contrat est <strong>arrivé à son terme le {frDate(end)}</strong></> : <>Ce contrat <strong>se termine le {frDate(end)}</strong></>}
-                {' '}(sans reconduction tacite). Renouvelle-le avec le client, ou laisse-le expirer.
+                {' '}(sans reconduction tacite). Renouvelez-le avec le client, ou laissez-le expirer.
               </span>
               <button type="button" className="btn-sm acc" onClick={() => void handleRenew()} disabled={saving}>Renouveler 12 mois</button>
               {endDays < 0 && (
@@ -376,9 +376,9 @@ export function ContractModal({ open, onClose, onSaved, contract }: Props) {
           {/* Sites */}
           <div className="card-section">
             <div className="card-section-title">Sites couverts</div>
-            {!clientId && <p className="text-ink-3 text-xs font-light">Choisis d'abord un client existant.</p>}
+            {!clientId && <p className="text-ink-3 text-xs font-light">Choisissez d'abord un client existant.</p>}
             {clientId && clientSites.length === 0 && (
-              <p className="text-ink-3 text-xs font-light">Ce client n'a pas encore de site. Crée-le dans Équipements pour planifier ses visites.</p>
+              <p className="text-ink-3 text-xs font-light">Ce client n'a pas encore de site. Créez-le dans Équipements pour planifier ses visites.</p>
             )}
             {clientSites.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem' }}>
@@ -481,7 +481,7 @@ export function ContractModal({ open, onClose, onSaved, contract }: Props) {
               <CatalogPicker onPick={addCatalogItem} />
             </div>
             <p className="text-ink-3 text-xs font-light" style={{ marginTop: '.5rem' }}>
-              Choisis une famille puis clique sur la calculette pour compter les équipements en service du parc.
+              Choisissez une famille puis cliquez sur la calculette pour compter les équipements en service du parc.
               Le montant annuel = quantité × prix par visite × nombre de visites par an.
             </p>
             <div className="quote-totals" style={{ marginTop: '.6rem' }}>

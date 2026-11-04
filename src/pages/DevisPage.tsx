@@ -200,8 +200,8 @@ export function DevisPage() {
             </p>
             {tab === 'all' && (
               <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 460, margin: '0 auto' }}>
-                Crée ton premier devis pour le proposer au client. La numérotation est automatique
-                (DEV-2026-0001) et tu peux générer un PDF prêt à envoyer en 1 clic.
+                Créez votre premier devis pour le proposer au client. La numérotation est automatique
+                (DEV-2026-0001) et vous pouvez générer un PDF prêt à envoyer en 1 clic.
               </p>
             )}
           </div>
@@ -275,7 +275,7 @@ export function DevisPage() {
         onSaved={() => void load()}
         quoteId={editingId}
         seed={duplicate?.seed}
-        notice={duplicate ? `Copie du devis ${duplicate.from} : vérifie le client et les quantités, puis crée le devis. Il aura un nouveau numéro.` : undefined}
+        notice={duplicate ? `Copie du devis ${duplicate.from} : vérifiez le client et les quantités, puis créez le devis. Il aura un nouveau numéro.` : undefined}
         onDuplicate={(seed, from) => {
           setDuplicate({ seed, from })
           setEditingId(null)

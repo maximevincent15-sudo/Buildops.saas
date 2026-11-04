@@ -36,7 +36,7 @@ async function toCompressedJpeg(file: File, maxDim = 1600, quality = 0.85): Prom
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const i = new Image()
       i.onload = () => resolve(i)
-      i.onerror = () => reject(new LabelScanError('Format de photo non supporté. Réessaie avec l\'appareil photo.'))
+      i.onerror = () => reject(new LabelScanError('Format de photo non supporté. Réessayez avec l\'appareil photo.'))
       i.src = url
     })
     const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight))
@@ -54,7 +54,7 @@ async function toCompressedJpeg(file: File, maxDim = 1600, quality = 0.85): Prom
 
 export async function scanEquipmentLabel(file: File): Promise<LabelScanResult> {
   if (!navigator.onLine) {
-    throw new LabelScanError('Pas de réseau : le scan nécessite une connexion. Remplis la fiche à la main.')
+    throw new LabelScanError('Pas de réseau : le scan nécessite une connexion. Remplissez la fiche à la main.')
   }
   const image = await toCompressedJpeg(file)
 
@@ -65,12 +65,12 @@ export async function scanEquipmentLabel(file: File): Promise<LabelScanResult> {
   if (error) {
     const status = (error as { context?: { status?: number } }).context?.status
     if (status === 404 || status === 503) {
-      throw new LabelScanError('Le scan d\'étiquette n\'est pas encore activé sur ton compte.')
+      throw new LabelScanError('Le scan d\'étiquette n\'est pas encore activé sur votre compte.')
     }
     if (status === 429) {
-      throw new LabelScanError('Beaucoup de scans d\'un coup : patiente une minute puis réessaie.')
+      throw new LabelScanError('Beaucoup de scans d\'un coup : patientez une minute puis réessayez.')
     }
-    throw new LabelScanError('La lecture de l\'étiquette a échoué. Réessaie ou remplis la fiche à la main.')
+    throw new LabelScanError('La lecture de l\'étiquette a échoué. Réessayez ou remplissez la fiche à la main.')
   }
   return data as LabelScanResult
 }

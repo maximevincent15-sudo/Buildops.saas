@@ -25,7 +25,7 @@ export function InterventionRowActions({ intervention, onChanged }: Props) {
       onChanged()
     } catch (err) {
       console.error('Erreur changement statut', err)
-      alert('Impossible de changer le statut. Réessaye dans quelques secondes.')
+      alert('Impossible de changer le statut. Réessayez dans quelques secondes.')
     } finally {
       setLoading(false)
     }

@@ -218,8 +218,8 @@ export function buildInvitationMailto(invitation: Invitation, orgName: string, s
   const subject = `Invitation à rejoindre ${orgName} sur Firovia`
   const body =
     `Bonjour,\n\n` +
-    `Tu es invité(e) à rejoindre l'équipe ${orgName} sur Firovia en tant que ${role}.\n\n` +
-    `Clique sur ce lien pour créer ton compte et rejoindre l'équipe :\n${url}\n\n` +
+    `Vous êtes invité(e) à rejoindre l'équipe ${orgName} sur Firovia en tant que ${role}.\n\n` +
+    `Cliquez sur ce lien pour créer votre compte et rejoindre l'équipe :\n${url}\n\n` +
     `Le lien expire le ${expires}.\n\n` +
     `À bientôt,\n${signature}`.trim()
   const params = new URLSearchParams()

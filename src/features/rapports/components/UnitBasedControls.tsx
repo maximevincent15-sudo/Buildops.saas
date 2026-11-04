@@ -340,7 +340,7 @@ export function UnitBasedControls({
     } catch {
       // recherche impossible (réseau) : on propose quand même la création
     }
-    setScanMessage({ tone: 'warn', text: 'Nouvelle étiquette : vérifie la fiche pour ajouter cet équipement au site.' })
+    setScanMessage({ tone: 'warn', text: 'Nouvelle étiquette : vérifiez la fiche pour ajouter cet équipement au site.' })
     setAddDraft({ qr: text.trim() })
   }
 
@@ -417,7 +417,7 @@ export function UnitBasedControls({
     try {
       const flagged = anomalyUnitIds ?? await listUnitIdsWithActiveAnomalies(groupUnits.map((u) => u.id)).catch(() => null)
       if (!flagged) {
-        setScanMessage({ tone: 'warn', text: 'Impossible de vérifier les anomalies en cours (réseau) : contrôle ces équipements un par un, ou réessaie avec du réseau.' })
+        setScanMessage({ tone: 'warn', text: 'Impossible de vérifier les anomalies en cours (réseau) : contrôlez ces équipements un par un, ou réessayez avec du réseau.' })
         return
       }
       if (!anomalyUnitIds) setAnomalyUnitIds(flagged)
@@ -548,8 +548,8 @@ export function UnitBasedControls({
           <span className="card-title">Inventaire au scan</span>
         </div>
         <p className="text-ink-2 text-sm font-light" style={{ padding: '0 4px 12px', lineHeight: 1.5 }}>
-          Ce site n'a pas encore d'équipements enregistrés. Scanne l'étiquette de chaque appareil :
-          il est ajouté au parc du site, puis tu fais son contrôle. À la prochaine visite, un scan suffira pour le retrouver.
+          Ce site n'a pas encore d'équipements enregistrés. Scannez l'étiquette de chaque appareil :
+          il est ajouté au parc du site, puis vous faites son contrôle. À la prochaine visite, un scan suffira pour le retrouver.
         </p>
         {error && (
           <p className="text-red text-sm" style={{ padding: '4px 12px' }}>
@@ -581,7 +581,7 @@ export function UnitBasedControls({
           <Plus size={15} strokeWidth={2} /> Ajouter sans étiquette
         </button>
         <p className="text-ink-3 text-xs font-light" style={{ padding: '10px 4px 0', textAlign: 'center' }}>
-          Tu peux aussi remplir la checklist globale ci-dessous, sans faire l'inventaire.
+          Vous pouvez aussi remplir la checklist globale ci-dessous, sans faire l'inventaire.
         </p>
         {overlays}
       </div>
@@ -918,7 +918,7 @@ function UnitCheckModal({
       onUnitChange(updated)
     } catch (e) {
       if (p) void deleteUnitPhoto(p.path)
-      setPhotoError(e instanceof Error ? e.message : 'Photo non enregistrée. Vérifie ta connexion.')
+      setPhotoError(e instanceof Error ? e.message : 'Photo non enregistrée. Vérifiez votre connexion.')
     }
   }
 
@@ -1098,7 +1098,7 @@ function UnitCheckModal({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '.9rem', padding: '.5rem 0' }}>
           {outOfScope && (
             <div style={{ fontSize: 12.5, color: '#8A3D0E', background: '#FDF1E7', border: '1px solid #F0C9A6', borderRadius: 8, padding: '8px 10px' }}>
-              Cet équipement n'est pas prévu dans ce chantier : vérifie que c'est le bon avant de le contrôler.
+              Cet équipement n'est pas prévu dans ce chantier : vérifiez que c'est le bon avant de le contrôler.
             </div>
           )}
 
@@ -1459,9 +1459,9 @@ function UnitCheckModal({
             {saving
               ? 'Enregistrement…'
               : verdict === 'non_verifie'
-                ? 'Choisis un verdict'
+                ? 'Choisissez un verdict'
                 : !anomalyFormValid
-                  ? 'Complète les détails d\'anomalie'
+                  ? 'Complétez les détails d\'anomalie'
                   : 'Enregistrer'}
           </button>
           {hasNext && !readOnly && (

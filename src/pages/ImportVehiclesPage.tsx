@@ -13,7 +13,7 @@ export function ImportVehiclesPage() {
             Importer des véhicules
           </div>
           <div className="dash-sub">
-            Migre ton parc véhicules avec dates CT, assurance et vidange en un seul import.
+            Migrez votre parc véhicules avec dates CT, assurance et vidange en un seul import.
           </div>
         </div>
         <Link

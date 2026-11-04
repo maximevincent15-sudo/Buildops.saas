@@ -66,7 +66,7 @@ function buildMessage(c: BriefCounts): { title: string; text: React.ReactNode } 
       title: 'Journée tranquille',
       text: (
         <>
-          Rien d'urgent aujourd'hui. Profites-en pour planifier tes prochaines interventions ou relancer les clients qui arrivent à échéance.
+          Rien d'urgent aujourd'hui. Profitez-en pour planifier vos prochaines interventions ou relancer les clients qui arrivent à échéance.
         </>
       ),
     }
@@ -74,7 +74,7 @@ function buildMessage(c: BriefCounts): { title: string; text: React.ReactNode } 
 
   return {
     title: 'Briefing du jour',
-    text: <>Tu as {renderParts(parts)}.</>,
+    text: <>Vous avez {renderParts(parts)}.</>,
   }
 }
 

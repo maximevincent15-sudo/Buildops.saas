@@ -102,7 +102,7 @@ export function RapportsListPage() {
               Aucun rapport pour le moment.
             </p>
             <p className="text-ink-3 text-xs font-light" style={{ marginBottom: '1.2rem' }}>
-              Les rapports apparaissent ici dès que tu démarres une intervention et rédiges un rapport terrain.
+              Les rapports apparaissent ici dès que vous démarrez une intervention et rédigez un rapport terrain.
             </p>
             <Link to="/planning" className="btn-sm acc">Aller au planning</Link>
           </div>

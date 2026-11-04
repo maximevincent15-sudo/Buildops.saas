@@ -61,7 +61,7 @@ export function DossiersPage() {
             <FolderOpen size={32} strokeWidth={1.5} className="text-ink-3" style={{ margin: '0 auto .5rem' }} />
             <p className="text-ink-2 font-light" style={{ marginBottom: '.5rem' }}>Aucun dossier pour l'instant.</p>
             <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 460, margin: '0 auto 1rem' }}>
-              Donne un N° de dossier à un site (Équipements, choisis le site, puis « Modifier ce site ») ou à une visite (Planning) :
+              Donnez un N° de dossier à un site (Équipements, choisissez le site, puis « Modifier ce site ») ou à une visite (Planning) :
               son dossier apparaît ici, avec ses visites, ses rapports, ses devis, ses factures et ses documents. Chaque année a son numéro.
             </p>
             <Link to="/equipements" className="btn-sm">Aller aux équipements</Link>

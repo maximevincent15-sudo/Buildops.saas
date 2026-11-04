@@ -141,8 +141,8 @@ export function VehiculesPage() {
               Aucun véhicule enregistré.
             </p>
             <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 460, margin: '0 auto' }}>
-              Clique sur "Nouveau véhicule" pour enregistrer plaque, modèle, technicien assigné
-              et surtout les 3 dates clés : contrôle technique, assurance, vidange. Tu verras
+              Cliquez sur "Nouveau véhicule" pour enregistrer plaque, modèle, technicien assigné
+              et surtout les 3 dates clés : contrôle technique, assurance, vidange. Vous verrez
               automatiquement les alertes dans la page Alertes dès que ça approche.
             </p>
           </div>

@@ -88,7 +88,7 @@ export function QrScanner({ onResult, onClose, hint }: Props) {
 
     async function start() {
       if (!navigator.mediaDevices?.getUserMedia) {
-        setError('La caméra n\'est pas accessible sur cet appareil. Prends une photo de l\'étiquette à la place.')
+        setError('La caméra n\'est pas accessible sur cet appareil. Prenez une photo de l\'étiquette à la place.')
         setStarting(false)
         return
       }
@@ -99,7 +99,7 @@ export function QrScanner({ onResult, onClose, hint }: Props) {
         })
       } catch {
         if (alive) {
-          setError('Accès à la caméra refusé. Autorise la caméra pour Firovia dans les réglages, ou prends une photo de l\'étiquette.')
+          setError('Accès à la caméra refusé. Autorisez la caméra pour Firovia dans les réglages, ou prenez une photo de l\'étiquette.')
           setStarting(false)
         }
         return
@@ -192,7 +192,7 @@ export function QrScanner({ onResult, onClose, hint }: Props) {
       text ??= await decodeWithJsQr(canvas)
       text ??= await decodeBarcode(canvas)
       if (text) finish(text)
-      else setError('Aucun QR code ni code-barres lisible sur la photo. Recommence en te rapprochant de l\'étiquette.')
+      else setError('Aucun QR code ni code-barres lisible sur la photo. Recommencez en vous rapprochant de l\'étiquette.')
     } catch {
       setError('Impossible de lire cette photo.')
     }
@@ -218,7 +218,7 @@ export function QrScanner({ onResult, onClose, hint }: Props) {
       </div>
 
       <div style={{ padding: '14px 16px 22px', color: 'rgba(255,255,255,.85)', fontSize: 14, textAlign: 'center' }}>
-        {error ? <p style={{ color: '#FFB4A8', marginBottom: 12 }}>{error}</p> : <p style={{ marginBottom: 12 }}>{hint ?? 'Vise le QR code ou le code-barres de l\'étiquette : la lecture est automatique.'}</p>}
+        {error ? <p style={{ color: '#FFB4A8', marginBottom: 12 }}>{error}</p> : <p style={{ marginBottom: 12 }}>{hint ?? 'Visez le QR code ou le code-barres de l\'étiquette : la lecture est automatique.'}</p>}
         <button type="button" onClick={() => fileRef.current?.click()}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'white', color: '#1C2130', border: 'none', borderRadius: 999, padding: '11px 18px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
           <Camera size={16} /> Prendre une photo à la place

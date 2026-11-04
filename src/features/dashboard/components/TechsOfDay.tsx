@@ -67,8 +67,8 @@ export function TechsOfDay() {
 
       {!loading && techs.length === 0 && (
         <p style={{ padding: '12px 0', fontSize: 13, color: 'var(--ink2)' }}>
-          Aucun technicien assigné pour le moment. Ajoute un nom de technicien
-          dans tes interventions pour voir leur charge ici.
+          Aucun technicien assigné pour le moment. Ajoutez un nom de technicien
+          dans vos interventions pour voir leur charge ici.
         </p>
       )}
 

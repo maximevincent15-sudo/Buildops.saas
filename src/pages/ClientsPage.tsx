@@ -124,7 +124,7 @@ export function ClientsPage() {
               Aucun client pour le moment.
             </p>
             <p className="text-ink-3 text-xs font-light" style={{ marginBottom: '1.2rem' }}>
-              Crée ta première fiche client pour centraliser ses infos de contact et son historique.
+              Créez votre première fiche client pour centraliser ses infos de contact et son historique.
             </p>
             <button type="button" className="btn-sm acc" onClick={openCreate}>
               + Créer un client
@@ -154,7 +154,7 @@ export function ClientsPage() {
               <span className="text-ink-3 text-xs font-light">
                 {search.trim()
                   ? `${visible.length} résultat${visible.length > 1 ? 's' : ''} sur ${total}`
-                  : 'Clique sur une fiche pour modifier ou supprimer un client.'}
+                  : 'Cliquez sur une fiche pour modifier ou supprimer un client.'}
               </span>
             </div>
 

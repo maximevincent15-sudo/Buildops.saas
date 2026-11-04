@@ -554,7 +554,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                         if (c.siren && !clientSiren) setClientSiren(c.siren)
                       }
                     }}
-                    placeholder="Tape le nom du client"
+                    placeholder="Tapez le nom du client"
                   />
                 </div>
                 <div className="fg">
@@ -581,7 +581,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                   <AddressAutocomplete
                     value={clientAddress}
                     onChange={setClientAddress}
-                    placeholder="Commence à taper le numéro et la rue…"
+                    placeholder="Commencez à taper le numéro et la rue…"
                   />
                 </div>
               </div>
@@ -620,7 +620,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                   <AddressAutocomplete
                     value={siteAddress}
                     onChange={setSiteAddress}
-                    placeholder="Commence à taper le numéro et la rue…"
+                    placeholder="Commencez à taper le numéro et la rue…"
                   />
                 </div>
               </div>

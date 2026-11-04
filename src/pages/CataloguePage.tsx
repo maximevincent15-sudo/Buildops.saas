@@ -69,18 +69,18 @@ export function CataloguePage() {
     const existing = new Set(items.map((i) => normalizeSearch(i.label)))
     const missing = DEFAULT_CATALOG.filter((i) => !existing.has(normalizeSearch(i.label)))
     if (missing.length === 0) {
-      setFlash('Tous les articles types sont déjà dans ton catalogue.')
+      setFlash('Tous les articles types sont déjà dans votre catalogue.')
       return
     }
     if (!window.confirm(
       `Ajouter ${missing.length} articles types (vérifications, recharges, extincteurs, BAES, main-d'œuvre, déplacement) ?\n\n` +
-      'Les prix sont INDICATIFS : ajuste-les ensuite à ton propre tarif.',
+      'Les prix sont INDICATIFS : ajustez-les ensuite à votre propre tarif.',
     )) return
     setSeeding(true)
     setError(null)
     try {
       const n = await createCatalogItems(missing, organizationId)
-      setFlash(`${n} articles ajoutés. Pense à ajuster les prix à ton tarif.`)
+      setFlash(`${n} articles ajoutés. Pensez à ajuster les prix à votre tarif.`)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
@@ -98,7 +98,7 @@ export function CataloguePage() {
         <div>
           <div className="dash-title">Catalogue</div>
           <div className="dash-sub">
-            {total === 0 && 'Tes articles et tarifs, pour remplir un devis ou une facture en un clic'}
+            {total === 0 && 'Vos articles et tarifs, pour remplir un devis ou une facture en un clic'}
             {total > 0 && `${total} article${total > 1 ? 's' : ''}${inactive > 0 ? ` · ${inactive} masqué${inactive > 1 ? 's' : ''}` : ''}`}
           </div>
         </div>
@@ -140,11 +140,11 @@ export function CataloguePage() {
           <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
             <BookOpen size={28} strokeWidth={1.6} style={{ color: 'var(--ink3)', marginBottom: '.6rem' }} />
             <p className="text-ink-2 font-light" style={{ marginBottom: '.5rem' }}>
-              Ton catalogue est vide.
+              Votre catalogue est vide.
             </p>
             <p className="text-ink-3 text-xs font-light" style={{ marginBottom: '1.2rem', maxWidth: 520, marginInline: 'auto' }}>
-              Démarre avec une trentaine d'articles types du métier (vérifications, recharges, extincteurs,
-              éclairage de sécurité, main-d'œuvre, déplacement) puis ajuste les prix, ou importe ta propre liste de prix.
+              Démarrez avec une trentaine d'articles types du métier (vérifications, recharges, extincteurs,
+              éclairage de sécurité, main-d'œuvre, déplacement) puis ajustez les prix, ou importez votre propre liste de prix.
             </p>
             <div style={{ display: 'inline-flex', gap: '.6rem', flexWrap: 'wrap', justifyContent: 'center' }}>
               <button type="button" className="btn-sm acc" onClick={() => void handleSeed()} disabled={seeding}>
@@ -174,7 +174,7 @@ export function CataloguePage() {
                 {CATALOG_CATEGORIES.map((c) => <option key={c} value={c}>{CATALOG_CATEGORY_SHORT[c]}</option>)}
               </select>
               <span className="text-ink-3 text-xs font-light">
-                {visible.length === total ? 'Clique sur un article pour le modifier.' : `${visible.length} sur ${total}`}
+                {visible.length === total ? 'Cliquez sur un article pour le modifier.' : `${visible.length} sur ${total}`}
               </span>
             </div>
 

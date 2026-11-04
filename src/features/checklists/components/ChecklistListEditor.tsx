@@ -93,7 +93,7 @@ export function ChecklistListEditor({ name, items, nameEditable, canReset, canDe
         )}
         {canReset && onReset && (
           <button type="button" className="btn-sm" onClick={() => {
-            if (window.confirm('Revenir à la liste Firovia ? Tes modifications de cette liste seront perdues.')) void run(onReset)
+            if (window.confirm('Revenir à la liste Firovia ? Vos modifications de cette liste seront perdues.')) void run(onReset)
           }} disabled={busy} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <RotateCcw size={13} /> Revenir à la liste Firovia
           </button>

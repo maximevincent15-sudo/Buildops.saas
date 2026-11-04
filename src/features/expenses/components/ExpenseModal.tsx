@@ -133,7 +133,7 @@ export function ExpenseModal({ open, onClose, onCreated }: Props) {
     }
     const tech = technicians.find((t) => t.id === techId)
     if (!tech) {
-      setError('Choisis un technicien.')
+      setError('Choisissez un technicien.')
       return
     }
     const amount = parseFloat(amountStr.replace(',', '.'))
@@ -142,7 +142,7 @@ export function ExpenseModal({ open, onClose, onCreated }: Props) {
       return
     }
     if (category === 'other' && !description.trim()) {
-      setError('Décris la nature du frais (catégorie "Autre").')
+      setError('Décrivez la nature du frais (catégorie "Autre").')
       return
     }
 
@@ -203,7 +203,7 @@ export function ExpenseModal({ open, onClose, onCreated }: Props) {
               </select>
               {technicians.length === 0 && (
                 <span className="text-ink-3 text-xs font-light">
-                  Aucun technicien actif. Crée-en un d'abord.
+                  Aucun technicien actif. Créez-en un d'abord.
                 </span>
               )}
             </div>
@@ -283,7 +283,7 @@ export function ExpenseModal({ open, onClose, onCreated }: Props) {
               type="text"
               placeholder={
                 category === 'other'
-                  ? 'Décris la nature du frais (obligatoire)'
+                  ? 'Décrivez la nature du frais (obligatoire)'
                   : 'Ex: Déjeuner chantier Valoris, commande Rexel…'
               }
               value={description}

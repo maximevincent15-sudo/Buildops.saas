@@ -36,7 +36,7 @@ export function UnitPhotoField({ organizationId, value, onChange, readOnly, vari
     try {
       onChange(await uploadUnitPhoto(file, organizationId))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Envoi de la photo impossible. Vérifie ta connexion.')
+      setError(err instanceof Error ? err.message : 'Envoi de la photo impossible. Vérifiez votre connexion.')
     } finally {
       setUploading(false)
     }
@@ -89,7 +89,7 @@ export function UnitPhotoField({ organizationId, value, onChange, readOnly, vari
           <span style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.4 }}>
             {value
               ? 'Le technicien reconnaît l\'appareil d\'un coup d\'œil à la prochaine visite.'
-              : 'Photographie l\'appareil avec ce qui l\'entoure (porte, mur, couloir) pour le retrouver facilement.'}
+              : 'Photographiez l\'appareil avec ce qui l\'entoure (porte, mur, couloir) pour le retrouver facilement.'}
           </span>
         )}
         {!readOnly && (

@@ -79,7 +79,7 @@ export function SiteModal({
 
   async function onSubmit(data: CreateSiteInput) {
     if (!profile?.organization_id) {
-      setSubmitError('Profil non chargé. Reconnecte-toi.')
+      setSubmitError('Profil non chargé. Reconnectez-vous.')
       return
     }
     setSubmitError(null)
@@ -183,7 +183,7 @@ export function SiteModal({
                     if (s.postcode) setValue('postal_code', s.postcode)
                     if (s.city) setValue('city', s.city)
                   }}
-                  placeholder="Commence à taper le numéro et la rue…"
+                  placeholder="Commencez à taper le numéro et la rue…"
                 />
               )}
             />
@@ -252,7 +252,7 @@ export function SiteModal({
                 🔗 Registre équipements partageable
               </div>
               <div style={{ marginBottom: 8, color: 'var(--ink2)' }}>
-                Transmets ce lien à ton client ou à la commission de sécurité — il affiche l'inventaire à jour du site, sans authentification.
+                Transmettez ce lien à votre client ou à la commission de sécurité — il affiche l'inventaire à jour du site, sans authentification.
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <input

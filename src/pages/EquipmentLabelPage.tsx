@@ -41,13 +41,13 @@ export function EquipmentLabelPage() {
         </span>
       </div>
       {state === 'error' ? (
-        <p className="text-red text-sm">Impossible de vérifier l'étiquette. Vérifie ta connexion et réessaie.</p>
+        <p className="text-red text-sm">Impossible de vérifier l'étiquette. Vérifiez votre connexion et réessayez.</p>
       ) : (
         <>
           <p className="text-ink-2 text-sm" style={{ lineHeight: 1.55, margin: '0 0 1rem' }}>
-            Cette étiquette n'est encore associée à aucun équipement de ton entreprise.
-            Pour l'associer : ouvre le rapport de l'intervention sur ce site, touche
-            <strong> « Scanner une étiquette »</strong> et scanne-la. L'appareil est créé avec ce code.
+            Cette étiquette n'est encore associée à aucun équipement de votre entreprise.
+            Pour l'associer : ouvrez le rapport de l'intervention sur ce site, touchez
+            <strong> « Scanner une étiquette »</strong> et scannez-la. L'appareil est créé avec ce code.
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Link to="/rapports" className="mf prim" style={{ textDecoration: 'none' }}>Ouvrir les rapports</Link>

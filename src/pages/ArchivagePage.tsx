@@ -321,7 +321,7 @@ export function ArchivagePage() {
               Aucun document archivé pour le moment.
             </p>
             <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 460, margin: '0 auto' }}>
-              Tous tes rapports finalisés, devis envoyés et factures émises apparaîtront ici
+              Tous vos rapports finalisés, devis envoyés et factures émises apparaîtront ici
               automatiquement, avec leur PDF téléchargeable.
             </p>
           </div>
@@ -330,7 +330,7 @@ export function ArchivagePage() {
         {!loading && !error && filtered.length === 0 && docs.length > 0 && (
           <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
             <p className="text-ink-3 text-sm font-light">
-              Aucun document ne correspond à ta recherche.
+              Aucun document ne correspond à votre recherche.
             </p>
             <button
               type="button"

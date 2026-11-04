@@ -274,7 +274,7 @@ export function FacturesPage() {
             </p>
             {tab === 'all' && (
               <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 460, margin: '0 auto' }}>
-                Crée une facture directement, ou transforme un devis accepté en facture en 1 clic
+                Créez une facture directement, ou transformez un devis accepté en facture en 1 clic
                 depuis la page Devis. Numérotation FAC-2026-0001 automatique et continue (conforme fiscalité FR).
               </p>
             )}

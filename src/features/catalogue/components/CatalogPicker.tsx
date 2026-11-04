@@ -123,7 +123,7 @@ export function CatalogPicker({ onPick }: Props) {
               {loadError
                 ? 'Catalogue indisponible pour le moment.'
                 : items.length === 0
-                  ? <>Ton catalogue est vide. <Link to="/catalogue" target="_blank" rel="noreferrer" onMouseDown={(e) => e.preventDefault()} style={{ color: 'var(--acc)', fontWeight: 500 }}>Créer mon catalogue</Link></>
+                  ? <>Votre catalogue est vide. <Link to="/catalogue" target="_blank" rel="noreferrer" onMouseDown={(e) => e.preventDefault()} style={{ color: 'var(--acc)', fontWeight: 500 }}>Créer mon catalogue</Link></>
                   : `Aucun article ne correspond à « ${query} ».`}
             </div>
           )}

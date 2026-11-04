@@ -595,7 +595,7 @@ export function RapportEditorPage() {
       if (res.failed > 0) {
         alert(
           `${res.failed} contrôle(s) enregistré(s) hors ligne ne sont pas encore envoyés.\n\n`
-          + 'Reconnecte-toi puis clique sur « Synchroniser » avant de finaliser.',
+          + 'Reconnectez-vous puis cliquez sur « Synchroniser » avant de finaliser.',
         )
         return
       }
@@ -605,7 +605,7 @@ export function RapportEditorPage() {
       alert(
         `${nokWithoutPhoto.length} anomalie(s) sans photo ni justification :\n\n` +
           nokWithoutPhoto.map((it) => `• [${EQUIPMENT_TYPES[it.type]}] ${it.label}`).join('\n') +
-          `\n\nAjoute une photo ou clique sur "Impossible de prendre une photo ? Justifier" avant de finaliser.`,
+          `\n\nAjoutez une photo ou cliquez sur "Impossible de prendre une photo ? Justifier" avant de finaliser.`,
       )
       return
     }
@@ -613,7 +613,7 @@ export function RapportEditorPage() {
       alert(
         `${nokWithoutAction.length} anomalie(s) sans action recommandée :\n\n` +
           nokWithoutAction.map((it) => `• [${EQUIPMENT_TYPES[it.type]}] ${it.label}`).join('\n') +
-          `\n\nChoisis Remplacement / Réparation / Vérification pour chaque anomalie.`,
+          `\n\nChoisissez Remplacement / Réparation / Vérification pour chaque anomalie.`,
       )
       return
     }
@@ -652,7 +652,7 @@ export function RapportEditorPage() {
     // Un équipement du chantier sans contrôle ne doit pas passer pour vérifié :
     // le contrôler, ou le marquer non vérifié avec un motif.
     if (intervention?.site_id && uncheckedUnits === null) {
-      alert('Les équipements du site ne sont pas encore chargés. Patiente un instant (ou recharge la page), puis finalise.')
+      alert('Les équipements du site ne sont pas encore chargés. Patientez un instant (ou rechargez la page), puis finalisez.')
       return
     }
     if (uncheckedUnits && uncheckedUnits.length > 0) {
@@ -779,8 +779,8 @@ export function RapportEditorPage() {
     if (!reportId) return
     const ok = window.confirm(
       'Rouvrir ce rapport pour le corriger ?\n\n'
-      + 'Il repasse en brouillon et l\'intervention en cours. Une fois corrigé, finalise-le à nouveau : le PDF sera refait.\n\n'
-      + 'La signature du client est conservée. Si tu modifies le résultat, pense à prévenir le client.',
+      + 'Il repasse en brouillon et l\'intervention en cours. Une fois corrigé, finalisez-le à nouveau : le PDF sera refait.\n\n'
+      + 'La signature du client est conservée. Si vous modifiez le résultat, pensez à prévenir le client.',
     )
     if (!ok) return
     setReopening(true)
@@ -791,7 +791,7 @@ export function RapportEditorPage() {
       setCompletedAt(null)
       setReopenedAt(new Date().toISOString())
       setReopenedBy(byName)
-      setFlash('Rapport rouvert : corrige-le puis clique sur « Finaliser ».')
+      setFlash('Rapport rouvert : corrigez-le puis cliquez sur « Finaliser ».')
       setTimeout(() => setFlash(null), 5000)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Réouverture impossible.')
@@ -982,7 +982,7 @@ export function RapportEditorPage() {
           <div className="card-top">
             <span className="card-title">Équipement contrôlé dans ce rapport</span>
             <span className="text-ink-3 text-xs font-light">
-              Chaque équipement a sa propre checklist, tes réponses sont conservées.
+              Chaque équipement a sa propre checklist, vos réponses sont conservées.
             </span>
           </div>
           <div className="equip-pills" style={{ marginTop: '.4rem' }}>
@@ -1146,7 +1146,7 @@ export function RapportEditorPage() {
       {items.length === 0 && (
         <div className="card">
           <p className="text-ink-2 text-sm font-light">
-            Aucun type d'équipement défini pour cette intervention. Va l'éditer depuis le planning pour en ajouter.
+            Aucun type d'équipement défini pour cette intervention. Allez l'éditer depuis le planning pour en ajouter.
           </p>
         </div>
       )}
@@ -1249,7 +1249,7 @@ export function RapportEditorPage() {
         />
         {!isCompleted && nonconformities.trim() && conformity.isConform === true && (
           <p className="text-ink-3 text-xs" style={{ margin: '4px 0 0' }}>
-            Le rapport reste marqué conforme : si un équipement est en cause, passe-le aussi en « À surveiller » ou « À réformer ».
+            Le rapport reste marqué conforme : si un équipement est en cause, passez-le aussi en « À surveiller » ou « À réformer ».
           </p>
         )}
         <label className="report-text-label" htmlFor="report-conclusion">Conclusion</label>
@@ -1388,7 +1388,7 @@ export function RapportEditorPage() {
       {!isCompleted && reopenedAt && (
         <p className="text-sm" style={{ marginTop: '1rem', color: '#8A3D0E', background: '#FDF1E7', border: '1px solid #F0C9A6', borderRadius: 8, padding: '8px 12px' }}>
           Rapport rouvert pour correction le {format(new Date(reopenedAt), 'd MMMM yyyy à HH:mm', { locale: fr })}
-          {reopenedBy ? ` par ${reopenedBy}` : ''}. Pense à le finaliser à nouveau.
+          {reopenedBy ? ` par ${reopenedBy}` : ''}. Pensez à le finaliser à nouveau.
         </p>
       )}
 
@@ -1477,7 +1477,7 @@ export function RapportEditorPage() {
               className="btn-sm acc"
               onClick={() => setSendOpen(true)}
               disabled={!pdfUrl}
-              title={pdfUrl ? 'Envoyer le rapport au client' : 'Génère le PDF d\'abord'}
+              title={pdfUrl ? 'Envoyer le rapport au client' : 'Générez le PDF d\'abord'}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               <Mail size={13} strokeWidth={2} />
@@ -1530,7 +1530,7 @@ export function RapportEditorPage() {
                 ))}
               </ul>
               <p className="text-ink-2 text-sm font-light" style={{ margin: 0 }}>
-                Contrôle-les avant de finaliser, ou indique pourquoi ils n'ont pas été vus : ils figureront
+                Contrôlez-les avant de finaliser, ou indiquez pourquoi ils n'ont pas été vus : ils figureront
                 comme <strong>non vérifiés</strong> sur le rapport et leur échéance ne sera pas repoussée.
               </p>
               <div className="fg">

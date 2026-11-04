@@ -73,7 +73,7 @@ export function ClientPortalPage() {
         if ('error' in res) {
           setContextError(
             res.error === 'invalid_or_expired'
-              ? 'Ce lien d\'accès est invalide ou a expiré. Contacte ton prestataire pour obtenir un nouveau lien.'
+              ? 'Ce lien d\'accès est invalide ou a expiré. Contactez votre prestataire pour obtenir un nouveau lien.'
               : `Erreur : ${res.error}`,
           )
         } else {

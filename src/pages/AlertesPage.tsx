@@ -158,8 +158,8 @@ export function AlertesPage() {
         <div>
           <div className="dash-title">Alertes</div>
           <div className="dash-sub">
-            Échéances réglementaires sur les équipements de tes clients + expirations des
-            habilitations de tes techniciens.
+            Échéances réglementaires sur les équipements de vos clients + expirations des
+            habilitations de vos techniciens.
           </div>
         </div>
       </div>
@@ -332,8 +332,8 @@ export function AlertesPage() {
               Aucune alerte équipement pour le moment.
             </p>
             <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 420, margin: '0 auto' }}>
-              Les alertes sont calculées à partir des interventions terminées. Dès que tu termines
-              ton premier rapport, la prochaine échéance apparaîtra ici automatiquement.
+              Les alertes sont calculées à partir des interventions terminées. Dès que vous terminez
+              votre premier rapport, la prochaine échéance apparaîtra ici automatiquement.
             </p>
           </div>
         )}
@@ -384,7 +384,7 @@ export function AlertesPage() {
               Aucune habilitation enregistrée.
             </p>
             <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 420, margin: '0 auto' }}>
-              Va dans la fiche d'un technicien et clique sur "Ajouter" dans la section Habilitations.
+              Allez dans la fiche d'un technicien et cliquez sur "Ajouter" dans la section Habilitations.
               Les certifs qui approchent de leur expiration apparaîtront ici.
             </p>
           </div>
@@ -428,7 +428,7 @@ export function AlertesPage() {
               Aucune alerte véhicule pour le moment.
             </p>
             <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 420, margin: '0 auto' }}>
-              Va dans RH → Véhicules et enregistre tes véhicules avec leurs dates clés
+              Allez dans RH → Véhicules et enregistrez vos véhicules avec leurs dates clés
               (contrôle technique, assurance, vidange). Les alertes apparaîtront ici automatiquement.
             </p>
           </div>

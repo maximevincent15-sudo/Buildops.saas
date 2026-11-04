@@ -329,11 +329,11 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
   const siteMissing = !!clientId && sites.length > 0 && !siteId && !freeSite
   // Nouvelle année sans numéro : rappel du dernier numéro du chantier
   const showDossierReminder = !!siteId && !(watch('dossier_number') ?? '').trim() && dossierHint?.key === dossierKey && !!dossierHint.previous
-  const SITE_REQUIRED_MSG = 'Choisis le site du chantier : le rapport affichera ses équipements.'
+  const SITE_REQUIRED_MSG = 'Choisissez le site du chantier : le rapport affichera ses équipements.'
 
   async function onSubmit(data: CreateInterventionInput) {
     if (!profile?.organization_id) {
-      setSubmitError('Profil non chargé. Reconnecte-toi.')
+      setSubmitError('Profil non chargé. Reconnectez-vous.')
       return
     }
     if (siteMissing) {
@@ -493,7 +493,7 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                         setValue('site_id', null)
                         setValue('zone_ids', [])
                       }}
-                      placeholder="Tape le nom ou choisis dans tes fiches"
+                      placeholder="Tapez le nom ou choisissez dans vos fiches"
                     />
                   )}
                 />
@@ -502,7 +502,7 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
 
               {isEdit && (
                 <div style={helpBoxStyle}>
-                  Édition d'une intervention existante. Les 5 étapes te laissent compléter tous les champs — les valeurs existantes sont préservées.
+                  Édition d'une intervention existante. Les 5 étapes vous laissent compléter tous les champs — les valeurs existantes sont préservées.
                 </div>
               )}
             </>
@@ -514,11 +514,11 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
               <div className="fg">
                 <label>Site enregistré du client</label>
                 {!clientId && (
-                  <div style={emptyBoxStyle}>Choisis d'abord un client à l'étape 1.</div>
+                  <div style={emptyBoxStyle}>Choisissez d'abord un client à l'étape 1.</div>
                 )}
                 {clientId && sites.length === 0 && (
                   <div style={emptyBoxStyle}>
-                    Aucun site pour ce client. Va dans <strong>Équipements → Nouveau site</strong> pour en créer un, ou saisis un nom libre ci-dessous.
+                    Aucun site pour ce client. Allez dans <strong>Équipements → Nouveau site</strong> pour en créer un, ou saisissez un nom libre ci-dessous.
                   </div>
                 )}
                 {clientId && sites.length > 0 && (
@@ -564,7 +564,7 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                   <label>Zones concernées <span className="text-ink-3 text-xs font-light">(aucune = tout le site)</span></label>
                   {zones.length === 0 && (
                     <div style={emptyBoxStyle}>
-                      Aucune zone dans ce site. Tu pourras en ajouter depuis la fiche du site.
+                      Aucune zone dans ce site. Vous pourrez en ajouter depuis la fiche du site.
                     </div>
                   )}
                   {zones.length > 0 && (
@@ -790,7 +790,7 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                 </datalist>
                 {showDossierReminder ? (
                   <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
-                    Nouvelle année : saisis le N° de dossier {(scheduledDate || '').slice(0, 4) || 'de cette année'} de ce chantier. Dernier numéro : {dossierHint!.previous}.{' '}
+                    Nouvelle année : saisissez le N° de dossier {(scheduledDate || '').slice(0, 4) || 'de cette année'} de ce chantier. Dernier numéro : {dossierHint!.previous}.{' '}
                     <button
                       type="button"
                       className="link-btn"
@@ -844,7 +844,7 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                         field.onChange(name)
                         setValue('technician_id', tech?.id ?? '')
                       }}
-                      placeholder="Tape le nom ou choisis dans tes techniciens"
+                      placeholder="Tapez le nom ou choisissez dans vos techniciens"
                     />
                   )}
                 />

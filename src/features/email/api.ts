@@ -99,7 +99,7 @@ export async function testEmailConfig(testRecipient: string): Promise<{
         documentId: '00000000-0000-0000-0000-000000000000',
         recipientEmail: testRecipient,
         subject: 'Test Firovia — configuration email',
-        body: 'Ceci est un test envoyé depuis Firovia.\nSi tu reçois ce message, ta config Resend est OK ✓',
+        body: 'Ceci est un test envoyé depuis Firovia.\nSi vous recevez ce message, votre config Resend est OK ✓',
         pdfUrl: null,
       },
     })
@@ -132,7 +132,7 @@ export async function testEmailConfig(testRecipient: string): Promise<{
         return {
           ok: false,
           message:
-            "Edge Function pas encore déployée sur Supabase. C'est normal ! Suis les étapes d'activation ci-dessus (étape 5 : `supabase functions deploy send-document-email --no-verify-jwt`).",
+            "Edge Function pas encore déployée sur Supabase. C'est normal ! Suivez les étapes d'activation ci-dessus (étape 5 : `supabase functions deploy send-document-email --no-verify-jwt`).",
           mode: 'function_not_deployed',
         }
       }

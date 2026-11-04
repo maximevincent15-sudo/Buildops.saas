@@ -37,7 +37,7 @@ export function PlanningEventModal({ organizationId, event, defaultDate, onClose
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!label.trim()) return setError('Donne un titre à l\'événement.')
+    if (!label.trim()) return setError('Donnez un titre à l\'événement.')
     if (!allDay && end && end <= start) return setError('L\'heure de fin doit être après l\'heure de début.')
     setSaving(true)
     setError(null)
@@ -160,7 +160,7 @@ export function PlanningEventModal({ organizationId, event, defaultDate, onClose
           <label className="pe-check">
             <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />
             Visible par toute l'équipe
-            <span className="pe-help">{shared ? 'Tous les membres le voient.' : 'Privé : toi seul le vois.'}</span>
+            <span className="pe-help">{shared ? 'Tous les membres le voient.' : 'Privé : vous seul le voyez.'}</span>
           </label>
 
           {error && <span className="ferr on">{error}</span>}

@@ -212,7 +212,7 @@ export function TechnicianCertifications({ technicianId, organizationId }: Props
 
       {!loading && certs.length === 0 && !formOpen && (
         <p className="text-ink-3 text-xs font-light" style={{ marginTop: '.4rem' }}>
-          Aucune habilitation enregistrée. Ajoute SST, habilitation électrique, formation SSI pour recevoir une alerte avant expiration.
+          Aucune habilitation enregistrée. Ajoutez SST, habilitation électrique, formation SSI pour recevoir une alerte avant expiration.
         </p>
       )}
 

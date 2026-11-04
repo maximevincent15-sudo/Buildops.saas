@@ -13,7 +13,7 @@ export function ImportEquipementsPage() {
             Importer des équipements
           </div>
           <div className="dash-sub">
-            Migre ton registre APSAD depuis Excel ou CSV — extincteurs, RIA, BAES, portes coupe-feu…
+            Migrez votre registre APSAD depuis Excel ou CSV — extincteurs, RIA, BAES, portes coupe-feu…
           </div>
         </div>
         <Link

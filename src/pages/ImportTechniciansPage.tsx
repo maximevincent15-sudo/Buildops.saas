@@ -13,7 +13,7 @@ export function ImportTechniciansPage() {
             Importer des techniciens
           </div>
           <div className="dash-sub">
-            Migre ton équipe depuis Excel ou CSV en quelques clics.
+            Migrez votre équipe depuis Excel ou CSV en quelques clics.
           </div>
         </div>
         <Link

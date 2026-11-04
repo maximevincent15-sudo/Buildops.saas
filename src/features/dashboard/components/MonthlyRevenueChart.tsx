@@ -56,8 +56,8 @@ export function MonthlyRevenueChart({ title, data, profit, footer }: Props) {
           </div>
         </div>
         <p style={{ marginTop: 24, color: 'var(--ink2)', fontSize: 13 }}>
-          Aucun encaissement enregistré. Une fois tes premières factures payées,
-          tu verras ici l'évolution de ton CA mois par mois.
+          Aucun encaissement enregistré. Une fois vos premières factures payées,
+          vous verrez ici l'évolution de votre CA mois par mois.
         </p>
         {footer}
       </div>

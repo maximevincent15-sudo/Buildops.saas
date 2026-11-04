@@ -111,7 +111,7 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
 
   async function onSubmit(data: CreateClientInput) {
     if (!profile?.organization_id) {
-      setSubmitError('Profil non chargé. Reconnecte-toi.')
+      setSubmitError('Profil non chargé. Reconnectez-vous.')
       return
     }
     setSubmitError(null)
@@ -234,7 +234,7 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
                 <AddressAutocomplete
                   value={field.value ?? ''}
                   onChange={field.onChange}
-                  placeholder="Commence à taper le numéro et la rue…"
+                  placeholder="Commencez à taper le numéro et la rue…"
                 />
               )}
             />

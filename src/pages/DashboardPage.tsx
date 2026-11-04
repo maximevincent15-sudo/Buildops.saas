@@ -235,7 +235,7 @@ export function DashboardPage() {
               title="Top 5 clients"
               subtitle="Par CA facturé"
               items={bizStats.topClients}
-              emptyMessage="Aucune facture émise. Crée une facture pour voir tes meilleurs clients."
+              emptyMessage="Aucune facture émise. Créez une facture pour voir vos meilleurs clients."
               barColor="var(--acc)"
             />
             <TopBarsChart

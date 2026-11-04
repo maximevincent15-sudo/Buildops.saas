@@ -123,7 +123,7 @@ export function PhotoUploader({ photos, onChange, organizationId, interventionId
       {error && <p className="text-red text-xs" style={{ marginTop: '.5rem' }}>{error}</p>}
       {photos.length === 0 && !error && (
         <p className="text-ink-3 text-xs font-light" style={{ marginTop: '.5rem' }}>
-          Aucune photo pour l'instant. Clique sur "Ajouter" pour en joindre.
+          Aucune photo pour l'instant. Cliquez sur "Ajouter" pour en joindre.
         </p>
       )}
     </div>

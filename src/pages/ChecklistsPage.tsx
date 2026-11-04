@@ -75,7 +75,7 @@ export function ChecklistsPage() {
       items: base?.items.length ? base.items : [{ id: 'p1', label: 'Point à vérifier' }],
       position: lists.length,
     })
-    done('Nouvelle liste créée : renomme-la et adapte ses points.')
+    done('Nouvelle liste créée : renommez-la et adaptez ses points.')
   }
 
   return (
@@ -87,7 +87,7 @@ export function ChecklistsPage() {
             Checklists de contrôle
           </div>
           <div className="dash-sub">
-            Adapte les points que tes techniciens vérifient. Les rapports déjà finalisés ne changent pas.
+            Adaptez les points que vos techniciens vérifient. Les rapports déjà finalisés ne changent pas.
           </div>
         </div>
         <div className="dash-acts">
@@ -115,7 +115,7 @@ export function ChecklistsPage() {
           <div className="card" style={{ marginBottom: '1rem' }}>
             <div className="card-top">
               <span className="card-title">Checklist de la visite · {EQUIPMENT_TYPES[type]}</span>
-              <span className="text-ink-3 text-xs font-light">{visit.rowId ? 'Modifiée par ton entreprise' : 'Liste Firovia'}</span>
+              <span className="text-ink-3 text-xs font-light">{visit.rowId ? 'Modifiée par votre entreprise' : 'Liste Firovia'}</span>
             </div>
             <p className="text-ink-3 text-xs font-light" style={{ margin: '0 0 .8rem' }}>
               Points du site cochés une fois par visite (OK, non conforme ou sans objet), dans la partie « Checklist » du rapport.
@@ -147,7 +147,7 @@ export function ChecklistsPage() {
                   <div className="cl-block-head">
                     <strong>{i + 1}. {l.name}</strong>
                     <span className="text-ink-3 text-xs font-light">
-                      {l.builtinKey ? (l.rowId ? 'Liste Firovia modifiée' : 'Liste Firovia') : 'Créée par ton entreprise'}
+                      {l.builtinKey ? (l.rowId ? 'Liste Firovia modifiée' : 'Liste Firovia') : 'Créée par votre entreprise'}
                       {i === 0 ? ' · par défaut' : ''}
                     </span>
                   </div>

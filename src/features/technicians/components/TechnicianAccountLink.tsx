@@ -69,7 +69,7 @@ export function TechnicianAccountLink({ technician, onLinked, onEmailSaved }: Pr
     if (!profile?.organization_id) return
     const mail = inviteEmail.trim().toLowerCase()
     if (!EMAIL_RE.test(mail)) {
-      setMessage({ ok: false, text: 'Saisis l’email du technicien.' })
+      setMessage({ ok: false, text: 'Saisissez l’email du technicien.' })
       return
     }
     setInviting(true)

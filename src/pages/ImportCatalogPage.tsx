@@ -13,7 +13,7 @@ export function ImportCatalogPage() {
             Importer un catalogue
           </div>
           <div className="dash-sub">
-            Reprends ta liste de prix depuis Excel ou CSV en quelques clics.
+            Reprenez votre liste de prix depuis Excel ou CSV en quelques clics.
           </div>
         </div>
         <Link

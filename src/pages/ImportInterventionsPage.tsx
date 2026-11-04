@@ -13,7 +13,7 @@ export function ImportInterventionsPage() {
             Importer des interventions
           </div>
           <div className="dash-sub">
-            Migre ton planning (à venir) et ton historique (interventions passées) en un seul fichier. Les interventions terminées alimenteront directement les alertes réglementaires.
+            Migrez votre planning (à venir) et votre historique (interventions passées) en un seul fichier. Les interventions terminées alimenteront directement les alertes réglementaires.
           </div>
         </div>
         <Link

@@ -82,7 +82,7 @@ export function RecentInterventions() {
 
       {!loading && rows.length === 0 && (
         <p style={{ padding: '12px 0', fontSize: 13, color: 'var(--ink2)' }}>
-          Aucune intervention pour le moment. Clique sur <strong>+ Nouvelle intervention</strong> en haut pour démarrer.
+          Aucune intervention pour le moment. Cliquez sur <strong>+ Nouvelle intervention</strong> en haut pour démarrer.
         </p>
       )}
 

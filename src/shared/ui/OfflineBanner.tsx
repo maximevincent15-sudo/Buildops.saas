@@ -82,7 +82,7 @@ export function OfflineBanner() {
         {pendingCount} contrôle{pendingCount > 1 ? 's' : ''} en attente de synchronisation
         {syncError && (
           <span style={{ display: 'block', fontSize: 12, opacity: .9 }}>
-            Envoi impossible pour l'instant ({syncError.slice(0, 120)}). Vérifie ta connexion, ou déconnecte-toi puis reconnecte-toi.
+            Envoi impossible pour l'instant ({syncError.slice(0, 120)}). Vérifiez votre connexion, ou déconnectez-vous puis reconnectez-vous.
           </span>
         )}
       </span>

@@ -58,10 +58,10 @@ export async function generateImportTemplate(
   ws.mergeCells(`A${hintRowIndex}:${lastColLetter}${hintRowIndex}`)
   const hintCell = ws.getCell(`A${hintRowIndex}`)
   hintCell.value =
-    `💡 Commence à remplir à partir de la ligne 4. ` +
+    `💡 Commencez à remplir à partir de la ligne 4. ` +
     `Les colonnes marquées d'un * sont obligatoires. ` +
     `Les dates au format JJ/MM/AAAA. ` +
-    `Sauvegarde ensuite en .xlsx et utilise "Importer un fichier" sur Firovia.`
+    `Sauvegardez ensuite en .xlsx et utilisez "Importer un fichier" sur Firovia.`
   hintCell.font = { italic: true, color: { argb: 'FF6A7080' }, size: 9 }
   hintCell.alignment = { vertical: 'middle', wrapText: true }
   hintCell.fill = {

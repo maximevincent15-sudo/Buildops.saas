@@ -69,7 +69,7 @@ export function FixedCostsCard({ organizationId }: { organizationId: string }) {
         .map((r) => ({ label: r.label, monthly_amount: parseAmount(r.amount) }))
       await saveFixedCosts(organizationId, kept)
       setFlash(kept.length > 0
-        ? `Enregistré : ${formatAmount(total)} de charges fixes par mois. Le tableau de bord affiche maintenant ton résultat estimé.`
+        ? `Enregistré : ${formatAmount(total)} de charges fixes par mois. Le tableau de bord affiche maintenant votre résultat estimé.`
         : 'Aucune charge enregistrée : le tableau de bord n\'affiche que la marge.')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
@@ -88,8 +88,8 @@ export function FixedCostsCard({ organizationId }: { organizationId: string }) {
         <span className="text-ink-3 text-xs font-light">Visible par les administrateurs uniquement</span>
       </div>
       <p className="text-ink-2 text-sm font-light" style={{ margin: '0 0 .8rem' }}>
-        Renseigne tes charges fixes du mois (montants HT). Le tableau de bord les déduit de ta marge
-        pour afficher ton <strong>bénéfice ou ta perte estimés</strong>, mois par mois.
+        Renseignez vos charges fixes du mois (montants HT). Le tableau de bord les déduit de votre marge
+        pour afficher votre <strong>bénéfice ou votre perte estimés</strong>, mois par mois.
       </p>
 
       {loading ? (

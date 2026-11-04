@@ -211,7 +211,7 @@ export function DossierPage() {
       {isEmpty && (
         <div className="card" style={{ marginBottom: '1rem' }}>
           <p className="text-ink-2 text-sm font-light" style={{ margin: 0 }}>
-            Aucune visite ni aucun site ne porte ce numéro. Pour rattacher une visite : Planning, ouvre la visite et saisis son N° de dossier.
+            Aucune visite ni aucun site ne porte ce numéro. Pour rattacher une visite : Planning, ouvrez la visite et saisissez son N° de dossier.
           </p>
         </div>
       )}
@@ -266,7 +266,7 @@ export function DossierPage() {
 
       <Section icon={<ClipboardCheck size={14} strokeWidth={1.8} />} title="Visites et rapports" count={visits.length}>
         {visits.length === 0 ? (
-          <Empty>Aucune visite. Planifie la prochaine depuis le Planning : choisis le site et saisis ce N° de dossier.</Empty>
+          <Empty>Aucune visite. Planifiez la prochaine depuis le Planning : choisissez le site et saisissez ce N° de dossier.</Empty>
         ) : (
           <div className="archive-list">
             {visits.map((v) => {
@@ -392,7 +392,7 @@ export function DossierPage() {
         }
       >
         {documents.length === 0 ? (
-          <Empty>Bons de livraison, plans, PV, anciens rapports : ajoute ici tout ce qui concerne ce chantier.</Empty>
+          <Empty>Bons de livraison, plans, PV, anciens rapports : ajoutez ici tout ce qui concerne ce chantier.</Empty>
         ) : (
           <div className="archive-list">
             {documents.map((d) => (

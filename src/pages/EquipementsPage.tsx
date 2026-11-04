@@ -456,8 +456,8 @@ export function EquipementsPage() {
               }}
             >
               {sites.length === 0
-                ? "Commence par créer un site pour un client, puis ajoute des unités."
-                : 'Ajoute ta première unité manuellement ou importe un tableau Excel.'}
+                ? "Commencez par créer un site pour un client, puis ajoutez des unités."
+                : 'Ajoutez votre première unité manuellement ou importez un tableau Excel.'}
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
               {sites.length === 0 && (
@@ -599,7 +599,7 @@ export function EquipementsPage() {
               setEditingUnit(found)
               setUnitModalOpen(true)
             } else {
-              setScanNotice(`Aucun équipement ne porte ce code (« ${text.trim().slice(0, 60)} »). Ouvre la fiche d'un équipement pour lui associer cette étiquette.`)
+              setScanNotice(`Aucun équipement ne porte ce code (« ${text.trim().slice(0, 60)} »). Ouvrez la fiche d'un équipement pour lui associer cette étiquette.`)
             }
           }}
         />

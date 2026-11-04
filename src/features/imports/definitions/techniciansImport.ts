@@ -23,7 +23,7 @@ export const techniciansImportDefinition: ImportDefinition = {
   },
   templateFilename: 'techniciens-firovia.xlsx',
   description:
-    'Importe la liste de tes techniciens depuis Excel ou CSV. Prénom et nom sont obligatoires, le reste est facultatif.',
+    'Importez la liste de vos techniciens depuis Excel ou CSV. Prénom et nom sont obligatoires, le reste est facultatif.',
   fields: [
     { key: 'first_name', label: 'Prénom', required: true, example: 'Thomas' },
     { key: 'last_name', label: 'Nom', required: true, example: 'Moreau' },

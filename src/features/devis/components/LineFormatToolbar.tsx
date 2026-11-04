@@ -55,7 +55,7 @@ export function LineFormatToolbar({ target, style, onChange }: Props) {
   return (
     <div className="lf-bar" role="toolbar" aria-label="Mise en forme de la ligne">
       <span className="lf-target">
-        {target ? `Ligne ${target.index + 1} · ${target.part === 'main' ? 'désignation' : 'précision'}` : 'Clique dans une ligne pour la mettre en forme'}
+        {target ? `Ligne ${target.index + 1} · ${target.part === 'main' ? 'désignation' : 'précision'}` : 'Cliquez dans une ligne pour la mettre en forme'}
       </span>
       <div className="lf-group">
         <ToolButton title="Gras" active={!!s.bold} disabled={off} onClick={() => set({ bold: !s.bold })}><Bold size={14} strokeWidth={2.5} /></ToolButton>

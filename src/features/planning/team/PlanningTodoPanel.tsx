@@ -119,8 +119,8 @@ export function PlanningTodoPanel({
           <div className="pt-body">
             <p className="pt-hint">
               {byCity
-                ? 'Visites regroupées par ville : glisse celles d\'une même ville sur le même technicien et le même jour.'
-                : 'Glisse une carte sur un technicien et un jour pour la planifier, ou clique pour l\'ouvrir.'}
+                ? 'Visites regroupées par ville : glissez celles d\'une même ville sur le même technicien et le même jour.'
+                : 'Glissez une carte sur un technicien et un jour pour la planifier, ou cliquez pour l\'ouvrir.'}
             </p>
             {visibleTodos.length === 0 && <p className="pt-hint">🎉 Rien à planifier ici.</p>}
             {groups.map((g) => (
@@ -177,7 +177,7 @@ export function PlanningTodoPanel({
 
       {tab === 'follow' && (
         <div className="pt-body">
-          <p className="pt-hint">Interventions terminées avec des anomalies encore ouvertes : décide de la suite.</p>
+          <p className="pt-hint">Interventions terminées avec des anomalies encore ouvertes : décidez de la suite.</p>
           {follows.length === 0 && <p className="pt-hint">🎉 Aucune suite en attente.</p>}
           {follows.map((f) => (
             <div key={f.intervention.id} className="pt-todo static">
@@ -217,7 +217,7 @@ export function PlanningTodoPanel({
           {noReports.map((i) => {
             const email = technicianEmail(i)
             const subject = `Rapport à compléter — ${siteLabel(i)} (${formatDate(i.scheduled_date)})`
-            const body = `Bonjour,\n\nLe rapport de l'intervention ${i.reference} chez ${i.client_name}${i.site_name ? ` (${i.site_name})` : ''}, prévue le ${formatDate(i.scheduled_date)}, n'a pas encore été finalisé dans Firovia.\n\nPeux-tu le compléter dès que possible ?\n\nMerci !`
+            const body = `Bonjour,\n\nLe rapport de l'intervention ${i.reference} chez ${i.client_name}${i.site_name ? ` (${i.site_name})` : ''}, prévue le ${formatDate(i.scheduled_date)}, n'a pas encore été finalisé dans Firovia.\n\nPouvez-vous le compléter dès que possible ?\n\nMerci !`
             return (
               <div key={i.id} className="pt-todo static">
                 <div className="pt-todo-name">{siteLabel(i)}</div>
@@ -229,7 +229,7 @@ export function PlanningTodoPanel({
                   {email ? (
                     <a href={`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}>Relancer le technicien</a>
                   ) : (
-                    <button type="button" disabled title="Ajoute l'email du technicien dans sa fiche pour pouvoir le relancer">Relancer le technicien</button>
+                    <button type="button" disabled title="Ajoutez l'email du technicien dans sa fiche pour pouvoir le relancer">Relancer le technicien</button>
                   )}
                 </div>
               </div>

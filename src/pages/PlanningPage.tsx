@@ -310,7 +310,7 @@ export function PlanningPage() {
       await Promise.all(f.anomalies.map((a) => updateAnomaly(a.id, { status: 'planned' })))
       await load()
       setPanelTab('todo')
-      showToast('✓ Repasse ajoutée à « À planifier » : glisse-la sur un technicien.')
+      showToast('✓ Repasse ajoutée à « À planifier » : glissez-la sur un technicien.')
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Impossible de créer la repasse.', true)
     } finally {
@@ -420,7 +420,7 @@ export function PlanningPage() {
               Aucune intervention pour le moment.
             </p>
             <p className="text-ink-3 text-xs font-light" style={{ marginBottom: '1.2rem' }}>
-              Crée ta première intervention pour la voir apparaître ici.
+              Créez votre première intervention pour la voir apparaître ici.
             </p>
             <button type="button" className="btn-sm acc" onClick={openCreate}>
               + Créer une intervention
@@ -560,7 +560,7 @@ export function PlanningPage() {
             <div className="card-top">
               <span className="card-title">{mineOnly ? `Mes interventions (${shown.length})` : `Toutes les interventions (${total})`}</span>
               <span className="text-ink-3 text-xs font-light">
-                Clique sur une ligne pour modifier
+                Cliquez sur une ligne pour modifier
               </span>
             </div>
             <table className="dtbl">
@@ -700,7 +700,7 @@ export function PlanningPage() {
           seed={quoteSeed}
           onSaved={() => {
             setQuoteSeed(null)
-            showToast("✓ Devis créé. Programme la repasse quand le client l'accepte.")
+            showToast("✓ Devis créé. Programmez la repasse quand le client l'accepte.")
           }}
         />
       )}

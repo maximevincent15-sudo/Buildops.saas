@@ -71,7 +71,7 @@ export function RelanceModal({
 
   function handleSend() {
     if (!recipient.trim()) {
-      setError('Indique un destinataire.')
+      setError('Indiquez un destinataire.')
       return
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.trim())) {
@@ -148,7 +148,7 @@ export function RelanceModal({
               style={{ minHeight: 220 }}
             />
             <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
-              Tu peux modifier librement. Ta messagerie s'ouvrira avec ce message pré-rempli.
+              Vous pouvez modifier librement. Votre messagerie s'ouvrira avec ce message pré-rempli.
             </span>
           </div>
 

@@ -108,7 +108,7 @@ export const interventionsImportDefinition: ImportDefinition = {
   },
   templateFilename: 'interventions-firovia.xlsx',
   description:
-    "Importe ton planning (à venir) ET/OU ton historique d'interventions. Les interventions avec statut 'terminée' alimentent directement les alertes réglementaires : tu verras tout de suite les prochains contrôles à planifier.",
+    "Importez votre planning (à venir) ET/OU votre historique d'interventions. Les interventions avec statut 'terminée' alimentent directement les alertes réglementaires : vous verrez tout de suite les prochains contrôles à planifier.",
   fields: [
     { key: 'client_name', label: 'Client', required: true, example: 'Valoris SA' },
     { key: 'site_name', label: 'Site', example: 'Bâtiment A' },

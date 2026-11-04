@@ -56,7 +56,7 @@ export function TechnicianModal({ open, onClose, onChanged, technician }: Props)
 
   async function onSubmit(data: CreateTechnicianInput) {
     if (!profile?.organization_id) {
-      setSubmitError('Profil non chargé. Reconnecte-toi.')
+      setSubmitError('Profil non chargé. Reconnectez-vous.')
       return
     }
     setSubmitError(null)
@@ -77,7 +77,7 @@ export function TechnicianModal({ open, onClose, onChanged, technician }: Props)
   async function handleDelete() {
     if (!technician) return
     const ok = window.confirm(
-      `Supprimer le technicien "${technician.first_name} ${technician.last_name}" ?\n\nLes interventions déjà assignées conservent le nom mais perdent le lien.\n\nAstuce : tu peux aussi le désactiver plutôt que le supprimer.`,
+      `Supprimer le technicien "${technician.first_name} ${technician.last_name}" ?\n\nLes interventions déjà assignées conservent le nom mais perdent le lien.\n\nAstuce : vous pouvez aussi le désactiver plutôt que le supprimer.`,
     )
     if (!ok) return
     setIsDeleting(true)

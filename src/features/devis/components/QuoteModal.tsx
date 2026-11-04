@@ -346,7 +346,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
     if (!input) return
     if (isEdit && signedAt && !window.confirm(
       'Ce devis a été signé par le client.\n\n' +
-      'Si tu le modifies, la signature est annulée et le devis repasse en brouillon. Continuer ?'
+      'Si vous le modifiez, la signature est annulée et le devis repasse en brouillon. Continuer ?'
     )) return
 
     setSubmitting(true)
@@ -545,7 +545,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       onSaved?.(quoteId)
       setPendingNotify(false)
       // Régénère le PDF avec la signature
-      await handleGeneratePdf(`Devis signé par ${name} ✓ — PDF mis à jour, tu peux l'envoyer au client.`)
+      await handleGeneratePdf(`Devis signé par ${name} ✓ — PDF mis à jour, vous pouvez l'envoyer au client.`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors de la signature')
     } finally {
@@ -577,7 +577,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
         pdfUrl,
       })
       if (result.mode === 'error') throw new Error(result.error)
-      setFlash(result.mode === 'resend' ? `Devis signé envoyé à ${recipient} avec le PDF ✓` : 'Message préparé dans ta messagerie.')
+      setFlash(result.mode === 'resend' ? `Devis signé envoyé à ${recipient} avec le PDF ✓` : 'Message préparé dans votre messagerie.')
       setTimeout(() => setFlash(null), 3000)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
@@ -608,7 +608,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       'Créer une facture à partir de ce devis ?\n\n' +
       '• Les lignes seront copiées automatiquement\n' +
       '• La facture sera créée en brouillon avec une échéance à 30 jours\n' +
-      '• Tu pourras la modifier avant envoi'
+      '• Vous pourrez la modifier avant envoi'
     )) return
     setConvertingToInvoice(true)
     setError(null)
@@ -678,7 +678,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                         if (c.siren && !clientSiren) setClientSiren(c.siren)
                       }
                     }}
-                    placeholder="Tape le nom du client"
+                    placeholder="Tapez le nom du client"
                   />
                 </div>
                 <div className="fg">
@@ -706,7 +706,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                   <AddressAutocomplete
                     value={clientAddress}
                     onChange={setClientAddress}
-                    placeholder="Commence à taper le numéro et la rue…"
+                    placeholder="Commencez à taper le numéro et la rue…"
                   />
                 </div>
               </div>
@@ -745,7 +745,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                   <AddressAutocomplete
                     value={siteAddress}
                     onChange={setSiteAddress}
-                    placeholder="Commence à taper le numéro et la rue…"
+                    placeholder="Commencez à taper le numéro et la rue…"
                   />
                 </div>
               </div>
@@ -785,7 +785,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                   onChange={(e) => setValidityDate(e.target.value)}
                 />
                 <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
-                  Au-delà de cette date, ton client ne pourra plus accepter ce devis au prix proposé.
+                  Au-delà de cette date, votre client ne pourra plus accepter ce devis au prix proposé.
                   Mention légale recommandée — par défaut J+30.
                 </span>
               </div>
@@ -965,7 +965,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                       className="btn-sm done"
                       onClick={openSignPanel}
                       disabled={submitting || generatingPdf}
-                      title="Le client signe le devis sur ton téléphone ou ta tablette"
+                      title="Le client signe le devis sur votre téléphone ou votre tablette"
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >
                       <PenLine size={13} strokeWidth={2} /> Faire signer sur place

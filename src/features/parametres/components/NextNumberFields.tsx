@@ -42,7 +42,7 @@ export function NextNumberFields({ organizationId, quotePrefix, invoicePrefix }:
   async function apply(kind: 'quote' | 'invoice') {
     const value = Number(kind === 'quote' ? quote : invoice)
     if (!Number.isInteger(value) || value < 1) {
-      setMessage({ ok: false, text: 'Indique un numéro entier (ex : 154).' })
+      setMessage({ ok: false, text: 'Indiquez un numéro entier (ex : 154).' })
       return
     }
     setBusy(kind)

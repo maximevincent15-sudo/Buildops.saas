@@ -144,7 +144,7 @@ export function SendToClientModal({
   async function handleSend() {
     const list = splitEmails(recipient)
     if (list.length === 0) {
-      setError('Indique un destinataire.')
+      setError('Indiquez un destinataire.')
       return
     }
     const invalid = list.find((e) => !isValidEmail(e))
@@ -217,8 +217,8 @@ export function SendToClientModal({
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <p className="text-ink-2 text-sm font-light" style={{ margin: 0 }}>
-            Le rapport va s'ouvrir dans <strong>ta messagerie</strong> (Gmail, Mail, Outlook…) avec tout pré-rempli.
-            Le client reçoit un email <strong>depuis ton adresse</strong> avec le <strong>lien de téléchargement du PDF</strong>.
+            Le rapport va s'ouvrir dans <strong>votre messagerie</strong> (Gmail, Mail, Outlook…) avec tout pré-rempli.
+            Le client reçoit un email <strong>depuis votre adresse</strong> avec le <strong>lien de téléchargement du PDF</strong>.
           </p>
 
           <div className="fg">
@@ -233,7 +233,7 @@ export function SendToClientModal({
             />
             {!recipient && !loadingClient && !clientId && (
               <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
-                Ce rapport n'est pas lié à une fiche client — saisis l'email manuellement.
+                Ce rapport n'est pas lié à une fiche client — saisissez l'email manuellement.
               </span>
             )}
           </div>
@@ -260,7 +260,7 @@ export function SendToClientModal({
 
           {!pdfUrl && (
             <p className="text-red text-xs">
-              ⚠️ Aucun PDF n'est disponible — génère-le d'abord avant d'envoyer.
+              ⚠️ Aucun PDF n'est disponible — générez-le d'abord avant d'envoyer.
             </p>
           )}
 
@@ -268,7 +268,7 @@ export function SendToClientModal({
 
           {sentHint && (
             <p className="text-grn text-sm" style={{ margin: 0 }}>
-              ✅ Ta messagerie devrait s'ouvrir — finalise l'envoi depuis celle-ci.
+              ✅ Votre messagerie devrait s'ouvrir — finalisez l'envoi depuis celle-ci.
             </p>
           )}
 

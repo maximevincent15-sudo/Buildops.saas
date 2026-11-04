@@ -130,8 +130,8 @@ export const equipmentsImportDefinition: ImportDefinition = {
   },
   templateFilename: 'equipements-firovia.xlsx',
   description:
-    "Importe un registre d'équipements depuis Excel, CSV ou l'export de ton logiciel actuel. " +
-    "Importe d'abord tes clients. Si la colonne « Client » est remplie, les sites manquants sont créés automatiquement ; " +
+    "Importez un registre d'équipements depuis Excel, CSV ou l'export de votre logiciel actuel. " +
+    "Importez d'abord vos clients. Si la colonne « Client » est remplie, les sites manquants sont créés automatiquement ; " +
     'sinon, les sites doivent déjà exister. Les zones inconnues sont créées automatiquement. ' +
     'Les intitulés courants sont reconnus (Emplacement, Fabricant, N°, Date de fabrication…).',
   fields: [
@@ -274,8 +274,8 @@ export const equipmentsImportDefinition: ImportDefinition = {
       return invalid(
         row,
         row.family
-          ? `Famille "${row.family}" non reconnue. Utilise : ${EQUIPMENT_FAMILIES.map((f) => EQUIPMENT_FAMILY_LABELS[f]).join(', ')}`
-          : 'Famille manquante : ajoute une colonne « Famille » (Extincteurs, RIA, BAES…)',
+          ? `Famille "${row.family}" non reconnue. Utilisez : ${EQUIPMENT_FAMILIES.map((f) => EQUIPMENT_FAMILY_LABELS[f]).join(', ')}`
+          : 'Famille manquante : ajoutez une colonne « Famille » (Extincteurs, RIA, BAES…)',
       )
     }
 
@@ -284,7 +284,7 @@ export const equipmentsImportDefinition: ImportDefinition = {
     if (clientName) {
       client = (await getClientsIndex(cache)).get(normalize(clientName))
       if (!client) {
-        return invalid(row, `Client "${clientName}" introuvable : importe d'abord tes clients (Clients → Importer).`)
+        return invalid(row, `Client "${clientName}" introuvable : importez d'abord vos clients (Clients → Importer).`)
       }
     }
 
@@ -293,7 +293,7 @@ export const equipmentsImportDefinition: ImportDefinition = {
     if (client) {
       site = candidates.find((s) => s.client_id === client.id)
     } else if (candidates.length > 1) {
-      return invalid(row, `Plusieurs sites s'appellent "${siteName}" : ajoute une colonne « Client » pour préciser.`)
+      return invalid(row, `Plusieurs sites s'appellent "${siteName}" : ajoutez une colonne « Client » pour préciser.`)
     } else {
       site = candidates[0]
     }
@@ -303,7 +303,7 @@ export const equipmentsImportDefinition: ImportDefinition = {
       if (!client) {
         return invalid(
           row,
-          `Site "${siteName}" introuvable : ajoute une colonne « Client » pour le créer automatiquement, ou crée-le d'abord.`,
+          `Site "${siteName}" introuvable : ajoutez une colonne « Client » pour le créer automatiquement, ou créez-le d'abord.`,
         )
       }
       createSite = true

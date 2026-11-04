@@ -74,7 +74,7 @@ export function LabelsModal({ open, onClose, onChanged, units, sites, clients, d
   async function generate() {
     if (!profile?.organization_id) return
     if (count === 0) {
-      setError(mode === 'site' ? 'Aucun équipement à étiqueter avec ces critères.' : 'Choisis un nombre d\'étiquettes.')
+      setError(mode === 'site' ? 'Aucun équipement à étiqueter avec ces critères.' : 'Choisissez un nombre d\'étiquettes.')
       return
     }
     setBusy(true)
