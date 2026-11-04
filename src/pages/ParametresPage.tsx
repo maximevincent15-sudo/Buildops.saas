@@ -6,13 +6,21 @@ import { useAuthStore } from '../features/auth/store'
 import { FixedCostsCard } from '../features/finance/components/FixedCostsCard'
 import { useSubscription } from '../features/billing/hooks'
 import { getInvoicingSettings, updateOrganizationName, upsertInvoicingSettings } from '../features/parametres/api'
-import type { UpsertInvoicingInput, VatMention } from '../features/parametres/api'
+import type { InvoicingSettings, UpsertInvoicingInput, VatMention } from '../features/parametres/api'
 import { loadDemoData } from '../features/parametres/demoData'
 import { LogoCard } from '../features/parametres/components/LogoCard'
 import { ModulesCard } from '../features/parametres/components/ModulesCard'
 import { NotificationsCard } from '../features/parametres/components/NotificationsCard'
 import { ReportTemplateCard } from '../features/parametres/components/ReportTemplateCard'
 import { NextNumberFields } from '../features/parametres/components/NextNumberFields'
+import {
+  fetchLegalIdentity,
+  fillEmptyFields,
+  getOrganizationSiret,
+  intracomVatFromSiren,
+  isLegalIdentityEmpty,
+} from '../features/parametres/legalPrefill'
+import { formatSiret, normalizeSiret } from '../features/auth/siret'
 
 const EMPTY: UpsertInvoicingInput = {
   legal_form: null,
@@ -38,6 +46,32 @@ const EMPTY: UpsertInvoicingInput = {
   invoice_prefix: 'FAC',
 }
 
+/** Champs modifiables d'après les paramètres enregistrés */
+function pickInvoicing(s: InvoicingSettings): UpsertInvoicingInput {
+  return {
+    legal_form: s.legal_form,
+    siret: s.siret,
+    ape_code: s.ape_code,
+    vat_number: s.vat_number,
+    capital: s.capital,
+    legal_address: s.legal_address,
+    legal_city: s.legal_city,
+    legal_postal_code: s.legal_postal_code,
+    legal_phone: s.legal_phone,
+    legal_email: s.legal_email,
+    iban: s.iban,
+    bic: s.bic,
+    bank_name: s.bank_name,
+    payment_terms: s.payment_terms,
+    late_penalty_text: s.late_penalty_text,
+    no_discount_text: s.no_discount_text,
+    vat_mention: s.vat_mention ?? 'none',
+    logo_url: s.logo_url,
+    quote_prefix: s.quote_prefix ?? 'DEV',
+    invoice_prefix: s.invoice_prefix ?? 'FAC',
+  }
+}
+
 export function ParametresPage() {
   const profile = useAuthStore((s) => s.profile)
   const setProfile = useAuthStore((s) => s.setProfile)
@@ -53,45 +87,42 @@ export function ParametresPage() {
   const [demoLoading, setDemoLoading] = useState(false)
   const [demoStep, setDemoStep] = useState<{ label: string; current: number; total: number } | null>(null)
   const [exportStep, setExportStep] = useState<{ label: string; done: number; total: number } | null>(null)
+  // Identité légale reprise de l'annuaire des entreprises (SIRET de l'inscription)
+  const [prefillNotice, setPrefillNotice] = useState<string | null>(null)
+  const [prefilling, setPrefilling] = useState(false)
+  const isAdminUser = (profile?.user_role ?? 'admin') === 'admin'
 
   useEffect(() => {
     setOrgName(profile?.organizations?.name ?? '')
     if (!profile?.organization_id) return
     let alive = true
-    void getInvoicingSettings(profile.organization_id)
-      .then((s) => {
+    const orgId = profile.organization_id
+    void getInvoicingSettings(orgId)
+      .then(async (s) => {
         if (!alive) return
-        if (s) {
-          setForm({
-            legal_form: s.legal_form,
-            siret: s.siret,
-            ape_code: s.ape_code,
-            vat_number: s.vat_number,
-            capital: s.capital,
-            legal_address: s.legal_address,
-            legal_city: s.legal_city,
-            legal_postal_code: s.legal_postal_code,
-            legal_phone: s.legal_phone,
-            legal_email: s.legal_email,
-            iban: s.iban,
-            bic: s.bic,
-            bank_name: s.bank_name,
-            payment_terms: s.payment_terms,
-            late_penalty_text: s.late_penalty_text,
-            no_discount_text: s.no_discount_text,
-            vat_mention: s.vat_mention ?? 'none',
-            logo_url: s.logo_url,
-            quote_prefix: s.quote_prefix ?? 'DEV',
-            invoice_prefix: s.invoice_prefix ?? 'FAC',
-          })
+        if (isAdminUser && (!s || isLegalIdentityEmpty(s))) {
+          // Première ouverture : on reprend ce que l'annuaire sait du SIRET de l'inscription
+          const siret = await getOrganizationSiret(orgId)
+          const found = siret ? await fetchLegalIdentity(siret).catch(() => null) : null
+          if (!alive) return
+          if (found) {
+            const base = s ? pickInvoicing(s) : EMPTY
+            const { next, filled } = fillEmptyFields(base, found)
+            setForm(next)
+            if (filled.length > 0) {
+              setPrefillNotice(`Repris de l'annuaire des entreprises (SIRET ${formatSiret(siret!)}) : vérifiez, complétez, puis cliquez sur « Enregistrer ».`)
+            }
+            return
+          }
         }
+        if (s) setForm(pickInvoicing(s))
       })
       .catch((e) => {
         if (alive) setError(e instanceof Error ? e.message : 'Erreur de chargement')
       })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [profile?.organization_id])
+  }, [profile?.organization_id, isAdminUser])
 
   function setField<K extends keyof UpsertInvoicingInput>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value || null }))
@@ -152,6 +183,41 @@ export function ParametresPage() {
       setExportStep(null)
     }
   }
+
+  /** Complète les champs vides de l'identité depuis l'annuaire (SIRET saisi, sinon celui de l'inscription) */
+  async function handlePrefillFromSiret() {
+    if (!profile?.organization_id) return
+    setPrefilling(true)
+    setError(null)
+    try {
+      const siret = normalizeSiret(form.siret ?? '').length === 14
+        ? form.siret!
+        : await getOrganizationSiret(profile.organization_id)
+      if (!siret) {
+        setError('Saisis d\'abord le SIRET (14 chiffres).')
+        return
+      }
+      const found = await fetchLegalIdentity(siret)
+      if (!found) {
+        setError('Ce SIRET est introuvable dans l\'annuaire des entreprises.')
+        return
+      }
+      const { next, filled } = fillEmptyFields(form, found)
+      setForm(next)
+      setPrefillNotice(filled.length > 0
+        ? `Repris de l'annuaire des entreprises (SIRET ${formatSiret(siret)}) : vérifiez, complétez, puis cliquez sur « Enregistrer ».`
+        : 'Les champs étaient déjà remplis : rien n\'a été remplacé.')
+    } catch {
+      setError('Annuaire des entreprises injoignable, réessaie dans un instant.')
+    } finally {
+      setPrefilling(false)
+    }
+  }
+
+  // N° de TVA calculé depuis le SIREN, proposé (jamais imposé) quand le champ est vide
+  const vatSuggestion = !form.vat_number && form.vat_mention !== 'franchise'
+    ? intracomVatFromSiren(form.siret ?? '')
+    : null
 
   async function handleSave() {
     if (!profile?.organization_id) return
@@ -246,37 +312,6 @@ export function ParametresPage() {
         </div>
       </div>
 
-      {/* Logo imprimé sur les documents : administrateurs */}
-      {(profile?.user_role ?? 'admin') === 'admin' && profile?.organization_id && (
-        <LogoCard
-          organizationId={profile.organization_id}
-          logoUrl={form.logo_url}
-          onChange={(url) => setForm((f) => ({ ...f, logo_url: url }))}
-        />
-      )}
-
-      {/* Modules affichés (« mode terrain ») : administrateurs */}
-      {(profile?.user_role ?? 'admin') === 'admin' && <ModulesCard />}
-
-      {/* Notifications par mail (administrateurs) */}
-      {(profile?.user_role ?? 'admin') === 'admin' && <NotificationsCard />}
-      {(profile?.user_role ?? 'admin') === 'admin' && <ReportTemplateCard />}
-      {(profile?.user_role ?? 'admin') === 'admin' && (
-        <div className="card" style={{ marginBottom: '1rem' }}>
-          <div className="card-top">
-            <span className="card-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <ListChecks size={14} strokeWidth={1.8} />
-              Checklists de contrôle
-            </span>
-            <Link to="/parametres/checklists" className="btn-sm">Modifier les checklists</Link>
-          </div>
-          <p className="text-ink-3 text-sm font-light" style={{ margin: 0 }}>
-            Adapte les points vérifiés pendant les visites, type par type : renomme, ajoute, retire ou réordonne des points,
-            et crée plusieurs listes par appareil (par exemple désenfumage naturel ou mécanique).
-          </p>
-        </div>
-      )}
-
       {/* Bloc 1 : identité légale */}
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="card-top">
@@ -284,7 +319,23 @@ export function ParametresPage() {
             <Building2 size={14} strokeWidth={1.8} />
             Identité légale
           </span>
+          {isAdminUser && (
+            <button
+              type="button"
+              className="btn-sm"
+              onClick={() => void handlePrefillFromSiret()}
+              disabled={prefilling}
+              title="Complète les champs vides avec l'annuaire public des entreprises"
+            >
+              {prefilling ? 'Recherche…' : 'Remplir depuis le SIRET'}
+            </button>
+          )}
         </div>
+        {prefillNotice && (
+          <p className="text-acc text-xs" style={{ margin: '0 0 .6rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Sparkles size={12} strokeWidth={2} /> {prefillNotice}
+          </p>
+        )}
         <div className="mrow">
           <div className="fg">
             <label>Forme juridique</label>
@@ -336,6 +387,15 @@ export function ParametresPage() {
             onChange={(e) => setField('vat_number', e.target.value)}
             maxLength={20}
           />
+          {vatSuggestion && (
+            <span className="text-ink-3 text-xs font-light">
+              Calculé depuis le SIREN : {vatSuggestion}{' '}
+              <button type="button" className="link-btn" onClick={() => setField('vat_number', vatSuggestion)}>
+                Utiliser
+              </button>
+              {' '}(seulement si l'entreprise est assujettie à la TVA)
+            </span>
+          )}
         </div>
       </div>
 
@@ -391,6 +451,37 @@ export function ParametresPage() {
           </div>
         </div>
       </div>
+
+      {/* Logo imprimé sur les documents : administrateurs */}
+      {(profile?.user_role ?? 'admin') === 'admin' && profile?.organization_id && (
+        <LogoCard
+          organizationId={profile.organization_id}
+          logoUrl={form.logo_url}
+          onChange={(url) => setForm((f) => ({ ...f, logo_url: url }))}
+        />
+      )}
+
+      {/* Modules affichés (« mode terrain ») : administrateurs */}
+      {(profile?.user_role ?? 'admin') === 'admin' && <ModulesCard />}
+
+      {/* Notifications par mail (administrateurs) */}
+      {(profile?.user_role ?? 'admin') === 'admin' && <NotificationsCard />}
+      {(profile?.user_role ?? 'admin') === 'admin' && <ReportTemplateCard />}
+      {(profile?.user_role ?? 'admin') === 'admin' && (
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <div className="card-top">
+            <span className="card-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <ListChecks size={14} strokeWidth={1.8} />
+              Checklists de contrôle
+            </span>
+            <Link to="/parametres/checklists" className="btn-sm">Modifier les checklists</Link>
+          </div>
+          <p className="text-ink-3 text-sm font-light" style={{ margin: 0 }}>
+            Adapte les points vérifiés pendant les visites, type par type : renomme, ajoute, retire ou réordonne des points,
+            et crée plusieurs listes par appareil (par exemple désenfumage naturel ou mécanique).
+          </p>
+        </div>
+      )}
 
       {/* Bloc 3 : coordonnées bancaires */}
       <div className="card" style={{ marginBottom: '1rem' }}>

@@ -17,6 +17,7 @@ import { fetchMonthlyProfit } from '../features/finance/api'
 import { ProfitSummary } from '../features/finance/components/ProfitSummary'
 import type { MonthProfit } from '../features/finance/profit'
 import type { BusinessStats } from '../features/dashboard/businessStatsApi'
+import { FirstStepsCard } from '../features/dashboard/components/FirstStepsCard'
 import { getInterventionStats } from '../features/planning/api'
 import type { InterventionStats } from '../features/planning/api'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
@@ -123,6 +124,15 @@ export function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* ─── PREMIERS PAS (administrateurs, jusqu'à ce que tout soit fait) ─── */}
+      {isAdmin && profile?.organization_id && (
+        <FirstStepsCard
+          key={`fs-${refreshKey}`}
+          organizationId={profile.organization_id}
+          onPlanVisit={() => setModalOpen(true)}
+        />
+      )}
 
       {/* ─── MA JOURNÉE (compte relié à une fiche technicien) ─── */}
       <MyDayCard key={`md-${refreshKey}`} />
