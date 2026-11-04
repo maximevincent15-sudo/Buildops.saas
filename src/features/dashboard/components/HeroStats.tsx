@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { BusinessStats } from '../businessStatsApi'
 import { AnimatedCounter } from './AnimatedCounter'
 
@@ -23,7 +24,7 @@ function capitalize(s: string) {
  *
  * 4 colonnes :
  *  - CA encaissé du mois (en énorme, sparkline + évolution vs mois précédent)
- *  - À facturer (factures non émises sur interventions terminées)
+ *  - À facturer (visites terminées hors contrat, sans facture : lien vers Factures)
  *  - Impayés J+30 (factures en retard de paiement)
  *  - Acceptation devis (% sur 90j glissants)
  *
@@ -71,13 +72,26 @@ export function HeroStats({ stats }: Props) {
         )}
       </div>
 
-      {/* COL 2 : À facturer (toujours nul pour le moment, en attendant ce KPI) */}
+      {/* COL 2 : À facturer (visites terminées sans facture) */}
       <div className="b-hs-side">
-        <div className="b-hs-lbl">À facturer</div>
-        <div className="b-hs-val">
-          <AnimatedCounter value={0} duration={0.9} delay={0.05} suffix=" €" />
-        </div>
-        <div className="b-hs-sub">Interventions terminées</div>
+        <Link
+          to="/factures?a_facturer=1"
+          style={{ color: 'inherit', textDecoration: 'none', display: 'block' }}
+          title="Voir les visites à facturer"
+        >
+          <div className="b-hs-lbl">À facturer</div>
+          <div className="b-hs-val">
+            <AnimatedCounter
+              value={stats.visitsToInvoice}
+              duration={0.9}
+              delay={0.05}
+              suffix={stats.visitsToInvoice > 1 ? ' visites' : ' visite'}
+            />
+          </div>
+          <div className={`b-hs-sub${stats.visitsToInvoice === 0 ? ' ok' : ''}`}>
+            {stats.visitsToInvoice === 0 ? '✓ Tout est facturé' : 'Terminées, sans facture'}
+          </div>
+        </Link>
       </div>
 
       {/* COL 3 : Impayés J+30 */}

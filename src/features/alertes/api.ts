@@ -198,3 +198,82 @@ export async function computeRegulatoryAlerts(): Promise<RegulatoryAlert[]> {
 
   return alerts.sort((a, b) => a.daysUntilDue - b.daysUntilDue)
 }
+
+export type SiteWithoutVisit = {
+  siteId: string
+  siteName: string
+  clientId: string
+  clientName: string
+  address: string | null
+  unitCount: number
+  families: string[]
+}
+
+async function selectAllRows<T>(build: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
+  const out: T[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await build(from, from + 999)
+    if (error) throw error
+    const rows = (data ?? []) as T[]
+    out.push(...rows)
+    if (rows.length < 1000) break
+  }
+  return out
+}
+
+/**
+ * Sites qui ont des équipements en service mais aucune visite (ni prévue, ni
+ * faite) : un parc importé n'a pas encore d'échéance, il n'apparaîtrait
+ * nulle part ailleurs.
+ */
+export async function listSitesWithoutVisit(): Promise<SiteWithoutVisit[]> {
+  type SiteRow = { id: string; name: string; client_id: string; address: string | null; postal_code: string | null; city: string | null }
+  type UnitRow = { site_id: string; family: string }
+  type VisitRow = { site_id: string | null; client_id: string | null; site_name: string | null }
+  const [sites, units, visits, clients] = await Promise.all([
+    selectAllRows<SiteRow>((from, to) => supabase
+      .from('sites').select('id, name, client_id, address, postal_code, city')
+      .order('id', { ascending: true }).range(from, to)),
+    selectAllRows<UnitRow>((from, to) => supabase
+      .from('equipment_units').select('site_id, family')
+      .not('status', 'in', '(removed,replaced)')
+      .order('id', { ascending: true }).range(from, to)),
+    selectAllRows<VisitRow>((from, to) => supabase
+      .from('interventions').select('site_id, client_id, site_name')
+      .order('id', { ascending: true }).range(from, to)),
+    selectAllRows<{ id: string; name: string }>((from, to) => supabase
+      .from('clients').select('id, name')
+      .order('id', { ascending: true }).range(from, to)),
+  ])
+
+  const visitedSiteIds = new Set(visits.map((v) => v.site_id).filter(Boolean) as string[])
+  // Anciennes visites sans site_id : rattachées par client + nom du site
+  const norm = (s: string) => s.trim().toLowerCase()
+  const visitedByName = new Set(visits.filter((v) => !v.site_id && v.client_id && v.site_name)
+    .map((v) => `${v.client_id}|${norm(v.site_name!)}`))
+  const clientName = new Map(clients.map((c) => [c.id, c.name]))
+
+  const parc = new Map<string, { count: number; families: Set<string> }>()
+  for (const u of units) {
+    const p = parc.get(u.site_id) ?? { count: 0, families: new Set<string>() }
+    p.count++
+    p.families.add(u.family)
+    parc.set(u.site_id, p)
+  }
+
+  return sites
+    .filter((s) => parc.has(s.id) && !visitedSiteIds.has(s.id) && !visitedByName.has(`${s.client_id}|${norm(s.name)}`))
+    .map((s) => {
+      const p = parc.get(s.id)!
+      return {
+        siteId: s.id,
+        siteName: s.name,
+        clientId: s.client_id,
+        clientName: clientName.get(s.client_id) ?? '',
+        address: [s.address, [s.postal_code, s.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null,
+        unitCount: p.count,
+        families: [...p.families],
+      }
+    })
+    .sort((a, b) => a.clientName.localeCompare(b.clientName, 'fr') || a.siteName.localeCompare(b.siteName, 'fr'))
+}

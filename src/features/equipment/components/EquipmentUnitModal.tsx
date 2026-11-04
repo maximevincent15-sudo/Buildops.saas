@@ -22,6 +22,8 @@ import {
   EQUIPMENT_FAMILY_LABELS,
   EQUIPMENT_STATUSES,
   EQUIPMENT_STATUS_LABELS,
+  NEVER_CHECKED_LABEL,
+  isNeverChecked,
   computeNextReplacementYear,
   createEquipmentUnitSchema,
 } from '../schemas'
@@ -623,6 +625,11 @@ export function EquipmentUnitModal({
                 <option key={s} value={s}>{EQUIPMENT_STATUS_LABELS[s]}</option>
               ))}
             </select>
+            {(!unit || isNeverChecked(unit)) && watch('status') === 'active' && (
+              <span className="text-ink-3 text-xs font-light">
+                Jamais contrôlé : affiché « {NEVER_CHECKED_LABEL} » jusqu'à son premier contrôle.
+              </span>
+            )}
           </div>
 
           {/* Notes */}

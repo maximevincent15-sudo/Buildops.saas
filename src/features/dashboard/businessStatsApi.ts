@@ -6,6 +6,7 @@ import { effectiveStatus } from '../factures/constants'
 import { listInterventions } from '../planning/api'
 import type { Intervention } from '../planning/schemas'
 import { supabase } from '../../shared/lib/supabase'
+import { listVisitsToInvoice } from '../factures/visitBilling'
 
 export type BusinessStats = {
   // KPIs principales
@@ -16,6 +17,7 @@ export type BusinessStats = {
   acceptanceRate: number | null     // % devis acceptés / (acceptés + refusés)
   acceptanceTotal: number           // base de calcul (nb de réponses)
   averagePaymentDays: number | null // délai moyen paiement (jours)
+  visitsToInvoice: number           // visites terminées (rapport finalisé), hors contrat, sans facture
   // Top clients
   topClients: Array<{ name: string; amount: number; count: number }>
   // Top techniciens
@@ -33,19 +35,21 @@ function monthLabel(date: Date): string {
 }
 
 export async function fetchBusinessStats(): Promise<BusinessStats> {
-  const [invoices, quotes, interventions] = await Promise.all([
+  const [invoices, quotes, interventions, visitsToInvoice] = await Promise.all([
     listInvoices(),
     listQuotes(),
     listInterventions(),
+    listVisitsToInvoice().catch(() => []),
   ])
 
-  return computeBusinessStats(invoices, quotes, interventions)
+  return computeBusinessStats(invoices, quotes, interventions, visitsToInvoice.length)
 }
 
 export function computeBusinessStats(
   invoices: Invoice[],
   quotes: Quote[],
   interventions: Intervention[],
+  visitsToInvoice = 0,
 ): BusinessStats {
   const now = new Date()
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -172,6 +176,7 @@ export function computeBusinessStats(
     acceptanceRate,
     acceptanceTotal,
     averagePaymentDays,
+    visitsToInvoice,
     topClients,
     topTechnicians,
     monthlyRevenue,

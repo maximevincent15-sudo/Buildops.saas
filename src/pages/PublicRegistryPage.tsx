@@ -5,7 +5,9 @@ import { fetchPublicRegistry } from '../features/equipment/publicApi'
 import type { PublicRegistryRow } from '../features/equipment/publicApi'
 import {
   EQUIPMENT_FAMILY_LABELS,
-  EQUIPMENT_STATUS_LABELS,
+  NEVER_CHECKED_HINT,
+  isNeverChecked,
+  unitStatusLabel,
 } from '../features/equipment/schemas'
 import type {
   EquipmentFamily,
@@ -65,9 +67,10 @@ export function PublicRegistryPage() {
 
   // Compteurs
   const counts = useMemo(() => {
-    const c = { active: 0, to_watch: 0, to_replace: 0, other: 0 }
+    const c = { active: 0, unchecked: 0, to_watch: 0, to_replace: 0, other: 0 }
     for (const u of units) {
-      if (u.unit_status === 'active') c.active++
+      if (isNeverChecked({ status: u.unit_status, last_check_date: u.unit_last_check_date })) c.unchecked++
+      else if ((u.unit_status ?? 'active') === 'active') c.active++
       else if (u.unit_status === 'to_watch') c.to_watch++
       else if (u.unit_status === 'to_replace') c.to_replace++
       else c.other++
@@ -155,6 +158,9 @@ export function PublicRegistryPage() {
           <StatCard label="Conformes" value={counts.active} color="#0E7A3F" bg="#E6F4EB" />
           <StatCard label="À surveiller" value={counts.to_watch} color="#B36510" bg="#FDF3E0" />
           <StatCard label="À réformer" value={counts.to_replace} color="#B02A1E" bg="#FDECEC" />
+          {counts.unchecked > 0 && (
+            <StatCard label="Non contrôlés" value={counts.unchecked} color="#5A6070" bg="#F1F1F1" />
+          )}
         </div>
 
         {/* Familles */}
@@ -197,7 +203,8 @@ export function PublicRegistryPage() {
                 {units.map((u) => {
                   const zoneLabel = [u.zone_parent, u.zone_name].filter(Boolean).join(' · ') || '—'
                   const status = u.unit_status ?? 'active'
-                  const color = STATUS_COLOR[status]
+                  const neverChecked = isNeverChecked({ status, last_check_date: u.unit_last_check_date })
+                  const color = neverChecked ? STATUS_COLOR.removed : STATUS_COLOR[status]
                   return (
                     <tr key={u.unit_id!}>
                       <td style={{ ...tdStyle, fontWeight: 700, color: '#3A5CA8', fontFamily: 'monospace' }}>
@@ -212,6 +219,7 @@ export function PublicRegistryPage() {
                       <td style={tdStyle}>{formatDate(u.unit_last_check_date)}</td>
                       <td style={tdStyle}>
                         <span
+                          title={neverChecked ? NEVER_CHECKED_HINT : undefined}
                           style={{
                             display: 'inline-block',
                             padding: '3px 9px',
@@ -222,7 +230,7 @@ export function PublicRegistryPage() {
                             color: color.fg,
                           }}
                         >
-                          {EQUIPMENT_STATUS_LABELS[status]}
+                          {unitStatusLabel(status, u.unit_last_check_date)}
                         </span>
                       </td>
                     </tr>

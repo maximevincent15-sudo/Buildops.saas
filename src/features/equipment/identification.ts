@@ -154,6 +154,14 @@ const TYPE_TO_FAMILIES: Record<string, EquipmentFamily[]> = {
   extinction_auto: [],
 }
 
+/** Types d'intervention à planifier pour contrôler ces familles du parc */
+export function typesForFamilies(families: Iterable<string>): string[] {
+  const wanted = new Set(families)
+  return Object.entries(TYPE_TO_FAMILIES)
+    .filter(([, fams]) => fams.some((f) => wanted.has(f)))
+    .map(([type]) => type)
+}
+
 /** Familles concernées par les types de l'intervention (vide : pas de restriction) */
 export function familiesForTypes(types: string[] | null | undefined): EquipmentFamily[] {
   const out = new Set<EquipmentFamily>()

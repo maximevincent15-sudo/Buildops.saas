@@ -1,10 +1,15 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { AlertCircle, Award, Calendar, Car, CheckCircle2, Clock, FileSignature, HardHat, Wrench } from 'lucide-react'
+import { AlertCircle, Award, Calendar, CalendarPlus, Car, CheckCircle2, Clock, FileSignature, HardHat, MapPin, Wrench } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { classifyAlert, computeRegulatoryAlerts } from '../features/alertes/api'
-import type { AlertSeverity, RegulatoryAlert } from '../features/alertes/api'
+import { classifyAlert, computeRegulatoryAlerts, listSitesWithoutVisit } from '../features/alertes/api'
+import type { AlertSeverity, RegulatoryAlert, SiteWithoutVisit } from '../features/alertes/api'
+import { typesForFamilies } from '../features/equipment/identification'
+import { EQUIPMENT_FAMILIES, EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
+import type { EquipmentFamily } from '../features/equipment/schemas'
+import { InterventionModal } from '../features/planning/components/InterventionModal'
+import type { CreateInterventionInput } from '../features/planning/schemas'
 import { INSPECTION_FREQUENCIES_LABEL } from '../features/alertes/frequencies'
 import { fetchContractAlerts } from '../features/contrats/alerts'
 import type { ContractAlert } from '../features/contrats/alerts'
@@ -59,6 +64,9 @@ export function AlertesPage() {
   const [certAlerts, setCertAlerts] = useState<CertificationAlert[]>([])
   const [vehAlerts, setVehAlerts] = useState<VehicleAlert[]>([])
   const [ctrAlerts, setCtrAlerts] = useState<ContractAlert[]>([])
+  const [sitesWithoutVisit, setSitesWithoutVisit] = useState<SiteWithoutVisit[]>([])
+  const [planSite, setPlanSite] = useState<SiteWithoutVisit | null>(null)
+  const [showAllSites, setShowAllSites] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [category, setCategory] = useState<Category>('equipment')
@@ -72,10 +80,12 @@ export function AlertesPage() {
       computeCertificationAlerts(),
       computeVehicleAlerts(),
       contratsEnabled ? fetchContractAlerts().catch(() => []) : Promise.resolve([] as ContractAlert[]),
+      listSitesWithoutVisit().catch(() => [] as SiteWithoutVisit[]),
     ])
-      .then(([reg, certs, veh, ctr]) => {
+      .then(([reg, certs, veh, ctr, noVisit]) => {
         if (!alive) return
         setRegAlerts(reg)
+        setSitesWithoutVisit(noVisit)
         setCertAlerts(certs)
         setVehAlerts(veh)
         setCtrAlerts(ctr)
@@ -195,6 +205,77 @@ export function AlertesPage() {
           </button>
         )}
       </div>
+
+      {/* Sites avec un parc mais aucune visite : pas encore d'échéance calculable */}
+      {!loading && category === 'equipment' && sitesWithoutVisit.length > 0 && (
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <div className="card-top">
+            <span className="card-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <MapPin size={15} strokeWidth={2} />
+              Sites sans visite prévue ({sitesWithoutVisit.length})
+            </span>
+            <span className="text-ink-3 text-xs font-light">
+              Équipements enregistrés, aucune visite planifiée ni faite
+            </span>
+          </div>
+          <div className="alerts-list">
+            {(showAllSites ? sitesWithoutVisit : sitesWithoutVisit.slice(0, 5)).map((s) => (
+              <div key={s.siteId} className="alert-row">
+                <div className="alert-icon">
+                  <MapPin size={18} strokeWidth={2} />
+                </div>
+                <div className="alert-main">
+                  <div className="alert-title">
+                    {s.clientName}
+                    <span className="alert-site"> — {s.siteName}</span>
+                  </div>
+                  <div className="alert-meta">
+                    {s.unitCount} équipement{s.unitCount > 1 ? 's' : ''} · {EQUIPMENT_FAMILIES
+                      .filter((f) => s.families.includes(f))
+                      .map((f) => EQUIPMENT_FAMILY_LABELS[f as EquipmentFamily])
+                      .join(', ')}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-sm acc"
+                  onClick={() => setPlanSite(s)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'center' }}
+                >
+                  <CalendarPlus size={13} /> Planifier
+                </button>
+              </div>
+            ))}
+          </div>
+          {sitesWithoutVisit.length > 5 && (
+            <button type="button" className="btn-sm" style={{ marginTop: '.5rem' }} onClick={() => setShowAllSites((v) => !v)}>
+              {showAllSites ? 'Réduire' : `Afficher les ${sitesWithoutVisit.length} sites`}
+            </button>
+          )}
+        </div>
+      )}
+
+      {planSite && (
+        <InterventionModal
+          open
+          onClose={() => setPlanSite(null)}
+          seed={{
+            client_id: planSite.clientId,
+            client_name: planSite.clientName,
+            site_id: planSite.siteId,
+            site_name: planSite.siteName,
+            address: planSite.address ?? undefined,
+            equipment_types: typesForFamilies(planSite.families) as CreateInterventionInput['equipment_types'],
+            priority: 'reglementaire',
+            intervention_type: 'preventive',
+          }}
+          onChanged={() => {
+            const planned = planSite.siteId
+            setPlanSite(null)
+            setSitesWithoutVisit((list) => list.filter((x) => x.siteId !== planned))
+          }}
+        />
+      )}
 
       {/* Filtres par gravité */}
       {activeList.length > 0 && (

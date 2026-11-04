@@ -40,6 +40,23 @@ export const EQUIPMENT_STATUS_LABELS: Record<EquipmentStatus, string> = {
   removed: 'Retiré',
 }
 
+/**
+ * Appareil en service sans aucun contrôle enregistré (importé ou créé à la
+ * main) : son statut par défaut n'est pas une preuve, on affiche « Non
+ * contrôlé » au lieu de « Conforme ».
+ */
+export function isNeverChecked(u: { status: EquipmentStatus | null; last_check_date: string | null }): boolean {
+  return (u.status ?? 'active') === 'active' && !u.last_check_date
+}
+
+export const NEVER_CHECKED_LABEL = 'Non contrôlé'
+export const NEVER_CHECKED_HINT = 'Aucun contrôle enregistré pour cet appareil'
+
+/** Libellé affiché du statut d'un appareil */
+export function unitStatusLabel(status: EquipmentStatus | null, lastCheckDate: string | null): string {
+  return isNeverChecked({ status, last_check_date: lastCheckDate }) ? NEVER_CHECKED_LABEL : EQUIPMENT_STATUS_LABELS[status ?? 'active']
+}
+
 // Durée de vie standard (en années) pour calculer next_replacement_year
 /**
  * Durée de vie avant réforme. Extincteurs à eau et à poudre : 20 ans

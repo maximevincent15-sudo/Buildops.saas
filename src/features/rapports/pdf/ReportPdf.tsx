@@ -1358,14 +1358,14 @@ function ZoneControls({ entries }: { entries: UnitReportEntry[] }) {
               const pointsLine = e.totalItems && checked > 0
                 ? `${checked}/${e.totalItems} points vérifiés${e.naItems && e.naItems.length > 0 ? ` · ${e.naItems.length} N/A` : ''}`
                 : null
-              // Verdict posé sans aucun point coché : une ligne plutôt que 15 points listés.
-              const checklistEmpty = e.verdict !== 'non_verifie' && !!e.totalItems && checked === 0
+              // Verdict posé sans cocher les points (validation globale, « Tout
+              // conforme ») : le verdict du technicien suffit, rien à lister.
+              const checklistEmpty = !!e.totalItems && checked === 0
               const showUnchecked =
                 e.verdict !== 'non_verifie' && !checklistEmpty
                 && !!e.uncheckedItems && e.uncheckedItems.length > 0
               const hasDetail =
                 !!e.observation
-                || checklistEmpty
                 || showUnchecked
                 || (e.naItems && e.naItems.length > 0)
 
@@ -1400,11 +1400,6 @@ function ZoneControls({ entries }: { entries: UnitReportEntry[] }) {
                         <Text style={{ fontSize: 8, color: colors.ink2 }}>
                           <Text style={{ fontFamily: 'Helvetica-Bold' }}>Observation : </Text>
                           {e.observation}
-                        </Text>
-                      )}
-                      {checklistEmpty && (
-                        <Text style={{ fontSize: 8, color: colors.org, marginTop: 1 }}>
-                          Checklist détaillée non renseignée
                         </Text>
                       )}
                       {showUnchecked && (

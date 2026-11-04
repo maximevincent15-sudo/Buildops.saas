@@ -8,6 +8,7 @@ import {
   Download,
   FileText,
   Mail,
+  Receipt,
   RotateCcw,
   XCircle,
 } from 'lucide-react'
@@ -59,6 +60,10 @@ import { QuoteModal } from '../features/devis/components/QuoteModal'
 import { familiesForTypes } from '../features/equipment/identification'
 import { useModuleEnabled } from '../features/parametres/modules'
 import type { UpsertQuoteInput } from '../features/devis/schemas'
+import { InvoiceModal } from '../features/factures/components/InvoiceModal'
+import { buildVisitInvoiceSeed, findVisitInvoice } from '../features/factures/visitBilling'
+import type { VisitInvoiceRef } from '../features/factures/visitBilling'
+import type { UpsertInvoiceInput } from '../features/factures/schemas'
 import {
   RECOMMENDED_ACTION_LABEL,
   SIGNATURE_STATUS_LABELS,
@@ -147,6 +152,19 @@ export function RapportEditorPage() {
   // Devis : administrateurs uniquement (et module affiché)
   const devisEnabled = useModuleEnabled()('devis') && (profile?.user_role ?? 'admin') === 'admin'
   const [quoteOpen, setQuoteOpen] = useState(false)
+  // Facturer la visite : administrateurs uniquement (et module affiché)
+  const facturesEnabled = useModuleEnabled()('factures') && (profile?.user_role ?? 'admin') === 'admin'
+  const [visitInvoice, setVisitInvoice] = useState<VisitInvoiceRef | null | undefined>(undefined)
+  const [invoiceSeed, setInvoiceSeed] = useState<Partial<UpsertInvoiceInput> | null>(null)
+  const [preparingInvoice, setPreparingInvoice] = useState(false)
+  useEffect(() => {
+    if (!interventionId || !facturesEnabled || !completedAt) return
+    let alive = true
+    findVisitInvoice(interventionId)
+      .then((inv) => { if (alive) setVisitInvoice(inv) })
+      .catch(() => { if (alive) setVisitInvoice(undefined) })
+    return () => { alive = false }
+  }, [interventionId, facturesEnabled, completedAt])
   const [sendOpen, setSendOpen] = useState(false)
   const [sentToEmail, setSentToEmail] = useState<string | null>(null)
   const [sentAt, setSentAt] = useState<string | null>(null)
@@ -734,6 +752,20 @@ export function RapportEditorPage() {
       pdfUrl: pdf,
     }, { mailtoFallback: false })
     if (result.mode === 'resend') await markReportSent(id, to)
+  }
+
+  /** Administrateur : ouvre une facture pré-remplie pour cette visite */
+  async function handleInvoiceVisit() {
+    if (!intervention) return
+    setPreparingInvoice(true)
+    try {
+      setError(null)
+      setInvoiceSeed(await buildVisitInvoiceSeed(intervention))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Facture impossible à préparer.')
+    } finally {
+      setPreparingInvoice(false)
+    }
   }
 
   /** Administrateur : repasse le rapport finalisé en brouillon pour corriger une erreur */
@@ -1347,6 +1379,29 @@ export function RapportEditorPage() {
             )}
           </div>
           <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+            {facturesEnabled && !intervention.contract_id && visitInvoice !== undefined && (
+              visitInvoice ? (
+                <Link
+                  to={`/factures?open=${visitInvoice.id}`}
+                  className="btn-sm"
+                  title="Facture de cette visite"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Receipt size={13} /> Facture {visitInvoice.reference}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-sm"
+                  onClick={() => void handleInvoiceVisit()}
+                  disabled={preparingInvoice}
+                  title="Créer la facture de cette visite"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Receipt size={13} /> {preparingInvoice ? 'Préparation…' : 'Facturer la visite'}
+                </button>
+              )
+            )}
             {conformity.isConform === false && (
               <button
                 type="button"
@@ -1496,6 +1551,18 @@ export function RapportEditorPage() {
       )}
 
       {/* Modale création devis correctif (pré-rempli depuis les anomalies) */}
+      {invoiceSeed && (
+        <InvoiceModal
+          open
+          onClose={() => setInvoiceSeed(null)}
+          seed={invoiceSeed}
+          notice={`Facture de la visite ${intervention.reference} : complétez les prix (ou ajoutez des articles du catalogue), puis créez la facture.`}
+          onSaved={() => {
+            if (interventionId) void findVisitInvoice(interventionId).then(setVisitInvoice).catch(() => {})
+          }}
+        />
+      )}
+
       {quoteOpen && quoteSeedFull && (
         <QuoteModal
           open={quoteOpen}

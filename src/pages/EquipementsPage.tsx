@@ -14,8 +14,10 @@ import { SiteModal } from '../features/equipment/components/SiteModal'
 import {
   EQUIPMENT_FAMILIES,
   EQUIPMENT_FAMILY_LABELS,
-  EQUIPMENT_STATUS_LABELS,
+  NEVER_CHECKED_HINT,
   computeNextReplacementYear,
+  isNeverChecked,
+  unitStatusLabel,
 } from '../features/equipment/schemas'
 import type {
   EquipmentFamily,
@@ -30,7 +32,8 @@ import { normalizeSearch } from '../shared/lib/search'
 const ROWS_STEP = 200
 
 type FamilyFilter = 'all' | EquipmentFamily
-type StatusFilter = 'all' | EquipmentStatus
+/** « unchecked » : en service, jamais contrôlé */
+type StatusFilter = 'all' | EquipmentStatus | 'unchecked'
 
 const STATUS_BADGE: Record<EquipmentStatus, string> = {
   active: 'b-grn',
@@ -145,7 +148,12 @@ export function EquipementsPage() {
     const list = units.filter((u) => {
       if (familyFilter !== 'all' && u.family !== familyFilter) return false
       if (siteFilter !== 'all' && u.site_id !== siteFilter) return false
-      if (statusFilter !== 'all' && u.status !== statusFilter) return false
+      if (statusFilter === 'unchecked') {
+        if (!isNeverChecked(u)) return false
+      } else if (statusFilter !== 'all') {
+        if (u.status !== statusFilter) return false
+        if (statusFilter === 'active' && isNeverChecked(u)) return false
+      }
       if (q) {
         // Recherche aussi par client et par site (« Beauséjour », « Tilleuls »…)
         const hay = normalizeSearch([
@@ -408,6 +416,7 @@ export function EquipementsPage() {
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
         >
           <option value="all">Tous statuts</option>
+          <option value="unchecked">Non contrôlé</option>
           <option value="active">Conforme</option>
           <option value="to_watch">À surveiller</option>
           <option value="to_replace">À réformer</option>
@@ -556,9 +565,13 @@ export function EquipementsPage() {
                         {nextYear ?? '—'}
                       </td>
                       <td>
-                        <span className={STATUS_BADGE[u.status]}>
-                          {EQUIPMENT_STATUS_LABELS[u.status]}
-                        </span>
+                        {isNeverChecked(u) ? (
+                          <span className="b-gry" title={NEVER_CHECKED_HINT}>{unitStatusLabel(u.status, u.last_check_date)}</span>
+                        ) : (
+                          <span className={STATUS_BADGE[u.status]}>
+                            {unitStatusLabel(u.status, u.last_check_date)}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   )

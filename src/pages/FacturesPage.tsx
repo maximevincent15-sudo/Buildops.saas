@@ -7,6 +7,9 @@ import { useAuthStore } from '../features/auth/store'
 import { formatAmount } from '../features/devis/constants'
 import { listInvoices } from '../features/factures/api'
 import { InvoiceModal } from '../features/factures/components/InvoiceModal'
+import { VisitsToInvoiceCard } from '../features/factures/components/VisitsToInvoiceCard'
+import { buildVisitInvoiceSeed, listVisitsToInvoice } from '../features/factures/visitBilling'
+import type { VisitToInvoice } from '../features/factures/visitBilling'
 import {
   INVOICE_STATUS_BADGE,
   INVOICE_STATUS_ICON,
@@ -55,13 +58,16 @@ export function FacturesPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [relanceInvoice, setRelanceInvoice] = useState<Invoice | null>(null)
-  const [duplicate, setDuplicate] = useState<{ seed: Partial<UpsertInvoiceInput>; from: string } | null>(null)
+  // Création pré-remplie : copie d'une facture ou facture d'une visite
+  const [prefill, setPrefill] = useState<{ seed: Partial<UpsertInvoiceInput>; notice: string } | null>(null)
+  const [visitsToInvoice, setVisitsToInvoice] = useState<VisitToInvoice[]>([])
+  const [preparingVisitId, setPreparingVisitId] = useState<string | null>(null)
 
   // Support ouverture via ?open=<id> (depuis QuoteModal "Transformer en facture")
   useEffect(() => {
     const id = searchParams.get('open')
     if (id) {
-      setDuplicate(null)
+      setPrefill(null)
       setEditingId(id)
       setModalOpen(true)
       // Nettoie le paramètre pour ne pas réouvrir au refresh
@@ -75,8 +81,9 @@ export function FacturesPage() {
   async function load() {
     setLoading(true)
     try {
-      const data = await listInvoices()
+      const [data, visits] = await Promise.all([listInvoices(), listVisitsToInvoice().catch(() => [])])
       setInvoices(data)
+      setVisitsToInvoice(visits)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
@@ -88,6 +95,30 @@ export function FacturesPage() {
   useEffect(() => {
     void load()
   }, [])
+
+  // Lien « À facturer » du tableau de bord : amène à la liste des visites
+  const wantsToInvoice = searchParams.get('a_facturer') === '1'
+  useEffect(() => {
+    if (!wantsToInvoice || loading) return
+    document.getElementById('a-facturer')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [wantsToInvoice, loading])
+
+  async function invoiceVisit(visit: VisitToInvoice) {
+    setPreparingVisitId(visit.id)
+    try {
+      const seed = await buildVisitInvoiceSeed(visit)
+      setPrefill({
+        seed,
+        notice: `Facture de la visite ${visit.reference} : complétez les prix (ou ajoutez des articles du catalogue), puis créez la facture.`,
+      })
+      setEditingId(null)
+      setModalOpen(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setPreparingVisitId(null)
+    }
+  }
 
   // Statut effectif (calcule overdue à partir de la date)
   const enrichedInvoices = useMemo(
@@ -136,13 +167,13 @@ export function FacturesPage() {
     .reduce((sum, i) => sum + (Number(i.total_ttc) - Number(i.amount_paid ?? 0)), 0)
 
   function openCreate() {
-    setDuplicate(null)
+    setPrefill(null)
     setEditingId(null)
     setModalOpen(true)
   }
 
   function openEdit(id: string) {
-    setDuplicate(null)
+    setPrefill(null)
     setEditingId(id)
     setModalOpen(true)
   }
@@ -214,6 +245,8 @@ export function FacturesPage() {
           <div className="kpi-sub">{counts.overdue} facture{counts.overdue > 1 ? 's' : ''} à relancer</div>
         </div>
       </div>
+
+      <VisitsToInvoiceCard visits={visitsToInvoice} preparingId={preparingVisitId} onInvoice={(v) => void invoiceVisit(v)} />
 
       {/* Onglets */}
       <div style={{ display: 'flex', gap: '.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
@@ -350,10 +383,10 @@ export function FacturesPage() {
         onClose={() => setModalOpen(false)}
         onSaved={() => void load()}
         invoiceId={editingId}
-        seed={duplicate?.seed}
-        notice={duplicate ? `Copie de la facture ${duplicate.from} : vérifiez le client, les lignes et les dates, puis créez la facture. Elle aura un nouveau numéro.` : undefined}
+        seed={prefill?.seed}
+        notice={prefill?.notice}
         onDuplicate={(seed, from) => {
-          setDuplicate({ seed, from })
+          setPrefill({ seed, notice: `Copie de la facture ${from} : vérifiez le client, les lignes et les dates, puis créez la facture. Elle aura un nouveau numéro.` })
           setEditingId(null)
         }}
       />
