@@ -108,7 +108,7 @@ export function AuthPage() {
             <br />
             sous <em>contrôle total</em>
           </h2>
-          <p>Conçu pour les entreprises de maintenance incendie de 3 à 20 techniciens.</p>
+          <p>Conçu pour les artisans, TPE et PME de la maintenance incendie.</p>
           <div className="af-list">
             <div className="af-item">
               <div className="af-dot" style={{ background: 'rgba(58,92,168,.3)', color: '#bdd1ff' }}>
