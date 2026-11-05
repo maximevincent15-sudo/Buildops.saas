@@ -35,7 +35,7 @@ import {
   paymentMethodLabel,
 } from '../constants'
 import type { InvoiceKind, InvoiceStatus } from '../constants'
-import type { Invoice, InvoiceWithLines, UpsertInvoiceInput } from '../schemas'
+import type { Invoice, InvoiceLineInput, InvoiceWithLines, UpsertInvoiceInput } from '../schemas'
 import { buildInvoicePdf, creditedInvoiceInfo, invoiceEmail } from '../documentPdf'
 import type { CreditedInvoiceInfo } from '../documentPdf'
 import { CreditNoteModal } from './CreditNoteModal'
@@ -111,7 +111,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
   const [issueDate, setIssueDate] = useState(todayIso())
   const [dueDate, setDueDate] = useState(defaultDueDate(todayIso()))
   const [notes, setNotes] = useState('')
-  const [lines, setLines] = useState<QuoteLineInput[]>([{ ...EMPTY_LINE }])
+  const [lines, setLines] = useState<InvoiceLineInput[]>([{ ...EMPTY_LINE }])
   // Zone de texte où se trouve le curseur, mise en forme par la barre
   const [formatTarget, setFormatTarget] = useState<{ index: number; part: LinePart } | null>(null)
 
@@ -127,6 +127,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
   const [sending, setSending] = useState(false)
   // Avoirs : nature du document, montants crédités, avoirs de la facture
   const [kind, setKind] = useState<InvoiceKind>('invoice')
+  const [isDeposit, setIsDeposit] = useState(false)
   const [creditedTtc, setCreditedTtc] = useState(0)
   const [cancelledReason, setCancelledReason] = useState<string | null>(null)
   const [creditedInfo, setCreditedInfo] = useState<CreditedInvoiceInfo | null>(null)
@@ -168,9 +169,11 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
             quantity: Number(l.quantity),
             unit_price_ht: Number(l.unit_price_ht),
             vat_rate: Number(l.vat_rate),
+            deposit_invoice_id: l.deposit_invoice_id ?? null,
           }))
         : [{ ...EMPTY_LINE }],
     )
+    setIsDeposit(!!inv.is_deposit)
     setStatus(inv.status)
     setPdfUrl(inv.pdf_url ?? null)
     setSentAt(inv.sent_at ?? null)
@@ -246,6 +249,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
       setPaymentRef(null)
       setTotalTtc(0)
       setKind('invoice')
+      setIsDeposit(false)
       setCreditedTtc(0)
       setCancelledReason(null)
       setCreditedInfo(null)
@@ -321,7 +325,8 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
       dossier_number: dossierNumber || undefined,
       notes: notes || undefined,
       lines: lines
-        .filter((l) => l.description.trim())
+        // Les déductions d'acompte ne se recopient pas
+        .filter((l) => l.description.trim() && !l.deposit_invoice_id)
         .map((l, i) => ({ position: i, description: l.description, format: cleanLineFormat(l.format), quantity: l.quantity, unit_price_ht: l.unit_price_ht, vat_rate: l.vat_rate })),
     }, shownReference)
   }
@@ -447,7 +452,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
       const credited = built?.credited ?? creditedInfo
       applyInvoice(fresh)
 
-      const { subject, body } = invoiceEmail(fresh, orgName, url, credited)
+      const { subject, body } = invoiceEmail(fresh, orgName, url, credited, built?.depositQuote ?? null)
       // Tente Resend, fallback mailto:
       const result = await sendDocumentEmail({
         kind: 'invoice',
@@ -563,7 +568,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
               ? 'Nouvelle facture'
               : isCredit
                 ? hasFinalNumber(reference) ? `Avoir ${reference}` : 'Avoir (brouillon)'
-                : hasFinalNumber(reference) ? `Facture ${reference}` : 'Facture (brouillon)'}
+                : `${isDeposit ? 'Facture d\'acompte' : 'Facture'} ${hasFinalNumber(reference) ? reference : '(brouillon)'}`}
           </span>
           <button type="button" className="modal-x" onClick={onClose} aria-label="Fermer">×</button>
         </div>
@@ -585,7 +590,14 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                   {hasFinalNumber(reference)
                     ? `Brouillon n° ${reference} : il prendra la date du jour où vous l'envoyez au client.`
                     : 'Brouillon : le numéro de facture et sa date sont attribués quand vous l\'envoyez au client. Un brouillon supprimé ne laisse pas de trou dans la numérotation.'}
+                  {isDeposit && ' Facture d\'acompte : une fois envoyée, elle sera déduite automatiquement de la facture finale du devis.'}
                 </span>
+              </div>
+            )}
+            {locked && isDeposit && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--ink2)', background: 'var(--bg2, #F1F3F6)', borderRadius: 8, padding: '9px 12px', lineHeight: 1.45 }}>
+                <Info size={14} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>Facture d'acompte : « Transformer en facture » sur le devis la déduit automatiquement de la facture finale.</span>
               </div>
             )}
             {locked && (
@@ -761,6 +773,25 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                 </div>
                 {lines.map((line, i) => {
                   const lineHt = line.quantity * line.unit_price_ht
+                  // Déduction d'un acompte déjà facturé : posée par « Transformer en facture », non modifiable
+                  if (line.deposit_invoice_id) {
+                    return (
+                      <div className="quote-line" key={i}>
+                        <div className="ql-desc" style={{ fontSize: 13, color: 'var(--ink2)', padding: '6px 0' }}>{line.description}</div>
+                        <div className="ql-qty" style={{ fontSize: 13 }}>{line.quantity}</div>
+                        <div className="ql-pu" style={{ fontSize: 13 }}>{formatAmount(line.unit_price_ht)}</div>
+                        <div className="ql-vat" style={{ fontSize: 13 }}>{line.vat_rate}%</div>
+                        <div className="ql-tot">{formatAmount(lineHt)}</div>
+                        <div className="ql-act">
+                          {!locked && (
+                            <button type="button" className="ql-remove" onClick={() => removeLine(i)} aria-label="Ne pas déduire cet acompte" title="Ne pas déduire cet acompte">
+                              <X size={12} strokeWidth={2.5} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  }
                   return (
                     <div className="quote-line" key={i}>
                       <div className="ql-desc">

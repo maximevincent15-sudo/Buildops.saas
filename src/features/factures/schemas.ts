@@ -4,8 +4,11 @@ import type { QuoteLineInput } from '../devis/schemas'
 import type { LineFormat } from '../../shared/lib/lineFormat'
 import type { InvoiceKind, InvoiceStatus } from './constants'
 
-// On réutilise tel quel le schema de ligne du devis (même structure).
-export type InvoiceLineInput = QuoteLineInput
+// Même structure que la ligne de devis, plus le lien d'une déduction d'acompte.
+export type InvoiceLineInput = QuoteLineInput & {
+  /** Ligne de déduction d'un acompte déjà facturé (montant négatif) */
+  deposit_invoice_id?: string | null
+}
 
 export const upsertInvoiceSchema = z.object({
   client_id: z.string().optional(),
@@ -26,7 +29,7 @@ export const upsertInvoiceSchema = z.object({
   lines: z.array(quoteLineInputSchema).min(1, 'Au moins une ligne'),
 })
 
-export type UpsertInvoiceInput = z.infer<typeof upsertInvoiceSchema>
+export type UpsertInvoiceInput = Omit<z.infer<typeof upsertInvoiceSchema>, 'lines'> & { lines: InvoiceLineInput[] }
 
 export type Invoice = {
   id: string
@@ -72,6 +75,8 @@ export type Invoice = {
   /** Facture : total des avoirs émis sur elle (posé par la base) */
   credited_ht?: number
   credited_ttc?: number
+  /** Facture d'acompte (déduite ensuite de la facture finale du devis) */
+  is_deposit?: boolean
 }
 
 export type InvoiceLine = {
@@ -84,6 +89,8 @@ export type InvoiceLine = {
   vat_rate: number
   line_total_ht: number
   format?: LineFormat | null
+  /** Déduction d'un acompte déjà facturé */
+  deposit_invoice_id?: string | null
   created_at: string
 }
 

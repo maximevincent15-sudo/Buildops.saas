@@ -84,8 +84,8 @@ export function BulkSendModal({ drafts, onClose, onDone }: Props) {
         reference = (await issueInvoice(id)).reference
         issued = true
         issuedAny = true
-        const { doc, url, credited } = await buildInvoicePdf(id, profile.organization_id, orgName)
-        const { subject, body } = invoiceEmail(doc, orgName, url, credited)
+        const { doc, url, credited, depositQuote } = await buildInvoicePdf(id, profile.organization_id, orgName)
+        const { subject, body } = invoiceEmail(doc, orgName, url, credited, depositQuote)
         // Envoi groupé : pas d'ouverture de la messagerie en secours
         const result = await sendDocumentEmail(
           { kind: 'invoice', documentId: id, recipientEmail: recipient, subject, body, pdfUrl: url },

@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, Copy, Download, FileText, Mail, PenLine, Plus, Trash2, Undo2, X, XCircle } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Coins, Copy, Download, FileText, Mail, PenLine, Plus, Trash2, Undo2, X, XCircle } from 'lucide-react'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { cleanLineFormat } from '../../../shared/lib/lineFormat'
 import type { LinePart } from '../../../shared/lib/lineFormat'
@@ -29,7 +29,8 @@ import type { QuoteStatus } from '../constants'
 import type { QuoteLineInput, QuoteWithLines, UpsertQuoteInput } from '../schemas'
 import { generateAndUploadQuotePdf } from '../pdf/generateQuotePdf'
 import { QuotePdf } from '../pdf/QuotePdf'
-import { createInvoiceFromQuote } from '../../factures/api'
+import { createInvoiceFromQuote, listQuoteDeposits } from '../../factures/api'
+import { DepositModal } from '../../factures/components/DepositModal'
 import { sendDocumentEmail } from '../../email/api'
 import { isValidEmail, recipientsForClientId, splitEmails } from '../../clients/recipients'
 import { useNavigate } from 'react-router-dom'
@@ -82,6 +83,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
   const quoteId = quoteIdProp ?? createdId
   const isEdit = !!quoteId
   const [convertingToInvoice, setConvertingToInvoice] = useState(false)
+  const [depositOpen, setDepositOpen] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -604,9 +606,22 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
 
   async function handleConvertToInvoice() {
     if (!quoteId || !profile?.organization_id) return
+    // Acomptes de ce devis : émis → déduits ; en brouillon → à envoyer d'abord
+    const deposits = await listQuoteDeposits(quoteId).catch(() => [])
+    const toDeduct = deposits.filter((d) => d.status !== 'draft' && d.status !== 'cancelled' && !d.deducted_in)
+    const drafts = deposits.filter((d) => d.status === 'draft')
+    const depositLines = [
+      ...(toDeduct.length > 0
+        ? [`• Acompte${toDeduct.length > 1 ? 's' : ''} déduit${toDeduct.length > 1 ? 's' : ''} automatiquement : ${toDeduct.map((d) => `${d.reference} (${formatAmount(Number(d.total_ttc) - Number(d.credited_ttc ?? 0))})`).join(', ')}\n`]
+        : []),
+      ...(drafts.length > 0
+        ? [`• Attention : ${drafts.length} facture${drafts.length > 1 ? 's' : ''} d'acompte encore en brouillon ne ser${drafts.length > 1 ? 'ont' : 'a'} pas déduite${drafts.length > 1 ? 's' : ''} (envoyez-la${drafts.length > 1 ? 's' : ''} d'abord)\n`]
+        : []),
+    ].join('')
     if (!window.confirm(
       'Créer une facture à partir de ce devis ?\n\n' +
       '• Les lignes seront copiées automatiquement\n' +
+      depositLines +
       '• La facture sera créée en brouillon avec une échéance à 30 jours\n' +
       '• Vous pourrez la modifier avant envoi : son numéro et sa date sont attribués à l\'envoi'
     )) return
@@ -1015,6 +1030,17 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                   {currentStatus === 'accepted' && (
                     <button
                       type="button"
+                      className="btn-sm"
+                      onClick={() => setDepositOpen(true)}
+                      title="Facture d'un pourcentage ou d'un montant du devis, déduite ensuite de la facture finale"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <Coins size={13} strokeWidth={2} /> Facture d'acompte
+                    </button>
+                  )}
+                  {currentStatus === 'accepted' && (
+                    <button
+                      type="button"
                       className="btn-sm acc"
                       onClick={() => void handleConvertToInvoice()}
                       disabled={convertingToInvoice}
@@ -1150,6 +1176,20 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
             </div>
           </div>
         </div>
+      )}
+      {depositOpen && quoteId && profile?.organization_id && (
+        <DepositModal
+          quoteId={quoteId}
+          quoteReference={reference}
+          quoteTotalTtc={totals.total_ttc}
+          organizationId={profile.organization_id}
+          onClose={() => setDepositOpen(false)}
+          onCreated={(invoiceId) => {
+            setDepositOpen(false)
+            onClose()
+            navigate(`/factures?open=${invoiceId}`)
+          }}
+        />
       )}
     </div>
   )

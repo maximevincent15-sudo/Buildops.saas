@@ -286,13 +286,15 @@ type Props = {
   clientNumber?: string | null
   /** Avoir : facture d'origine (numéro et date) */
   creditedInvoice?: { reference: string; issue_date: string } | null
+  /** Facture d'acompte : devis concerné (numéro et date) */
+  depositQuote?: { reference: string; issue_date: string } | null
 }
 
 function longDate(iso: string | null | undefined): string {
   return iso ? format(new Date(iso), 'd MMMM yyyy', { locale: fr }) : ''
 }
 
-export function InvoicePdf({ invoice, organizationName, settings, clientNumber, creditedInvoice }: Props) {
+export function InvoicePdf({ invoice, organizationName, settings, clientNumber, creditedInvoice, depositQuote }: Props) {
   const isCredit = isCreditNote(invoice)
   // Brouillon : pas encore de numéro ni de date (attribués à l'envoi)
   const isDraft = !hasFinalNumber(invoice.reference) || invoice.status === 'draft'
@@ -344,7 +346,7 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber, 
             )}
           </View>
           <View style={styles.headerMeta}>
-            <Text style={styles.docLabel}>{isCredit ? 'Avoir' : 'Facture'}</Text>
+            <Text style={styles.docLabel}>{isCredit ? 'Avoir' : invoice.is_deposit ? 'Facture d\'acompte' : 'Facture'}</Text>
             <Text style={styles.docRef}>{isDraft && !draftNumbered ? 'BROUILLON' : invoice.reference}</Text>
             {isDraft ? (
               <Text style={styles.docDate}>{draftNumbered ? 'Brouillon : date fixée à l\'envoi' : 'Numéro et date attribués à l\'envoi'}</Text>
@@ -354,6 +356,11 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber, 
             {isCredit && creditedInvoice && (
               <Text style={styles.creditRef}>
                 Se rapporte à la facture {creditedInvoice.reference} du {longDate(creditedInvoice.issue_date)}
+              </Text>
+            )}
+            {invoice.is_deposit && depositQuote && (
+              <Text style={styles.creditRef}>
+                Acompte sur le devis {depositQuote.reference} du {longDate(depositQuote.issue_date)}
               </Text>
             )}
             {isDraft && !isCredit && dueDays !== null && dueDays >= 0 && (

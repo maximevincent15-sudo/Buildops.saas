@@ -10,6 +10,19 @@ import { InvoicePdf } from './pdf/InvoicePdf'
 import { generateAndUploadInvoicePdf } from './pdf/generateInvoicePdf'
 
 export type CreditedInvoiceInfo = { reference: string; issue_date: string }
+export type DepositQuoteInfo = { reference: string; issue_date: string }
+
+/** Facture d'acompte : numéro et date du devis */
+export async function depositQuoteInfo(doc: Pick<Invoice, 'is_deposit' | 'quote_id'>): Promise<DepositQuoteInfo | null> {
+  if (!doc.is_deposit || !doc.quote_id) return null
+  const { data, error } = await supabase
+    .from('quotes')
+    .select('reference, issue_date')
+    .eq('id', doc.quote_id)
+    .maybeSingle()
+  if (error) throw error
+  return (data as DepositQuoteInfo | null) ?? null
+}
 
 /** Avoir : numéro et date de la facture qu'il crédite */
 export async function creditedInvoiceInfo(doc: Pick<Invoice, 'kind' | 'credited_invoice_id'>): Promise<CreditedInvoiceInfo | null> {
@@ -31,13 +44,14 @@ export async function buildInvoicePdf(
   invoiceId: string,
   organizationId: string,
   organizationName: string,
-): Promise<{ doc: InvoiceWithLines; url: string; credited: CreditedInvoiceInfo | null }> {
+): Promise<{ doc: InvoiceWithLines; url: string; credited: CreditedInvoiceInfo | null; depositQuote: DepositQuoteInfo | null }> {
   const doc = await getInvoice(invoiceId)
   if (!doc) throw new Error('Facture introuvable')
-  const [settings, clientNumber, credited] = await Promise.all([
+  const [settings, clientNumber, credited, depositQuote] = await Promise.all([
     getInvoicingSettings(organizationId),
     getClientNumber(doc.client_id),
     creditedInvoiceInfo(doc),
+    depositQuoteInfo(doc),
   ])
   const element = (
     <InvoicePdf
@@ -46,19 +60,21 @@ export async function buildInvoicePdf(
       settings={settings}
       clientNumber={clientNumber}
       creditedInvoice={credited}
+      depositQuote={depositQuote}
     />
   )
   const url = await generateAndUploadInvoicePdf(element, organizationId, invoiceId, doc.reference)
   await setInvoicePdfUrl(invoiceId, url)
-  return { doc: { ...doc, pdf_url: url }, url, credited }
+  return { doc: { ...doc, pdf_url: url }, url, credited, depositQuote }
 }
 
 /** Objet et texte du mail qui accompagne une facture ou un avoir */
 export function invoiceEmail(
-  doc: Pick<Invoice, 'kind' | 'reference' | 'client_contact_name' | 'total_ttc' | 'due_date'>,
+  doc: Pick<Invoice, 'kind' | 'reference' | 'client_contact_name' | 'total_ttc' | 'due_date' | 'is_deposit'>,
   organizationName: string,
   pdfUrl: string | null,
   credited: CreditedInvoiceInfo | null,
+  depositQuote: DepositQuoteInfo | null = null,
 ): { subject: string; body: string } {
   const credit = isCreditNote(doc)
   const greet = doc.client_contact_name?.trim() ? `Bonjour ${doc.client_contact_name.trim()},` : 'Bonjour,'
@@ -78,6 +94,13 @@ export function invoiceEmail(
     }
   }
   const dueLine = doc.due_date ? `\n\nÉchéance de paiement : ${new Date(doc.due_date).toLocaleDateString('fr-FR')}.` : ''
+  if (doc.is_deposit) {
+    const about = depositQuote ? ` relative au devis ${depositQuote.reference}` : ''
+    return {
+      subject: `Facture d'acompte ${doc.reference}`,
+      body: `${greet}\n\nVeuillez trouver ci-après la facture d'acompte${about}. Elle sera déduite de la facture finale.\n\nMontant à régler : ${formatAmount(Number(doc.total_ttc))} TTC.${dueLine}${pdfLine}${signature}`,
+    }
+  }
   return {
     subject: `Facture ${doc.reference}`,
     body: `${greet}\n\nVeuillez trouver ci-après la facture pour la prestation réalisée.\n\nMontant à régler : ${formatAmount(Number(doc.total_ttc))} TTC.${dueLine}${pdfLine}${signature}`,

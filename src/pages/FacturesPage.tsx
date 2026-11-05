@@ -329,6 +329,7 @@ export function FacturesPage() {
                   <div className="quote-row-main">
                     <div className="quote-row-title">
                       <strong>{i.credit && numbered ? `Avoir ${i.reference}` : displayReference(i)}</strong>
+                      {i.is_deposit && <span className="text-ink-3"> · acompte</span>}
                       <span className="quote-row-client"> — {i.client_name}</span>
                       {fromRef && <span className="text-ink-3"> · sur la facture {fromRef}</span>}
                       {i.site_name && <span className="text-ink-3"> · {i.site_name}</span>}
