@@ -74,7 +74,12 @@ export type DossierQuote = {
   dossier_number?: string | null
 }
 
-export type DossierInvoice = DossierQuote & { amount_paid: number | null; quote_id: string | null }
+export type DossierInvoice = DossierQuote & {
+  amount_paid: number | null
+  quote_id: string | null
+  kind?: 'invoice' | 'credit_note' | null
+  credited_ttc?: number | null
+}
 
 export type DossierPhoto = {
   url: string
@@ -232,7 +237,7 @@ export async function getDossier(number: string): Promise<DossierDetail> {
   type CheckRow = { intervention_id: string; equipment_unit_id: string; photos: Array<{ url?: string }> | null; checked_at: string | null }
   type AnomalyRow = { intervention_id: string | null; title: string; photos: Array<{ url?: string }> | null; created_at: string }
   const quoteCols = 'id, reference, status, issue_date, total_ttc, pdf_url, site_name, dossier_number'
-  const invoiceCols = 'id, reference, status, issue_date, total_ttc, amount_paid, pdf_url, site_name, quote_id, dossier_number'
+  const invoiceCols = 'id, reference, status, issue_date, total_ttc, amount_paid, pdf_url, site_name, quote_id, dossier_number, kind, credited_ttc'
   // Devis et factures saisis sans numéro ni lien, au nom exact d'un site du
   // dossier (même client), datés d'une année du dossier
   const docYears = years.length > 0 ? years : [String(new Date().getFullYear())]

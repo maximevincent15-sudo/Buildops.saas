@@ -10,8 +10,10 @@ import { openableUrls } from '../../shared/lib/privateFiles'
  *  - journal des ventes au format FEC (colonnes de l'art. A47 A-1 du LPF),
  *    importable dans les logiciels comptables (Pennylane, Cegid, Sage, Tiime…).
  * Écritures : 411 client (TTC) au débit ; 706 prestations (HT) et 44571 TVA
- * collectée au crédit, par taux. Brouillons exclus ; factures annulées listées
- * à part (à régulariser par un avoir).
+ * collectée au crédit, par taux. Avoirs : les mêmes écritures inversées.
+ * Brouillons exclus ; une facture annulée par un avoir reste au journal (l'avoir
+ * la compense) ; une facture annulée sans avoir (ancien fonctionnement) est
+ * listée à part, à régulariser par un avoir.
  */
 
 export type ExportInvoice = {
@@ -29,6 +31,10 @@ export type ExportInvoice = {
   amount_paid: number
   paid_at: string | null
   payment_method: string | null
+  kind?: 'invoice' | 'credit_note' | null
+  credited_invoice_id?: string | null
+  credited_ttc?: number | null
+  cancelled_reason?: string | null
 }
 export type ExportInvoiceLine = { invoice_id: string; quantity: number; unit_price_ht: number; vat_rate: number }
 export type ExportExpense = {
@@ -75,8 +81,13 @@ function rateLabel(rate: string): string {
   return `${rate.replace('.', ',')} %`
 }
 
-/** Écritures du journal des ventes : équilibrées facture par facture, au centime */
-export function buildSalesJournal(invoices: ExportInvoice[], lines: ExportInvoiceLine[]): JournalEntry[] {
+const isCredit = (i: ExportInvoice) => i.kind === 'credit_note'
+
+/**
+ * Écritures du journal des ventes : équilibrées pièce par pièce, au centime.
+ * Un avoir passe les mêmes comptes en sens inverse (client au crédit).
+ */
+export function buildSalesJournal(invoices: ExportInvoice[], lines: ExportInvoiceLine[], referenceById = new Map<string, string>()): JournalEntry[] {
   const byInvoice = new Map<string, ExportInvoiceLine[]>()
   for (const l of lines) {
     const list = byInvoice.get(l.invoice_id) ?? []
@@ -94,6 +105,7 @@ export function buildSalesJournal(invoices: ExportInvoice[], lines: ExportInvoic
     const credits: JournalEntry[] = []
     if (invLines.length > 0) {
       const totals = computeQuoteTotals(invLines.map((l) => ({ quantity: Number(l.quantity), unit_price_ht: Number(l.unit_price_ht), vat_rate: Number(l.vat_rate) })))
+        // (montants positifs ici ; le sens est inversé plus bas pour un avoir)
       for (const rate of Object.keys(totals.ht_by_rate).sort((a, b) => Number(b) - Number(a))) {
         const ht = totals.ht_by_rate[rate] ?? 0
         const vat = totals.vat_by_rate[rate] ?? 0
@@ -111,15 +123,25 @@ export function buildSalesJournal(invoices: ExportInvoice[], lines: ExportInvoic
     const diff = round2(ttc - creditSum)
     if (Math.abs(diff) > 0.05) ttc = creditSum
     else if (diff !== 0 && credits.length > 0) credits[credits.length - 1]!.credit = round2(credits[credits.length - 1]!.credit + diff)
+    if (isCredit(inv)) {
+      const origin = inv.credited_invoice_id ? referenceById.get(inv.credited_invoice_id) : null
+      entries.push({ ...base, account: ACCOUNTS.client.num, accountLabel: ACCOUNTS.client.label, auxAccount: aux, auxLabel: inv.client_name, label: `${inv.client_name} — avoir ${inv.reference}${origin ? ` (facture ${origin})` : ''}`, debit: 0, credit: ttc })
+      entries.push(...credits.map((c) => ({ ...c, label: c.label.replace(' — prestations', ' — avoir prestations').replace(' — TVA', ' — avoir TVA'), debit: c.credit, credit: 0 })))
+      continue
+    }
     entries.push({ ...base, account: ACCOUNTS.client.num, accountLabel: ACCOUNTS.client.label, auxAccount: aux, auxLabel: inv.client_name, label: `${inv.client_name} — facture ${inv.reference}`, debit: ttc, credit: 0 })
     entries.push(...credits)
   }
   return entries
 }
 
-/** TVA collectée par taux (factures de la période) */
-export function vatSummary(lines: ExportInvoiceLine[]): Array<{ rate: string; ht: number; vat: number }> {
-  const totals = computeQuoteTotals(lines.map((l) => ({ quantity: Number(l.quantity), unit_price_ht: Number(l.unit_price_ht), vat_rate: Number(l.vat_rate) })))
+/** TVA collectée par taux (factures de la période, avoirs déduits) */
+export function vatSummary(lines: ExportInvoiceLine[], creditNoteIds = new Set<string>()): Array<{ rate: string; ht: number; vat: number }> {
+  const totals = computeQuoteTotals(lines.map((l) => ({
+    quantity: Number(l.quantity) * (creditNoteIds.has(l.invoice_id) ? -1 : 1),
+    unit_price_ht: Number(l.unit_price_ht),
+    vat_rate: Number(l.vat_rate),
+  })))
   return Object.keys(totals.ht_by_rate)
     .sort((a, b) => Number(b) - Number(a))
     .map((rate) => ({ rate, ht: totals.ht_by_rate[rate] ?? 0, vat: totals.vat_by_rate[rate] ?? 0 }))
@@ -169,7 +191,7 @@ export async function exportAccounting(from: string, to: string, orgName: string
   const [invRes, expRes] = await Promise.all([
     supabase
       .from('invoices')
-      .select('id, reference, issue_date, due_date, client_name, client_siren, site_name, status, total_ht, total_vat, total_ttc, amount_paid, paid_at, payment_method')
+      .select('id, reference, issue_date, due_date, client_name, client_siren, site_name, status, total_ht, total_vat, total_ttc, amount_paid, paid_at, payment_method, kind, credited_invoice_id, credited_ttc, cancelled_reason')
       .gte('issue_date', from)
       .lte('issue_date', to)
       .neq('status', 'draft')
@@ -189,8 +211,18 @@ export async function exportAccounting(from: string, to: string, orgName: string
   const receiptLinks = await openableUrls(receiptUrls, 7 * 86400).catch(() => new Map<string, string>())
 
   const all = (invRes.data ?? []) as ExportInvoice[]
-  const invoices = all.filter((i) => i.status !== 'cancelled')
-  const cancelled = all.filter((i) => i.status === 'cancelled')
+  // Annulée par un avoir : reste au journal, l'avoir la compense
+  const cancelledWithoutCredit = (i: ExportInvoice) => i.status === 'cancelled' && !isCredit(i) && Number(i.credited_ttc ?? 0) <= 0
+  const invoices = all.filter((i) => !cancelledWithoutCredit(i))
+  const cancelled = all.filter(cancelledWithoutCredit)
+  const creditNoteIds = new Set(invoices.filter(isCredit).map((i) => i.id))
+  // Numéro des factures d'origine des avoirs (y compris hors période)
+  const referenceById = new Map(all.map((i) => [i.id, i.reference]))
+  const missingOrigins = [...new Set(invoices.filter(isCredit).map((i) => i.credited_invoice_id).filter((id): id is string => !!id && !referenceById.has(id)))]
+  if (missingOrigins.length > 0) {
+    const { data } = await supabase.from('invoices').select('id, reference').in('id', missingOrigins)
+    for (const r of (data ?? []) as Array<{ id: string; reference: string }>) referenceById.set(r.id, r.reference)
+  }
   const expenses = (expRes.data ?? []) as ExportExpense[]
 
   const lines: ExportInvoiceLine[] = []
@@ -204,7 +236,7 @@ export async function exportAccounting(from: string, to: string, orgName: string
     lines.push(...((data ?? []) as ExportInvoiceLine[]))
   }
 
-  const journal = buildSalesJournal(invoices, lines)
+  const journal = buildSalesJournal(invoices, lines, referenceById)
   const totalDebit = round2(journal.reduce((s, e) => s + e.debit, 0))
   const totalCredit = round2(journal.reduce((s, e) => s + e.credit, 0))
 
@@ -222,17 +254,24 @@ export async function exportAccounting(from: string, to: string, orgName: string
     return ws
   }
 
+  const sign = (i: ExportInvoice) => (isCredit(i) ? -1 : 1)
   addSheet('Factures', [
-    { header: 'Date', key: 'date', width: 12 }, { header: 'N°', key: 'ref', width: 16 }, { header: 'Client', key: 'client', width: 30 },
+    { header: 'Date', key: 'date', width: 12 }, { header: 'Type', key: 'type', width: 9 }, { header: 'N°', key: 'ref', width: 16 }, { header: 'Client', key: 'client', width: 30 },
     { header: 'SIREN', key: 'siren', width: 12 }, { header: 'Site', key: 'site', width: 24 }, { header: 'Total HT', key: 'ht', width: 12, money: true },
     { header: 'TVA', key: 'vat', width: 11, money: true }, { header: 'Total TTC', key: 'ttc', width: 12, money: true }, { header: 'Statut', key: 'status', width: 18 },
     { header: 'Encaissé', key: 'paid', width: 12, money: true }, { header: 'Date de paiement', key: 'paidAt', width: 15 }, { header: 'Mode', key: 'method', width: 14 },
     { header: 'Échéance', key: 'due', width: 12 },
   ], [...invoices, ...cancelled].map((i) => ({
-    date: i.issue_date, ref: i.reference, client: i.client_name, siren: i.client_siren ?? '', site: i.site_name ?? '',
-    ht: Number(i.total_ht), vat: Number(i.total_vat), ttc: Number(i.total_ttc),
-    status: i.status === 'cancelled' ? 'Annulée (à régulariser par un avoir)' : STATUS_LABEL[i.status] ?? i.status,
-    paid: Number(i.amount_paid ?? 0), paidAt: i.paid_at ? i.paid_at.slice(0, 10) : '', method: i.payment_method ?? '', due: i.due_date ?? '',
+    date: i.issue_date, type: isCredit(i) ? 'Avoir' : 'Facture', ref: i.reference, client: i.client_name, siren: i.client_siren ?? '', site: i.site_name ?? '',
+    ht: sign(i) * Number(i.total_ht), vat: sign(i) * Number(i.total_vat), ttc: sign(i) * Number(i.total_ttc),
+    status: isCredit(i)
+      ? `Avoir sur la facture ${(i.credited_invoice_id && referenceById.get(i.credited_invoice_id)) || ''}`.trim()
+      : cancelledWithoutCredit(i)
+        ? 'Annulée (à régulariser par un avoir)'
+        : i.status === 'cancelled'
+          ? i.cancelled_reason ?? 'Annulée par avoir'
+          : STATUS_LABEL[i.status] ?? i.status,
+    paid: isCredit(i) ? 0 : Number(i.amount_paid ?? 0), paidAt: i.paid_at ? i.paid_at.slice(0, 10) : '', method: i.payment_method ?? '', due: isCredit(i) ? '' : i.due_date ?? '',
   })))
 
   const js = addSheet('Journal des ventes', [
@@ -245,7 +284,7 @@ export async function exportAccounting(from: string, to: string, orgName: string
 
   addSheet('TVA collectée', [
     { header: 'Taux', key: 'rate', width: 10 }, { header: 'Base HT', key: 'ht', width: 14, money: true }, { header: 'TVA collectée', key: 'vat', width: 14, money: true },
-  ], vatSummary(lines).map((v) => ({ rate: rateLabel(v.rate), ht: v.ht, vat: v.vat })))
+  ], vatSummary(lines, creditNoteIds).map((v) => ({ rate: rateLabel(v.rate), ht: v.ht, vat: v.vat })))
 
   addSheet('Notes de frais', [
     { header: 'Date', key: 'date', width: 12 }, { header: 'Technicien', key: 'tech', width: 22 }, { header: 'Catégorie', key: 'cat', width: 18 },
@@ -263,17 +302,18 @@ export async function exportAccounting(from: string, to: string, orgName: string
   const xlsx = new Uint8Array(await wb.xlsx.writeBuffer())
   const fec = new TextEncoder().encode(`${BOM}${salesJournalFec(journal)}`)
   const period = `${from.replace(/-/g, '')}-${to.replace(/-/g, '')}`
-  const totalHt = round2(invoices.reduce((s, i) => s + Number(i.total_ht), 0))
+  const totalHt = round2(invoices.reduce((s, i) => s + sign(i) * Number(i.total_ht), 0))
+  const invoiceCount = invoices.filter((i) => !isCredit(i)).length
   const readme = [
     `Export comptable Firovia — ${orgName}`,
     `Période : du ${from.split('-').reverse().join('/')} au ${to.split('-').reverse().join('/')}`,
     '',
-    `- comptabilite-${period}.xlsx : factures (${invoices.length}), journal des ventes, TVA collectée, notes de frais validées (${expenses.length}).`,
+    `- comptabilite-${period}.xlsx : factures (${invoiceCount})${creditNoteIds.size > 0 ? ` et avoirs (${creditNoteIds.size})` : ''}, journal des ventes, TVA collectée, notes de frais validées (${expenses.length}).`,
     `- journal-ventes-${period}.csv : journal des ventes au format FEC (séparateur « ; »), à importer dans votre logiciel comptable.`,
     '',
     `Comptes utilisés : ${ACCOUNTS.client.num} clients (compte auxiliaire par client), ${ACCOUNTS.sales.num} prestations, ${ACCOUNTS.vat.num} TVA collectée.`,
     `Journal équilibré : débit ${totalDebit.toFixed(2)} € = crédit ${totalCredit.toFixed(2)} €.`,
-    'Brouillons exclus. Les factures sont prises à leur date d\'émission.',
+    'Brouillons exclus. Les factures et avoirs sont pris à leur date d\'émission ; un avoir passe les écritures de sa facture en sens inverse.',
     cancelled.length > 0 ? `${cancelled.length} facture(s) annulée(s) listée(s) dans l'onglet Factures, hors journal : à régulariser par un avoir.` : '',
   ].filter((l) => l !== '').join('\n')
 
@@ -289,7 +329,7 @@ export async function exportAccounting(from: string, to: string, orgName: string
   return {
     blob: new Blob([zipped as BlobPart], { type: 'application/zip' }),
     filename: `Firovia-comptabilite-${period}.zip`,
-    invoiceCount: invoices.length,
+    invoiceCount,
     cancelledCount: cancelled.length,
     expenseCount: expenses.length,
     totalHt,

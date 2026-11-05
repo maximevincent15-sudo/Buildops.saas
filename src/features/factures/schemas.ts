@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { quoteLineInputSchema } from '../devis/schemas'
 import type { QuoteLineInput } from '../devis/schemas'
 import type { LineFormat } from '../../shared/lib/lineFormat'
-import type { InvoiceStatus } from './constants'
+import type { InvoiceKind, InvoiceStatus } from './constants'
 
 // On réutilise tel quel le schema de ligne du devis (même structure).
 export type InvoiceLineInput = QuoteLineInput
@@ -62,6 +62,16 @@ export type Invoice = {
   created_at: string
   created_by: string | null
   updated_at: string
+  /** Contrat de maintenance d'origine (« Facturer le mois ») */
+  contract_id?: string | null
+  contract_period_start?: string | null
+  /** Facture ou avoir (montants de l'avoir en positif) */
+  kind?: InvoiceKind
+  /** Avoir : facture qu'il crédite */
+  credited_invoice_id?: string | null
+  /** Facture : total des avoirs émis sur elle (posé par la base) */
+  credited_ht?: number
+  credited_ttc?: number
 }
 
 export type InvoiceLine = {

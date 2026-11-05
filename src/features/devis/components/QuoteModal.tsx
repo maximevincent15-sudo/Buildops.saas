@@ -608,7 +608,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       'Créer une facture à partir de ce devis ?\n\n' +
       '• Les lignes seront copiées automatiquement\n' +
       '• La facture sera créée en brouillon avec une échéance à 30 jours\n' +
-      '• Vous pourrez la modifier avant envoi'
+      '• Vous pourrez la modifier avant envoi : son numéro et sa date sont attribués à l\'envoi'
     )) return
     setConvertingToInvoice(true)
     setError(null)

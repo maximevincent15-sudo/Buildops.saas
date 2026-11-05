@@ -36,6 +36,8 @@ function eventText(e: ActivityEvent): ReactNode {
       return <>Facture <strong>{e.subject}</strong> envoyée{detail}</>
     case 'invoice_paid':
       return <>Facture <strong>{e.subject}</strong> payée{detail}</>
+    case 'credit_note_sent':
+      return <>Avoir <strong>{e.subject}</strong> envoyé{detail}</>
     case 'client':
       return <>Nouveau client : <strong>{e.subject}</strong></>
   }

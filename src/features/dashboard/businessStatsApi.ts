@@ -2,7 +2,7 @@ import { listQuotes } from '../devis/api'
 import type { Quote } from '../devis/schemas'
 import { listInvoices } from '../factures/api'
 import type { Invoice } from '../factures/schemas'
-import { effectiveStatus } from '../factures/constants'
+import { docEffectiveStatus, isCreditNote, netTotalTtc, remainingDue } from '../factures/constants'
 import { listInterventions } from '../planning/api'
 import type { Intervention } from '../planning/schemas'
 import { supabase } from '../../shared/lib/supabase'
@@ -57,15 +57,11 @@ export function computeBusinessStats(
   const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
 
-  // Enrichit avec statut effectif (overdue auto)
-  const enrichedInvoices = invoices.map((i) => ({
+  // Factures seules (les avoirs sont déjà déduits de leur facture), statut effectif (overdue auto)
+  const enrichedInvoices = invoices.filter((i) => !isCreditNote(i)).map((i) => ({
     ...i,
-    eff: effectiveStatus(
-      i.status,
-      i.due_date,
-      Number(i.amount_paid ?? 0),
-      Number(i.total_ttc ?? 0),
-    ),
+    eff: docEffectiveStatus(i),
+    net: netTotalTtc(i),
   }))
 
   // ─── CA encaissé ────────────────────────────────────────────────
@@ -77,20 +73,20 @@ export function computeBusinessStats(
 
   const caEncaisseMonth = enrichedInvoices
     .filter((i) => i.eff === 'paid' && inDateRange(i.paid_at, thisMonthStart, thisMonthEnd))
-    .reduce((sum, i) => sum + Number(i.total_ttc), 0)
+    .reduce((sum, i) => sum + i.net, 0)
 
   const caEncaissePrevMonth = enrichedInvoices
     .filter((i) => i.eff === 'paid' && inDateRange(i.paid_at, prevMonthStart, prevMonthEnd))
-    .reduce((sum, i) => sum + Number(i.total_ttc), 0)
+    .reduce((sum, i) => sum + i.net, 0)
 
   // ─── Impayés / Retards ────────────────────────────────────────
   const caImpaye = enrichedInvoices
     .filter((i) => i.eff === 'sent' || i.eff === 'partially_paid' || i.eff === 'overdue')
-    .reduce((sum, i) => sum + (Number(i.total_ttc) - Number(i.amount_paid ?? 0)), 0)
+    .reduce((sum, i) => sum + remainingDue(i), 0)
 
   const caEnRetard = enrichedInvoices
     .filter((i) => i.eff === 'overdue')
-    .reduce((sum, i) => sum + (Number(i.total_ttc) - Number(i.amount_paid ?? 0)), 0)
+    .reduce((sum, i) => sum + remainingDue(i), 0)
 
   // ─── Taux d'acceptation des devis ─────────────────────────────
   const accepted = quotes.filter((q) => q.status === 'accepted').length
@@ -116,7 +112,7 @@ export function computeBusinessStats(
   for (const i of enrichedInvoices) {
     if (i.eff === 'cancelled' || i.eff === 'draft') continue
     const cur = clientsMap.get(i.client_name) ?? { amount: 0, count: 0 }
-    cur.amount += Number(i.total_ttc)
+    cur.amount += i.net
     cur.count += 1
     clientsMap.set(i.client_name, cur)
   }
@@ -135,7 +131,7 @@ export function computeBusinessStats(
     const interv = interventionById.get(i.intervention_id)
     if (!interv?.technician_name) continue
     const cur = techsMap.get(interv.technician_name) ?? { amount: 0, count: 0 }
-    cur.amount += Number(i.total_ttc)
+    cur.amount += i.net
     cur.count += 1
     techsMap.set(interv.technician_name, cur)
   }
@@ -155,7 +151,7 @@ export function computeBusinessStats(
     const d = new Date(inv.paid_at)
     const key = isoMonthKey(d)
     if (monthlyMap.has(key)) {
-      monthlyMap.set(key, (monthlyMap.get(key) ?? 0) + Number(inv.total_ttc))
+      monthlyMap.set(key, (monthlyMap.get(key) ?? 0) + inv.net)
     }
   }
   const monthlyRevenue = Array.from(monthlyMap.entries()).map(([key, amount]) => {

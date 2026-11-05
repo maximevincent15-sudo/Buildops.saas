@@ -2,6 +2,7 @@ import { AlertTriangle, Ban, CheckCircle2, Clock, Edit3, Send } from 'lucide-rea
 import type { LucideIcon } from 'lucide-react'
 
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled'
+export type InvoiceKind = 'invoice' | 'credit_note'
 
 export const INVOICE_STATUS_LABEL: Record<InvoiceStatus, string> = {
   draft: 'Brouillon',
@@ -64,6 +65,59 @@ export function effectiveStatus(
 ): InvoiceStatus {
   if (status === 'sent' && isOverdue(status, dueDate, amountPaid, totalTtc)) return 'overdue'
   return status
+}
+
+// ─── Numéro attribué à l'envoi, avoirs ─────────────────────────────
+
+/** Référence provisoire d'un brouillon (le numéro définitif est donné à l'envoi) */
+export const DRAFT_REFERENCE_PREFIX = 'BROUILLON-'
+
+type DocLike = {
+  reference: string
+  kind?: InvoiceKind | null
+  status: InvoiceStatus
+  total_ttc: number | string
+  credited_ttc?: number | string | null
+  amount_paid?: number | string | null
+  due_date: string | null
+  sent_at?: string | null
+}
+
+export function hasFinalNumber(reference: string | null | undefined): boolean {
+  return !!reference && !reference.startsWith(DRAFT_REFERENCE_PREFIX)
+}
+
+export function isCreditNote(doc: { kind?: InvoiceKind | null }): boolean {
+  return doc.kind === 'credit_note'
+}
+
+/** Numéro affiché : « Brouillon » tant que le numéro n'est pas attribué */
+export function displayReference(doc: { reference: string; kind?: InvoiceKind | null }): string {
+  if (hasFinalNumber(doc.reference)) return doc.reference
+  return isCreditNote(doc) ? 'Avoir en brouillon' : 'Brouillon'
+}
+
+/** Total TTC de la facture, avoirs déduits */
+export function netTotalTtc(doc: { total_ttc: number | string; credited_ttc?: number | string | null }): number {
+  return Math.round((Number(doc.total_ttc ?? 0) - Number(doc.credited_ttc ?? 0)) * 100) / 100
+}
+
+/** Reste à payer : total, moins les avoirs, moins les règlements */
+export function remainingDue(doc: { total_ttc: number | string; credited_ttc?: number | string | null; amount_paid?: number | string | null }): number {
+  return Math.max(0, Math.round((netTotalTtc(doc) - Number(doc.amount_paid ?? 0)) * 100) / 100)
+}
+
+/** Statut effectif d'une facture ou d'un avoir (retard calculé sur le total avoirs déduits) */
+export function docEffectiveStatus(doc: DocLike): InvoiceStatus {
+  if (isCreditNote(doc)) return doc.status === 'draft' ? 'draft' : 'sent'
+  return effectiveStatus(doc.status, doc.due_date, Number(doc.amount_paid ?? 0), netTotalTtc(doc))
+}
+
+/** Libellé du statut : « Émis » pour un avoir, « Émise » pour une facture numérotée pas encore envoyée */
+export function docStatusLabel(doc: DocLike, effective: InvoiceStatus = docEffectiveStatus(doc)): string {
+  if (isCreditNote(doc)) return effective === 'draft' ? 'Brouillon' : 'Émis'
+  if (effective === 'sent' && !doc.sent_at) return 'Émise'
+  return INVOICE_STATUS_LABEL[effective]
 }
 
 /** Date d'échéance par défaut : J+30 */

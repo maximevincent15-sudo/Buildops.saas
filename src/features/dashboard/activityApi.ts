@@ -3,7 +3,7 @@ import { supabase } from '../../shared/lib/supabase'
 /** Un événement réel de l'activité de l'entreprise (tableau de bord) */
 export type ActivityEvent = {
   at: string
-  kind: 'started' | 'report' | 'anomaly' | 'quote_sent' | 'quote_signed' | 'quote_accepted' | 'invoice_sent' | 'invoice_paid' | 'client'
+  kind: 'started' | 'report' | 'anomaly' | 'quote_sent' | 'quote_signed' | 'quote_accepted' | 'invoice_sent' | 'invoice_paid' | 'credit_note_sent' | 'client'
   actor?: string | null
   subject: string
   detail?: string | null
@@ -102,13 +102,17 @@ export async function fetchRecentActivity(opts: { quotes: boolean; invoices: boo
     sources.push((async () => {
       const { data } = await supabase
         .from('invoices')
-        .select('reference, client_name, total_ttc, sent_at, paid_at')
+        .select('reference, client_name, total_ttc, sent_at, paid_at, kind')
         .order('updated_at', { ascending: false })
         .limit(PER_SOURCE * 2)
       const out: ActivityEvent[] = []
       for (const r of (data ?? []) as Row[]) {
         const amount = num(r.total_ttc)
         const detail = [str(r.client_name), amount != null ? `${amount.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} € TTC` : null].filter(Boolean).join(' · ')
+        if (r.kind === 'credit_note') {
+          if (r.sent_at) out.push({ at: String(r.sent_at), kind: 'credit_note_sent', subject: String(r.reference ?? ''), detail })
+          continue
+        }
         if (r.paid_at) out.push({ at: String(r.paid_at), kind: 'invoice_paid', subject: String(r.reference ?? ''), detail })
         if (r.sent_at) out.push({ at: String(r.sent_at), kind: 'invoice_sent', subject: String(r.reference ?? ''), detail })
       }

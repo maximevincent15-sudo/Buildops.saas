@@ -24,7 +24,7 @@ import type { DossierDetail, DossierDocument, DossierVisit } from '../features/d
 import { DossierDocumentModal } from '../features/dossiers/components/DossierDocumentModal'
 import { exportDossierZip, saveBlob } from '../features/dossiers/zip'
 import { useAuthStore } from '../features/auth/store'
-import { INVOICE_STATUS_BADGE, INVOICE_STATUS_LABEL } from '../features/factures/constants'
+import { INVOICE_STATUS_BADGE, INVOICE_STATUS_LABEL, displayReference, isCreditNote, netTotalTtc } from '../features/factures/constants'
 import type { InvoiceStatus } from '../features/factures/constants'
 import { INTERVENTION_STATUSES, STATUS_BADGE_CLASSES, formatEquipmentTypes } from '../shared/constants/interventions'
 import type { InterventionStatus } from '../shared/constants/interventions'
@@ -233,7 +233,7 @@ export function DossierPage() {
           </div>
           <div className="dossier-kpi">
             <span>Facturé TTC</span>
-            <strong>{formatAmount(invoices.filter((i) => i.status !== 'cancelled' && i.status !== 'draft').reduce((n, i) => n + Number(i.total_ttc ?? 0), 0))}</strong>
+            <strong>{formatAmount(invoices.filter((i) => !isCreditNote(i) && i.status !== 'cancelled' && i.status !== 'draft').reduce((n, i) => n + netTotalTtc(i), 0))}</strong>
           </div>
         </div>
       )}
@@ -350,18 +350,20 @@ export function DossierPage() {
           <div className="archive-list">
             {invoices.map((inv) => {
               const st = inv.status as InvoiceStatus
+              const credit = isCreditNote(inv)
               return (
                 <div key={inv.id} className="archive-row b-org">
                   <div className="archive-icon b-org"><Receipt size={14} strokeWidth={2} /></div>
                   <div className="archive-main">
                     <div className="archive-title">
-                      <strong>{inv.reference}</strong>
+                      <strong>{credit && st !== 'draft' ? `Avoir ${inv.reference}` : displayReference(inv)}</strong>
                       {inv.site_name && <span className="archive-light"> — {inv.site_name}</span>}
-                      {' '}<span className={`badge ${INVOICE_STATUS_BADGE[st] ?? 'b-gry'}`}>{INVOICE_STATUS_LABEL[st] ?? inv.status}</span>
+                      {' '}<span className={`badge ${credit ? 'b-gry' : INVOICE_STATUS_BADGE[st] ?? 'b-gry'}`}>{credit ? (st === 'draft' ? 'Brouillon' : 'Avoir') : INVOICE_STATUS_LABEL[st] ?? inv.status}</span>
                     </div>
                     <div className="archive-meta">
-                      {formatDate(inv.issue_date)} · <strong>{formatAmount(Number(inv.total_ttc ?? 0))}</strong> TTC
-                      {Number(inv.amount_paid ?? 0) > 0 && ` · réglé ${formatAmount(Number(inv.amount_paid))}`}
+                      {formatDate(inv.issue_date)} · <strong>{credit ? '− ' : ''}{formatAmount(Number(inv.total_ttc ?? 0))}</strong> TTC
+                      {!credit && Number(inv.credited_ttc ?? 0) > 0 && ` · avoir − ${formatAmount(Number(inv.credited_ttc))}`}
+                      {!credit && Number(inv.amount_paid ?? 0) > 0 && ` · réglé ${formatAmount(Number(inv.amount_paid))}`}
                     </div>
                   </div>
                   <div className="archive-actions">

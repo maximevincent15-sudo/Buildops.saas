@@ -1,4 +1,4 @@
-import { Ban, CheckCircle2, Copy, Download, FileText, Lock, Mail, Plus, Trash2, Undo2, X } from 'lucide-react'
+import { CheckCircle2, Copy, Download, FileMinus2, FileText, Info, Lock, Mail, Plus, Trash2, Undo2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
@@ -7,10 +7,8 @@ import { cleanLineFormat } from '../../../shared/lib/lineFormat'
 import type { LinePart } from '../../../shared/lib/lineFormat'
 import { VAT_RATES, computeQuoteTotals, formatAmount } from '../../devis/constants'
 import type { QuoteLineInput } from '../../devis/schemas'
-import { getClientNumber } from '../../clients/api'
 import { loadDocumentContext } from '../../clients/documentContext'
 import { listClientDossierNumbers } from '../../equipment/api'
-import { getInvoicingSettings } from '../../parametres/api'
 import { CatalogPicker } from '../../catalogue/components/CatalogPicker'
 import { LineDescriptionField } from '../../devis/components/LineDescriptionField'
 import { LineFormatToolbar } from '../../devis/components/LineFormatToolbar'
@@ -18,29 +16,31 @@ import type { CatalogItem } from '../../catalogue/schemas'
 import { formatCompanyNumber, parseCompanyNumber } from '../../clients/companyLookup'
 import { ClientAutocomplete } from '../../planning/components/ClientAutocomplete'
 import {
-  cancelInvoice,
   createInvoice,
   deleteInvoice,
   getInvoice,
+  listCreditNotes,
   markInvoiceSent,
   recordPayment,
   resetInvoicePayment,
-  setInvoicePdfUrl,
   updateInvoice,
 } from '../api'
 import {
-  INVOICE_STATUS_LABEL,
   defaultDueDate,
-  effectiveStatus,
+  displayReference,
+  docEffectiveStatus,
+  docStatusLabel,
+  hasFinalNumber,
 } from '../constants'
-import type { InvoiceStatus } from '../constants'
-import type { InvoiceWithLines, UpsertInvoiceInput } from '../schemas'
-import { generateAndUploadInvoicePdf } from '../pdf/generateInvoicePdf'
-import { InvoicePdf } from '../pdf/InvoicePdf'
+import type { InvoiceKind, InvoiceStatus } from '../constants'
+import type { Invoice, InvoiceWithLines, UpsertInvoiceInput } from '../schemas'
+import { buildInvoicePdf, creditedInvoiceInfo, invoiceEmail } from '../documentPdf'
+import type { CreditedInvoiceInfo } from '../documentPdf'
+import { CreditNoteModal } from './CreditNoteModal'
+import type { CreditNoteIssued } from './CreditNoteModal'
 import { sendDocumentEmail } from '../../email/api'
 import { isValidEmail, recipientsForClientId, splitEmails } from '../../clients/recipients'
 import { FileLink } from '../../../shared/ui/FileLink'
-import { isPrivateFile } from '../../../shared/lib/privateFiles'
 
 type Props = {
   open: boolean
@@ -64,6 +64,17 @@ const EMPTY_LINE: QuoteLineInput = {
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
+}
+
+/** Jours entre deux dates AAAA-MM-JJ */
+function daysBetween(from: string, to: string): number {
+  return Math.round((new Date(`${to}T12:00:00`).getTime() - new Date(`${from}T12:00:00`).getTime()) / 86400000)
+}
+
+function addDays(iso: string, days: number): string {
+  const d = new Date(`${iso}T12:00:00`)
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
 }
 
 export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplicate, notice }: Props) {
@@ -109,6 +120,70 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
   const [paymentMethod, setPaymentMethod] = useState<string | null>(null)
   const [paymentRef, setPaymentRef] = useState<string | null>(null)
   const [totalTtc, setTotalTtc] = useState(0)
+  const [sending, setSending] = useState(false)
+  // Avoirs : nature du document, montants crédités, avoirs de la facture
+  const [kind, setKind] = useState<InvoiceKind>('invoice')
+  const [creditedTtc, setCreditedTtc] = useState(0)
+  const [cancelledReason, setCancelledReason] = useState<string | null>(null)
+  const [creditedInfo, setCreditedInfo] = useState<CreditedInvoiceInfo | null>(null)
+  const [creditNotes, setCreditNotes] = useState<Invoice[]>([])
+  const [creditSource, setCreditSource] = useState<InvoiceWithLines | null>(null)
+
+  /** Remplit la fenêtre avec une facture lue en base (au chargement et après envoi ou avoir) */
+  function applyInvoice(inv: InvoiceWithLines) {
+    setReference(inv.reference)
+    setClientName(inv.client_name)
+    setClientId(inv.client_id ?? '')
+    setClientContact(inv.client_contact_name ?? '')
+    setClientEmail(inv.client_email ?? '')
+    setClientAddress(inv.client_address ?? '')
+    setClientSiren(inv.client_siren ?? '')
+    setSiteName(inv.site_name ?? '')
+    setSiteAddress(inv.site_address ?? '')
+    setDossierNumber(inv.dossier_number ?? '')
+    setQuoteId(inv.quote_id ?? '')
+    setInterventionId(inv.intervention_id ?? '')
+    if (inv.status === 'draft') {
+      // Brouillon : la facture prendra la date de son envoi, l'échéance garde le même délai
+      const today = todayIso()
+      setIssueDate(today)
+      setDueDate(inv.due_date ? addDays(today, Math.max(0, daysBetween(inv.issue_date, inv.due_date))) : defaultDueDate(today))
+    } else {
+      setIssueDate(inv.issue_date)
+      setDueDate(inv.due_date ?? '')
+    }
+    setNotes(inv.notes ?? '')
+    setLines(
+      inv.lines.length > 0
+        ? inv.lines.map((l) => ({
+            id: l.id,
+            position: l.position,
+            description: l.description,
+            format: l.format ?? null,
+            quantity: Number(l.quantity),
+            unit_price_ht: Number(l.unit_price_ht),
+            vat_rate: Number(l.vat_rate),
+          }))
+        : [{ ...EMPTY_LINE }],
+    )
+    setStatus(inv.status)
+    setPdfUrl(inv.pdf_url ?? null)
+    setSentAt(inv.sent_at ?? null)
+    setPaidAt(inv.paid_at ?? null)
+    setAmountPaid(Number(inv.amount_paid ?? 0))
+    setPaymentMethod(inv.payment_method ?? null)
+    setPaymentRef(inv.payment_reference ?? null)
+    setTotalTtc(Number(inv.total_ttc ?? 0))
+    setKind(inv.kind ?? 'invoice')
+    setCreditedTtc(Number(inv.credited_ttc ?? 0))
+    setCancelledReason(inv.cancelled_reason ?? null)
+    void creditedInvoiceInfo(inv).then(setCreditedInfo).catch(() => setCreditedInfo(null))
+    if ((inv.kind ?? 'invoice') === 'invoice' && inv.status !== 'draft') {
+      void listCreditNotes(inv.id).then(setCreditNotes).catch(() => setCreditNotes([]))
+    } else {
+      setCreditNotes([])
+    }
+  }
 
   // Hydratation
   useEffect(() => {
@@ -123,42 +198,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
             setError('Facture introuvable')
             return
           }
-          setReference(inv.reference)
-          setClientName(inv.client_name)
-          setClientId(inv.client_id ?? '')
-          setClientContact(inv.client_contact_name ?? '')
-          setClientEmail(inv.client_email ?? '')
-          setClientAddress(inv.client_address ?? '')
-          setClientSiren(inv.client_siren ?? '')
-          setSiteName(inv.site_name ?? '')
-          setSiteAddress(inv.site_address ?? '')
-          setDossierNumber(inv.dossier_number ?? '')
-          setQuoteId(inv.quote_id ?? '')
-          setInterventionId(inv.intervention_id ?? '')
-          setIssueDate(inv.issue_date)
-          setDueDate(inv.due_date ?? defaultDueDate(inv.issue_date))
-          setNotes(inv.notes ?? '')
-          setLines(
-            inv.lines.length > 0
-              ? inv.lines.map((l) => ({
-                  id: l.id,
-                  position: l.position,
-                  description: l.description,
-                  format: l.format ?? null,
-                  quantity: Number(l.quantity),
-                  unit_price_ht: Number(l.unit_price_ht),
-                  vat_rate: Number(l.vat_rate),
-                }))
-              : [{ ...EMPTY_LINE }],
-          )
-          setStatus(inv.status)
-          setPdfUrl(inv.pdf_url ?? null)
-          setSentAt(inv.sent_at ?? null)
-          setPaidAt(inv.paid_at ?? null)
-          setAmountPaid(Number(inv.amount_paid ?? 0))
-          setPaymentMethod(inv.payment_method ?? null)
-          setPaymentRef(inv.payment_reference ?? null)
-          setTotalTtc(Number(inv.total_ttc ?? 0))
+          applyInvoice(inv)
         })
         .catch((e) => setError(e instanceof Error ? e.message : 'Erreur'))
         .finally(() => setLoading(false))
@@ -186,9 +226,10 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
         }
         if (dossier) setDossierNumber((v) => v || dossier)
       })
-      const initIssue = seed?.issue_date ?? todayIso()
-      setIssueDate(initIssue)
-      setDueDate(seed?.due_date ?? defaultDueDate(initIssue))
+      // La facture prendra la date de son envoi : on garde seulement le délai de paiement proposé
+      const today = todayIso()
+      setIssueDate(today)
+      setDueDate(seed?.due_date && seed.issue_date ? addDays(today, Math.max(0, daysBetween(seed.issue_date, seed.due_date))) : defaultDueDate(today))
       setNotes(seed?.notes ?? '')
       setLines(seed?.lines && seed.lines.length > 0 ? seed.lines : [{ ...EMPTY_LINE }])
       setStatus('draft')
@@ -199,7 +240,13 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
       setPaymentMethod(null)
       setPaymentRef(null)
       setTotalTtc(0)
+      setKind('invoice')
+      setCreditedTtc(0)
+      setCancelledReason(null)
+      setCreditedInfo(null)
+      setCreditNotes([])
     }
+    setCreditSource(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, invoiceId])
 
@@ -242,11 +289,16 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
     })),
   )
 
-  // Statut effectif (pour gérer le 'overdue' calculé en runtime)
-  const displayStatus = effectiveStatus(status, dueDate || null, amountPaid, totalTtc)
-  const remaining = Math.max(0, totalTtc - amountPaid)
-  // Facture émise (plus en brouillon) : contenu figé, comme en base (trigger invoices_protect_issued)
-  const locked = isEdit && status !== 'draft'
+  const isCredit = kind === 'credit_note'
+  const docState = { reference, kind, status, total_ttc: totalTtc, credited_ttc: creditedTtc, amount_paid: amountPaid, due_date: dueDate || null, sent_at: sentAt }
+  // Statut effectif (pour gérer le 'overdue' calculé en runtime, avoirs déduits)
+  const displayStatus = docEffectiveStatus(docState)
+  const netTtc = Math.max(0, totalTtc - creditedTtc)
+  const remaining = Math.max(0, netTtc - amountPaid)
+  // Facture émise (plus en brouillon) ou avoir : contenu figé, comme en base (trigger invoices_protect_issued)
+  const locked = isEdit && (status !== 'draft' || isCredit)
+  const shownReference = displayReference({ reference, kind })
+  const canCredit = isEdit && !isCredit && ['sent', 'partially_paid', 'paid'].includes(status) && netTtc > 0.005
 
   /** Copie de la facture (ex. pour refaire une facture annulée) : date du jour, nouveau numéro à la création */
   function handleDuplicate() {
@@ -265,7 +317,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
       lines: lines
         .filter((l) => l.description.trim())
         .map((l, i) => ({ position: i, description: l.description, format: cleanLineFormat(l.format), quantity: l.quantity, unit_price_ht: l.unit_price_ht, vat_rate: l.vat_rate })),
-    }, reference)
+    }, shownReference)
   }
 
   async function handleSubmit() {
@@ -324,7 +376,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
 
   async function handleDelete() {
     if (!invoiceId) return
-    if (!window.confirm('Supprimer ce brouillon de facture définitivement ?')) return
+    if (!window.confirm(isCredit ? 'Supprimer ce brouillon d\'avoir ?' : 'Supprimer ce brouillon de facture ? Aucun numéro n\'est perdu.')) return
     setDeleting(true)
     try {
       await deleteInvoice(invoiceId)
@@ -343,25 +395,9 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
     setError(null)
     setFlash(null)
     try {
-      const fresh = await getInvoice(invoiceId)
-      if (!fresh) throw new Error('Facture introuvable')
-      const [settings, clientNumber] = await Promise.all([
-        getInvoicingSettings(profile.organization_id),
-        getClientNumber(fresh.client_id),
-      ])
-      const orgName = profile.organizations?.name ?? 'Maintenance'
-      const element = (
-        <InvoicePdf invoice={fresh as InvoiceWithLines} organizationName={orgName} settings={settings} clientNumber={clientNumber} />
-      )
-      const url = await generateAndUploadInvoicePdf(
-        element,
-        profile.organization_id,
-        invoiceId,
-        fresh.reference,
-      )
-      await setInvoicePdfUrl(invoiceId, url)
+      const { url } = await buildInvoicePdf(invoiceId, profile.organization_id, profile.organizations?.name ?? 'Maintenance')
       setPdfUrl(url)
-      setFlash('PDF généré.')
+      setFlash(status === 'draft' ? 'Aperçu PDF prêt (brouillon, sans numéro).' : 'PDF généré.')
       setTimeout(() => setFlash(null), 2500)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur PDF')
@@ -370,8 +406,12 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
     }
   }
 
+  /**
+   * Envoi au client : un brouillon reçoit d'abord son numéro et la date du
+   * jour (base), puis le PDF est refait au numéro définitif et part par mail.
+   */
   async function handleMarkSent() {
-    if (!invoiceId) return
+    if (!invoiceId || !profile?.organization_id) return
     // Email de la facture (sinon principal du client) + destinataires « factures » de la fiche client
     let list = await recipientsForClientId(clientId || null, 'invoices', clientEmail.trim())
     if (list.length === 0) list = splitEmails(window.prompt('Email du client à enregistrer :') ?? '')
@@ -384,27 +424,24 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
       return
     }
     const recipient = list.join(', ')
+    const orgName = profile.organizations?.name ?? 'Maintenance'
+    setSending(true)
+    setError(null)
     try {
-      await markInvoiceSent(invoiceId, recipient)
-      setStatus('sent')
-      setSentAt(new Date().toISOString())
+      const wasDraft = status === 'draft'
+      if (wasDraft) {
+        // Numéro définitif et date du jour : posés par la base à la sortie du brouillon
+        await markInvoiceSent(invoiceId, recipient)
+      }
+      // PDF au numéro définitif (refait si c'était un brouillon ou s'il manque)
+      const built = wasDraft || !pdfUrl ? await buildInvoicePdf(invoiceId, profile.organization_id, orgName) : null
+      const fresh = built?.doc ?? await getInvoice(invoiceId)
+      if (!fresh) throw new Error('Facture introuvable')
+      const url = built?.url ?? fresh.pdf_url ?? null
+      const credited = built?.credited ?? creditedInfo
+      applyInvoice(fresh)
 
-      const subject = `Facture ${reference}`.trim()
-      const orgName = profile?.organizations?.name ?? 'Maintenance'
-      const greet = clientContact ? `Bonjour ${clientContact.trim()},` : 'Bonjour,'
-      const dueLine = dueDate
-        ? `\n\nÉchéance de paiement : ${new Date(dueDate).toLocaleDateString('fr-FR')}.`
-        : ''
-      const totalsLine = `Montant à régler : ${formatAmount(totals.total_ttc)} TTC.${dueLine}`
-      // PDF privé : joint au mail, sans lien (il faudrait être connecté pour l'ouvrir)
-      const pdfLine = pdfUrl
-        ? isPrivateFile(pdfUrl)
-          ? `\n\n📄 La facture est jointe à ce mail.`
-          : `\n\n📄 La facture est jointe à ce mail (ou téléchargeable ici : ${pdfUrl})`
-        : `\n\n(Le PDF est disponible sur demande.)`
-      const body =
-        `${greet}\n\nVeuillez trouver ci-après la facture pour la prestation réalisée.\n\n${totalsLine}${pdfLine}\n\nN'hésitez pas à me contacter pour toute question.\n\nCordialement,\n${orgName}`
-
+      const { subject, body } = invoiceEmail(fresh, orgName, url, credited)
       // Tente Resend, fallback mailto:
       const result = await sendDocumentEmail({
         kind: 'invoice',
@@ -412,24 +449,32 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
         recipientEmail: recipient,
         subject,
         body,
-        pdfUrl,
+        pdfUrl: url,
       })
+      if (!wasDraft) await markInvoiceSent(invoiceId, recipient)
+      setSentAt(new Date().toISOString())
 
+      const label = isCredit ? `Avoir ${fresh.reference}` : `Facture ${fresh.reference}`
       if (result.mode === 'resend') {
-        setFlash(`Facture envoyée à ${recipient} avec le PDF en pièce jointe ✓`)
+        setFlash(`${label} envoyé${isCredit ? '' : 'e'} à ${recipient} avec le PDF en pièce jointe ✓`)
       } else {
-        setFlash('Facture marquée comme envoyée.')
+        setFlash(`${label} : numéro attribué, votre messagerie s'est ouverte pour l'envoi.`)
       }
-      setTimeout(() => setFlash(null), 3000)
+      setTimeout(() => setFlash(null), 4000)
       onSaved?.(invoiceId)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
+      // La facture a pu être émise avant l'erreur : on relit son état
+      const again = await getInvoice(invoiceId).catch(() => null)
+      if (again) applyInvoice(again)
+    } finally {
+      setSending(false)
     }
   }
 
   async function handleRecordPayment() {
     if (!invoiceId) return
-    const remainingNow = totalTtc - amountPaid
+    const remainingNow = Math.max(0, netTtc - amountPaid)
     const amountStr = window.prompt(
       `Montant du règlement reçu (€) ?\n\nReste à payer : ${formatAmount(remainingNow)}`,
       remainingNow.toFixed(2),
@@ -447,17 +492,17 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
     const ref = window.prompt('Référence (n° chèque, libellé virement, optionnel) :', '') ?? ''
     try {
       await recordPayment(invoiceId, amount, method, ref || null)
-      const newPaid = Math.min(totalTtc, amountPaid + amount)
+      const newPaid = Math.min(netTtc, amountPaid + amount)
       setAmountPaid(newPaid)
       setPaymentMethod(method || null)
       setPaymentRef(ref || null)
-      if (newPaid >= totalTtc - 0.01) {
+      if (newPaid >= netTtc - 0.01) {
         setStatus('paid')
         setPaidAt(new Date().toISOString())
         setFlash(`Règlement enregistré ✅ Facture soldée.`)
       } else {
         setStatus('partially_paid')
-        setFlash(`Règlement enregistré. Reste : ${formatAmount(totalTtc - newPaid)}.`)
+        setFlash(`Règlement enregistré. Reste : ${formatAmount(netTtc - newPaid)}.`)
       }
       setTimeout(() => setFlash(null), 4000)
       onSaved?.(invoiceId)
@@ -470,8 +515,8 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
     if (!invoiceId) return
     if (!window.confirm('Annuler les règlements et remettre la facture en "Envoyée" ?')) return
     try {
-      await resetInvoicePayment(invoiceId, sentAt ? 'sent' : 'draft')
-      setStatus(sentAt ? 'sent' : 'draft')
+      await resetInvoicePayment(invoiceId)
+      setStatus('sent')
       setAmountPaid(0)
       setPaidAt(null)
       setPaymentMethod(null)
@@ -482,19 +527,32 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
     }
   }
 
-  async function handleCancel() {
+  /** « Faire un avoir » : ouvre la fenêtre de l'avoir avec la facture à jour */
+  async function openCreditNote() {
     if (!invoiceId) return
-    const reason = window.prompt('Raison de l\'annulation (visible en interne) ?', '')
-    if (reason === null) return
+    setError(null)
     try {
-      await cancelInvoice(invoiceId, reason)
-      setStatus('cancelled')
-      setFlash('Facture annulée. Pour la refaire corrigée : « Dupliquer ».')
-      setTimeout(() => setFlash(null), 5000)
-      onSaved?.(invoiceId)
+      const fresh = await getInvoice(invoiceId)
+      if (!fresh) throw new Error('Facture introuvable')
+      setCreditSource(fresh)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
     }
+  }
+
+  async function handleCreditIssued(result: CreditNoteIssued) {
+    setCreditSource(null)
+    if (invoiceId) {
+      const fresh = await getInvoice(invoiceId).catch(() => null)
+      if (fresh) applyInvoice(fresh)
+    }
+    if (result.warning) setError(result.warning)
+    const sentLine = result.sent === 'resend'
+      ? ` et envoyé à ${result.recipient}`
+      : result.sent === 'mailto' ? ', votre messagerie s\'est ouverte pour l\'envoi' : ''
+    setFlash(`Avoir ${result.reference} émis${sentLine}.`)
+    setTimeout(() => setFlash(null), 5000)
+    if (invoiceId) onSaved?.(invoiceId)
   }
 
   function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
@@ -503,14 +561,19 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
 
   if (!open) return null
 
-  const anyLoading = submitting || deleting || loading
+  const anyLoading = submitting || deleting || loading || sending
 
   return (
+    <>
     <div className="overlay open" onClick={handleBackdrop}>
       <div className="modal" style={{ maxWidth: 920 }}>
         <div className="modal-head">
           <span className="modal-title">
-            {isEdit ? `Facture ${reference || ''}`.trim() : 'Nouvelle facture'}
+            {!isEdit
+              ? 'Nouvelle facture'
+              : isCredit
+                ? hasFinalNumber(reference) ? `Avoir ${reference}` : 'Avoir (brouillon)'
+                : hasFinalNumber(reference) ? `Facture ${reference}` : 'Facture (brouillon)'}
           </span>
           <button type="button" className="modal-x" onClick={onClose} aria-label="Fermer">×</button>
         </div>
@@ -525,13 +588,28 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                 <span>{notice}</span>
               </div>
             )}
+            {!locked && !isCredit && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--ink2)', background: 'var(--bg2, #F1F3F6)', borderRadius: 8, padding: '9px 12px', lineHeight: 1.45 }}>
+                <Info size={14} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>
+                  {hasFinalNumber(reference)
+                    ? `Brouillon n° ${reference} : il prendra la date du jour où vous l'envoyez au client.`
+                    : 'Brouillon : le numéro de facture et sa date sont attribués quand vous l\'envoyez au client. Un brouillon supprimé ne laisse pas de trou dans la numérotation.'}
+                </span>
+              </div>
+            )}
             {locked && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--ink2)', background: 'var(--bg2, #F1F3F6)', borderRadius: 8, padding: '9px 12px', lineHeight: 1.45 }}>
                 <Lock size={14} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
                 <span>
-                  {status === 'cancelled'
-                    ? 'Facture annulée : elle reste dans la numérotation et ne se modifie plus. Pour la refaire corrigée : « Dupliquer ».'
-                    : 'Facture émise : son contenu ne se modifie plus. Pour corriger une erreur, annulez-la puis refaites-la avec « Dupliquer ».'}
+                  {isCredit
+                    ? <>
+                        {status === 'draft' ? 'Avoir en brouillon (son émission n\'a pas abouti) : envoyez-le pour lui donner son numéro, ou supprimez-le.' : 'Avoir émis : il ne se modifie plus.'}
+                        {creditedInfo && <> Il se rapporte à la facture <strong>{creditedInfo.reference}</strong> du {new Date(creditedInfo.issue_date).toLocaleDateString('fr-FR')}.</>}
+                      </>
+                    : status === 'cancelled'
+                      ? `${cancelledReason?.startsWith('Annulée par l\'avoir') ? `Facture ${cancelledReason.charAt(0).toLowerCase()}${cancelledReason.slice(1)}` : 'Facture annulée'} : elle reste dans la numérotation et ne se modifie plus. Pour la refaire corrigée : « Dupliquer ».`
+                      : 'Facture émise : son contenu ne se modifie plus. Pour corriger une erreur : « Faire un avoir » (total ou partiel), puis refaites-la avec « Dupliquer » si besoin.'}
                 </span>
               </div>
             )}
@@ -642,32 +720,32 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
               </div>
             </div>
 
-            {/* Dates */}
+            {/* Dates : la facture prend la date de son envoi */}
             <div className="mrow">
               <div className="fg">
-                <label>Date d'émission</label>
-                <input
-                  type="date"
-                  value={issueDate}
-                  onChange={(e) => {
-                    setIssueDate(e.target.value)
-                    // Recalcule l'échéance si elle était laissée à default
-                    if (e.target.value) setDueDate(defaultDueDate(e.target.value))
-                  }}
-                />
+                <label>{isCredit ? 'Date de l\'avoir' : 'Date de la facture'}</label>
+                <input type="date" value={issueDate} disabled />
+                {!locked && (
+                  <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
+                    Celle du jour où la facture est envoyée au client.
+                  </span>
+                )}
               </div>
-              <div className="fg">
-                <label>Date limite de paiement</label>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                />
-                <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
-                  Date à laquelle le client doit avoir payé. Au-delà, la facture passe automatiquement
-                  en "En retard". Par défaut J+30.
-                </span>
-              </div>
+              {!isCredit ? (
+                <div className="fg">
+                  <label>Date limite de paiement</label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    min={locked ? undefined : issueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                  />
+                  <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
+                    Date à laquelle le client doit avoir payé. Si la facture part un autre jour, l'échéance
+                    est décalée d'autant. Au-delà, la facture passe en « En retard ». Par défaut J+30.
+                  </span>
+                </div>
+              ) : <div />}
             </div>
 
             {/* Lignes */}
@@ -795,22 +873,35 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
             {error && <span className="ferr on">{error}</span>}
             {flash && <p className="text-grn text-sm" style={{ margin: 0 }}>✅ {flash}</p>}
 
-            {/* WORKFLOW PAIEMENT */}
+            {/* WORKFLOW ENVOI, PAIEMENT, AVOIR */}
             {isEdit && (
               <div className="quote-workflow">
                 <div className="quote-workflow-status">
                   Statut :{' '}
                   <strong className={`status-${displayStatus}`}>
-                    {INVOICE_STATUS_LABEL[displayStatus]}
+                    {docStatusLabel(docState, displayStatus)}
                   </strong>
                   {sentAt && status !== 'cancelled' && (
-                    <> · envoyée le {new Date(sentAt).toLocaleDateString('fr-FR')}</>
+                    <> · envoyé{isCredit ? '' : 'e'} le {new Date(sentAt).toLocaleDateString('fr-FR')}</>
                   )}
-                  {amountPaid > 0 && status !== 'cancelled' && (
+                  {!isCredit && creditNotes.length > 0 && (
+                    <>
+                      <br />
+                      Avoir{creditNotes.length > 1 ? 's' : ''} :{' '}
+                      {creditNotes.map((c, i) => (
+                        <span key={c.id}>
+                          {i > 0 && ', '}
+                          <strong>{displayReference(c)}</strong> (− {formatAmount(Number(c.total_ttc))})
+                        </span>
+                      ))}
+                      {status !== 'cancelled' && <> · total à payer : <strong>{formatAmount(netTtc)}</strong></>}
+                    </>
+                  )}
+                  {!isCredit && amountPaid > 0 && status !== 'cancelled' && (
                     <>
                       <br />
                       Réglé : <strong>{formatAmount(amountPaid)}</strong>
-                      {totalTtc > 0 && amountPaid < totalTtc && (
+                      {netTtc > 0 && amountPaid < netTtc - 0.005 && (
                         <> · reste à payer : <strong className="text-red">{formatAmount(remaining)}</strong></>
                       )}
                       {paymentMethod && <> · {paymentMethod}{paymentRef ? ` (${paymentRef})` : ''}</>}
@@ -825,11 +916,11 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                         type="button"
                         className="btn-sm"
                         onClick={() => void handleGeneratePdf()}
-                        disabled={generatingPdf}
+                        disabled={generatingPdf || sending}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       >
                         <FileText size={13} strokeWidth={2} />
-                        {generatingPdf ? 'Génération…' : pdfUrl ? 'Régénérer PDF' : 'Générer PDF'}
+                        {generatingPdf ? 'Génération…' : status === 'draft' ? 'Aperçu PDF' : pdfUrl ? 'Régénérer PDF' : 'Générer PDF'}
                       </button>
                     )}
                     {pdfUrl && (
@@ -843,17 +934,19 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                         <Download size={13} /> PDF
                       </FileLink>
                     )}
-                    {status === 'draft' && pdfUrl && (
+                    {(status === 'draft' || !sentAt) && (
                       <button
                         type="button"
                         className="btn-sm acc"
                         onClick={() => void handleMarkSent()}
+                        disabled={sending || generatingPdf}
+                        title={status === 'draft' ? 'Attribue le numéro et la date du jour, refait le PDF et l\'envoie au client' : undefined}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       >
-                        <Mail size={13} strokeWidth={2} /> Envoyer au client
+                        <Mail size={13} strokeWidth={2} /> {sending ? 'Envoi…' : 'Envoyer au client'}
                       </button>
                     )}
-                    {(status === 'sent' || status === 'partially_paid' || displayStatus === 'overdue') && (
+                    {!isCredit && (status === 'sent' || status === 'partially_paid' || displayStatus === 'overdue') && (
                       <button
                         type="button"
                         className="btn-sm done"
@@ -864,7 +957,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                         {amountPaid > 0 ? 'Enregistrer un règlement' : 'Marquer comme payée'}
                       </button>
                     )}
-                    {(status === 'partially_paid' || status === 'paid') && (
+                    {!isCredit && (status === 'partially_paid' || status === 'paid') && (
                       <button
                         type="button"
                         className="btn-sm"
@@ -875,14 +968,15 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                         <Undo2 size={13} strokeWidth={2} /> Annuler règlement
                       </button>
                     )}
-                    {status !== 'paid' && (
+                    {canCredit && (
                       <button
                         type="button"
                         className="btn-sm"
-                        onClick={() => void handleCancel()}
+                        onClick={() => void openCreditNote()}
+                        title="Annule tout ou partie de la facture par un avoir numéroté"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       >
-                        <Ban size={13} strokeWidth={2} /> Annuler la facture
+                        <FileMinus2 size={13} strokeWidth={2} /> Faire un avoir
                       </button>
                     )}
                   </div>
@@ -897,13 +991,13 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                   className="mf del"
                   onClick={() => void handleDelete()}
                   disabled={anyLoading}
-                  style={{ marginRight: onDuplicate ? undefined : 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  style={{ marginRight: onDuplicate && !isCredit ? undefined : 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
                   <Trash2 size={14} strokeWidth={1.8} />
                   {deleting ? 'Suppression…' : 'Supprimer'}
                 </button>
               )}
-              {isEdit && onDuplicate && (
+              {isEdit && onDuplicate && !isCredit && (
                 <button
                   type="button"
                   className="mf out"
@@ -934,5 +1028,13 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
         )}
       </div>
     </div>
+    {creditSource && (
+      <CreditNoteModal
+        invoice={creditSource}
+        onClose={() => setCreditSource(null)}
+        onIssued={(r) => void handleCreditIssued(r)}
+      />
+    )}
+    </>
   )
 }

@@ -873,7 +873,9 @@ export async function loadDemoData(
   await markQuoteAccepted(acceptedQuote.id)
   tick('Devis')
 
-  // ─── 7. Factures : payées sur 6 mois, une en attente, une en retard ──
+  // ─── 7. Factures : payées, une en attente, une en retard ──
+  // Une facture prend la date de son envoi (base) : toutes sont datées du jour,
+  // l'échéance garde le délai prévu (négatif pour la facture en retard).
   const paidInvoices = [
     { key: 'stjean', months: 5, amount: 2350, label: 'Visite annuelle extincteurs et RIA' },
     { key: 'montaigne', months: 4, amount: 3120, label: 'Visite annuelle extincteurs et désenfumage' },
@@ -885,21 +887,18 @@ export async function loadDemoData(
   ]
   for (const [i, p] of paidInvoices.entries()) {
     const linked = finishedInterventions[i % finishedInterventions.length]
-    const issue = p.months === 0 ? daysFromToday(-20 + i) : monthsAgo(p.months, 6)
-    const paid = p.months === 0 ? daysFromToday(-3 + (i % 2)) : monthsAgo(p.months, 24)
     const inv = await createInvoice(
       {
         ...clientFields(p.key),
         intervention_id: linked?.id,
-        issue_date: issue,
-        due_date: p.months === 0 ? daysFromToday(10) : monthsAgo(p.months - 1, 6),
+        issue_date: daysFromToday(0),
+        due_date: daysFromToday(30),
         lines: [{ position: 0, description: p.label, quantity: 1, unit_price_ht: p.amount, vat_rate: 20 }],
       },
       organizationId,
     )
     await markInvoiceSent(inv.id, get(p.key).client.contact_email ?? '')
     await recordPayment(inv.id, Number(inv.total_ttc), 'virement', `VIR-${String(i + 1).padStart(3, '0')}`)
-    await supabase.from('invoices').update({ paid_at: `${paid}T10:00:00` }).eq('id', inv.id)
   }
   const pending = await createInvoice(
     {
@@ -913,7 +912,7 @@ export async function loadDemoData(
   const late = await createInvoice(
     {
       ...clientFields('lilas'),
-      issue_date: daysFromToday(-45), due_date: daysFromToday(-15),
+      issue_date: daysFromToday(0), due_date: daysFromToday(-15),
       lines: [{ position: 0, description: 'Remplacement de 2 extincteurs eau 6 L', quantity: 1, unit_price_ht: 980, vat_rate: 20 }],
     },
     organizationId,

@@ -150,7 +150,7 @@ export async function listArchivedDocuments(): Promise<ArchivedDocument[]> {
   try {
     const { data: invoices, error: iErr } = await supabase
       .from('invoices')
-      .select('id, reference, issue_date, client_name, client_id, site_name, site_address, client_address, notes, pdf_url, status, total_ttc')
+      .select('id, reference, issue_date, client_name, client_id, site_name, site_address, client_address, notes, pdf_url, status, total_ttc, kind')
       .neq('status', 'draft')
       .order('issue_date', { ascending: false })
 
@@ -168,6 +168,7 @@ export async function listArchivedDocuments(): Promise<ArchivedDocument[]> {
         pdf_url: string | null
         status: string
         total_ttc: number
+        kind?: string | null
       }>) {
         docs.push({
           search_text: joinText([inv.site_address, inv.client_address, inv.notes]),
@@ -180,7 +181,8 @@ export async function listArchivedDocuments(): Promise<ArchivedDocument[]> {
           site_name: inv.site_name,
           pdf_url: inv.pdf_url,
           status: inv.status,
-          amount_ttc: Number(inv.total_ttc),
+          // Avoir : montant en négatif
+          amount_ttc: inv.kind === 'credit_note' ? -Number(inv.total_ttc) : Number(inv.total_ttc),
         })
       }
     }

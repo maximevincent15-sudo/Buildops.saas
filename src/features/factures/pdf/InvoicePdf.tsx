@@ -8,6 +8,7 @@ import { computeQuoteTotals, formatAmount, formatNumber } from '../../devis/cons
 import { VAT_MENTION_TEXT } from '../../parametres/api'
 import type { InvoicingSettings } from '../../parametres/api'
 import { PdfLogo } from '../../parametres/pdf/PdfLogo'
+import { hasFinalNumber, isCreditNote } from '../constants'
 import type { InvoiceWithLines } from '../schemas'
 
 const colors = {
@@ -226,6 +227,24 @@ const styles = StyleSheet.create({
     transform: 'rotate(-12deg)',
     opacity: 0.7,
   },
+  draftStamp: {
+    position: 'absolute',
+    top: 330,
+    left: 120,
+    right: 120,
+    paddingVertical: 12,
+    border: 2.5,
+    borderStyle: 'solid',
+    borderColor: colors.ink3,
+    color: colors.ink3,
+    fontSize: 26,
+    fontFamily: 'Helvetica-Bold',
+    textAlign: 'center',
+    letterSpacing: 4,
+    transform: 'rotate(-12deg)',
+    opacity: 0.6,
+  },
+  creditRef: { fontSize: 8.5, color: colors.ink, marginTop: 4, fontFamily: 'Helvetica-Bold' },
   paidStamp: {
     position: 'absolute',
     top: 200,
@@ -265,9 +284,19 @@ type Props = {
   settings: InvoicingSettings | null
   /** N° client de la fiche client (si renseigné) */
   clientNumber?: string | null
+  /** Avoir : facture d'origine (numéro et date) */
+  creditedInvoice?: { reference: string; issue_date: string } | null
 }
 
-export function InvoicePdf({ invoice, organizationName, settings, clientNumber }: Props) {
+function longDate(iso: string | null | undefined): string {
+  return iso ? format(new Date(iso), 'd MMMM yyyy', { locale: fr }) : ''
+}
+
+export function InvoicePdf({ invoice, organizationName, settings, clientNumber, creditedInvoice }: Props) {
+  const isCredit = isCreditNote(invoice)
+  // Brouillon : pas encore de numéro ni de date (attribués à l'envoi)
+  const isDraft = !hasFinalNumber(invoice.reference) || invoice.status === 'draft'
+  const draftNumbered = isDraft && hasFinalNumber(invoice.reference)
   const totals = computeQuoteTotals(
     invoice.lines.map((l) => ({
       quantity: Number(l.quantity),
@@ -276,22 +305,22 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber }
     })),
   )
 
-  const issueLabel = invoice.issue_date
-    ? format(new Date(invoice.issue_date), 'd MMMM yyyy', { locale: fr })
-    : ''
-  const dueLabel = invoice.due_date
-    ? format(new Date(invoice.due_date), 'd MMMM yyyy', { locale: fr })
+  const issueLabel = longDate(invoice.issue_date)
+  const dueLabel = !isCredit && invoice.due_date ? longDate(invoice.due_date) : null
+  // Brouillon : délai de paiement (l'échéance est recalculée à l'envoi)
+  const dueDays = invoice.due_date && invoice.issue_date
+    ? Math.round((new Date(invoice.due_date).getTime() - new Date(invoice.issue_date).getTime()) / 86400000)
     : null
 
   const totalTtc = Number(invoice.total_ttc)
-  const amountPaid = Number(invoice.amount_paid ?? 0)
+  const amountPaid = isCredit ? 0 : Number(invoice.amount_paid ?? 0)
   const remaining = Math.max(0, totalTtc - amountPaid)
-  const isPaid = invoice.status === 'paid' || amountPaid >= totalTtc - 0.01
+  const isPaid = !isCredit && !isDraft && (invoice.status === 'paid' || (totalTtc > 0 && amountPaid >= totalTtc - 0.01))
   const isCancelled = invoice.status === 'cancelled'
 
   // Détection retard côté PDF
   const isOverdueDoc =
-    !isPaid && !isCancelled && invoice.due_date && new Date(invoice.due_date) < new Date()
+    !isDraft && !isPaid && !isCancelled && invoice.due_date && new Date(invoice.due_date) < new Date()
 
   return (
     <Document>
@@ -315,10 +344,25 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber }
             )}
           </View>
           <View style={styles.headerMeta}>
-            <Text style={styles.docLabel}>Facture</Text>
-            <Text style={styles.docRef}>{invoice.reference}</Text>
-            <Text style={styles.docDate}>Émise le {issueLabel}</Text>
-            {dueLabel && (
+            <Text style={styles.docLabel}>{isCredit ? 'Avoir' : 'Facture'}</Text>
+            <Text style={styles.docRef}>{isDraft && !draftNumbered ? 'BROUILLON' : invoice.reference}</Text>
+            {isDraft ? (
+              <Text style={styles.docDate}>{draftNumbered ? 'Brouillon : date fixée à l\'envoi' : 'Numéro et date attribués à l\'envoi'}</Text>
+            ) : (
+              <Text style={styles.docDate}>{isCredit ? 'Émis' : 'Émise'} le {issueLabel}</Text>
+            )}
+            {isCredit && creditedInvoice && (
+              <Text style={styles.creditRef}>
+                Se rapporte à la facture {creditedInvoice.reference} du {longDate(creditedInvoice.issue_date)}
+              </Text>
+            )}
+            {isDraft && !isCredit && dueDays !== null && dueDays >= 0 && (
+              <View style={styles.dueBanner}>
+                <Text style={styles.dueBannerLabel}>Délai de paiement</Text>
+                <Text style={styles.dueBannerValue}>{dueDays === 0 ? 'À réception' : `${dueDays} jours après l'envoi`}</Text>
+              </View>
+            )}
+            {!isDraft && dueLabel && (
               <View
                 style={
                   isPaid
@@ -347,8 +391,11 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber }
           </View>
         </View>
 
-        {/* TAMPON ANNULÉ / PAYÉ */}
-        {isCancelled && (
+        {/* TAMPON BROUILLON / ANNULÉ / PAYÉ */}
+        {isDraft && (
+          <Text style={styles.draftStamp}>BROUILLON</Text>
+        )}
+        {isCancelled && !isDraft && (
           <Text style={styles.cancelledStamp}>ANNULÉE</Text>
         )}
         {isPaid && !isCancelled && (
@@ -358,7 +405,7 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber }
         {/* CLIENT + SITE */}
         <View style={styles.addressBlock}>
           <View style={styles.addressCol}>
-            <Text style={styles.addressLabel}>Facturé à</Text>
+            <Text style={styles.addressLabel}>{isCredit ? 'Client' : 'Facturé à'}</Text>
             <Text style={styles.addressName}>{invoice.client_name}</Text>
             {clientNumber && <Text style={styles.addressLine}>N° client : {clientNumber}</Text>}
             {invoice.dossier_number && <Text style={styles.addressLine}>N° de dossier : {invoice.dossier_number}</Text>}
@@ -411,7 +458,7 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber }
               </View>
             ))}
             <View style={styles.totalRowGrand}>
-              <Text>Total TTC</Text>
+              <Text>{isCredit ? 'Total TTC de l\'avoir' : 'Total TTC'}</Text>
               <Text>{formatAmount(totals.total_ttc)}</Text>
             </View>
             {amountPaid > 0 && !isCancelled && (
@@ -434,8 +481,8 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber }
           </View>
         </View>
 
-        {/* COORDONNÉES BANCAIRES (uniquement si non payée + non annulée) */}
-        {!isPaid && !isCancelled && settings && (settings.iban || settings.bic) && (
+        {/* COORDONNÉES BANCAIRES (uniquement si non payée + non annulée, jamais sur un avoir) */}
+        {!isCredit && !isPaid && !isCancelled && settings && (settings.iban || settings.bic) && (
           <View style={styles.paymentBlock} wrap={false}>
             <Text style={styles.paymentTitle}>Règlement par virement bancaire</Text>
             {settings.bank_name && (
@@ -452,7 +499,9 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber }
               </Text>
             )}
             <Text style={[styles.paymentLine, { color: colors.ink3, marginTop: 4 }]}>
-              Merci d'indiquer la référence <Text style={{ fontFamily: 'Helvetica-Bold' }}>{invoice.reference}</Text> dans le libellé du virement.
+              {isDraft && !draftNumbered
+                ? 'Merci d\'indiquer le numéro de la facture dans le libellé du virement.'
+                : <>Merci d'indiquer la référence <Text style={{ fontFamily: 'Helvetica-Bold' }}>{invoice.reference}</Text> dans le libellé du virement.</>}
             </Text>
           </View>
         )}
@@ -460,7 +509,7 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber }
         {/* NOTES */}
         {invoice.notes ? (
           <View style={styles.notes}>
-            <Text style={styles.notesTitle}>Notes</Text>
+            <Text style={styles.notesTitle}>{isCredit ? 'Motif' : 'Notes'}</Text>
             <Text>{invoice.notes}</Text>
           </View>
         ) : null}
@@ -468,9 +517,9 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber }
         {/* MENTIONS LÉGALES */}
         {settings && (
           <View style={styles.legal}>
-            {settings.payment_terms && <Text>{settings.payment_terms}</Text>}
-            {settings.late_penalty_text && <Text>{settings.late_penalty_text}</Text>}
-            {settings.no_discount_text && <Text>{settings.no_discount_text}</Text>}
+            {!isCredit && settings.payment_terms && <Text>{settings.payment_terms}</Text>}
+            {!isCredit && settings.late_penalty_text && <Text>{settings.late_penalty_text}</Text>}
+            {!isCredit && settings.no_discount_text && <Text>{settings.no_discount_text}</Text>}
             {settings.vat_mention && VAT_MENTION_TEXT[settings.vat_mention] && <Text>{VAT_MENTION_TEXT[settings.vat_mention]}</Text>}
           </View>
         )}

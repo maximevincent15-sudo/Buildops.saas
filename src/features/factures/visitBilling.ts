@@ -46,6 +46,7 @@ export async function findVisitInvoice(interventionId: string): Promise<VisitInv
     .from('invoices')
     .select('id, reference, status')
     .eq('intervention_id', interventionId)
+    .eq('kind', 'invoice')
     .neq('status', 'cancelled')
     .order('created_at', { ascending: true })
     .limit(1)
@@ -100,6 +101,7 @@ export async function listVisitsToInvoice(): Promise<VisitToInvoice[]> {
     selectAll<{ id: string; intervention_id: string | null }>((from, to) => supabase
       .from('invoices')
       .select('id, intervention_id')
+      .eq('kind', 'invoice')
       .neq('status', 'cancelled')
       .order('id', { ascending: true })
       .range(from, to)),

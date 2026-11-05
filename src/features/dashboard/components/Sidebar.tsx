@@ -34,7 +34,7 @@ import { listOvertime } from '../../overtime/api'
 import { listInterventions } from '../../planning/api'
 import { computeVehicleAlerts } from '../../vehicles/api'
 import { listInvoices } from '../../factures/api'
-import { effectiveStatus } from '../../factures/constants'
+import { docEffectiveStatus, isCreditNote } from '../../factures/constants'
 import { useModuleEnabled } from '../../parametres/modules'
 import type { OptionalModule } from '../../parametres/modules'
 
@@ -168,12 +168,8 @@ export function Sidebar({ open = false }: { open?: boolean }) {
           expenses.filter((e) => e.status === 'pending').length +
           overtime.filter((o) => o.status === 'pending').length
         const factures = invoices.filter((inv) => {
-          const eff = effectiveStatus(
-            inv.status,
-            inv.due_date,
-            Number(inv.amount_paid ?? 0),
-            Number(inv.total_ttc ?? 0),
-          )
+          if (isCreditNote(inv)) return false
+          const eff = docEffectiveStatus(inv)
           return eff === 'sent' || eff === 'partially_paid' || eff === 'overdue'
         }).length
         setCounts({ planning, rapports, alertes: alertesUrgent, anomalies: anomaliesCount, rh, factures })

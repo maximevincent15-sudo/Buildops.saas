@@ -143,6 +143,9 @@ export async function getNextNumbers(organizationId: string): Promise<NextNumber
       .from('invoices')
       .select('id', { count: 'exact', head: true })
       .eq('organization_id', organizationId)
+      // Factures déjà numérotées (les brouillons n'ont pas encore de numéro)
+      .eq('kind', 'invoice')
+      .not('reference', 'like', 'BROUILLON-%')
       .gte('issue_date', `${year}-01-01`)
       .lt('issue_date', `${year + 1}-01-01`),
   ])

@@ -142,6 +142,10 @@ export type PortalInvoice = {
   paid_at: string | null
   pdf_url: string | null
   site_name: string | null
+  /** Avoir : montant en positif, facture d'origine */
+  kind?: 'invoice' | 'credit_note'
+  credited_ttc?: number | null
+  credited_reference?: string | null
 }
 
 export async function getPortalInvoices(token: string): Promise<PortalInvoice[]> {

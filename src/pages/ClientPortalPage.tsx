@@ -18,7 +18,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { BILLING_MODE_LABELS, FREQUENCY_LABELS, contractAnnualTotals, currentPeriodEnd, fixedEnd, noticeDeadline } from '../features/contrats/schemas'
 import { formatAmount } from '../features/devis/constants'
-import { effectiveStatus, INVOICE_STATUS_LABEL, INVOICE_STATUS_BADGE } from '../features/factures/constants'
+import { docEffectiveStatus, docStatusLabel, INVOICE_STATUS_BADGE, remainingDue } from '../features/factures/constants'
 import type { InvoiceStatus } from '../features/factures/constants'
 import {
   getPortalContracts,
@@ -294,15 +294,10 @@ function InvoicesTab({ token }: { token: string }) {
 
   const enriched = useMemo(
     () =>
-      invoices.map((i) => ({
-        ...i,
-        eff: effectiveStatus(
-          i.status as InvoiceStatus,
-          i.due_date,
-          Number(i.amount_paid ?? 0),
-          Number(i.total_ttc ?? 0),
-        ),
-      })),
+      invoices.map((i) => {
+        const doc = { ...i, status: i.status as InvoiceStatus, sent_at: i.issue_date }
+        return { ...i, credit: i.kind === 'credit_note', eff: docEffectiveStatus(doc), label: docStatusLabel(doc) }
+      }),
     [invoices],
   )
 
@@ -314,22 +309,28 @@ function InvoicesTab({ token }: { token: string }) {
   return (
     <div className="portal-list">
       {enriched.map((i) => {
-        const remaining = Number(i.total_ttc) - Number(i.amount_paid ?? 0)
+        const remaining = remainingDue(i)
+        const credited = Number(i.credited_ttc ?? 0)
+        const badge = i.credit ? 'b-gry' : INVOICE_STATUS_BADGE[i.eff]
         return (
           <div key={i.id} className="portal-card">
-            <div className={`portal-card-icon ${INVOICE_STATUS_BADGE[i.eff]}`}>
+            <div className={`portal-card-icon ${badge}`}>
               <Receipt size={18} />
             </div>
             <div className="portal-card-body">
               <div className="portal-card-title">
-                {i.reference}
+                {i.credit ? `Avoir ${i.reference}` : i.reference}
+                {i.credit && i.credited_reference && (
+                  <span className="portal-card-light"> · sur la facture {i.credited_reference}</span>
+                )}
                 {i.site_name && (
                   <span className="portal-card-light"> · {i.site_name}</span>
                 )}
               </div>
               <div className="portal-card-meta">
-                Émise le {formatDate(i.issue_date)}
-                {i.due_date && i.eff !== 'paid' && (
+                {i.credit ? 'Émis' : 'Émise'} le {formatDate(i.issue_date)}
+                {!i.credit && credited > 0 && <> · avoir − {formatAmount(credited)}</>}
+                {!i.credit && i.due_date && i.eff !== 'paid' && (
                   <> · à régler avant le {formatDate(i.due_date)}</>
                 )}
                 {i.eff === 'paid' && i.paid_at && (
@@ -337,14 +338,14 @@ function InvoicesTab({ token }: { token: string }) {
                 )}
               </div>
               <div className="portal-card-status">
-                <span className={`portal-badge ${INVOICE_STATUS_BADGE[i.eff]}`}>
-                  {INVOICE_STATUS_LABEL[i.eff]}
+                <span className={`portal-badge ${badge}`}>
+                  {i.credit ? 'Avoir' : i.label}
                 </span>
               </div>
             </div>
             <div className="portal-card-amount">
-              <div className="portal-amount-val">{formatAmount(Number(i.total_ttc))}</div>
-              {i.eff === 'partially_paid' && (
+              <div className="portal-amount-val">{i.credit ? `− ${formatAmount(Number(i.total_ttc))}` : formatAmount(Number(i.total_ttc))}</div>
+              {!i.credit && (i.eff === 'partially_paid' || (credited > 0 && i.eff !== 'paid')) && (
                 <div className="portal-amount-sub">
                   Reste {formatAmount(remaining)}
                 </div>

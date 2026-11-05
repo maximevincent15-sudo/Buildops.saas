@@ -43,7 +43,7 @@ export async function fetchMonthlyProfit(monthKeys: string[]): Promise<Map<strin
   const since = `${monthKeys[0]}-01`
 
   const [invRes, expRes, catRes, fixed] = await Promise.all([
-    supabase.from('invoices').select('id, total_ht, paid_at').eq('status', 'paid').gte('paid_at', since),
+    supabase.from('invoices').select('id, total_ht, credited_ht, paid_at').eq('status', 'paid').gte('paid_at', since),
     supabase.from('expenses').select('spent_on, amount_ttc, vat_rate').neq('status', 'rejected').gte('spent_on', since),
     supabase.from('catalog_items').select('label, purchase_price_ht').not('purchase_price_ht', 'is', null),
     listFixedCosts().catch(() => [] as FixedCost[]),
@@ -52,7 +52,10 @@ export async function fetchMonthlyProfit(monthKeys: string[]): Promise<Map<strin
   if (expRes.error) throw expRes.error
   if (catRes.error) throw catRes.error
 
-  const invoices = ((invRes.data ?? []) as PaidInvoice[]).filter((i) => !!i.paid_at)
+  // Chiffre d'affaires HT avoirs déduits
+  const invoices = ((invRes.data ?? []) as Array<PaidInvoice & { credited_ht?: number | null }>)
+    .filter((i) => !!i.paid_at)
+    .map((i) => ({ id: i.id, paid_at: i.paid_at, total_ht: Number(i.total_ht) - Number(i.credited_ht ?? 0) }))
   const catalog = (catRes.data ?? []) as CatalogCost[]
 
   // Lignes des factures payées : utiles seulement si le catalogue a des prix d'achat

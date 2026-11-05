@@ -118,7 +118,9 @@ export async function exportDossierZip(
   sheet('Devis et factures', ['Type', 'Référence', 'Date', 'Statut', 'Total TTC', 'Réglé'],
     [
       ...dossier.quotes.map((q) => ['Devis', q.reference, frDate(q.issue_date), QUOTE_STATUS_LABEL[q.status as QuoteStatus] ?? q.status, Number(q.total_ttc ?? 0), null]),
-      ...dossier.invoices.map((f) => ['Facture', f.reference, frDate(f.issue_date), INVOICE_STATUS_LABEL[f.status as InvoiceStatus] ?? f.status, Number(f.total_ttc ?? 0), Number(f.amount_paid ?? 0)]),
+      ...dossier.invoices.map((f) => f.kind === 'credit_note'
+        ? ['Avoir', f.reference, frDate(f.issue_date), f.status === 'draft' ? 'Brouillon' : 'Émis', -Number(f.total_ttc ?? 0), null]
+        : ['Facture', f.reference, frDate(f.issue_date), INVOICE_STATUS_LABEL[f.status as InvoiceStatus] ?? f.status, Number(f.total_ttc ?? 0), Number(f.amount_paid ?? 0)]),
     ],
     [10, 18, 12, 16, 14, 14])
 

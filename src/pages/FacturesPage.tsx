@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { AlertTriangle, Bell, Calculator, Download, FileText, Mail, Plus } from 'lucide-react'
+import { AlertTriangle, Bell, Calculator, Download, FileMinus2, FileText, Mail, Plus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
@@ -13,8 +13,13 @@ import type { VisitToInvoice } from '../features/factures/visitBilling'
 import {
   INVOICE_STATUS_BADGE,
   INVOICE_STATUS_ICON,
-  INVOICE_STATUS_LABEL,
-  effectiveStatus,
+  displayReference,
+  docEffectiveStatus,
+  docStatusLabel,
+  hasFinalNumber,
+  isCreditNote,
+  netTotalTtc,
+  remainingDue,
 } from '../features/factures/constants'
 import type { InvoiceStatus } from '../features/factures/constants'
 import type { Invoice, UpsertInvoiceInput } from '../features/factures/schemas'
@@ -31,7 +36,9 @@ function formatDate(d: string | null): string {
   }
 }
 
-const TABS: Array<{ key: InvoiceStatus | 'all' | 'unpaid'; label: string }> = [
+type TabKey = InvoiceStatus | 'all' | 'unpaid' | 'credit_note'
+
+const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'all', label: 'Toutes' },
   { key: 'draft', label: 'Brouillons' },
   { key: 'sent', label: 'Envoyées' },
@@ -39,6 +46,7 @@ const TABS: Array<{ key: InvoiceStatus | 'all' | 'unpaid'; label: string }> = [
   { key: 'overdue', label: '⚠️ En retard' },
   { key: 'paid', label: 'Payées' },
   { key: 'cancelled', label: 'Annulées' },
+  { key: 'credit_note', label: 'Avoirs' },
 ]
 
 export function FacturesPage() {
@@ -51,9 +59,9 @@ export function FacturesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // Onglet initial possible par lien (?onglet=draft depuis « Facturer le mois »)
-  const [tab, setTab] = useState<InvoiceStatus | 'all' | 'unpaid'>(() => {
+  const [tab, setTab] = useState<TabKey>(() => {
     const wanted = new URLSearchParams(window.location.search).get('onglet')
-    return TABS.some((t) => t.key === wanted) ? (wanted as InvoiceStatus | 'all' | 'unpaid') : 'all'
+    return TABS.some((t) => t.key === wanted) ? (wanted as TabKey) : 'all'
   })
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -120,33 +128,33 @@ export function FacturesPage() {
     }
   }
 
-  // Statut effectif (calcule overdue à partir de la date)
+  // Statut effectif (calcule overdue à partir de la date, avoirs déduits)
   const enrichedInvoices = useMemo(
     () =>
       invoices.map((i) => ({
         ...i,
-        effective: effectiveStatus(
-          i.status,
-          i.due_date,
-          Number(i.amount_paid ?? 0),
-          Number(i.total_ttc ?? 0),
-        ),
+        effective: docEffectiveStatus(i),
+        credit: isCreditNote(i),
       })),
     [invoices],
   )
+  // Numéro de la facture d'origine de chaque avoir
+  const referenceById = useMemo(() => new Map(invoices.map((i) => [i.id, i.reference])), [invoices])
+  const factures = useMemo(() => enrichedInvoices.filter((i) => !i.credit), [enrichedInvoices])
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: enrichedInvoices.length }
+    const c: Record<string, number> = { all: enrichedInvoices.length, credit_note: enrichedInvoices.length - factures.length }
     for (const status of ['draft', 'sent', 'paid', 'partially_paid', 'overdue', 'cancelled'] as InvoiceStatus[]) {
-      c[status] = enrichedInvoices.filter((q) => q.effective === status).length
+      c[status] = factures.filter((q) => q.effective === status).length
     }
     return c
-  }, [enrichedInvoices])
+  }, [enrichedInvoices, factures])
 
   const filtered = useMemo(() => {
     if (tab === 'all') return enrichedInvoices
-    return enrichedInvoices.filter((i) => i.effective === tab)
-  }, [enrichedInvoices, tab])
+    if (tab === 'credit_note') return enrichedInvoices.filter((i) => i.credit)
+    return factures.filter((i) => i.effective === tab)
+  }, [enrichedInvoices, factures, tab])
 
   // KPIs
   const monthStart = useMemo(() => {
@@ -154,17 +162,18 @@ export function FacturesPage() {
     return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10)
   }, [])
 
-  const totalEncaisseMonth = enrichedInvoices
+  // Montants des factures, avoirs déduits (les avoirs eux-mêmes ne comptent pas en plus)
+  const totalEncaisseMonth = factures
     .filter((i) => i.effective === 'paid' && i.issue_date >= monthStart)
-    .reduce((sum, i) => sum + Number(i.total_ttc), 0)
+    .reduce((sum, i) => sum + netTotalTtc(i), 0)
 
-  const totalImpaye = enrichedInvoices
+  const totalImpaye = factures
     .filter((i) => ['sent', 'partially_paid', 'overdue'].includes(i.effective))
-    .reduce((sum, i) => sum + (Number(i.total_ttc) - Number(i.amount_paid ?? 0)), 0)
+    .reduce((sum, i) => sum + remainingDue(i), 0)
 
-  const totalEnRetard = enrichedInvoices
+  const totalEnRetard = factures
     .filter((i) => i.effective === 'overdue')
-    .reduce((sum, i) => sum + (Number(i.total_ttc) - Number(i.amount_paid ?? 0)), 0)
+    .reduce((sum, i) => sum + remainingDue(i), 0)
 
   function openCreate() {
     setPrefill(null)
@@ -200,9 +209,10 @@ export function FacturesPage() {
         <div>
           <div className="dash-title">Factures</div>
           <div className="dash-sub">
-            {invoices.length === 0 && 'Aucune facture pour le moment'}
-            {invoices.length === 1 && '1 facture enregistrée'}
-            {invoices.length > 1 && `${invoices.length} factures · ${counts.paid} payée${counts.paid > 1 ? 's' : ''}, ${counts.overdue} en retard`}
+            {factures.length === 0 && 'Aucune facture pour le moment'}
+            {factures.length === 1 && '1 facture enregistrée'}
+            {factures.length > 1 && `${factures.length} factures · ${counts.paid} payée${counts.paid > 1 ? 's' : ''}, ${counts.overdue} en retard`}
+            {counts.credit_note > 0 && ` · ${counts.credit_note} avoir${counts.credit_note > 1 ? 's' : ''}`}
           </div>
         </div>
         <div className="dash-acts">
@@ -275,7 +285,7 @@ export function FacturesPage() {
             {tab === 'all' && (
               <p className="text-ink-3 text-xs font-light" style={{ maxWidth: 460, margin: '0 auto' }}>
                 Créez une facture directement, ou transformez un devis accepté en facture en 1 clic
-                depuis la page Devis. Numérotation FAC-2026-0001 automatique et continue (conforme fiscalité FR).
+                depuis la page Devis. Le numéro (FAC-2026-0001…) est attribué à l'envoi, dans l'ordre et sans trou.
               </p>
             )}
           </div>
@@ -285,8 +295,11 @@ export function FacturesPage() {
           <div className="quotes-list">
             {filtered.map((i) => {
               const status = i.effective
-              const Icon = INVOICE_STATUS_ICON[status]
-              const remaining = Number(i.total_ttc) - Number(i.amount_paid ?? 0)
+              const Icon = i.credit && status !== 'draft' ? FileMinus2 : INVOICE_STATUS_ICON[status]
+              const remaining = remainingDue(i)
+              const numbered = hasFinalNumber(i.reference)
+              const credited = Number(i.credited_ttc ?? 0)
+              const fromRef = i.credit && i.credited_invoice_id ? referenceById.get(i.credited_invoice_id) : null
               return (
                 <div
                   key={i.id}
@@ -301,14 +314,17 @@ export function FacturesPage() {
                   </div>
                   <div className="quote-row-main">
                     <div className="quote-row-title">
-                      <strong>{i.reference}</strong>
+                      <strong>{i.credit && numbered ? `Avoir ${i.reference}` : displayReference(i)}</strong>
                       <span className="quote-row-client"> — {i.client_name}</span>
+                      {fromRef && <span className="text-ink-3"> · sur la facture {fromRef}</span>}
                       {i.site_name && <span className="text-ink-3"> · {i.site_name}</span>}
                       {i.dossier_number && <span className="text-ink-3"> · dossier {i.dossier_number}</span>}
                     </div>
                     <div className="quote-row-meta">
-                      Émise le {formatDate(i.issue_date)}
-                      {i.due_date && (
+                      {status === 'draft'
+                        ? <>Créé le {formatDate(i.created_at)} · {numbered ? 'date fixée' : 'numéro et date attribués'} à l'envoi</>
+                        : <>{i.credit ? 'Émis' : 'Émise'} le {formatDate(i.issue_date)}</>}
+                      {i.due_date && !i.credit && status !== 'draft' && (
                         <>
                           {' · '}
                           <span className={status === 'overdue' ? 'text-red' : ''}>
@@ -320,31 +336,36 @@ export function FacturesPage() {
                       {i.sent_at && (
                         <>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginLeft: 4 }}>
-                            · <Mail size={9} strokeWidth={2} /> envoyée
+                            · <Mail size={9} strokeWidth={2} /> envoyé{i.credit ? '' : 'e'}
                           </span>
                         </>
                       )}
-                      {Number(i.amount_paid ?? 0) > 0 && status !== 'paid' && (
+                      {credited > 0 && (
+                        <span className="text-ink-3"> · avoir − {formatAmount(credited)}</span>
+                      )}
+                      {!i.credit && Number(i.amount_paid ?? 0) > 0 && status !== 'paid' && (
                         <span className="text-ink-3"> · réglé {formatAmount(Number(i.amount_paid))}</span>
                       )}
                     </div>
                   </div>
                   <div className="quote-row-amount">
-                    <div className="quote-row-amount-val">{formatAmount(Number(i.total_ttc))}</div>
+                    <div className="quote-row-amount-val">{i.credit ? `− ${formatAmount(Number(i.total_ttc))}` : formatAmount(Number(i.total_ttc))}</div>
                     <div className="quote-row-amount-sub">
-                      {status === 'partially_paid' || status === 'overdue'
-                        ? `Reste ${formatAmount(remaining)}`
-                        : 'TTC'}
+                      {i.credit
+                        ? 'Avoir TTC'
+                        : status === 'partially_paid' || status === 'overdue' || (credited > 0 && status === 'sent')
+                          ? `Reste ${formatAmount(remaining)}`
+                          : 'TTC'}
                     </div>
                   </div>
                   <div className="quote-row-status">
-                    <span className={`badge ${INVOICE_STATUS_BADGE[status]}`}>
-                      {INVOICE_STATUS_LABEL[status]}
+                    <span className={`badge ${i.credit && status !== 'draft' ? 'b-gry' : INVOICE_STATUS_BADGE[status]}`}>
+                      {i.credit && status !== 'draft' ? 'Avoir' : docStatusLabel(i, status)}
                     </span>
                   </div>
                   {/* Actions inline */}
                   <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                    {(status === 'overdue' || status === 'sent' || status === 'partially_paid') && i.client_email && (
+                    {!i.credit && (status === 'overdue' || status === 'sent' || status === 'partially_paid') && i.client_email && (
                       <button
                         type="button"
                         className="qa-btn relance"
@@ -386,7 +407,7 @@ export function FacturesPage() {
         seed={prefill?.seed}
         notice={prefill?.notice}
         onDuplicate={(seed, from) => {
-          setPrefill({ seed, notice: `Copie de la facture ${from} : vérifiez le client, les lignes et les dates, puis créez la facture. Elle aura un nouveau numéro.` })
+          setPrefill({ seed, notice: `Copie de la facture ${from} : vérifiez le client, les lignes et l'échéance, puis créez la facture. Son numéro sera attribué à l'envoi.` })
           setEditingId(null)
         }}
       />
@@ -405,7 +426,7 @@ export function FacturesPage() {
             reference: relanceInvoice.reference,
             issueDate: relanceInvoice.issue_date,
             dueDate: relanceInvoice.due_date,
-            amount: Number(relanceInvoice.total_ttc) - Number(relanceInvoice.amount_paid ?? 0),
+            amount: remainingDue(relanceInvoice),
           }}
         />
       )}

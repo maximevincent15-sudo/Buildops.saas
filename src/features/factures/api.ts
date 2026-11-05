@@ -2,7 +2,8 @@ import { supabase } from '../../shared/lib/supabase'
 import { cleanLineFormat } from '../../shared/lib/lineFormat'
 import { computeQuoteTotals } from '../devis/constants'
 import { getQuote } from '../devis/api'
-import type { Invoice, InvoiceLine, InvoiceWithLines, UpsertInvoiceInput } from './schemas'
+import { netTotalTtc } from './constants'
+import type { Invoice, InvoiceLine, InvoiceLineInput, InvoiceWithLines, UpsertInvoiceInput } from './schemas'
 
 export async function listInvoices(): Promise<Invoice[]> {
   const { data, error } = await supabase
@@ -162,34 +163,49 @@ export async function deleteInvoice(id: string): Promise<void> {
 
 // ─── Workflow ─────────────────────────────────────────────────────────
 
-export async function markInvoiceSent(id: string, recipientEmail: string): Promise<void> {
+/**
+ * Émet un brouillon : la base lui donne son numéro définitif, la date du
+ * jour et décale l'échéance d'autant (déclencheur invoices_assign_number).
+ */
+export async function issueInvoice(id: string): Promise<InvoiceWithLines> {
   const { error } = await supabase
     .from('invoices')
-    .update({
-      status: 'sent',
-      sent_at: new Date().toISOString(),
-      sent_to_email: recipientEmail,
-    })
+    .update({ status: 'sent' })
+    .eq('id', id)
+    .eq('status', 'draft')
+  if (error) throw error
+  const full = await getInvoice(id)
+  if (!full) throw new Error('Facture introuvable après émission')
+  return full
+}
+
+/** Note l'envoi au client (émet d'abord la facture si elle est encore en brouillon) */
+export async function markInvoiceSent(id: string, recipientEmail: string): Promise<void> {
+  const { error: issueErr } = await supabase.from('invoices').update({ status: 'sent' }).eq('id', id).eq('status', 'draft')
+  if (issueErr) throw issueErr
+  const { error } = await supabase
+    .from('invoices')
+    .update({ sent_at: new Date().toISOString(), sent_to_email: recipientEmail })
     .eq('id', id)
   if (error) throw error
 }
 
-/** Enregistre un règlement. Si totalement payé, passe statut 'paid'. */
+/** Enregistre un règlement. Si le total (avoirs déduits) est atteint, passe statut 'paid'. */
 export async function recordPayment(
   id: string,
   amount: number,
   method: string,
   reference: string | null,
 ): Promise<void> {
-  // Récupère le total et le déjà payé
+  // Récupère le total, les avoirs et le déjà payé
   const { data: inv, error: getErr } = await supabase
     .from('invoices')
-    .select('total_ttc, amount_paid')
+    .select('total_ttc, credited_ttc, amount_paid')
     .eq('id', id)
     .single()
   if (getErr) throw getErr
 
-  const totalTtc = Number((inv as { total_ttc: number }).total_ttc)
+  const totalTtc = netTotalTtc(inv as { total_ttc: number; credited_ttc?: number })
   const previouslyPaid = Number((inv as { amount_paid: number }).amount_paid ?? 0)
   const newPaid = Math.min(totalTtc, previouslyPaid + amount)
 
@@ -211,29 +227,16 @@ export async function recordPayment(
   if (error) throw error
 }
 
-/** Reset paiement (passe à brouillon ou envoyé selon contexte) */
-export async function resetInvoicePayment(id: string, status: 'draft' | 'sent'): Promise<void> {
-  const update: Record<string, unknown> = {
-    status,
-    amount_paid: 0,
-    paid_at: null,
-    payment_method: null,
-    payment_reference: null,
-  }
-  if (status === 'draft') {
-    update.sent_at = null
-  }
-  const { error } = await supabase.from('invoices').update(update).eq('id', id)
-  if (error) throw error
-}
-
-export async function cancelInvoice(id: string, reason: string): Promise<void> {
+/** Annule les règlements : la facture émise redevient « envoyée » (jamais brouillon) */
+export async function resetInvoicePayment(id: string): Promise<void> {
   const { error } = await supabase
     .from('invoices')
     .update({
-      status: 'cancelled',
-      cancelled_at: new Date().toISOString(),
-      cancelled_reason: reason || null,
+      status: 'sent',
+      amount_paid: 0,
+      paid_at: null,
+      payment_method: null,
+      payment_reference: null,
     })
     .eq('id', id)
   if (error) throw error
@@ -245,6 +248,75 @@ export async function setInvoicePdfUrl(id: string, pdfUrl: string): Promise<void
     .update({ pdf_url: pdfUrl })
     .eq('id', id)
   if (error) throw error
+}
+
+// ─── Avoirs ───────────────────────────────────────────────────────────
+
+/** Avoirs d'une facture (brouillons compris), du plus ancien au plus récent */
+export async function listCreditNotes(invoiceId: string): Promise<Invoice[]> {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('*')
+    .eq('credited_invoice_id', invoiceId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as Invoice[]
+}
+
+/**
+ * Crée l'avoir d'une facture émise, en brouillon (reprend le client, le site
+ * et le dossier de la facture). Montants des lignes en positif.
+ */
+export async function createCreditNote(
+  invoice: Invoice,
+  lines: InvoiceLineInput[],
+  reason: string,
+): Promise<InvoiceWithLines> {
+  const totals = computeQuoteTotals(lines.map((l) => ({ quantity: l.quantity, unit_price_ht: l.unit_price_ht, vat_rate: l.vat_rate })))
+  const { data: note, error } = await supabase
+    .from('invoices')
+    .insert({
+      organization_id: invoice.organization_id,
+      kind: 'credit_note',
+      credited_invoice_id: invoice.id,
+      client_id: invoice.client_id,
+      client_name: invoice.client_name,
+      client_contact_name: invoice.client_contact_name,
+      client_address: invoice.client_address,
+      client_siren: invoice.client_siren,
+      client_email: invoice.client_email,
+      intervention_id: invoice.intervention_id,
+      site_name: invoice.site_name,
+      site_address: invoice.site_address,
+      dossier_number: invoice.dossier_number,
+      issue_date: new Date().toISOString().slice(0, 10),
+      due_date: null,
+      notes: reason.trim() || null,
+      total_ht: totals.total_ht,
+      total_vat: totals.total_vat,
+      total_ttc: totals.total_ttc,
+      status: 'draft',
+    })
+    .select()
+    .single()
+  if (error) throw error
+  const noteId = (note as Invoice).id
+  const { error: lErr } = await supabase.from('invoice_lines').insert(lines.map((l, i) => ({
+    invoice_id: noteId,
+    position: i,
+    description: l.description.trim(),
+    quantity: l.quantity,
+    unit_price_ht: l.unit_price_ht,
+    vat_rate: l.vat_rate,
+    format: cleanLineFormat(l.format),
+  })))
+  if (lErr) {
+    await supabase.from('invoices').delete().eq('id', noteId)
+    throw lErr
+  }
+  const full = await getInvoice(noteId)
+  if (!full) throw new Error('Avoir introuvable après création')
+  return full
 }
 
 // ─── Transformation devis → facture ───────────────────────────────────
