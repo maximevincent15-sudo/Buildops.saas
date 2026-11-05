@@ -1,9 +1,9 @@
 import { addDays, format, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { CalendarPlus, MapPin, PanelRightClose, PanelRightOpen, Upload } from 'lucide-react'
+import { CalendarPlus, MapPin, PanelRightClose, PanelRightOpen, Search, Upload } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { QuickActions } from '../shared/ui/QuickActions'
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useAuthStore } from '../features/auth/store'
 import { listAnomalies, updateAnomaly } from '../features/anomalies/api'
 import { ANOMALY_ACTION_LABELS } from '../features/anomalies/schemas'
@@ -35,6 +35,9 @@ import type { PlanningBlock } from '../features/planning/blocksApi'
 import { PlanningEventModal } from '../features/planning/events/PlanningEventModal'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
 import { InterventionSheet } from '../features/planning/components/InterventionSheet'
+import { LIST_TABS, currentWeek, estimatedDue, groupForList, matchesQuery, matchesTab } from '../features/planning/listView'
+import type { ListTab } from '../features/planning/listView'
+import { normalizeSearch } from '../shared/lib/search'
 import { InterventionRowActions } from '../features/planning/components/InterventionRowActions'
 import { InterventionStatusBadge } from '../features/planning/components/InterventionStatusBadge'
 import { PlanningDayView } from '../features/planning/components/PlanningDayView'
@@ -63,6 +66,16 @@ function readStoredView(): ViewMode {
     // stockage indisponible (navigation privée…) : vue par défaut
   }
   return 'team'
+}
+
+const listFieldStyle: React.CSSProperties = {
+  padding: '.5rem .75rem',
+  fontSize: 13,
+  border: '1px solid var(--brd2)',
+  borderRadius: 'var(--r)',
+  background: 'var(--wht)',
+  color: 'var(--ink)',
+  fontFamily: 'inherit',
 }
 
 function formatDate(d: string | null) {
@@ -112,6 +125,11 @@ export function PlanningPage() {
 
   // ─── Planning « Équipe » ───
   const [technicians, setTechnicians] = useState<Technician[]>([])
+  // Liste des interventions : onglet, recherche, technicien, affichage par 50
+  const [listTab, setListTab] = useState<ListTab>('todo')
+  const [listQuery, setListQuery] = useState('')
+  const [listTech, setListTech] = useState<string>('all')
+  const [listMore, setListMore] = useState<{ key: string; n: number }>({ key: '', n: 50 })
   const [openAnomalies, setOpenAnomalies] = useState<Anomaly[]>([])
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeekMonday(new Date()))
   const [panelTab, setPanelTab] = useState<PanelTab>('todo')
@@ -348,6 +366,26 @@ export function PlanningPage() {
   const mineOnly = !!myTechnicianId && mine
   const shown = mineOnly ? interventions.filter((i) => i.technician_id === myTechnicianId) : interventions
 
+  // Liste classée : onglet + recherche + technicien, sans date d'abord puis par mois
+  const week = currentWeek()
+  const listQ = normalizeSearch(listQuery)
+  const listBase = shown.filter((i) => matchesQuery(i, listQ)
+    && (listTech === 'all' || (listTech === 'none' ? !i.technician_id : i.technician_id === listTech)))
+  const tabCounts = new Map(LIST_TABS.map((tb) => [tb.key, listBase.filter((i) => matchesTab(i, tb.key, today, week)).length]))
+  const listItems = listBase.filter((i) => matchesTab(i, listTab, today, week))
+  const dueById = new Map(listItems.filter((i) => !i.scheduled_date).map((i) => [i.id, estimatedDue(i, interventions)]))
+  const listGroups = groupForList(listItems, dueById, listTab === 'done')
+  const listKey = `${listTab}|${listQ}|${listTech}|${mineOnly}`
+  const listLimit = listMore.key === listKey ? listMore.n : 50
+  // Groupes affichés : les listLimit premières lignes, intertitres compris
+  const visibleGroups: Array<{ key: string; label: string; count: number; items: Intervention[] }> = []
+  for (let budget = listLimit, k = 0; budget > 0 && k < listGroups.length; k++) {
+    const g = listGroups[k]!
+    const items = g.items.slice(0, budget)
+    budget -= items.length
+    visibleGroups.push({ key: g.key, label: g.label, count: g.items.length, items })
+  }
+
   return (
     <>
       <div className="dash-top">
@@ -558,11 +596,49 @@ export function PlanningPage() {
           {/* ═══ Liste des interventions (en bas, toujours visible) ═══ */}
           <div className="card">
             <div className="card-top">
-              <span className="card-title">{mineOnly ? `Mes interventions (${shown.length})` : `Toutes les interventions (${total})`}</span>
+              <span className="card-title">{mineOnly ? 'Mes interventions' : 'Interventions'} ({listItems.length})</span>
               <span className="text-ink-3 text-xs font-light">
-                Cliquez sur une ligne pour modifier
+                Cliquez sur une ligne pour l'ouvrir
               </span>
             </div>
+            <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', marginBottom: '.7rem' }}>
+              {LIST_TABS.map((tb) => (
+                <button
+                  key={tb.key}
+                  type="button"
+                  className={`filter-pill${listTab === tb.key ? ' on' : ''}`}
+                  onClick={() => setListTab(tb.key)}
+                >
+                  {tb.label} ({tabCounts.get(tb.key) ?? 0})
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginBottom: '.8rem' }}>
+              <div style={{ position: 'relative', flex: '1 1 260px' }}>
+                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)' }} />
+                <input
+                  type="search"
+                  placeholder="Client, site, réf., n° de dossier, technicien…"
+                  value={listQuery}
+                  onChange={(e) => setListQuery(e.target.value)}
+                  style={{ ...listFieldStyle, width: '100%', padding: '.5rem .75rem .5rem 30px' }}
+                />
+              </div>
+              {!mineOnly && (
+                <select value={listTech} onChange={(e) => setListTech(e.target.value)} style={listFieldStyle}>
+                  <option value="all">Tous les techniciens</option>
+                  <option value="none">Non assignées</option>
+                  {technicians.filter((tc) => tc.active).map((tc) => (
+                    <option key={tc.id} value={tc.id}>{tc.first_name} {tc.last_name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {listItems.length === 0 ? (
+              <p className="text-ink-3 text-sm font-light" style={{ margin: '.5rem 0' }}>
+                Aucune intervention{listQ || listTech !== 'all' ? ' ne correspond à ces filtres' : ' dans cet onglet'}.
+              </p>
+            ) : (
             <table className="dtbl">
               <thead>
                 <tr>
@@ -577,7 +653,14 @@ export function PlanningPage() {
                 </tr>
               </thead>
               <tbody>
-                {shown.map((i) => (
+                {visibleGroups.map((g) => (
+                  <Fragment key={g.key}>
+                  <tr className="dtbl-group">
+                    <td colSpan={8} style={{ background: 'var(--bg)', fontSize: 12, fontWeight: 700, color: 'var(--ink2)', textTransform: 'uppercase', letterSpacing: '.04em', padding: '.45rem .75rem' }}>
+                      {g.label} <span style={{ fontWeight: 500, color: 'var(--ink3)' }}>· {g.count}</span>
+                    </td>
+                  </tr>
+                  {g.items.map((i) => (
                   <tr
                     key={i.id}
                     onClick={() => openIntervention(i)}
@@ -661,14 +744,30 @@ export function PlanningPage() {
                     </td>
                     <td>{formatEquipmentTypesShort(i)}</td>
                     <td>{i.technician_name ?? '—'}</td>
-                    <td>{formatDate(i.scheduled_date)}</td>
+                    <td>
+                      {i.scheduled_date ? formatDate(i.scheduled_date) : dueById.get(i.id) ? (
+                        <span style={{ color: dueById.get(i.id)! < today ? 'var(--red)' : 'var(--ink2)', fontSize: '.8rem' }} title="Échéance estimée : dernière visite du site + fréquence du contrôle">
+                          Échéance {formatDate(dueById.get(i.id)!)}
+                        </span>
+                      ) : '—'}
+                    </td>
                     <td>{INTERVENTION_PRIORITIES[i.priority as InterventionPriority] ?? i.priority}</td>
                     <td><InterventionStatusBadge status={i.status} /></td>
                     <td><InterventionRowActions intervention={i} onChanged={() => void load()} /></td>
                   </tr>
+                  ))}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
+            )}
+            {listItems.length > listLimit && (
+              <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>
+                <button type="button" className="mf out" onClick={() => setListMore({ key: listKey, n: listLimit + 50 })}>
+                  Afficher plus ({listItems.length - listLimit} restantes)
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}
