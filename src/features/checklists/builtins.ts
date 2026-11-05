@@ -2,9 +2,9 @@ import type { EquipmentFamily } from '../equipment/schemas'
 
 /**
  * Listes de contrôle Firovia propres au code (les autres listes par
- * appareil viennent de la table family_templates). Le désenfumage a deux
- * listes : naturel (ouvrants et commandes) et mécanique (ventilateurs,
- * volets). Les identifiants déjà utilisés par la liste d'origine sont
+ * appareil viennent de la table family_templates). Le désenfumage a trois
+ * listes : naturel (ouvrants et commandes), mécanique (ventilateurs,
+ * volets) et écrans de cantonnement (fixes et mobiles). Les identifiants déjà utilisés par la liste d'origine sont
  * gardés pour que les anciens contrôles restent lisibles.
  */
 
@@ -17,6 +17,7 @@ export type BuiltinUnitList = {
 
 export const DESENFUMAGE_NATUREL_KEY = 'unit:desenfumage:naturel'
 export const DESENFUMAGE_MECANIQUE_KEY = 'unit:desenfumage:mecanique'
+export const ECRANS_CANTONNEMENT_KEY = 'unit:desenfumage:ecrans'
 
 export const CODE_UNIT_LISTS: BuiltinUnitList[] = [
   {
@@ -50,6 +51,24 @@ export const CODE_UNIT_LISTS: BuiltinUnitList[] = [
       { id: 'amenee_air', label: "Amenées d'air (grilles, volets) dégagées" },
       { id: 'asservissement', label: "Asservissement avec l'alarme incendie fonctionnel" },
       { id: 'signaletique', label: 'Signalisation de la commande présente et lisible' },
+      { id: 'etiquette', label: 'Étiquette de contrôle apposée (date + signataire)' },
+    ],
+  },
+  {
+    key: ECRANS_CANTONNEMENT_KEY,
+    family: 'desenfumage',
+    name: 'Écrans de cantonnement (fixes et mobiles)',
+    items: [
+      { id: 'ecr_etat', label: "Écran (toile, verre ou panneau) en bon état : ni déchirure, ni fissure, ni déformation" },
+      { id: 'ecr_fixations', label: 'Fixations, suspentes et profilés solides, sans corrosion ni jeu' },
+      { id: 'ecr_etancheite', label: "Aucun passage de fumée au-dessus ou sur les côtés de l'écran (gaine, câble ou faux plafond ajouté)" },
+      { id: 'ecr_zone_descente', label: "Écran mobile : zone de descente dégagée (aucun stockage, mobilier ni rayonnage)" },
+      { id: 'ecr_essai', label: 'Écran mobile : essai de déclenchement depuis la commande ou le tableau de sécurité' },
+      { id: 'ecr_descente', label: "Écran mobile : descente régulière jusqu'en position basse, sans blocage" },
+      { id: 'ecr_asservissement', label: "Écran mobile : déclenchement automatique avec l'alarme incendie (asservissement)" },
+      { id: 'ecr_position', label: 'Écran mobile : position de sécurité bien signalée au tableau de sécurité' },
+      { id: 'ecr_alimentation', label: 'Écran motorisé : alimentation ou batterie de secours en état' },
+      { id: 'ecr_rearmement', label: "Écran mobile : réarmement et remontée en position d'attente après l'essai" },
       { id: 'etiquette', label: 'Étiquette de contrôle apposée (date + signataire)' },
     ],
   },
