@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { signOut } from '../api'
 import { useAuthStore } from '../store'
+import { getQueueCounts, isOffline } from '../../../shared/lib/offline/state'
+
+/** Sans réseau, ou avec des enregistrements en attente, on ne déconnecte pas : ils seraient perdus */
+function mustStayConnected(): boolean {
+  return isOffline() || getQueueCounts().pending > 0
+}
 
 // Timeout d'inactivité en millisecondes (30 min).
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000
@@ -41,6 +47,7 @@ export function IdleLogout() {
   const doLogout = useCallback(async () => {
     clearTimers()
     setWarningVisible(false)
+    if (mustStayConnected()) return
     try {
       await signOut()
     } catch (e) {
@@ -53,6 +60,7 @@ export function IdleLogout() {
     clearTimers()
     // Étape 1 : programme l'affichage de la warning
     warningTimerRef.current = window.setTimeout(() => {
+      if (mustStayConnected()) return
       setWarningVisible(true)
       setSecondsLeft(Math.floor(WARNING_BEFORE_MS / 1000))
       // Décompte visuel chaque seconde

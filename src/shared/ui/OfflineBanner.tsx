@@ -1,99 +1,91 @@
-import { WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useOnlineStatus } from '../lib/networkStatus'
-import { getPendingCount, flushQueue, onQueueChange } from '../../features/equipment/offlineQueue'
+import { AlertTriangle, CheckCircle2, RefreshCw, WifiOff } from 'lucide-react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { flushQueue as flushLegacyQueue, getPendingCount as getLegacyCount, onQueueChange as onLegacyChange } from '../../features/equipment/offlineQueue'
+import { getQueueCounts, isOffline, isSyncing, onOfflineChange } from '../lib/offline/state'
+import { flushOfflineQueue } from '../lib/offline/sync'
+
+type Snapshot = { offline: boolean; pending: number; failed: number; syncing: boolean }
+
+let last: Snapshot = { offline: false, pending: 0, failed: 0, syncing: false }
+
+function snapshot(): Snapshot {
+  const counts = getQueueCounts()
+  const next = { offline: isOffline(), pending: counts.pending + getLegacyCount(), failed: counts.failed, syncing: isSyncing() }
+  if (next.offline === last.offline && next.pending === last.pending && next.failed === last.failed && next.syncing === last.syncing) return last
+  last = next
+  return next
+}
+
+function subscribe(cb: () => void): () => void {
+  const a = onOfflineChange(cb)
+  const b = onLegacyChange(cb)
+  return () => { a(); b() }
+}
 
 /**
- * Bandeau affiché en haut des pages (sous la barre de navigation, jamais
- * par-dessus : le menu reste accessible sur téléphone) quand le navigateur est
- * hors ligne ou quand des contrôles attendent d'être synchronisés.
+ * Bandeau sous la barre de navigation : pas de réseau, enregistrements en
+ * attente d'envoi, envois refusés. Les enregistrements partent seuls au
+ * retour du réseau ; le bouton permet de relancer l'envoi.
  */
 export function OfflineBanner() {
-  const online = useOnlineStatus()
-  const [pendingCount, setPendingCount] = useState(0)
-  const [syncing, setSyncing] = useState(false)
+  const { offline, pending, failed, syncing } = useSyncExternalStore(subscribe, snapshot, snapshot)
   const [justSynced, setJustSynced] = useState(false)
-  const [syncError, setSyncError] = useState<string | null>(null)
+  const [wasPending, setWasPending] = useState(0)
 
+  // « Synchronisation terminée » quand la file se vide
+  if (pending !== wasPending) {
+    setWasPending(pending)
+    if (wasPending > 0 && pending === 0 && !offline) setJustSynced(true)
+  }
   useEffect(() => {
-    setPendingCount(getPendingCount())
-    return onQueueChange(() => setPendingCount(getPendingCount()))
-  }, [])
-
-  // Auto-sync quand la connexion revient
-  useEffect(() => {
-    if (online && pendingCount > 0 && !syncing) {
-      void handleSync()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [online])
+    if (!justSynced) return
+    const t = window.setTimeout(() => setJustSynced(false), 3000)
+    return () => window.clearTimeout(t)
+  }, [justSynced])
 
   async function handleSync() {
-    setSyncing(true)
-    try {
-      const before = getPendingCount()
-      const result = await flushQueue()
-      setSyncError(result.failed > 0 ? result.error ?? 'erreur inconnue' : null)
-      if (before > 0 && getPendingCount() === 0) {
-        setJustSynced(true)
-        setTimeout(() => setJustSynced(false), 3000)
-      }
-    } finally {
-      setSyncing(false)
-      setPendingCount(getPendingCount())
-    }
+    await flushLegacyQueue().catch(() => {})
+    await flushOfflineQueue().catch(() => {})
   }
 
-  // Rien à afficher si tout est OK et queue vide
-  if (online && pendingCount === 0 && !justSynced) return null
+  if (!offline && pending === 0 && failed === 0 && !justSynced) return null
 
-  // Toast "synchronisé"
-  if (justSynced) {
+  if (justSynced && pending === 0 && failed === 0) {
     return (
       <div style={{ ...bannerStyle, background: '#0E7A3F' }}>
         <CheckCircle2 size={16} strokeWidth={2.2} />
-        <span>Synchronisation terminée ✓</span>
+        <span>Synchronisation terminée : tout est enregistré.</span>
       </div>
     )
   }
 
-  // Bannière offline
-  if (!online) {
+  if (offline) {
     return (
       <div style={{ ...bannerStyle, background: '#B36510' }}>
-        <WifiOff size={16} strokeWidth={2.2} />
+        <WifiOff size={16} strokeWidth={2.2} style={{ flexShrink: 0 }} />
         <span>
-          Mode hors ligne — Firovia continue de fonctionner
-          {pendingCount > 0 && ` · ${pendingCount} action${pendingCount > 1 ? 's' : ''} en attente`}
+          Hors ligne : vous pouvez continuer, tout est gardé sur l'appareil
+          {pending > 0 && ` · ${pending} enregistrement${pending > 1 ? 's' : ''} en attente d'envoi`}
         </span>
       </div>
     )
   }
 
-  // Bannière avec queue en attente + bouton sync
   return (
-    <div style={{ ...bannerStyle, background: '#3A5CA8' }}>
-      <RefreshCw
-        size={16}
-        strokeWidth={2.2}
-        style={{ flexShrink: 0, ...(syncing ? { animation: 'spin 1s linear infinite' } : {}) }}
-      />
+    <div style={{ ...bannerStyle, background: failed > 0 && pending === 0 ? '#A83A3A' : '#3A5CA8' }}>
+      {failed > 0 && pending === 0
+        ? <AlertTriangle size={16} strokeWidth={2.2} style={{ flexShrink: 0 }} />
+        : <RefreshCw size={16} strokeWidth={2.2} style={{ flexShrink: 0, ...(syncing ? { animation: 'spin 1s linear infinite' } : {}) }} />}
       <span style={{ minWidth: 0 }}>
-        {pendingCount} contrôle{pendingCount > 1 ? 's' : ''} en attente de synchronisation
-        {syncError && (
-          <span style={{ display: 'block', fontSize: 12, opacity: .9 }}>
-            Envoi impossible pour l'instant ({syncError.slice(0, 120)}). Vérifiez votre connexion, ou déconnectez-vous puis reconnectez-vous.
-          </span>
-        )}
+        {pending > 0 && `${pending} enregistrement${pending > 1 ? 's' : ''} en attente d'envoi`}
+        {pending > 0 && failed > 0 && ' · '}
+        {failed > 0 && `${failed} refusé${failed > 1 ? 's' : ''} par le serveur`}
       </span>
-      <button
-        type="button"
-        onClick={() => void handleSync()}
-        disabled={syncing}
-        style={syncBtnStyle}
-      >
-        {syncing ? 'Sync…' : 'Synchroniser'}
-      </button>
+      {pending > 0 && (
+        <button type="button" onClick={() => void handleSync()} disabled={syncing} style={syncBtnStyle}>
+          {syncing ? 'Envoi…' : 'Envoyer'}
+        </button>
+      )}
       <style>{'@keyframes spin { from { transform: rotate(0) } to { transform: rotate(360deg) } }'}</style>
     </div>
   )

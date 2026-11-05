@@ -1,18 +1,21 @@
 /*
- * Service Worker Firovia — PWA Niveau 1 (cache interface)
+ * Service Worker Firovia : l'app complète reste sur l'appareil.
  *
- * Stratégie :
- * - Cache des ressources statiques (HTML, CSS, JS, fonts, images) au premier chargement
- * - Network-first pour les API Supabase (toujours données fraîches)
- * - Cache-first pour les assets statiques (rechargement instantané)
- * - L'interface s'ouvre sans réseau, mais la création de données nécessite la connexion.
+ * - À l'installation, tous les fichiers de l'app (pages, scripts, scanner,
+ *   générateur de PDF, polices) sont gardés : elle s'ouvre et fonctionne
+ *   sans réseau. La liste et la version sont écrites au build (vite.config.ts).
+ * - Une nouvelle version remplace l'ancienne d'elle-même.
+ * - Les données (Supabase) ne passent pas ici : la couche hors ligne de
+ *   l'app (src/shared/lib/offline) les garde et met les envois en attente.
  */
 
-const CACHE_VERSION = 'firovia-v1';
-const STATIC_CACHE = `${CACHE_VERSION}-static`;
-const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
+const BUILD_VERSION = '__BUILD_VERSION__';
+const PRECACHE_ASSETS = [] /* __PRECACHE_ASSETS__ */;
 
-// Ressources de base à pré-cacher au premier chargement
+const CACHE_PREFIX = 'firovia-';
+const STATIC_CACHE = `${CACHE_PREFIX}${BUILD_VERSION}-static`;
+const RUNTIME_CACHE = `${CACHE_PREFIX}${BUILD_VERSION}-runtime`;
+
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -21,20 +24,23 @@ const PRECACHE_URLS = [
   '/icon-192.png',
   '/icon-512.png',
   '/apple-touch-icon.png',
+  ...PRECACHE_ASSETS,
 ];
 
-// Domaines à ne JAMAIS cacher (API, auth, Supabase realtime)
+// Domaines jamais gardés ici (API, connexion, statistiques)
 const NEVER_CACHE_HOSTS = [
   'supabase.co',
   'supabase.in',
   '_vercel/insights',
   '_vercel/speed-insights',
+  'sentry.io',
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
+      // Un fichier manquant ne doit pas bloquer l'installation
+      .then((cache) => Promise.all(PRECACHE_URLS.map((u) => cache.add(u).catch(() => undefined))))
       .then(() => self.skipWaiting()),
   );
 });
@@ -44,7 +50,7 @@ self.addEventListener('activate', (event) => {
     caches.keys()
       .then((keys) => Promise.all(
         keys
-          .filter((k) => !k.startsWith(CACHE_VERSION))
+          .filter((k) => k.startsWith(CACHE_PREFIX) && !k.startsWith(`${CACHE_PREFIX}${BUILD_VERSION}-`))
           .map((k) => caches.delete(k)),
       ))
       .then(() => self.clients.claim()),
@@ -55,27 +61,24 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip : POST/PUT/PATCH/DELETE (jamais cachés)
   if (request.method !== 'GET') return;
-
-  // Skip : domaines API qu'on veut toujours network-first
   if (NEVER_CACHE_HOSTS.some((host) => url.href.includes(host))) return;
 
-  // Navigation HTML : network-first avec fallback cache (app shell)
+  // Pages : réseau d'abord, sinon l'app gardée (index.html)
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
           const copy = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+          caches.open(RUNTIME_CACHE).then((cache) => cache.put('/', copy));
           return response;
         })
-        .catch(() => caches.match(request).then((r) => r || caches.match('/'))),
+        .catch(() => caches.match('/').then((r) => r || caches.match('/index.html'))),
     );
     return;
   }
 
-  // Assets statiques (CSS, JS, fonts, images) : cache-first
+  // Fichiers de l'app : depuis l'appareil d'abord
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
@@ -83,8 +86,10 @@ self.addEventListener('fetch', (event) => {
         if (!response || response.status !== 200 || response.type === 'opaque') {
           return response;
         }
-        const copy = response.clone();
-        caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+        if (url.origin === self.location.origin) {
+          const copy = response.clone();
+          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+        }
         return response;
       }).catch(() => cached);
     }),

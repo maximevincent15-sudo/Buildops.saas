@@ -130,25 +130,17 @@ export function enqueueCheck(
 }
 
 /**
- * Wrapper autour d'upsertCheck : si offline, enqueue ; sinon direct.
+ * Enregistrement d'un contrôle. Le hors ligne est désormais géré par la
+ * couche réseau (src/shared/lib/offline) : sans réseau, l'envoi part en file
+ * d'attente avec ses photos. Cette ancienne file ne sert plus qu'à vider les
+ * contrôles restés en attente sur les appareils avant la mise à jour.
  */
 export async function upsertCheckSmart(
   input: UpsertEquipmentCheckInput,
   organizationId: string,
   options: PendingCheck['options'] = {},
 ): Promise<EquipmentCheck> {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return enqueueCheck(input, organizationId, options)
-  }
-  try {
-    return await upsertCheck(input, organizationId, options)
-  } catch (err) {
-    // Si la mutation échoue (timeout, réseau flakey), on enfile plutôt que perdre
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      return enqueueCheck(input, organizationId, options)
-    }
-    throw err
-  }
+  return upsertCheck(input, organizationId, options)
 }
 
 /**

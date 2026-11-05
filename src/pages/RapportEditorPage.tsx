@@ -55,6 +55,8 @@ import { listAnomaliesForIntervention } from '../features/anomalies/api'
 import { ACTIVE_ANOMALY_STATUSES, ANOMALY_ACTION_LABELS } from '../features/anomalies/schemas'
 import { listEquipmentUnitsByIds, listZones, markUnitsNotChecked } from '../features/equipment/api'
 import { flushQueue, getPendingCount } from '../features/equipment/offlineQueue'
+import { getQueueCounts, isOffline } from '../shared/lib/offline/state'
+import { flushOfflineQueue } from '../shared/lib/offline/sync'
 import { EQUIPMENT_FAMILIES, EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
 import { familiesForTypes } from '../features/equipment/identification'
@@ -589,7 +591,19 @@ export function RapportEditorPage() {
   }
 
   async function handleFinalize() {
+    // La finalisation fabrique et envoie le PDF : elle attend le réseau (les contrôles, eux, se font sans)
+    if (isOffline()) {
+      alert('Pas de réseau : vos contrôles sont bien enregistrés sur l\'appareil.\n\nLa finalisation (PDF et envoi au client) se fera dès que le réseau revient.')
+      return
+    }
     // Contrôles enregistrés hors ligne : ils doivent être envoyés avant le PDF
+    if (getQueueCounts().pending > 0) {
+      await flushOfflineQueue()
+      if (getQueueCounts().pending > 0) {
+        alert('Des enregistrements faits sans réseau ne sont pas encore envoyés. Réessayez dans un instant, quand le réseau est stable.')
+        return
+      }
+    }
     if (getPendingCount() > 0) {
       const res = await flushQueue()
       if (res.failed > 0) {
