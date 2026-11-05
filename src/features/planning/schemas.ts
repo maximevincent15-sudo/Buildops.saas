@@ -112,7 +112,11 @@ export type Intervention = {
   intervention_type: InterventionType
   notes: string | null
   created_at: string
+  /** Compte qui a créé la visite (posé par la base ; vide pour les visites d'avant novembre 2026) */
   created_by: string | null
+  /** Dernière modification : compte et moment (posés par la base) */
+  updated_by?: string | null
+  updated_at?: string | null
   /** Heure d'arrivée sur place : notée par la base au passage en « en cours » (bouton Démarrer) */
   started_at?: string | null
   /** Contrat de maintenance auquel la visite est rattachée */

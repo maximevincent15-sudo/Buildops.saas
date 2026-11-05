@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { InterventionAuthors } from './InterventionAuthors'
 import { Bell, Check, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
@@ -1013,6 +1014,8 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
           )}
 
           {submitError && <span className="ferr on">{submitError}</span>}
+
+          {isEdit && intervention && <InterventionAuthors intervention={intervention} />}
 
           {/* Footer avec navigation stepper */}
           <div className="modal-foot">

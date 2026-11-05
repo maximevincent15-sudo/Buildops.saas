@@ -1,4 +1,5 @@
 import { CalendarDays, MapPin, Navigation, Pencil, User, Wrench } from 'lucide-react'
+import { InterventionAuthors } from './InterventionAuthors'
 import { useState } from 'react'
 import type { MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -77,6 +78,7 @@ export function InterventionSheet({ intervention: i, onClose, onEdit }: Props) {
           {i.notes?.trim() && (
             <div className="text-sm" style={{ background: 'var(--bg)', borderRadius: 8, padding: '.6rem .75rem', whiteSpace: 'pre-wrap' }}>{i.notes}</div>
           )}
+          <InterventionAuthors intervention={i} />
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
