@@ -19,6 +19,7 @@ import {
   createInvoice,
   deleteInvoice,
   getInvoice,
+  issueInvoice,
   listCreditNotes,
   markInvoiceSent,
   recordPayment,
@@ -31,12 +32,15 @@ import {
   docEffectiveStatus,
   docStatusLabel,
   hasFinalNumber,
+  paymentMethodLabel,
 } from '../constants'
 import type { InvoiceKind, InvoiceStatus } from '../constants'
 import type { Invoice, InvoiceWithLines, UpsertInvoiceInput } from '../schemas'
 import { buildInvoicePdf, creditedInvoiceInfo, invoiceEmail } from '../documentPdf'
 import type { CreditedInvoiceInfo } from '../documentPdf'
 import { CreditNoteModal } from './CreditNoteModal'
+import { PaymentModal } from './PaymentModal'
+import type { PaymentInput } from './PaymentModal'
 import type { CreditNoteIssued } from './CreditNoteModal'
 import { sendDocumentEmail } from '../../email/api'
 import { isValidEmail, recipientsForClientId, splitEmails } from '../../clients/recipients'
@@ -128,6 +132,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
   const [creditedInfo, setCreditedInfo] = useState<CreditedInvoiceInfo | null>(null)
   const [creditNotes, setCreditNotes] = useState<Invoice[]>([])
   const [creditSource, setCreditSource] = useState<InvoiceWithLines | null>(null)
+  const [paymentOpen, setPaymentOpen] = useState(false)
 
   /** Remplit la fenêtre avec une facture lue en base (au chargement et après envoi ou avoir) */
   function applyInvoice(inv: InvoiceWithLines) {
@@ -247,6 +252,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
       setCreditNotes([])
     }
     setCreditSource(null)
+    setPaymentOpen(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, invoiceId])
 
@@ -431,7 +437,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
       const wasDraft = status === 'draft'
       if (wasDraft) {
         // Numéro définitif et date du jour : posés par la base à la sortie du brouillon
-        await markInvoiceSent(invoiceId, recipient)
+        await issueInvoice(invoiceId)
       }
       // PDF au numéro définitif (refait si c'était un brouillon ou s'il manque)
       const built = wasDraft || !pdfUrl ? await buildInvoicePdf(invoiceId, profile.organization_id, orgName) : null
@@ -451,7 +457,9 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
         body,
         pdfUrl: url,
       })
-      if (!wasDraft) await markInvoiceSent(invoiceId, recipient)
+      // « Envoyée » une fois le mail parti (ou la messagerie ouverte)
+      if (result.mode === 'error') throw new Error('Le mail n\'est pas parti : réessayez « Envoyer au client ».')
+      await markInvoiceSent(invoiceId, recipient)
       setSentAt(new Date().toISOString())
 
       const label = isCredit ? `Avoir ${fresh.reference}` : `Facture ${fresh.reference}`
@@ -472,43 +480,25 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
     }
   }
 
-  async function handleRecordPayment() {
+  /** Règlement saisi dans la fenêtre « Règlement reçu » */
+  async function handleRecordPayment(p: PaymentInput) {
     if (!invoiceId) return
-    const remainingNow = Math.max(0, netTtc - amountPaid)
-    const amountStr = window.prompt(
-      `Montant du règlement reçu (€) ?\n\nReste à payer : ${formatAmount(remainingNow)}`,
-      remainingNow.toFixed(2),
-    )
-    if (amountStr === null) return
-    const amount = parseFloat(amountStr.replace(',', '.'))
-    if (!Number.isFinite(amount) || amount <= 0) {
-      alert('Montant invalide.')
-      return
+    await recordPayment(invoiceId, p.amount, p.method, p.reference || null, p.paidOn)
+    setPaymentOpen(false)
+    const newPaid = Math.min(netTtc, amountPaid + p.amount)
+    setAmountPaid(newPaid)
+    setPaymentMethod(p.method || null)
+    setPaymentRef(p.reference || null)
+    if (newPaid >= netTtc - 0.01) {
+      setStatus('paid')
+      setPaidAt(p.paidOn < todayIso() ? `${p.paidOn}T12:00:00` : new Date().toISOString())
+      setFlash(`Règlement enregistré ✅ Facture soldée.`)
+    } else {
+      setStatus('partially_paid')
+      setFlash(`Règlement enregistré. Reste : ${formatAmount(netTtc - newPaid)}.`)
     }
-    const method = window.prompt(
-      'Mode de règlement ?\n(virement, chèque, CB, espèces, prélèvement, autre)',
-      'virement',
-    ) ?? ''
-    const ref = window.prompt('Référence (n° chèque, libellé virement, optionnel) :', '') ?? ''
-    try {
-      await recordPayment(invoiceId, amount, method, ref || null)
-      const newPaid = Math.min(netTtc, amountPaid + amount)
-      setAmountPaid(newPaid)
-      setPaymentMethod(method || null)
-      setPaymentRef(ref || null)
-      if (newPaid >= netTtc - 0.01) {
-        setStatus('paid')
-        setPaidAt(new Date().toISOString())
-        setFlash(`Règlement enregistré ✅ Facture soldée.`)
-      } else {
-        setStatus('partially_paid')
-        setFlash(`Règlement enregistré. Reste : ${formatAmount(netTtc - newPaid)}.`)
-      }
-      setTimeout(() => setFlash(null), 4000)
-      onSaved?.(invoiceId)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur')
-    }
+    setTimeout(() => setFlash(null), 4000)
+    onSaved?.(invoiceId)
   }
 
   async function handleResetPayment() {
@@ -904,7 +894,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                       {netTtc > 0 && amountPaid < netTtc - 0.005 && (
                         <> · reste à payer : <strong className="text-red">{formatAmount(remaining)}</strong></>
                       )}
-                      {paymentMethod && <> · {paymentMethod}{paymentRef ? ` (${paymentRef})` : ''}</>}
+                      {paymentMethod && <> · {paymentMethodLabel(paymentMethod)}{paymentRef ? ` (${paymentRef})` : ''}</>}
                       {paidAt && <> · soldée le {new Date(paidAt).toLocaleDateString('fr-FR')}</>}
                     </>
                   )}
@@ -950,7 +940,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                       <button
                         type="button"
                         className="btn-sm done"
-                        onClick={() => void handleRecordPayment()}
+                        onClick={() => setPaymentOpen(true)}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       >
                         <CheckCircle2 size={13} strokeWidth={2} />
@@ -1028,6 +1018,14 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
         )}
       </div>
     </div>
+    {paymentOpen && (
+      <PaymentModal
+        reference={shownReference}
+        remaining={remaining}
+        onClose={() => setPaymentOpen(false)}
+        onSave={handleRecordPayment}
+      />
+    )}
     {creditSource && (
       <CreditNoteModal
         invoice={creditSource}

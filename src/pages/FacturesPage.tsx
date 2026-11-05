@@ -1,12 +1,13 @@
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { AlertTriangle, Bell, Calculator, Download, FileMinus2, FileText, Mail, Plus } from 'lucide-react'
+import { AlertTriangle, Bell, Calculator, Download, FileMinus2, FileText, Mail, Plus, Send } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
 import { formatAmount } from '../features/devis/constants'
 import { listInvoices } from '../features/factures/api'
 import { InvoiceModal } from '../features/factures/components/InvoiceModal'
+import { BulkSendModal } from '../features/factures/components/BulkSendModal'
 import { VisitsToInvoiceCard } from '../features/factures/components/VisitsToInvoiceCard'
 import { buildVisitInvoiceSeed, listVisitsToInvoice } from '../features/factures/visitBilling'
 import type { VisitToInvoice } from '../features/factures/visitBilling'
@@ -141,6 +142,8 @@ export function FacturesPage() {
   // Numéro de la facture d'origine de chaque avoir
   const referenceById = useMemo(() => new Map(invoices.map((i) => [i.id, i.reference])), [invoices])
   const factures = useMemo(() => enrichedInvoices.filter((i) => !i.credit), [enrichedInvoices])
+  const drafts = useMemo(() => factures.filter((i) => i.status === 'draft'), [factures])
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: enrichedInvoices.length, credit_note: enrichedInvoices.length - factures.length }
@@ -270,6 +273,17 @@ export function FacturesPage() {
             {t.label} ({counts[t.key] ?? 0})
           </button>
         ))}
+        {drafts.length >= 2 && (
+          <button
+            type="button"
+            className="btn-sm acc"
+            onClick={() => setBulkOpen(true)}
+            style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            title="Chaque brouillon reçoit son numéro et part au client avec son PDF"
+          >
+            <Send size={13} strokeWidth={2} /> Envoyer les brouillons ({drafts.length})
+          </button>
+        )}
       </div>
 
       <div className="card">
@@ -431,6 +445,7 @@ export function FacturesPage() {
         />
       )}
       {exportOpen && <AccountingExportModal onClose={() => setExportOpen(false)} />}
+      {bulkOpen && <BulkSendModal drafts={drafts} onClose={() => setBulkOpen(false)} onDone={() => void load()} />}
     </>
   )
 }

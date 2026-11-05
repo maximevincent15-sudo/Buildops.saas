@@ -8,7 +8,7 @@ import { computeQuoteTotals, formatAmount, formatNumber } from '../../devis/cons
 import { VAT_MENTION_TEXT } from '../../parametres/api'
 import type { InvoicingSettings } from '../../parametres/api'
 import { PdfLogo } from '../../parametres/pdf/PdfLogo'
-import { hasFinalNumber, isCreditNote } from '../constants'
+import { hasFinalNumber, isCreditNote, paymentMethodLabel } from '../constants'
 import type { InvoiceWithLines } from '../schemas'
 
 const colors = {
@@ -466,7 +466,7 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber, 
                 <View style={styles.totalRowPayment}>
                   <Text>
                     Acompte / Réglé
-                    {invoice.payment_method ? ` (${invoice.payment_method})` : ''}
+                    {invoice.payment_method ? ` (${paymentMethodLabel(invoice.payment_method)})` : ''}
                   </Text>
                   <Text>− {formatAmount(amountPaid)}</Text>
                 </View>

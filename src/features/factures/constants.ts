@@ -40,6 +40,12 @@ export const PAYMENT_METHODS = [
   { value: 'autre', label: 'Autre' },
 ] as const
 
+/** Libellé du mode de règlement (les anciennes saisies libres restent telles quelles) */
+export function paymentMethodLabel(method: string | null | undefined): string {
+  if (!method) return ''
+  return PAYMENT_METHODS.find((m) => m.value === method)?.label ?? method
+}
+
 /** Calcule si une facture est en retard (à appeler côté client à chaque render). */
 export function isOverdue(
   status: InvoiceStatus,

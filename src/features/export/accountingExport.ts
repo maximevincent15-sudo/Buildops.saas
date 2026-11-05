@@ -3,6 +3,7 @@ import { computeQuoteTotals } from '../devis/constants'
 import { EXPENSE_CATEGORY_LABEL } from '../expenses/constants'
 import type { ExpenseCategory } from '../expenses/constants'
 import { openableUrls } from '../../shared/lib/privateFiles'
+import { paymentMethodLabel } from '../factures/constants'
 
 /**
  * Export comptable d'une période, pour l'expert-comptable :
@@ -271,7 +272,7 @@ export async function exportAccounting(from: string, to: string, orgName: string
         : i.status === 'cancelled'
           ? i.cancelled_reason ?? 'Annulée par avoir'
           : STATUS_LABEL[i.status] ?? i.status,
-    paid: isCredit(i) ? 0 : Number(i.amount_paid ?? 0), paidAt: i.paid_at ? i.paid_at.slice(0, 10) : '', method: i.payment_method ?? '', due: isCredit(i) ? '' : i.due_date ?? '',
+    paid: isCredit(i) ? 0 : Number(i.amount_paid ?? 0), paidAt: i.paid_at ? i.paid_at.slice(0, 10) : '', method: paymentMethodLabel(i.payment_method), due: isCredit(i) ? '' : i.due_date ?? '',
   })))
 
   const js = addSheet('Journal des ventes', [

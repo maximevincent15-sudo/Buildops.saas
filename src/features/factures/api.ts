@@ -190,12 +190,17 @@ export async function markInvoiceSent(id: string, recipientEmail: string): Promi
   if (error) throw error
 }
 
-/** Enregistre un règlement. Si le total (avoirs déduits) est atteint, passe statut 'paid'. */
+/**
+ * Enregistre un règlement. Si le total (avoirs déduits) est atteint, passe
+ * statut 'paid', avec la date du règlement (le jour même par défaut).
+ */
 export async function recordPayment(
   id: string,
   amount: number,
   method: string,
   reference: string | null,
+  /** Date du règlement (AAAA-MM-JJ), si saisi après coup */
+  paidOn?: string | null,
 ): Promise<void> {
   // Récupère le total, les avoirs et le déjà payé
   const { data: inv, error: getErr } = await supabase
@@ -218,7 +223,7 @@ export async function recordPayment(
   }
   if (isFullyPaid) {
     update.status = 'paid'
-    update.paid_at = new Date().toISOString()
+    update.paid_at = paidOn && paidOn < new Date().toISOString().slice(0, 10) ? `${paidOn}T12:00:00` : new Date().toISOString()
   } else {
     update.status = 'partially_paid'
   }
