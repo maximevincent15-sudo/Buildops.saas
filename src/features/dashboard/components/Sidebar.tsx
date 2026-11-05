@@ -23,7 +23,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { classifyAlert, computeRegulatoryAlerts } from '../../alertes/api'
+import { classifyAlert, computeRegulatoryAlerts, regulatoryAlertSeverity } from '../../alertes/api'
 import { countActiveAnomalies } from '../../anomalies/api'
 import { signOut } from '../../auth/api'
 import { fetchContractAlerts, isUrgentContractAlert } from '../../contrats/alerts'
@@ -161,7 +161,7 @@ export function Sidebar({ open = false }: { open?: boolean }) {
           return sev === 'overdue' || sev === 'urgent'
         }
         const alertesUrgent =
-          alerts.filter((a) => urgent(a.daysUntilDue)).length +
+          alerts.filter((a) => { const sev = regulatoryAlertSeverity(a); return sev === 'overdue' || sev === 'urgent' }).length +
           vehicleAlerts.filter((a) => urgent(a.daysUntilDue)).length +
           contractAlerts.filter(isUrgentContractAlert).length
         const rh =

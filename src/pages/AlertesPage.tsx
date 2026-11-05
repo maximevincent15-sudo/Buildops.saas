@@ -3,7 +3,7 @@ import { fr } from 'date-fns/locale'
 import { AlertCircle, Award, Calendar, CalendarPlus, Car, CheckCircle2, Clock, FileSignature, HardHat, MapPin, Wrench } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { classifyAlert, computeRegulatoryAlerts, listSitesWithoutVisit } from '../features/alertes/api'
+import { classifyAlert, computeRegulatoryAlerts, listSitesWithoutVisit, plannedVisitCovers, regulatoryAlertSeverity } from '../features/alertes/api'
 import type { AlertSeverity, RegulatoryAlert, SiteWithoutVisit } from '../features/alertes/api'
 import { typesForFamilies } from '../features/equipment/identification'
 import { EQUIPMENT_FAMILIES, EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
@@ -105,10 +105,10 @@ export function AlertesPage() {
   }, [contratsEnabled])
 
   const regCounts = {
-    overdue: regAlerts.filter((a) => classifyAlert(a.daysUntilDue) === 'overdue').length,
-    urgent: regAlerts.filter((a) => classifyAlert(a.daysUntilDue) === 'urgent').length,
-    soon: regAlerts.filter((a) => classifyAlert(a.daysUntilDue) === 'soon').length,
-    ok: regAlerts.filter((a) => classifyAlert(a.daysUntilDue) === 'ok').length,
+    overdue: regAlerts.filter((a) => regulatoryAlertSeverity(a) === 'overdue').length,
+    urgent: regAlerts.filter((a) => regulatoryAlertSeverity(a) === 'urgent').length,
+    soon: regAlerts.filter((a) => regulatoryAlertSeverity(a) === 'soon').length,
+    ok: regAlerts.filter((a) => regulatoryAlertSeverity(a) === 'ok').length,
   }
   const certCounts = {
     overdue: certAlerts.filter((a) => classifyAlert(a.daysUntilExpiry) === 'overdue').length,
@@ -137,7 +137,7 @@ export function AlertesPage() {
 
   const filteredReg =
     category === 'equipment'
-      ? regAlerts.filter((a) => filter === 'all' || classifyAlert(a.daysUntilDue) === filter)
+      ? regAlerts.filter((a) => filter === 'all' || regulatoryAlertSeverity(a) === filter)
       : []
   const filteredCert =
     category === 'certifications'
@@ -341,9 +341,11 @@ export function AlertesPage() {
         {!loading && !error && category === 'equipment' && filteredReg.length > 0 && (
           <div className="alerts-list">
             {filteredReg.map((a) => {
-              const sev = classifyAlert(a.daysUntilDue)
+              const sev = regulatoryAlertSeverity(a)
               const meta = SEVERITY_META[sev]
               const Icon = meta.icon
+              const covered = plannedVisitCovers(a)
+              const plannedPast = !!a.plannedVisit && a.plannedVisit.date < new Date().toISOString().slice(0, 10)
               const equipLabel =
                 EQUIPMENT_TYPES[a.equipmentType as EquipmentType] ?? a.equipmentType
               const freqLabel =
@@ -361,6 +363,15 @@ export function AlertesPage() {
                     <div className="alert-meta">
                       {equipLabel} · contrôle {freqLabel.toLowerCase()} · dernière interv. {formatDate(a.lastInterventionDate)} ({a.lastInterventionReference})
                     </div>
+                    {a.plannedVisit && (
+                      <div className="alert-meta" style={{ color: covered ? '#0E7A3F' : '#A83A3A' }}>
+                        {covered
+                          ? <>Visite prévue le {formatDate(a.plannedVisit.date)} ({a.plannedVisit.reference})</>
+                          : plannedPast
+                            ? <>Visite prévue le {formatDate(a.plannedVisit.date)} ({a.plannedVisit.reference}) mais pas encore faite</>
+                            : <>Visite prévue le {formatDate(a.plannedVisit.date)} ({a.plannedVisit.reference}), trop tard pour cette échéance</>}
+                      </div>
+                    )}
                     {a.uncheckedCount > 0 && (
                       <div className="alert-meta" style={{ color: '#C45A1A' }}>
                         {a.uncheckedCount} équipement{a.uncheckedCount > 1 ? 's' : ''} non vérifié{a.uncheckedCount > 1 ? 's' : ''} lors de cette intervention : contrôle à reprendre
@@ -368,8 +379,8 @@ export function AlertesPage() {
                     )}
                   </div>
                   <div className="alert-due">
-                    <div className="alert-due-date">{formatDate(a.nextDueDate)}</div>
-                    <div className="alert-due-days">{formatDaysLabel(a.daysUntilDue)}</div>
+                    <div className="alert-due-date">{formatDate(covered ? a.plannedVisit!.date : a.nextDueDate)}</div>
+                    <div className="alert-due-days">{covered ? 'Visite planifiée' : formatDaysLabel(a.daysUntilDue)}</div>
                   </div>
                 </div>
               )

@@ -16,6 +16,30 @@ export type RegulatoryAlert = {
   frequencyDays: number
   /** Équipements de ce type marqués non vérifiés lors de la dernière intervention */
   uncheckedCount: number
+  /** Prochaine visite déjà planifiée pour ce site et ce type (la plus proche) */
+  plannedVisit: { id: string; reference: string; date: string } | null
+}
+
+/** Une visite planifiée rattrape un retard si elle a lieu dans ce délai */
+const CATCH_UP_DAYS = 60
+
+/** La visite planifiée arrive-t-elle à temps (avant l'échéance, ou bientôt pour rattraper un retard) ? */
+export function plannedVisitCovers(a: Pick<RegulatoryAlert, 'nextDueDate' | 'plannedVisit'>, todayIso = isoDateOnly(new Date())): boolean {
+  const v = a.plannedVisit
+  if (!v || v.date < todayIso) return false
+  if (v.date <= a.nextDueDate) return true
+  const limit = new Date(`${todayIso}T12:00:00`)
+  limit.setDate(limit.getDate() + CATCH_UP_DAYS)
+  return v.date <= isoDateOnly(limit)
+}
+
+/**
+ * Sévérité d'une échéance : une visite déjà planifiée à temps la couvre,
+ * elle ne compte plus comme « en retard » ou « urgente ».
+ */
+export function regulatoryAlertSeverity(a: Pick<RegulatoryAlert, 'daysUntilDue' | 'nextDueDate' | 'plannedVisit'>, todayIso = isoDateOnly(new Date())): AlertSeverity {
+  if (plannedVisitCovers(a, todayIso)) return 'ok'
+  return classifyAlert(a.daysUntilDue)
 }
 
 export type AlertSeverity = 'overdue' | 'urgent' | 'soon' | 'ok'
@@ -144,9 +168,16 @@ export async function computeRegulatoryAlerts(): Promise<RegulatoryAlert[]> {
     if (!groups.has(key)) groups.set(key, r)
   }
 
-  const notVerified = await listNotVerifiedUnits(
-    Array.from(new Set(Array.from(groups.values(), (r) => r.id))),
-  )
+  const [notVerified, openVisits] = await Promise.all([
+    listNotVerifiedUnits(Array.from(new Set(Array.from(groups.values(), (r) => r.id)))),
+    // Visites à venir (datées) : elles couvrent l'échéance de leur site
+    supabase
+      .from('interventions')
+      .select('id, reference, client_name, site_name, equipment_types, scheduled_date')
+      .in('status', ['a_planifier', 'planifiee', 'en_cours'])
+      .not('scheduled_date', 'is', null)
+      .then(({ data }) => (data ?? []) as Array<{ id: string; reference: string; client_name: string; site_name: string | null; equipment_types: string[] | null; scheduled_date: string }>),
+  ])
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -181,7 +212,16 @@ export async function computeRegulatoryAlerts(): Promise<RegulatoryAlert[]> {
       (nextDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000),
     )
 
+    // Prochaine visite planifiée sur ce site pour ce type, après la dernière visite
+    const lastIso = isoDateOnly(lastDate)
+    const planned = openVisits
+      .filter((v) => v.client_name === r.client_name && (v.site_name ?? '') === (r.site_name ?? '')
+        && (!v.equipment_types || v.equipment_types.length === 0 || v.equipment_types.includes(r.equipmentCode))
+        && v.scheduled_date.slice(0, 10) > lastIso)
+      .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date))[0]
+
     alerts.push({
+      plannedVisit: planned ? { id: planned.id, reference: planned.reference, date: planned.scheduled_date.slice(0, 10) } : null,
       key,
       clientName: r.client_name,
       siteName: r.site_name,

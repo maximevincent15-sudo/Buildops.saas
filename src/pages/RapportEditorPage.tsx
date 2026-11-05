@@ -8,6 +8,7 @@ import {
   Download,
   FileText,
   Mail,
+  MapPin,
   Receipt,
   RotateCcw,
   XCircle,
@@ -19,6 +20,7 @@ import { useSubscription } from '../features/billing/hooks'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
 import { setInterventionStatus } from '../features/planning/api'
 import { INTERVENTION_TYPE_LABELS, normalizeIntervention } from '../features/planning/schemas'
+import { interventionAddress } from '../features/planning/address'
 import type { CreateInterventionInput, Intervention } from '../features/planning/schemas'
 import { HistoricalVisitCard } from '../features/rapports/components/HistoricalVisitCard'
 import {
@@ -962,7 +964,9 @@ export function RapportEditorPage() {
             )}
           </div>
           <div className="dash-sub">
-            {intervention.client_name} · {equipmentsLabel} · prévu le {scheduledLabel}
+            {intervention.client_name}
+            {intervention.site_name && intervention.site_name !== intervention.client_name && <> · <strong>{intervention.site_name}</strong></>}
+            {' '}· {equipmentsLabel} · prévu le {scheduledLabel}
             {dossierNumber && (
               <> · dossier{' '}
                 {(profile?.user_role ?? 'admin') === 'admin'
@@ -971,6 +975,18 @@ export function RapportEditorPage() {
               </>
             )}
           </div>
+          {interventionAddress(intervention) && (
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(interventionAddress(intervention))}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-ink-2 text-sm"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 4, textDecoration: 'none' }}
+              title="Itinéraire"
+            >
+              <MapPin size={13} strokeWidth={2} /> {interventionAddress(intervention)}
+            </a>
+          )}
         </div>
         <div className="dash-acts">
           {pdfUrl && (

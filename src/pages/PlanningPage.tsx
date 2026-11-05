@@ -36,6 +36,7 @@ import { PlanningEventModal } from '../features/planning/events/PlanningEventMod
 import { InterventionModal } from '../features/planning/components/InterventionModal'
 import { InterventionSheet } from '../features/planning/components/InterventionSheet'
 import { LIST_TABS, currentWeek, estimatedDue, groupForList, matchesQuery, matchesTab } from '../features/planning/listView'
+import { interventionAddress } from '../features/planning/address'
 import type { ListTab } from '../features/planning/listView'
 import { normalizeSearch } from '../shared/lib/search'
 import { InterventionRowActions } from '../features/planning/components/InterventionRowActions'
@@ -280,7 +281,7 @@ export function PlanningPage() {
       client_id: i.client_id ?? undefined,
       client_name: i.client_name,
       site_name: i.site_name ?? undefined,
-      site_address: i.address ?? undefined,
+      site_address: interventionAddress(i) || undefined,
       intervention_id: i.id,
       notes: `Suite à l'intervention ${i.reference} — anomalies à corriger.`,
       lines: f.anomalies.map((a, n) => ({
@@ -721,16 +722,16 @@ export function PlanningPage() {
                           {i.site_name}
                         </div>
                       )}
-                      {i.address && (
+                      {interventionAddress(i) && (
                         <div style={{ fontSize: '.68rem', color: 'var(--ink3)', marginTop: '2px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           <MapPin size={10} strokeWidth={2} />
-                          {i.address}
+                          {interventionAddress(i)}
                         </div>
                       )}
-                      {(i.address || i.scheduled_date) && (
+                      {(interventionAddress(i) || i.scheduled_date) && (
                         <div style={{ marginTop: '4px' }}>
                           <QuickActions
-                            address={i.address}
+                            address={interventionAddress(i) || null}
                             onAddToCalendar={
                               i.scheduled_date
                                 ? () => {
