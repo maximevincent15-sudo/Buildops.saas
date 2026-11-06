@@ -137,14 +137,17 @@ export function ParametresPage() {
     if (!window.confirm(
       'Charger les données de démo ?\n\n' +
       'Cela va créer dans votre organisation :\n' +
-      '• 11 clients fictifs avec leurs sites et leur parc (~100 équipements)\n' +
+      '• 13 clients fictifs avec leurs sites et leur parc (~190 équipements :\n' +
+      '  extincteurs, RIA, BAES, SSI, désenfumage, écrans de cantonnement,\n' +
+      '  portes coupe-feu, colonnes sèches)\n' +
       '• 4 techniciens, leurs habilitations et 2 véhicules\n' +
-      '• 3 rapports signés avec PDF, dont un non conforme\n' +
-      '• le planning de la semaine et des visites à planifier\n' +
-      '• 3 devis, des factures sur 6 mois, notes de frais et heures sup\n\n' +
+      '• 17 rapports signés avec PDF sur 11 mois, dont 3 avec anomalies\n' +
+      '• le planning de la semaine, des visites à planifier et des échéances\n' +
+      '• 4 devis, des factures, un avoir, un acompte et 4 contrats\n' +
+      '• des notes de frais et des heures sup\n\n' +
       'Les contacts ont des adresses @demo.firovia.fr : pour un envoi\n' +
       'de test, saisissez votre propre adresse dans la fenêtre d\'envoi.\n\n' +
-      'Comptez 1 à 2 minutes. Continuer ?'
+      'Comptez 3 à 5 minutes, sans fermer la page. Continuer ?'
     )) return
     setDemoLoading(true)
     setError(null)

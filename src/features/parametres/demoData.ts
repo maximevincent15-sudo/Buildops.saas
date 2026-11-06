@@ -1,14 +1,18 @@
 /**
  * Données de démonstration : un compte « vivant » pour une démo commerciale
- * ou un essai, créé en une à deux minutes avec les fonctions de l'app.
+ * ou un essai, créé en 3 à 5 minutes avec les fonctions de l'app (PDF compris).
  *
  * Crée :
- * - 11 clients, chacun avec son site, ses zones et son parc (~100 équipements)
+ * - 13 clients, chacun avec son site, ses zones et son parc (~190 équipements) :
+ *   extincteurs, RIA, BAES, SSI, désenfumage (naturel, mécanique, écrans de
+ *   cantonnement), portes coupe-feu, colonnes sèches
  * - 4 techniciens (secteurs, habilitations dont une à renouveler) et 2 véhicules
- * - 3 rapports signés avec PDF, dont un non conforme avec 2 anomalies
+ * - 17 rapports signés avec PDF sur 11 mois, dont 3 non conformes avec anomalies
  * - le planning de la semaine : visites planifiées, une en cours, une sans rapport
  * - des visites à planifier et des échéances proches ou dépassées (Alertes)
- * - 3 devis, des factures payées sur 6 mois, une en attente, une en retard
+ * - 4 devis, des factures payées, une en attente, une en retard, un avoir
+ *   partiel, une facture d'acompte payée et la facture finale en brouillon
+ * - 4 contrats de maintenance
  * - notes de frais, heures sup, 2 événements d'agenda et un lien portail client
  *
  * Les emails des contacts sont en @demo.firovia.fr (domaine sans boîte mail) :
@@ -16,6 +20,13 @@
  */
 
 import { createAnomaly } from '../anomalies/api'
+import {
+  CODE_LIST_FAMILIES,
+  CODE_UNIT_LISTS,
+  DESENFUMAGE_MECANIQUE_KEY,
+  DESENFUMAGE_NATUREL_KEY,
+  ECRANS_CANTONNEMENT_KEY,
+} from '../checklists/builtins'
 import type { AnomalyAction, AnomalyPriority } from '../anomalies/schemas'
 import { createCatalogItems, listCatalogItems } from '../catalogue/api'
 import { DEFAULT_CATALOG } from '../catalogue/defaultCatalog'
@@ -23,7 +34,15 @@ import { createClient } from '../clients/api'
 import { planContractVisits, saveContract } from '../contrats/api'
 import type { ContractLine } from '../contrats/schemas'
 import type { Client } from '../clients/schemas'
-import { createInvoice, markInvoiceSent, recordPayment } from '../factures/api'
+import {
+  createCreditNote,
+  createDepositInvoice,
+  createInvoice,
+  createInvoiceFromQuote,
+  issueInvoice,
+  markInvoiceSent,
+  recordPayment,
+} from '../factures/api'
 import { createQuote, markQuoteAccepted, markQuoteSent } from '../devis/api'
 import {
   batchCreateEquipmentUnits,
@@ -109,6 +128,8 @@ type UnitSpec = {
   implantation: string
   brand: string
   year: number
+  /** Liste de contrôle de l'appareil quand sa famille en a plusieurs (désenfumage) */
+  checklistKey?: string
 }
 
 const EXT_KINDS = {
@@ -125,9 +146,25 @@ const ria = (zone: string, implantation: string, year: number): UnitSpec =>
 const baes = (zone: string, implantation: string, year: number): UnitSpec =>
   ({ family: 'baes', subtype: 'BAES évacuation 45 lm', brand: 'Legrand', zone, implantation, year })
 const denfc = (zone: string, implantation: string, year: number): UnitSpec =>
-  ({ family: 'desenfumage', subtype: 'Exutoire de désenfumage (DENFC)', brand: 'Souchier', zone, implantation, year })
+  ({ family: 'desenfumage', subtype: 'Exutoire de désenfumage (DENFC)', brand: 'Souchier', zone, implantation, year, checklistKey: DESENFUMAGE_NATUREL_KEY })
+const ventilateur = (zone: string, implantation: string, year: number): UnitSpec =>
+  ({ family: 'desenfumage', subtype: 'Ventilateur de désenfumage 400 °C / 2 h', brand: 'France Air', zone, implantation, year, checklistKey: DESENFUMAGE_MECANIQUE_KEY })
+const volet = (zone: string, implantation: string, year: number): UnitSpec =>
+  ({ family: 'desenfumage', subtype: 'Volet de désenfumage (extraction)', brand: 'Aldes', zone, implantation, year, checklistKey: DESENFUMAGE_MECANIQUE_KEY })
+const ecranMobile = (zone: string, implantation: string, year: number): UnitSpec =>
+  ({ family: 'desenfumage', subtype: 'Écran de cantonnement mobile (toile)', brand: 'Souchier', zone, implantation, year, checklistKey: ECRANS_CANTONNEMENT_KEY })
+const ecranFixe = (zone: string, implantation: string, year: number): UnitSpec =>
+  ({ family: 'desenfumage', subtype: 'Écran de cantonnement fixe (verre)', brand: 'Souchier', zone, implantation, year, checklistKey: ECRANS_CANTONNEMENT_KEY })
 const porteCf = (zone: string, implantation: string, year: number): UnitSpec =>
   ({ family: 'portes_cf', subtype: 'Porte coupe-feu EI 30 à fermeture automatique', brand: 'Malerba', zone, implantation, year })
+const centrale = (zone: string, implantation: string, year: number, subtype = 'Centrale SSI catégorie A (CMSI intégré)'): UnitSpec =>
+  ({ family: 'detection', subtype, brand: 'Siemens', zone, implantation, year })
+const detecteur = (zone: string, implantation: string, year: number): UnitSpec =>
+  ({ family: 'detection', subtype: 'Détecteur optique de fumée', brand: 'Esser', zone, implantation, year })
+const declencheur = (zone: string, implantation: string, year: number): UnitSpec =>
+  ({ family: 'detection', subtype: 'Déclencheur manuel', brand: 'Esser', zone, implantation, year })
+const colonneSeche = (zone: string, implantation: string, year: number): UnitSpec =>
+  ({ family: 'colonnes_seches', subtype: 'Colonne sèche DN 65 (prise à chaque niveau)', brand: 'Eurofeu', zone, implantation, year })
 
 type ClientSpec = {
   key: string
@@ -148,7 +185,7 @@ type ClientSpec = {
   }
 }
 
-const CLIENTS: ClientSpec[] = [
+export const CLIENTS: ClientSpec[] = [
   {
     key: 'tilleuls', name: 'Résidence Les Tilleuls', contact_name: 'M. Durand',
     contact_email: 'gardien@residence-tilleuls.demo.firovia.fr', contact_phone: '01 39 50 12 40',
@@ -199,6 +236,13 @@ const CLIENTS: ClientSpec[] = [
         baes('Accueil', 'Sortie principale', 2020),
         baes('Bloc A', 'Issue de secours est', 2020),
         baes('Bloc B', 'Issue de secours ouest', 2020),
+        centrale('Local technique', 'Tableau SSI, local de surveillance', 2016),
+        detecteur('Bloc A', 'Couloir, face chambre 105', 2016),
+        detecteur('Bloc B', 'Couloir, face chambre 205', 2016),
+        detecteur('Cuisine', 'Réserve', 2016),
+        declencheur('Accueil', 'Sortie principale', 2016),
+        porteCf('Bloc A', 'Recoupement du couloir', 2016),
+        porteCf('Bloc B', 'Recoupement du couloir', 2016),
       ],
     },
   },
@@ -224,6 +268,11 @@ const CLIENTS: ClientSpec[] = [
         baes('Réception', 'Sortie principale', 2019),
         baes('Étage 1', 'Escalier de secours', 2019),
         baes('Étage 2', 'Escalier de secours', 2019),
+        centrale('Réception', 'Derrière le comptoir', 2017, "Centrale d'alarme type 2b"),
+        detecteur('Étage 1', 'Couloir, côté chambres 101-108', 2017),
+        detecteur('Étage 2', 'Couloir, côté chambres 201-208', 2017),
+        declencheur('Réception', 'Sortie principale', 2017),
+        porteCf('Cuisine', 'Accès cuisine depuis la salle', 2014),
       ],
     },
   },
@@ -270,6 +319,13 @@ const CLIENTS: ClientSpec[] = [
         ext('Accueil', 'Local technique', 'co2', 2017),
         ria('Aile Nord', 'Couloir central', 2014),
         ria('Aile Sud', 'Couloir central', 2014),
+        centrale('Accueil', 'Bureau infirmier de nuit', 2018),
+        detecteur('Aile Nord', 'Chambre 6', 2018),
+        detecteur('Aile Sud', 'Chambre 18', 2018),
+        detecteur('Cuisine', 'Réserve', 2018),
+        declencheur('Accueil', 'Hall', 2018),
+        porteCf('Aile Nord', 'Recoupement du couloir', 2018),
+        porteCf('Aile Sud', 'Recoupement du couloir', 2018),
       ],
     },
   },
@@ -347,6 +403,8 @@ const CLIENTS: ClientSpec[] = [
         ext('Accueil', 'Entrée', 'eau6', 2021),
         ext('Salles de vie', 'Couloir', 'eau6', 2021),
         ext('Cuisine', 'Biberonnerie', 'co2', 2021),
+        centrale('Accueil', 'Bureau de la direction', 2021, "Équipement d'alarme type 4"),
+        declencheur('Salles de vie', 'Sortie sur le jardin', 2021),
       ],
     },
   },
@@ -364,6 +422,91 @@ const CLIENTS: ClientSpec[] = [
         ext('Stockage', 'Local de charge des chariots', 'co2', 2019),
         ext('Bureaux', 'Couloir', 'eau6', 2020),
         ext('Bureaux', 'Salle serveur', 'co2', 2020),
+        ria('Stockage', 'Allée A, poteau 4', 2016),
+        ria('Stockage', 'Allée D, poteau 12', 2016),
+        denfc('Stockage', 'Toiture, canton 1', 2016),
+        denfc('Stockage', 'Toiture, canton 2', 2016),
+        ecranFixe('Stockage', 'Séparation des cantons 1 et 2', 2016),
+        ecranFixe('Quais', 'Entre les quais et le stockage', 2016),
+      ],
+    },
+  },
+  {
+    key: 'arcades', name: 'Centre commercial Les Arcades', contact_name: 'Mme Lambert',
+    contact_email: 'securite@cc-lesarcades.demo.firovia.fr', contact_phone: '01 30 55 90 10',
+    site: {
+      name: 'Centre commercial Les Arcades', address: '1 avenue des Arcades', postal_code: '78370', city: 'Plaisir',
+      contact_name: 'Mme Lambert (responsable sécurité)', contact_phone: '06 58 21 74 36', access_notes: 'Se présenter au PC sécurité (niveau 0). Essais des écrans avant 9 h, galerie fermée au public.',
+      zones: ['Mail niveau 0', 'Mail niveau 1', 'Parking couvert', 'PC sécurité', 'Réserves'],
+      units: [
+        ext('Mail niveau 0', 'Entrée principale', 'eau6', 2021),
+        ext('Mail niveau 0', 'Près des escalators', 'eau6', 2021),
+        ext('Mail niveau 1', 'Aire de restauration', 'co2', 2021),
+        ext('Mail niveau 1', 'Sanitaires publics', 'eau6', 2021),
+        ext('Réserves', 'Quai de livraison', 'poudre', 2020),
+        ext('PC sécurité', 'Local de surveillance', 'co2', 2020),
+        ria('Mail niveau 0', 'Pilier central', 2015),
+        ria('Mail niveau 1', 'Pilier central', 2015),
+        ria('Réserves', 'Allée de service', 2015),
+        baes('Mail niveau 0', 'Sortie nord', 2021),
+        baes('Mail niveau 0', 'Sortie sud', 2021),
+        baes('Mail niveau 1', 'Escalier de secours est', 2021),
+        baes('Parking couvert', 'Sortie piétons', 2021),
+        centrale('PC sécurité', 'Tableau SSI et CMSI', 2015),
+        detecteur('Mail niveau 0', 'Plafond, cellule 12', 2015),
+        detecteur('Mail niveau 1', 'Plafond, aire de restauration', 2015),
+        detecteur('Réserves', 'Réserve alimentaire', 2015),
+        detecteur('Réserves', 'Local déchets', 2015),
+        declencheur('Mail niveau 0', 'Sortie nord', 2015),
+        declencheur('Mail niveau 1', 'Escalier de secours est', 2015),
+        ventilateur('Mail niveau 1', 'Toiture terrasse, caisson VD1', 2015),
+        volet('Mail niveau 0', 'Gaine d\'extraction, canton 1', 2015),
+        volet('Mail niveau 1', 'Gaine d\'extraction, canton 2', 2015),
+        ecranMobile('Mail niveau 0', 'Entre les cantons 1 et 2, côté nord', 2015),
+        ecranMobile('Mail niveau 0', 'Entre les cantons 1 et 2, côté sud', 2015),
+        ecranMobile('Mail niveau 1', 'Entrée de l\'aire de restauration', 2015),
+        ecranFixe('Mail niveau 1', 'Trémie des escalators', 2015),
+        ecranFixe('Réserves', 'Séparation réserves / galerie', 2015),
+        colonneSeche('Parking couvert', 'Escalier A', 2015),
+        colonneSeche('Parking couvert', 'Escalier B', 2015),
+        porteCf('Réserves', 'Accès galerie', 2015),
+        porteCf('Parking couvert', 'Sas escalier A', 2015),
+      ],
+    },
+  },
+  {
+    key: 'horizon', name: 'Immeuble de bureaux Horizon', contact_name: 'M. Chevalier',
+    contact_email: 'technique@immeuble-horizon.demo.firovia.fr', contact_phone: '01 47 21 63 00',
+    site: {
+      name: 'Immeuble Horizon', address: '18 rue des Trois Fontanot', postal_code: '92000', city: 'Nanterre',
+      contact_name: 'M. Chevalier (gestionnaire technique)', contact_phone: '06 27 49 15 82', access_notes: "Badge visiteur à l'accueil. Prévenir le gestionnaire 48 h avant tout essai d'alarme.",
+      zones: ['Hall', 'Étages 1 à 4', 'Étages 5 à 8', 'Sous-sol', 'Local CTA'],
+      units: [
+        ext('Hall', 'Accueil', 'eau6', 2022),
+        ext('Étages 1 à 4', 'Palier du 2e étage', 'eau6', 2022),
+        ext('Étages 1 à 4', 'Palier du 4e étage', 'eau6', 2022),
+        ext('Étages 5 à 8', 'Palier du 6e étage', 'eau6', 2022),
+        ext('Étages 5 à 8', 'Palier du 8e étage', 'eau6', 2022),
+        ext('Local CTA', 'Près du tableau électrique', 'co2', 2022),
+        baes('Hall', 'Sortie principale', 2022),
+        baes('Étages 1 à 4', 'Escalier principal', 2022),
+        baes('Étages 5 à 8', 'Escalier principal', 2022),
+        baes('Sous-sol', 'Sortie parking', 2022),
+        centrale('Hall', "Tableau SSI, local d'accueil", 2018),
+        detecteur('Étages 1 à 4', 'Plateau du 3e étage', 2018),
+        detecteur('Étages 5 à 8', 'Plateau du 7e étage', 2018),
+        detecteur('Sous-sol', 'Local archives', 2018),
+        detecteur('Local CTA', 'Local CTA', 2018),
+        declencheur('Hall', 'Sortie principale', 2018),
+        declencheur('Étages 5 à 8', 'Palier du 8e étage', 2018),
+        ventilateur('Local CTA', 'Toiture, caisson de désenfumage', 2018),
+        volet('Étages 1 à 4', 'Circulation du 2e étage', 2018),
+        volet('Étages 5 à 8', 'Circulation du 6e étage', 2018),
+        colonneSeche('Étages 1 à 4', 'Escalier principal', 2018),
+        colonneSeche('Étages 5 à 8', 'Escalier de secours', 2018),
+        porteCf('Étages 1 à 4', 'Palier ascenseurs, 1er étage', 2018),
+        porteCf('Étages 5 à 8', 'Palier ascenseurs, 5e étage', 2018),
+        porteCf('Local CTA', 'Porte du local CTA', 2018),
       ],
     },
   },
@@ -419,21 +562,122 @@ function drawSignature(seed: number): string | null {
   return canvas.toDataURL('image/png')
 }
 
+type AnomalySpec = {
+  family: EquipmentFamily
+  serial: string
+  verdict: Extract<CheckVerdict, 'surveiller' | 'reformer'>
+  title: string
+  observation: string
+  action: AnomalyAction
+  priority: AnomalyPriority
+  dueInDays: number
+}
+type ReportSpec = {
+  key: string
+  types: EquipmentType[]
+  date: string
+  tech: number
+  start: string
+  duration: number
+  signedBy: string
+  observations: string
+  anomalies: AnomalySpec[]
+}
+
+const OK_ANNUAL = 'Visite annuelle réalisée. Tous les équipements contrôlés sont conformes.'
+
+/**
+ * Rapports signés, du plus ancien au plus récent (les dates de dernier
+ * contrôle des appareils restent celles du rapport le plus récent). Chaque
+ * rapport crée la visite suivante : les plus anciens alimentent les échéances.
+ */
+export function buildReportSpecs(): ReportSpec[] {
+  const specs: ReportSpec[] = [
+    // ─── Historique sur 11 mois ───
+    { key: 'horizon', types: ['extincteurs', 'baes'], date: businessDay(-235), tech: 1, start: '08:30', duration: 150, signedBy: 'M. Chevalier', observations: OK_ANNUAL, anomalies: [] },
+    { key: 'montaigne', types: ['portes_cf'], date: businessDay(-215), tech: 0, start: '14:00', duration: 60, signedBy: 'M. Garnier', observations: 'Portes coupe-feu manœuvrées : fermeture complète et ferme-portes en état.', anomalies: [] },
+    { key: 'beausejour', types: ['ssi', 'baes'], date: businessDay(-178), tech: 3, start: '08:00', duration: 120, signedBy: 'M. Petit', observations: "Alarme type 2b essayée depuis chaque déclencheur testé, BAES en état. Aucune anomalie.", anomalies: [] },
+    { key: 'stjean', types: ['portes_cf'], date: businessDay(-150), tech: 1, start: '10:00', duration: 60, signedBy: 'Mme Dubois', observations: 'Portes de recoupement contrôlées, déclenchement par le SSI vérifié.', anomalies: [] },
+    { key: 'parc', types: ['baes'], date: businessDay(-140), tech: 2, start: '09:30', duration: 45, signedBy: 'Mme Lefèvre', observations: "Essai d'autonomie des BAES réalisé (1 h). Conformes.", anomalies: [] },
+    { key: 'arcades', types: ['colonnes_seches'], date: businessDay(-128), tech: 3, start: '07:30', duration: 90, signedBy: 'Mme Lambert', observations: 'Visite semestrielle des colonnes sèches : prises, bouchons et vannes de vidange en état.', anomalies: [] },
+    { key: 'tilleuls', types: ['baes'], date: businessDay(-115), tech: 0, start: '10:00', duration: 60, signedBy: 'M. Durand', observations: "BAES contrôlés et essai d'autonomie réalisé.", anomalies: [] },
+    { key: 'stjean', types: ['ssi'], date: businessDay(-105), tech: 3, start: '08:00', duration: 180, signedBy: 'Mme Dubois', observations: 'SSI catégorie A : tableau, batteries, échantillon de détecteurs et déclencheurs manuels essayés, asservissements des portes vérifiés.', anomalies: [] },
+    { key: 'lilas', types: ['ssi', 'portes_cf'], date: businessDay(-85), tech: 1, start: '09:00', duration: 150, signedBy: 'Mme Roussel', observations: "SSI et portes de recoupement contrôlés, essai réalisé avec l'équipe de nuit prévenue.", anomalies: [] },
+    { key: 'entrepot', types: ['ria', 'desenfumage'], date: businessDay(-64), tech: 2, start: '07:30', duration: 180, signedBy: 'M. Martin', observations: 'RIA mis en eau, exutoires ouverts et refermés, écrans de cantonnement fixes en bon état.', anomalies: [] },
+    { key: 'horizon', types: ['ssi', 'desenfumage'], date: businessDay(-32), tech: 3, start: '08:00', duration: 210, signedBy: 'M. Chevalier', observations: 'SSI, ventilateur et volets de désenfumage essayés depuis le tableau de sécurité. Aucune anomalie.', anomalies: [] },
+    { key: 'arcades', types: ['extincteurs', 'ria', 'baes'], date: businessDay(-22), tech: 1, start: '07:00', duration: 240, signedBy: 'Mme Lambert', observations: OK_ANNUAL, anomalies: [] },
+    {
+      key: 'horizon', types: ['colonnes_seches', 'portes_cf'], date: businessDay(-14), tech: 0, start: '09:00', duration: 120, signedBy: 'M. Chevalier',
+      observations: "Une anomalie relevée sur la colonne sèche de l'escalier de secours (bouchon de prise manquant).",
+      anomalies: [{
+        family: 'colonnes_seches', serial: '02', verdict: 'surveiller',
+        title: 'Bouchon de prise manquant (7e étage)', observation: 'Bouchon obturateur absent sur la prise du 7e étage : à remplacer.',
+        action: 'repair', priority: 'normal', dueInDays: 20,
+      }],
+    },
+    // ─── Semaine passée ───
+    {
+      key: 'montaigne', types: ['extincteurs', 'desenfumage'], date: businessDay(-6), tech: 0, start: '13:30', duration: 210,
+      signedBy: 'M. Garnier',
+      observations: 'Visite annuelle réalisée. Exutoires testés en ouverture et en fermeture, aucune anomalie.',
+      anomalies: [],
+    },
+    {
+      key: 'arcades', types: ['ssi', 'desenfumage'], date: businessDay(-3), tech: 3, start: '06:30', duration: 240, signedBy: 'Mme Lambert',
+      observations: "SSI et désenfumage essayés galerie fermée. Un écran de cantonnement mobile ne descend pas jusqu'en position basse : reprise du guide à prévoir.",
+      anomalies: [{
+        family: 'desenfumage', serial: '05', verdict: 'surveiller',
+        title: 'Écran de cantonnement : descente incomplète', observation: "L'écran s'arrête à environ 40 cm de sa position basse à l'essai : guide à reprendre.",
+        action: 'repair', priority: 'high', dueInDays: 10,
+      }],
+    },
+    {
+      key: 'stjean', types: ['extincteurs', 'ria'], date: businessDay(-2), tech: 1, start: '08:30', duration: 180,
+      signedBy: 'Mme Dubois',
+      observations: OK_ANNUAL,
+      anomalies: [],
+    },
+    {
+      key: 'beausejour', types: ['extincteurs'], date: businessDay(-1), tech: 2, start: '09:00', duration: 150,
+      signedBy: 'M. Petit',
+      observations: 'Deux anomalies relevées : un extincteur à réformer (durée de vie dépassée) et une goupille manquante. Devis de remplacement à transmettre.',
+      anomalies: [
+        {
+          family: 'extincteurs', serial: '04', verdict: 'reformer',
+          title: 'Durée de vie dépassée (fabrication 2004)',
+          observation: 'Appareil fabriqué en 2004 : à remplacer.',
+          action: 'replacement', priority: 'high', dueInDays: 15,
+        },
+        {
+          family: 'extincteurs', serial: '07', verdict: 'surveiller',
+          title: 'Goupille et scellé manquants',
+          observation: 'Goupille absente, appareil non plombé.',
+          action: 'repair', priority: 'normal', dueInDays: 30,
+        },
+      ],
+    },
+  ]
+  return specs.sort((a, b) => a.date.localeCompare(b.date))
+}
+
 export type DemoProgressUpdate = (step: string, current: number, total: number) => void
 
-// 11 clients + techniciens + habilitations + 3 × (rapport, PDF) + échéances
-// + planning + devis + factures + frais + agenda
-const TOTAL_STEPS = 27
+/** Points de la liste qui ne concernent qu'un écran mobile ou motorisé */
+const MOBILE_ONLY = /^Écran (mobile|motorisé)/
 
 export async function loadDemoData(
   organizationId: string,
   organizationName: string,
   onProgress?: DemoProgressUpdate,
 ): Promise<void> {
+  const reportSpecs = buildReportSpecs()
+  // Clients + techniciens + habilitations + (rapport, PDF) par rapport + échéances
+  // + planning + devis + factures + avoir et acompte + frais + agenda + catalogue + contrats
+  const totalSteps = CLIENTS.length + 2 + 2 * reportSpecs.length + 9
   let step = 0
   const tick = (label: string) => {
-    step = Math.min(step + 1, TOTAL_STEPS)
-    onProgress?.(label, step, TOTAL_STEPS)
+    step = Math.min(step + 1, totalSteps)
+    onProgress?.(label, step, totalSteps)
   }
 
   // Garde : ne charge pas deux fois le même jeu de données
@@ -499,6 +743,21 @@ export async function loadDemoData(
       }),
       organizationId,
     )
+    // Liste de contrôle propre à l'appareil (désenfumage naturel, mécanique, écrans)
+    const serialsByKey = new Map<string, number>()
+    const keyed = new Map<string, string[]>()
+    for (const u of spec.site.units) {
+      const n = (serialsByKey.get(u.family) ?? 0) + 1
+      serialsByKey.set(u.family, n)
+      if (!u.checklistKey) continue
+      const unit = units.find((x) => x.family === u.family && x.serial_number === String(n).padStart(2, '0'))
+      if (unit) keyed.set(u.checklistKey, [...(keyed.get(u.checklistKey) ?? []), unit.id])
+    }
+    for (const [key, ids] of keyed) {
+      const { error } = await supabase.from('equipment_units').update({ checklist_key: key }).in('id', ids)
+      if (error) throw error
+      for (const u of units) if (ids.includes(u.id)) u.checklist_key = key
+    }
     byKey.set(spec.key, { spec, client, site, units })
     tick(`Client et parc : ${spec.name}`)
   }
@@ -569,62 +828,6 @@ export async function loadDemoData(
     return templates.get(family) ?? null
   }
 
-  type AnomalySpec = {
-    family: EquipmentFamily
-    serial: string
-    verdict: Extract<CheckVerdict, 'surveiller' | 'reformer'>
-    title: string
-    observation: string
-    action: AnomalyAction
-    priority: AnomalyPriority
-    dueInDays: number
-  }
-  type ReportSpec = {
-    key: string
-    types: EquipmentType[]
-    date: string
-    tech: number
-    start: string
-    duration: number
-    signedBy: string
-    observations: string
-    anomalies: AnomalySpec[]
-  }
-
-  const reportSpecs: ReportSpec[] = [
-    {
-      key: 'montaigne', types: ['extincteurs', 'desenfumage'], date: businessDay(-6), tech: 0, start: '13:30', duration: 210,
-      signedBy: 'M. Garnier',
-      observations: 'Visite annuelle réalisée. Exutoires testés en ouverture et en fermeture, aucune anomalie.',
-      anomalies: [],
-    },
-    {
-      key: 'stjean', types: ['extincteurs', 'ria'], date: businessDay(-2), tech: 1, start: '08:30', duration: 180,
-      signedBy: 'Mme Dubois',
-      observations: 'Visite annuelle réalisée. Tous les équipements contrôlés sont conformes.',
-      anomalies: [],
-    },
-    {
-      key: 'beausejour', types: ['extincteurs'], date: businessDay(-1), tech: 2, start: '09:00', duration: 150,
-      signedBy: 'M. Petit',
-      observations: 'Deux anomalies relevées : un extincteur à réformer (durée de vie dépassée) et une goupille manquante. Devis de remplacement à transmettre.',
-      anomalies: [
-        {
-          family: 'extincteurs', serial: '04', verdict: 'reformer',
-          title: 'Durée de vie dépassée (fabrication 2004)',
-          observation: 'Appareil fabriqué en 2004 : à remplacer.',
-          action: 'replacement', priority: 'high', dueInDays: 15,
-        },
-        {
-          family: 'extincteurs', serial: '07', verdict: 'surveiller',
-          title: 'Goupille et scellé manquants',
-          observation: 'Goupille absente, appareil non plombé.',
-          action: 'repair', priority: 'normal', dueInDays: 30,
-        },
-      ],
-    },
-  ]
-
   const finishedInterventions: Intervention[] = []
   for (const [index, r] of reportSpecs.entries()) {
     const { client, site, units } = get(r.key)
@@ -657,13 +860,21 @@ export async function loadDemoData(
       const anomaly = r.anomalies.find((a) => a.family === u.family && a.serial === u.serial_number)
       const verdict: CheckVerdict = anomaly?.verdict ?? 'conforme'
       const template = await templateFor(u.family)
+      // Désenfumage : la liste Firovia de l'appareil (naturel, mécanique, écrans)
+      const codeList = CODE_LIST_FAMILIES.has(u.family)
+        ? CODE_UNIT_LISTS.find((l) => l.key === u.checklist_key) ?? CODE_UNIT_LISTS.find((l) => l.family === u.family)
+        : undefined
+      const fixedScreen = codeList?.key === ECRANS_CANTONNEMENT_KEY && /fixe/i.test(u.subtype ?? '')
       const checklist: Record<string, CheckItemValue> = {}
-      for (const item of template?.checklist ?? []) checklist[item.id] = 'ok'
+      for (const item of codeList?.items ?? template?.checklist ?? []) {
+        checklist[item.id] = fixedScreen && MOBILE_ONLY.test(item.label) ? 'na' : 'ok'
+      }
       await upsertCheck(
         {
           intervention_id: interv.id,
           equipment_unit_id: u.id,
           family_template_id: template?.id ?? null,
+          checklist_key: codeList?.key ?? null,
           checklist,
           observation: anomaly?.observation ?? null,
           verdict,
@@ -794,6 +1005,7 @@ export async function loadDemoData(
     { key: 'parc', types: ['extincteurs'] as EquipmentType[], date: businessDay(0), start: '09:00', duration: 120, tech: 2, status: 'en_cours' },
     { key: 'lilas', types: ['extincteurs', 'ria'] as EquipmentType[], date: businessDay(1), start: '08:30', duration: 240, tech: 1, status: null },
     { key: 'tilleuls', types: ['extincteurs', 'ria', 'desenfumage'] as EquipmentType[], date: businessDay(2), start: '09:00', duration: 180, tech: 0, status: null },
+    { key: 'arcades', types: ['portes_cf'] as EquipmentType[], date: businessDay(2), start: '14:00', duration: 90, tech: 3, status: null },
     { key: 'creche', types: ['extincteurs', 'ssi'] as EquipmentType[], date: businessDay(3), start: '13:00', duration: 120, tech: 2, status: null },
     { key: 'garage', types: ['extincteurs'] as EquipmentType[], date: businessDay(4), start: '14:00', duration: 90, tech: 3, status: null },
   ]
@@ -871,6 +1083,23 @@ export async function loadDemoData(
   )
   await markQuoteSent(acceptedQuote.id, get('tilleuls').client.contact_email ?? '')
   await markQuoteAccepted(acceptedQuote.id)
+  // Travaux suite à l'anomalie du centre commercial : accepté, acompte de 30 % demandé
+  const worksQuote = await createQuote(
+    {
+      ...clientFields('arcades'),
+      issue_date: daysFromToday(-2), validity_date: daysFromToday(28),
+      notes: "Suite à la visite du désenfumage : remise en état d'un écran de cantonnement mobile et remplacement de deux écrans en fin de vie.",
+      lines: [
+        { position: 0, description: 'Écran de cantonnement mobile, toile 6 m (fourniture)', quantity: 2, unit_price_ht: 2850, vat_rate: 20 },
+        { position: 1, description: 'Dépose des anciens écrans et pose des nouveaux', quantity: 2, unit_price_ht: 640, vat_rate: 20 },
+        { position: 2, description: "Reprise du guide de l'écran n°05", quantity: 1, unit_price_ht: 290, vat_rate: 20 },
+        { position: 3, description: 'Mise en service et essais avec le SSI', quantity: 1, unit_price_ht: 380, vat_rate: 20 },
+      ],
+    },
+    organizationId,
+  )
+  await markQuoteSent(worksQuote.id, get('arcades').client.contact_email ?? '')
+  await markQuoteAccepted(worksQuote.id)
   tick('Devis')
 
   // ─── 7. Factures : payées, une en attente, une en retard ──
@@ -885,6 +1114,7 @@ export async function loadDemoData(
     { key: 'garage', months: 0, amount: 1640, label: 'Remplacement de 3 extincteurs poudre' },
     { key: 'parc', months: 0, amount: 2210, label: 'Contrat annuel de maintenance' },
   ]
+  let invoiceToCredit: Awaited<ReturnType<typeof createInvoice>> | null = null
   for (const [i, p] of paidInvoices.entries()) {
     const linked = finishedInterventions[i % finishedInterventions.length]
     const inv = await createInvoice(
@@ -899,6 +1129,7 @@ export async function loadDemoData(
     )
     await markInvoiceSent(inv.id, get(p.key).client.contact_email ?? '')
     await recordPayment(inv.id, Number(inv.total_ttc), 'virement', `VIR-${String(i + 1).padStart(3, '0')}`)
+    if (p.key === 'tilleuls') invoiceToCredit = inv
   }
   const pending = await createInvoice(
     {
@@ -919,6 +1150,24 @@ export async function loadDemoData(
   )
   await markInvoiceSent(late.id, get('lilas').client.contact_email ?? '')
   tick('Factures')
+
+  // ─── 7 bis. Avoir partiel et facture d'acompte ─────────────────
+  if (invoiceToCredit) {
+    const note = await createCreditNote(
+      invoiceToCredit,
+      [{ position: 0, description: 'BAES évacuation 45 lm compté deux fois', quantity: 1, unit_price_ht: 68, vat_rate: 20 }],
+      'Erreur de facturation : un BAES compté deux fois',
+    )
+    await issueInvoice(note.id)
+    await markInvoiceSent(note.id, get('tilleuls').client.contact_email ?? '')
+  }
+  // Acompte de 30 % payé ; la facture finale (acompte déduit) reste en brouillon
+  // jusqu'à la fin des travaux
+  const deposit = await createDepositInvoice(worksQuote.id, organizationId, { percent: 30 })
+  await markInvoiceSent(deposit.id, get('arcades').client.contact_email ?? '')
+  await recordPayment(deposit.id, Number(deposit.total_ttc), 'virement', 'VIR-ACOMPTE-01')
+  await createInvoiceFromQuote(worksQuote.id, organizationId)
+  tick('Avoir et acompte')
 
   // ─── 8. Notes de frais et heures sup ───────────────────────────
   for (const e of [
@@ -997,6 +1246,18 @@ export async function loadDemoData(
       key: 'montaigne', title: 'Forfait annuel extincteurs et désenfumage', start: monthsAgo(10, 15),
       billing_mode: 'advance' as const, billing_frequency: 'semiannual' as const, revision: 3,
       lines: [line('Forfait annuel de maintenance (extincteurs et désenfumage)', 1, 1650, null, 'annual')],
+    },
+    {
+      key: 'arcades', title: 'Maintenance sécurité incendie du centre commercial', start: monthsAgo(14, 1),
+      billing_mode: 'advance' as const, billing_frequency: 'quarterly' as const, revision: 2.5,
+      lines: [
+        line('Vérification annuelle extincteur (par appareil)', count('arcades', 'extincteurs'), 12, 'extincteurs', 'annual'),
+        line('Vérification RIA (par poste)', count('arcades', 'ria'), 25, 'ria', 'semiannual'),
+        line('Vérification SSI catégorie A (tableau et périphériques)', 1, 520, 'detection', 'annual'),
+        line('Vérification désenfumage et écrans de cantonnement (par équipement)', count('arcades', 'desenfumage'), 55, 'desenfumage', 'annual'),
+        line('Vérification colonne sèche (par colonne)', count('arcades', 'colonnes_seches'), 90, 'colonnes_seches', 'semiannual'),
+        line('Vérification porte coupe-feu (par porte)', count('arcades', 'portes_cf'), 18, 'portes_cf', 'annual'),
+      ],
     },
   ]
   for (const c of contractSpecs) {
