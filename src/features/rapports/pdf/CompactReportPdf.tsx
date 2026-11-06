@@ -45,7 +45,7 @@ const fmt = (input: string | null | undefined, pattern: string) => {
   return d ? format(d, pattern, { locale: fr }) : null
 }
 
-type TodoRow = { priority: 'high' | 'normal' | 'low'; what: string; where: string | null; problem: string; detail: string | null; action: string; due: string | null }
+type TodoRow = { priority: 'high' | 'normal' | 'low'; what: string; where: string | null; problem: string; detail: string | null; action: string; due: string | null; previous?: boolean }
 
 const PRIORITY_STYLE: Record<TodoRow['priority'], { fg: string; bg: string }> = {
   high: { fg: c.red, bg: c.redLt },
@@ -83,7 +83,7 @@ export function CompactReportPdf(props: ReportPdfProps) {
 
 function CompactContent({
   intervention, report, sections, organizationName, unitEntries = [], settings, anomalyEntries = [],
-  interventionType, nextInterventionDate, clientNumber, dossierNumber,
+  previousAnomalyEntries = [], interventionType, nextInterventionDate, clientNumber, dossierNumber,
 }: ReportPdfProps) {
   // ─── Résultat global : même calcul que l'écran, le mail et le portail ───
   let answered = 0
@@ -116,8 +116,29 @@ function CompactContent({
       due: fmt(a.anomaly.due_date, 'dd/MM/yyyy'),
     })
   }
+  // Anomalies d'une visite précédente, toujours ouvertes. Pas celles d'un
+  // équipement jugé conforme aujourd'hui (réparé, anomalie pas encore close).
+  // Le constat du jour sur le même équipement est repris dans la même ligne.
+  const conformToday = new Set(verified.filter((e) => e.verdict === 'conforme').map((e) => e.unitSerial))
+  const previousShown = new Set<string>()
+  for (const a of previousAnomalyEntries) {
+    if (a.unitSerial && (withAnomaly.has(a.unitSerial) || conformToday.has(a.unitSerial) || previousShown.has(a.unitSerial))) continue
+    if (a.unitSerial) previousShown.add(a.unitSerial)
+    const since = fmt(a.anomaly.detected_at, 'dd/MM/yyyy')
+    const today = a.unitSerial ? verified.find((e) => e.unitSerial === a.unitSerial)?.observation : null
+    todo.push({
+      priority: a.anomaly.priority,
+      what: [a.unitSerial, a.unitFamilyLabel].filter(Boolean).join(' · ') || 'Site',
+      where: [a.unitZoneName, a.unitImplantation].filter(Boolean).join(' · ') || null,
+      problem: a.anomaly.title,
+      detail: [since ? `Signalée le ${since}, toujours en attente` : 'Signalée lors d\'une visite précédente', today ?? a.anomaly.description].filter(Boolean).join(' · '),
+      action: a.anomaly.action ? ANOMALY_ACTION_LABELS[a.anomaly.action] : '—',
+      due: fmt(a.anomaly.due_date, 'dd/MM/yyyy'),
+      previous: true,
+    })
+  }
   for (const e of verified) {
-    if ((e.verdict !== 'surveiller' && e.verdict !== 'reformer') || withAnomaly.has(e.unitSerial)) continue
+    if ((e.verdict !== 'surveiller' && e.verdict !== 'reformer') || withAnomaly.has(e.unitSerial) || previousShown.has(e.unitSerial)) continue
     todo.push({
       priority: e.verdict === 'reformer' ? 'high' : 'normal',
       what: `${e.unitSerial} · ${e.familyLabel}`,
@@ -138,6 +159,17 @@ function CompactContent({
   todo.sort((a, b) => order[a.priority] - order[b.priority])
 
   const families = familyGroups(verified)
+  // Listes de contrôle utilisées (une par type, trois pour le désenfumage…)
+  const pointListsMap = new Map<string, { key: string; name: string; points: string[]; count: number }>()
+  for (const e of verified) {
+    if (!e.pointLabels?.length) continue
+    const name = e.listName && e.listName !== e.familyLabel ? `${e.familyLabel} : ${e.listName}` : e.familyLabel
+    const key = `${e.family ?? e.familyLabel}|${e.listName ?? ''}`
+    const cur = pointListsMap.get(key)
+    if (cur) cur.count++
+    else pointListsMap.set(key, { key, name, points: e.pointLabels, count: 1 })
+  }
+  const pointLists = [...pointListsMap.values()]
   const visitDate = fmt(report.completed_at ?? intervention.scheduled_date, 'd MMMM yyyy')
   const completedLabel = fmt(report.completed_at, "d MMMM yyyy 'à' HH:mm") ?? '—'
   const nextLabel = fmt(nextInterventionDate, 'd MMMM yyyy')
@@ -148,10 +180,15 @@ function CompactContent({
     [settings?.siret ? `SIRET ${settings.siret}` : null, settings?.vat_number ? `TVA ${settings.vat_number}` : null].filter(Boolean).join(' · '),
   ].filter(Boolean)
 
+  const previousCount = todo.filter((t) => t.previous).length
+  const todayCount = todo.length - previousCount
+  const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`
+  const controlled = `${plural(verified.length, 'équipement')} contrôlé${verified.length > 1 ? 's' : ''}`
+  const pending = previousCount > 0 ? ` · ${plural(previousCount, 'point')} en attente depuis une visite précédente` : ''
   const banner = conformity.isConform === true
-    ? { label: 'CONFORME', sub: `${verified.length} équipement${verified.length > 1 ? 's' : ''} contrôlé${verified.length > 1 ? 's' : ''}, aucun point à traiter`, fg: c.grn, bg: c.grnLt }
+    ? { label: 'CONFORME', sub: previousCount > 0 ? `${controlled}, conformes${pending}` : `${controlled}, aucun point à traiter`, fg: c.grn, bg: c.grnLt }
     : conformity.isConform === false
-      ? { label: 'NON CONFORME', sub: `${todo.length} point${todo.length > 1 ? 's' : ''} à traiter sur ${verified.length} équipement${verified.length > 1 ? 's' : ''} contrôlé${verified.length > 1 ? 's' : ''}`, fg: c.red, bg: c.redLt }
+      ? { label: 'NON CONFORME', sub: `${plural(todayCount, 'point')} à traiter sur ${controlled}${pending}`, fg: c.red, bg: c.redLt }
       : { label: 'INCOMPLET', sub: `${notVerified.length} équipement${notVerified.length > 1 ? 's' : ''} non vérifié${notVerified.length > 1 ? 's' : ''} sur ${unitEntries.length}`, fg: c.gry, bg: c.gryLt }
 
   const photos = [
@@ -229,7 +266,7 @@ function CompactContent({
                   </View>
                   <View style={{ width: '36%', paddingRight: 6 }}>
                     <Text style={{ fontSize: 8.5 }}>{t.problem}</Text>
-                    {t.detail && t.detail !== t.problem && <Text style={[s.small, { color: c.ink2 }]}>{t.detail}</Text>}
+                    {t.detail && t.detail !== t.problem && <Text style={[s.small, { color: t.previous ? c.org : c.ink2 }]}>{t.detail}</Text>}
                   </View>
                   <Text style={{ width: '14%', fontSize: 8.5 }}>{t.action}</Text>
                   <Text style={{ width: '12%', fontSize: 8.5, textAlign: 'right', fontFamily: t.due ? 'Helvetica-Bold' : 'Helvetica' }}>{t.due ?? '—'}</Text>
@@ -336,7 +373,24 @@ function CompactContent({
               })}
             </View>
           ))}
+
         </View>
+
+        {/* Ce qui a été vérifié : chaque liste de contrôle une seule fois */}
+        {pointLists.length > 0 && (
+          <View style={{ marginTop: 12 }}>
+            <Text style={[s.h2, { marginBottom: 3 }]} minPresenceAhead={60}>Points contrôlés sur chaque équipement</Text>
+            {pointLists.map((l) => (
+              <View key={l.key} style={{ marginTop: 4 }} wrap={false}>
+                <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold' }}>
+                  {l.name} <Text style={{ fontFamily: 'Helvetica', color: c.ink3 }}>· {plural(l.count, 'équipement')} · {plural(l.points.length, 'point')}</Text>
+                </Text>
+                <Text style={{ fontSize: 7.5, color: c.ink2, lineHeight: 1.35 }}>{l.points.join(' · ')}</Text>
+              </View>
+            ))}
+            <Text style={[s.small, { marginTop: 4 }]}>Les points sans objet pour un équipement ne sont pas comptés dans sa colonne « Points ».</Text>
+          </View>
+        )}
 
         {/* ─── Annexe 2 : photos et constats ─── */}
         {(photos.length > 0 || report.nonconformities) && (

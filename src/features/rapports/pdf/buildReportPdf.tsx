@@ -16,6 +16,7 @@ import type { ChecklistResponse } from '../schemas'
 import { ClassicReportPdf } from './ClassicReportPdf'
 import { generateAndUploadReportPdf } from './generateReportPdf'
 import { CompactReportPdf } from './CompactReportPdf'
+import { loadPreviousOpenAnomalies } from './previousAnomalies'
 import type { AnomalyPdfEntry, ReportPdfProps } from './ReportPdf'
 import { loadReportExtras } from './reportExtras'
 
@@ -92,6 +93,7 @@ export async function generateReportPdfForIntervention(
     unitEntries,
     settings,
     anomalyEntries,
+    previousAnomalyEntries: await loadPreviousOpenAnomalies(interventionId, intervention.site_id).catch(() => []),
     clientNumber,
     dossierNumber,
     interventionType: intervention.intervention_type ? INTERVENTION_TYPE_LABELS[intervention.intervention_type] : null,

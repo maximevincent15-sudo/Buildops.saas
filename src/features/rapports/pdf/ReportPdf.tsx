@@ -471,6 +471,9 @@ export type UnitReportEntry = {
   totalItems?: number
   naItems?: string[]
   uncheckedItems?: string[]
+  /** Nom de la liste de contrôle utilisée et ses points (rapport compact : « points contrôlés ») */
+  listName?: string
+  pointLabels?: string[]
 }
 
 export type ReportPdfProps = Props
@@ -486,6 +489,8 @@ type Props = {
   settings?: InvoicingSettings | null
   /** Anomalies persistantes (Slice M6) — remplace le résumé auto si fourni. */
   anomalyEntries?: AnomalyPdfEntry[]
+  /** Anomalies encore ouvertes, signalées lors de visites précédentes du site (rapport compact) */
+  previousAnomalyEntries?: AnomalyPdfEntry[]
   /** Type d'intervention affiché dans le bandeau (Préventive/Corrective/…). */
   interventionType?: string | null
   /** Date de la prochaine intervention planifiée (ISO date). */

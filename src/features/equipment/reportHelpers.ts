@@ -57,11 +57,11 @@ export async function buildUnitEntriesForIntervention(
     const zone = u.zone_id ? zonesById.get(u.zone_id) ?? null : null
 
     // Liste utilisée pour ce contrôle ; anciens contrôles : la liste Firovia d'alors
-    const items = c.checklist_key
-      ? unitListFor(ctx, u.family, c.checklist_key)?.items ?? []
-      : (c.family_template_id ? templatesById.get(c.family_template_id) : undefined)?.checklist
-        ?? templatesByFamily.get(u.family)?.checklist
-        ?? []
+    const keyedList = c.checklist_key ? unitListFor(ctx, u.family, c.checklist_key) : null
+    const template = (c.family_template_id ? templatesById.get(c.family_template_id) : undefined)
+      ?? templatesByFamily.get(u.family)
+    const items = c.checklist_key ? keyedList?.items ?? [] : template?.checklist ?? []
+    const listName = (c.checklist_key ? keyedList?.name : template?.name) || EQUIPMENT_FAMILY_LABELS[u.family]
     const answers = c.checklist ?? {}
     const naItems = items.filter((it) => answers[it.id] === 'na').map((it) => it.label)
     const uncheckedItems = items.filter((it) => !answers[it.id]).map((it) => it.label)
@@ -87,6 +87,8 @@ export async function buildUnitEntriesForIntervention(
       checkedCount: items.length - uncheckedItems.length,
       naItems,
       uncheckedItems,
+      listName,
+      pointLabels: items.map((it) => it.label),
     })
   }
 

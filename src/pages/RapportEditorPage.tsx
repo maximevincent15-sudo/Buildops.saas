@@ -48,6 +48,7 @@ import { SendToClientModal } from '../features/rapports/components/SendToClientM
 import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
 import { ClassicReportPdf } from '../features/rapports/pdf/ClassicReportPdf'
 import { CompactReportPdf } from '../features/rapports/pdf/CompactReportPdf'
+import { loadPreviousOpenAnomalies } from '../features/rapports/pdf/previousAnomalies'
 import type { AnomalyPdfEntry, ReportPdfProps } from '../features/rapports/pdf/ReportPdf'
 import { loadReportExtras } from '../features/rapports/pdf/reportExtras'
 import { buildUnitEntriesForIntervention } from '../features/equipment/reportHelpers'
@@ -553,6 +554,7 @@ export function RapportEditorPage() {
       unitEntries,
       settings: invoicingSettings,
       anomalyEntries,
+      previousAnomalyEntries: await loadPreviousOpenAnomalies(iid, intervention!.site_id).catch(() => []),
       clientNumber,
       dossierNumber: visitDossier,
       interventionType: intervention?.intervention_type
