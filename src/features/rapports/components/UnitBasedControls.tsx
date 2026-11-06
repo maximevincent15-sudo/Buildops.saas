@@ -320,22 +320,35 @@ export function UnitBasedControls({
   }
 
   /** Résultat d'un scan : ouvre le contrôle de l'équipement, ou propose de le créer */
+  function openScannedUnit(found: EquipmentUnit) {
+    if (scopeActive && !inScope(found) && !window.confirm(
+      `${unitRepere(found)} (${EQUIPMENT_FAMILY_LABELS[found.family]}) n'est pas prévu dans ce chantier.\n\nLe contrôler quand même ?`,
+    )) return
+    setFromScan(true)
+    const where = unitLocation(found, found.zone_id ? zonesById.get(found.zone_id) : null)
+    setScanMessage({ tone: 'ok', text: `${unitRepere(found)} trouvé${where ? ` · ${where}` : ''}` })
+    setEditingUnitId(found.id)
+  }
+
   async function handleScan(text: string) {
     setScanOpen(false)
     const found = matchUnitByQr(units, text)
     if (found) {
-      if (scopeActive && !inScope(found) && !window.confirm(
-        `${unitRepere(found)} (${EQUIPMENT_FAMILY_LABELS[found.family]}) n'est pas prévu dans ce chantier.\n\nLe contrôler quand même ?`,
-      )) return
-      setFromScan(true)
-      const where = unitLocation(found, found.zone_id ? zonesById.get(found.zone_id) : null)
-      setScanMessage({ tone: 'ok', text: `${unitRepere(found)} trouvé${where ? ` · ${where}` : ''}` })
-      setEditingUnitId(found.id)
+      openScannedUnit(found)
       return
     }
     setFromScan(false)
     try {
       const elsewhere = await findUnitsByQrCodes(qrRawParts(text))
+      // Étiquette d'un appareil de ce site attribuée après l'ouverture du rapport
+      // (planche imprimée entre-temps) : la liste affichée n'a pas encore le code
+      const here = elsewhere.find((u) => u.site_id === siteId && units.some((x) => x.id === u.id))
+      if (here) {
+        const unit = { ...units.find((x) => x.id === here.id)!, qr_code: here.qr_code }
+        setUnits((prev) => prev.map((x) => (x.id === here.id ? { ...x, qr_code: here.qr_code } : x)))
+        openScannedUnit(unit)
+        return
+      }
       const other = elsewhere.find((u) => u.site_id !== siteId)
       if (other) {
         const site = (await listSites(other.client_id).catch(() => [])).find((x) => x.id === other.site_id)
