@@ -15,7 +15,7 @@ import { responsesToByType } from '../schemas'
 import type { ChecklistResponse } from '../schemas'
 import { ClassicReportPdf } from './ClassicReportPdf'
 import { generateAndUploadReportPdf } from './generateReportPdf'
-import { ReportPdf } from './ReportPdf'
+import { CompactReportPdf } from './CompactReportPdf'
 import type { AnomalyPdfEntry, ReportPdfProps } from './ReportPdf'
 import { loadReportExtras } from './reportExtras'
 
@@ -99,7 +99,7 @@ export async function generateReportPdfForIntervention(
   // Modèle choisi dans Paramètres : compte rendu classique ou rapport Firovia
   const element = settings?.report_template === 'classic'
     ? <ClassicReportPdf {...pdfProps} {...await loadReportExtras(intervention).catch(() => ({}))} />
-    : <ReportPdf {...pdfProps} />
+    : <CompactReportPdf {...pdfProps} />
   const url = await generateAndUploadReportPdf(element, organizationId, interventionId, intervention.reference)
   await setReportPdfUrl(report.id, url)
   return url

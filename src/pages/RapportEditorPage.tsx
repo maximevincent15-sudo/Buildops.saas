@@ -47,7 +47,7 @@ import { TimeSpentCard } from '../features/rapports/components/TimeSpentCard'
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
 import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
 import { ClassicReportPdf } from '../features/rapports/pdf/ClassicReportPdf'
-import { ReportPdf } from '../features/rapports/pdf/ReportPdf'
+import { CompactReportPdf } from '../features/rapports/pdf/CompactReportPdf'
 import type { AnomalyPdfEntry, ReportPdfProps } from '../features/rapports/pdf/ReportPdf'
 import { loadReportExtras } from '../features/rapports/pdf/reportExtras'
 import { buildUnitEntriesForIntervention } from '../features/equipment/reportHelpers'
@@ -562,7 +562,7 @@ export function RapportEditorPage() {
     // Modèle choisi dans Paramètres : compte rendu classique ou rapport Firovia
     const element = invoicingSettings?.report_template === 'classic'
       ? <ClassicReportPdf {...pdfProps} {...await loadReportExtras(intervention!).catch(() => ({}))} />
-      : <ReportPdf {...pdfProps} />
+      : <CompactReportPdf {...pdfProps} />
     return generateAndUploadReportPdf(element, orgId, iid, intervention!.reference)
   }
 

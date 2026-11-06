@@ -8,7 +8,7 @@ const OPTIONS: Array<{ value: ReportTemplate; label: string; hint: string }> = [
   {
     value: 'standard',
     label: 'Rapport Firovia',
-    hint: 'Résumé visuel, registre équipement par équipement, anomalies avec photos.',
+    hint: 'Tout sur la 1re page : résultat, points à traiter avec leur échéance, résumé par type d\'équipement et signatures. La liste des équipements et les photos en annexes.',
   },
   {
     value: 'classic',

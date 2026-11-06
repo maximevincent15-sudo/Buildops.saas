@@ -914,7 +914,7 @@ function ReportPdfContent({
         {/* ÉQUIPEMENTS CONTRÔLÉS (si contrôles unitaires) : la liste de cette visite */}
         {verifiedEntries.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
+            <Text style={styles.sectionTitle} minPresenceAhead={80}>
               Équipements contrôlés ({verifiedEntries.length})
             </Text>
 
@@ -923,7 +923,7 @@ function ReportPdfContent({
               const cnt = { conforme: 0, surveiller: 0, reformer: 0, non_verifie: notVerifiedEntries.length }
               for (const e of verifiedEntries) cnt[e.verdict]++
               return (
-                <View style={styles.unitStatsRow}>
+                <View style={styles.unitStatsRow} wrap={false}>
                   <View style={[styles.unitStatChip, { borderColor: colors.grn, backgroundColor: colors.grnLt }]}>
                     <Text style={styles.unitStatLabel}>Conformes</Text>
                     <Text style={[styles.unitStatValue, { color: colors.grn }]}>{cnt.conforme}</Text>
