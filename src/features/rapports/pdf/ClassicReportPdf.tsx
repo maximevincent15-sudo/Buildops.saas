@@ -1,3 +1,4 @@
+import { pdfSafe } from './pdfText'
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -126,7 +127,12 @@ function InfoRow({ k, v }: { k: string; v: string | null | undefined }) {
   )
 }
 
-export function ClassicReportPdf({
+/** Rapport PDF classique (textes nettoyés pour la police du PDF : « CO₂ »…) */
+export function ClassicReportPdf(props: Props) {
+  return <ClassicReportPdfContent {...pdfSafe(props)} />
+}
+
+function ClassicReportPdfContent({
   intervention, report, sections, organizationName,
   unitEntries = [], settings, anomalyEntries = [],
   interventionType, clientNumber, dossierNumber,

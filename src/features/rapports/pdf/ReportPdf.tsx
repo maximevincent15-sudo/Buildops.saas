@@ -1,3 +1,4 @@
+import { pdfSafe } from './pdfText'
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -495,7 +496,12 @@ type Props = {
   dossierNumber?: string | null
 }
 
-export function ReportPdf({
+/** Rapport PDF standard (textes nettoyés pour la police du PDF : « CO₂ »…) */
+export function ReportPdf(props: Props) {
+  return <ReportPdfContent {...pdfSafe(props)} />
+}
+
+function ReportPdfContent({
   intervention, report, sections, organizationName,
   unitEntries, settings, anomalyEntries,
   interventionType, nextInterventionDate, clientNumber, dossierNumber,
@@ -1360,7 +1366,7 @@ function ZoneControls({ entries }: { entries: UnitReportEntry[] }) {
 
             {list.map((e, i) => {
               const c = VERDICT_COLORS[e.verdict]
-              const title = [`N°${e.unitSerial}`, e.familyLabel, e.subtype].filter(Boolean).join(' · ')
+              const title = [unitNumber(e.unitSerial), e.familyLabel, e.subtype].filter(Boolean).join(' · ')
               const checked = e.checkedCount ?? 0
               const pointsLine = e.totalItems && checked > 0
                 ? `${checked}/${e.totalItems} points vérifiés${e.naItems && e.naItems.length > 0 ? ` · ${e.naItems.length} N/A` : ''}`
@@ -1476,7 +1482,7 @@ function AnomalyBlock({ entry }: { entry: AnomalyPdfEntry }) {
   })()
 
   const unitHeader = [
-    unitSerial ? `N°${unitSerial}` : null,
+    unitSerial ? unitNumber(unitSerial) : null,
     unitFamilyLabel,
     unitSubtype,
   ]
