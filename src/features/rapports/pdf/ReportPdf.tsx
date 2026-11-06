@@ -748,7 +748,7 @@ function ReportPdfContent({
               flexDirection: 'row',
               gap: 8,
               marginTop: 6,
-              marginBottom: 4,
+              marginBottom: 14,
             }}
           >
             <View style={{ flex: 1, padding: 6, backgroundColor: '#F3F5F7', borderRadius: 4 }}>
@@ -775,37 +775,6 @@ function ReportPdfContent({
                 {anomalyEntries.filter((e) => e.anomaly.status === 'open' || e.anomaly.status === 'planned').length}
               </Text>
             </View>
-          </View>
-        )}
-
-        {/* ANOMALIES PERSISTANTES (Slice M6) — bloc par unité avec toutes les infos */}
-        {anomalyEntries && anomalyEntries.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Anomalies détectées et enregistrées ({anomalyEntries.length})
-            </Text>
-            {anomalyEntries.map((entry, i) => (
-              <AnomalyBlock key={entry.anomaly.id ?? i} entry={entry} />
-            ))}
-          </View>
-        )}
-
-        {/* ÉQUIPEMENTS NON VÉRIFIÉS : prévus dans la visite mais pas contrôlés */}
-        {notVerifiedEntries.length > 0 && (
-          <View style={[styles.summaryBox, { borderLeftColor: colors.org, backgroundColor: colors.orgLt }]}>
-            <Text style={styles.summaryTitle}>
-              {notVerifiedEntries.length} équipement{notVerifiedEntries.length > 1 ? 's' : ''} non vérifié{notVerifiedEntries.length > 1 ? 's' : ''} lors de cette visite
-            </Text>
-            <Text style={[styles.summaryItem, { color: colors.ink2, marginBottom: 2 }]}>
-              Ce rapport ne {notVerifiedEntries.length > 1 ? 'les' : 'le'} couvre pas : leur contrôle reste à faire.
-            </Text>
-            {groupNotVerified(notVerifiedEntries).map((g) => (
-              <Text key={g.key} style={styles.summaryItem}>
-                <Text style={{ fontFamily: 'Helvetica-Bold' }}>{g.familyLabel} ({g.serials.length})</Text>
-                {` : ${g.serials.map(unitNumber).join(', ')}`}
-                {g.reason ? ` — ${g.reason}` : ''}
-              </Text>
-            ))}
           </View>
         )}
 
@@ -911,11 +880,42 @@ function ReportPdfContent({
           </View>
         </View>
 
-        {/* REGISTRE APSAD NOMINATIF (si contrôles unitaires) */}
+        {/* ANOMALIES PERSISTANTES (Slice M6) — bloc par unité avec toutes les infos */}
+        {anomalyEntries && anomalyEntries.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Anomalies détectées et enregistrées ({anomalyEntries.length})
+            </Text>
+            {anomalyEntries.map((entry, i) => (
+              <AnomalyBlock key={entry.anomaly.id ?? i} entry={entry} />
+            ))}
+          </View>
+        )}
+
+        {/* ÉQUIPEMENTS NON VÉRIFIÉS : prévus dans la visite mais pas contrôlés */}
+        {notVerifiedEntries.length > 0 && (
+          <View style={[styles.summaryBox, { borderLeftColor: colors.org, backgroundColor: colors.orgLt }]}>
+            <Text style={styles.summaryTitle}>
+              {notVerifiedEntries.length} équipement{notVerifiedEntries.length > 1 ? 's' : ''} non vérifié{notVerifiedEntries.length > 1 ? 's' : ''} lors de cette visite
+            </Text>
+            <Text style={[styles.summaryItem, { color: colors.ink2, marginBottom: 2 }]}>
+              Ce rapport ne {notVerifiedEntries.length > 1 ? 'les' : 'le'} couvre pas : leur contrôle reste à faire.
+            </Text>
+            {groupNotVerified(notVerifiedEntries).map((g) => (
+              <Text key={g.key} style={styles.summaryItem}>
+                <Text style={{ fontFamily: 'Helvetica-Bold' }}>{g.familyLabel} ({g.serials.length})</Text>
+                {` : ${g.serials.map(unitNumber).join(', ')}`}
+                {g.reason ? ` — ${g.reason}` : ''}
+              </Text>
+            ))}
+          </View>
+        )}
+
+        {/* ÉQUIPEMENTS CONTRÔLÉS (si contrôles unitaires) : la liste de cette visite */}
         {verifiedEntries.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              Registre nominatif — {verifiedEntries.length} équipement{verifiedEntries.length > 1 ? 's' : ''} contrôlé{verifiedEntries.length > 1 ? 's' : ''}
+              Équipements contrôlés ({verifiedEntries.length})
             </Text>
 
             {/* Compteurs par verdict */}
@@ -968,11 +968,12 @@ function ReportPdfContent({
                     <View style={[styles.regRow, styles.regRowHead]} wrap={false}>
                       <View style={[styles.regCell, { width: '7%' }]}><Text style={styles.regCellHead}>N°</Text></View>
                       <View style={[styles.regCell, { width: '15%' }]}><Text style={styles.regCellHead}>Niv / Zone</Text></View>
-                      <View style={[styles.regCell, { width: '18%' }]}><Text style={styles.regCellHead}>Implantation</Text></View>
-                      <View style={[styles.regCell, { width: '12%' }]}><Text style={styles.regCellHead}>Type</Text></View>
-                      <View style={[styles.regCell, { width: '12%' }]}><Text style={styles.regCellHead}>Marque</Text></View>
+                      <View style={[styles.regCell, { width: '14%' }]}><Text style={styles.regCellHead}>Implantation</Text></View>
+                      <View style={[styles.regCell, { width: '14%' }]}><Text style={styles.regCellHead}>Type</Text></View>
+                      <View style={[styles.regCell, { width: '10%' }]}><Text style={styles.regCellHead}>Marque</Text></View>
                       <View style={[styles.regCell, { width: '7%' }]}><Text style={styles.regCellHead}>Année</Text></View>
-                      <View style={[styles.regCell, styles.regCellLast, { width: '29%' }]}><Text style={styles.regCellHead}>Verdict · Observation</Text></View>
+                      <View style={[styles.regCell, { width: '7%' }]}><Text style={styles.regCellHead}>Points</Text></View>
+                      <View style={[styles.regCell, styles.regCellLast, { width: '26%' }]}><Text style={styles.regCellHead}>Verdict · Observation</Text></View>
                     </View>
 
                     {/* Lignes */}
@@ -984,6 +985,12 @@ function ReportPdfContent({
                         : styles.regVerdictNonVerifie
                       const zoneLabel = [e.parentZone, e.zoneName].filter(Boolean).join(' · ') || '—'
                       const verdictText = `${e.verdictLabel}${e.observation ? ` — ${e.observation}` : ''}`
+                      // Points vérifiés sur les points applicables (les « sans objet » ne
+                      // comptent pas) ; « — » si le verdict a été posé sans cocher les points
+                      const na = e.naItems?.length ?? 0
+                      const pointsText = e.totalItems && (e.checkedCount ?? 0) > 0
+                        ? `${(e.checkedCount ?? 0) - na}/${e.totalItems - na}`
+                        : '—'
                       const isLast = i === g.entries.length - 1
                       return (
                         <View
@@ -993,11 +1000,12 @@ function ReportPdfContent({
                         >
                           <View style={[styles.regCell, { width: '7%' }]}><Text style={{ fontFamily: 'Helvetica-Bold', fontSize: 8 }}>{e.unitSerial}</Text></View>
                           <View style={[styles.regCell, { width: '15%' }]}><Text style={{ fontSize: 8 }}>{zoneLabel}</Text></View>
-                          <View style={[styles.regCell, { width: '18%' }]}><Text style={{ fontSize: 8 }}>{e.implantation ?? '—'}</Text></View>
-                          <View style={[styles.regCell, { width: '12%' }]}><Text style={{ fontSize: 8 }}>{e.subtype ?? e.familyLabel}</Text></View>
-                          <View style={[styles.regCell, { width: '12%' }]}><Text style={{ fontSize: 8 }}>{e.brand ?? '—'}</Text></View>
+                          <View style={[styles.regCell, { width: '14%' }]}><Text style={{ fontSize: 8 }}>{e.implantation ?? '—'}</Text></View>
+                          <View style={[styles.regCell, { width: '14%' }]}><Text style={{ fontSize: 8 }}>{e.subtype ?? e.familyLabel}</Text></View>
+                          <View style={[styles.regCell, { width: '10%' }]}><Text style={{ fontSize: 8 }}>{e.brand ?? '—'}</Text></View>
                           <View style={[styles.regCell, { width: '7%' }]}><Text style={{ fontSize: 8 }}>{e.installYear ?? '—'}</Text></View>
-                          <View style={[styles.regCell, styles.regCellLast, { width: '29%' }]}>
+                          <View style={[styles.regCell, { width: '7%' }]}><Text style={{ fontSize: 8 }}>{pointsText}</Text></View>
+                          <View style={[styles.regCell, styles.regCellLast, { width: '26%' }]}>
                             <Text style={[{ fontSize: 8 }, verdictStyle]}>{verdictText}</Text>
                           </View>
                         </View>
@@ -1010,8 +1018,16 @@ function ReportPdfContent({
           </View>
         )}
 
-        {/* CONTRÔLES PAR ZONE — rapport par unité : chaque zone du site, chaque équipement */}
-        {unitControlsActive && <ZoneControls entries={verifiedEntries} />}
+        {/* DÉTAIL — seulement les équipements qui ont quelque chose à signaler (le registre liste tout) */}
+        {unitControlsActive && (() => {
+          const withAnomaly = new Set((anomalyEntries ?? []).map((a) => a.unitSerial).filter(Boolean))
+          return (
+            <ZoneControls
+              entries={verifiedEntries.filter((e) => needsDetail(e) && !withAnomaly.has(e.unitSerial))}
+              anomaliesAbove={withAnomaly.size > 0}
+            />
+          )
+        })()}
 
         {/* CHECKLIST — une section par famille (rapports legacy sans contrôles unitaires) */}
         {!unitControlsActive && effectiveSections.map((section) => {
@@ -1141,7 +1157,7 @@ function ReportPdfContent({
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <View style={{ paddingVertical: 2, paddingHorizontal: 6, backgroundColor: colors.grnLt, borderRadius: 3 }}>
                   <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: colors.grn }}>
-                    ✓ Signé électroniquement
+                    Signé électroniquement
                   </Text>
                 </View>
               </View>
@@ -1150,9 +1166,20 @@ function ReportPdfContent({
               </Text>
             </View>
 
-            {/* Client — P1 : gestion des cas absence / refus / non requis */}
-            <ClientSignatureBox report={report} completedLabel={completedLabel} />
+            {/* Client : encadré seulement s'il a signé, refusé ou si la signature est attendue */}
+            {showClientBox(report) && <ClientSignatureBox report={report} completedLabel={completedLabel} />}
           </View>
+
+          {/* Client absent : simple mention (trace de la visite), sans encadré */}
+          {report.signature_status === 'client_absent' && (
+            <Text style={{ fontSize: 8, color: colors.ink2, marginTop: 8, lineHeight: 1.4 }}>
+              <Text style={{ fontFamily: 'Helvetica-Bold' }}>Client absent lors de la visite</Text>
+              {report.signature_note ? ` : ${report.signature_note}` : '.'}
+            </Text>
+          )}
+          {report.signature_status === 'not_required' && report.signature_note && (
+            <Text style={{ fontSize: 8, color: colors.ink2, marginTop: 8, lineHeight: 1.4 }}>{report.signature_note}</Text>
+          )}
 
           {/* Mention technique (P0 #14 : plus de déclaration eIDAS non justifiée) */}
           <View
@@ -1169,8 +1196,9 @@ function ReportPdfContent({
             <Text style={{ fontSize: 7, color: '#3A4E7A', lineHeight: 1.4 }}>
               Rapport généré électroniquement le {completedLabel}.
               Identifiant unique : {intervention.reference}.
-              La signature apposée par le représentant client atteste de la
-              prise de connaissance du présent rapport et de ses constats.
+              {clientHasSigned(report)
+                ? ' La signature apposée par le représentant client atteste de la prise de connaissance du présent rapport et de ses constats.'
+                : ''}
             </Text>
           </View>
         </View>
@@ -1188,6 +1216,18 @@ function ReportPdfContent({
 // ─── P1 — Bloc signature client (statuts signed / absent / refused / not_required)
 // Refactor : plus d'IIFE, composant classique qui retourne un View unique.
 // ────────────────────────────────────────────────────────────────────────
+
+/** Le client a signé sur le téléphone */
+function clientHasSigned(report: Report): boolean {
+  const status = report.signature_status ?? 'pending'
+  return !!report.signature_data_url && (status === 'signed' || status === 'pending')
+}
+
+/** Encadré client : signature, refus ou signature attendue ; rien si absent ou non requise */
+function showClientBox(report: Report): boolean {
+  const status = report.signature_status ?? 'pending'
+  return clientHasSigned(report) || status === 'client_refused' || status === 'pending' || status === 'signed'
+}
 
 function ClientSignatureBox({
   report,
@@ -1211,7 +1251,7 @@ function ClientSignatureBox({
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
           <View style={{ paddingVertical: 2, paddingHorizontal: 6, backgroundColor: colors.grnLt, borderRadius: 3 }}>
             <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: colors.grn }}>
-              ✓ Signé électroniquement
+              Signé électroniquement
             </Text>
           </View>
         </View>
@@ -1318,7 +1358,26 @@ function zoneKey(e: UnitReportEntry): string {
   return [e.parentZone, e.zoneName].filter(Boolean).join(' · ')
 }
 
-function ZoneControls({ entries }: { entries: UnitReportEntry[] }) {
+/** Points non cochés à signaler : verdict posé avec une partie des points seulement */
+function shouldShowUnchecked(e: UnitReportEntry): boolean {
+  const checklistEmpty = !!e.totalItems && (e.checkedCount ?? 0) === 0
+  return e.verdict !== 'non_verifie' && !checklistEmpty && !!e.uncheckedItems && e.uncheckedItems.length > 0
+}
+
+/**
+ * Équipement à détailler sous le registre : verdict autre que conforme,
+ * observation, opération en plus de la vérification ou point non vérifié.
+ * Les équipements conformes sans remarque ne sont pas répétés.
+ */
+function needsDetail(e: UnitReportEntry): boolean {
+  return e.verdict !== 'conforme'
+    || !!e.observation
+    || (e.operations ?? []).some((op) => op !== 'Vérification')
+    || shouldShowUnchecked(e)
+}
+
+function ZoneControls({ entries, anomaliesAbove }: { entries: UnitReportEntry[]; anomaliesAbove: boolean }) {
+  if (entries.length === 0) return null
   // Regroupement par zone en conservant l'ordre d'apparition ; "Sans zone" en dernier.
   const groups = new Map<string, UnitReportEntry[]>()
   for (const e of entries) {
@@ -1331,7 +1390,12 @@ function ZoneControls({ entries }: { entries: UnitReportEntry[] }) {
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Contrôles par zone</Text>
+      <Text style={styles.sectionTitle}>Autres points à signaler</Text>
+      <Text style={{ fontSize: 8, color: colors.ink3, marginTop: -4, marginBottom: 2 }}>
+        {anomaliesAbove
+          ? 'Les équipements avec une anomalie sont décrits plus haut ; les autres sont conformes, sans remarque.'
+          : 'Les autres équipements contrôlés sont conformes, sans remarque.'}
+      </Text>
       {ordered.map(([zone, list]) => {
         const counts = { conforme: 0, surveiller: 0, reformer: 0, non_verifie: 0 }
         for (const e of list) counts[e.verdict]++
@@ -1373,10 +1437,7 @@ function ZoneControls({ entries }: { entries: UnitReportEntry[] }) {
                 : null
               // Verdict posé sans cocher les points (validation globale, « Tout
               // conforme ») : le verdict du technicien suffit, rien à lister.
-              const checklistEmpty = !!e.totalItems && checked === 0
-              const showUnchecked =
-                e.verdict !== 'non_verifie' && !checklistEmpty
-                && !!e.uncheckedItems && e.uncheckedItems.length > 0
+              const showUnchecked = shouldShowUnchecked(e)
               const extraOps = (e.operations ?? []).filter((op) => op !== 'Vérification')
               const hasDetail =
                 !!e.observation
