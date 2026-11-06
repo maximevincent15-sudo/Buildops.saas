@@ -3,10 +3,12 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { findUnitsByQrCodes } from '../features/equipment/api'
 import { labelUrl } from '../features/equipment/labels'
+import { findOpenVisitForSite } from '../features/planning/api'
 
 /**
  * Étiquette QR Firovia scannée avec l'appareil photo du téléphone
- * (app.firovia.fr/e/<CODE>) : ouvre la fiche de l'équipement.
+ * (app.firovia.fr/e/<CODE>) : ouvre le rapport de la visite en cours sur le
+ * site (ou prévue aujourd'hui) avec l'appareil, sinon la fiche de l'équipement.
  */
 export function EquipmentLabelPage() {
   const { code = '' } = useParams()
@@ -16,10 +18,14 @@ export function EquipmentLabelPage() {
   useEffect(() => {
     let alive = true
     findUnitsByQrCodes([labelUrl(code.toUpperCase()), labelUrl(code), code])
-      .then((found) => {
+      .then(async (found) => {
         if (!alive) return
-        if (found.length > 0) navigate(`/equipements?open=${found[0]!.id}`, { replace: true })
-        else setState('unknown')
+        const unit = found[0]
+        if (!unit) { setState('unknown'); return }
+        const visit = unit.site_id ? await findOpenVisitForSite(unit.site_id).catch(() => null) : null
+        if (!alive) return
+        if (visit) navigate(`/rapports/${visit.id}?unit=${unit.id}`, { replace: true })
+        else navigate(`/equipements?open=${unit.id}`, { replace: true })
       })
       .catch(() => { if (alive) setState('error') })
     return () => { alive = false }
@@ -41,7 +47,14 @@ export function EquipmentLabelPage() {
         </span>
       </div>
       {state === 'error' ? (
-        <p className="text-red text-sm">Impossible de vérifier l'étiquette. Vérifiez votre connexion et réessayez.</p>
+        <>
+          <p className="text-red text-sm" style={{ margin: '0 0 .6rem' }}>Impossible de vérifier l'étiquette sans réseau.</p>
+          <p className="text-ink-2 text-sm" style={{ lineHeight: 1.55, margin: '0 0 1rem' }}>
+            Sur place, scannez plutôt depuis le rapport de la visite (bouton <strong>« Scanner une étiquette »</strong>) :
+            le scan y fonctionne même sans réseau.
+          </p>
+          <Link to="/planning" className="mf prim" style={{ textDecoration: 'none' }}>Ouvrir le planning</Link>
+        </>
       ) : (
         <>
           <p className="text-ink-2 text-sm" style={{ lineHeight: 1.55, margin: '0 0 1rem' }}>

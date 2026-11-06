@@ -436,3 +436,23 @@ export async function listMyInterventions(technicianId: string, days = 7): Promi
   if (error) throw error
   return ((data ?? []) as Intervention[]).map(normalizeIntervention)
 }
+
+/**
+ * Visite à ouvrir pour un site au moment d'un scan : celle en cours, sinon
+ * celle prévue aujourd'hui. Null s'il n'y en a pas.
+ */
+export async function findOpenVisitForSite(siteId: string): Promise<{ id: string; reference: string } | null> {
+  const d = new Date()
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const { data, error } = await supabase
+    .from('interventions')
+    .select('id, reference, status, scheduled_date')
+    .eq('site_id', siteId)
+    .in('status', ['en_cours', 'planifiee'])
+    .limit(20)
+  if (error) throw error
+  const rows = (data ?? []) as Array<{ id: string; reference: string; status: string; scheduled_date: string | null }>
+  const visit = rows.find((r) => r.status === 'en_cours')
+    ?? rows.find((r) => r.status === 'planifiee' && r.scheduled_date?.slice(0, 10) === today)
+  return visit ? { id: visit.id, reference: visit.reference } : null
+}

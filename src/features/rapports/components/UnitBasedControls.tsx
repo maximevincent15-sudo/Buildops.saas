@@ -101,6 +101,11 @@ export type UncheckedUnitItem = {
 // Cache des templates par famille (partagé sur cette instance)
 type TemplateCache = Map<string, FamilyTemplate>
 
+/** Repli sans réseau : un équipement « à surveiller » ou « à remplacer » a sans doute une anomalie en cours */
+function flaggedByStatus(list: EquipmentUnit[]): Set<string> {
+  return new Set(list.filter((x) => x.status === 'to_watch' || x.status === 'to_replace').map((x) => x.id))
+}
+
 export function UnitBasedControls({
   interventionId,
   siteId,
@@ -177,8 +182,20 @@ export function UnitBasedControls({
       const cache = new Map<string, FamilyTemplate>()
       templates.forEach((t) => { if (t) cache.set(t.family, t) })
       setTemplateCache(cache)
-      setAnomalyUnitIds(await listUnitIdsWithActiveAnomalies(u.map((x) => x.id)).catch(() => null))
+      setAnomalyUnitIds(await listUnitIdsWithActiveAnomalies(u.map((x) => x.id)).catch(() => flaggedByStatus(u)))
       setChecklistCtx(await loadChecklistContext(organizationId))
+      // Étiquette scannée avec l'appareil photo du téléphone : la page de
+      // l'étiquette ouvre ce rapport avec ?unit=<id> ; on ouvre l'appareil
+      const wanted = new URLSearchParams(window.location.search).get('unit')
+      const target = wanted ? u.find((x) => x.id === wanted) : undefined
+      if (target) {
+        setFromScan(true)
+        setScanMessage({ tone: 'ok', text: `${unitRepere(target)} trouvé` })
+        setEditingUnitId(target.id)
+        const url = new URL(window.location.href)
+        url.searchParams.delete('unit')
+        window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur chargement')
       setLoadFailed(true)
@@ -456,11 +473,10 @@ export function UnitBasedControls({
     setScanMessage(null)
     const saved: EquipmentCheck[] = []
     try {
-      const flagged = anomalyUnitIds ?? await listUnitIdsWithActiveAnomalies(groupUnits.map((u) => u.id)).catch(() => null)
-      if (!flagged) {
-        setScanMessage({ tone: 'warn', text: 'Impossible de vérifier les anomalies en cours (réseau) : contrôlez ces équipements un par un, ou réessayez avec du réseau.' })
-        return
-      }
+      // Sans réseau, les anomalies en cours ne peuvent pas être relues : on
+      // écarte les équipements déjà « à surveiller » ou « à remplacer »
+      const flagged = anomalyUnitIds
+        ?? await listUnitIdsWithActiveAnomalies(groupUnits.map((u) => u.id)).catch(() => flaggedByStatus(groupUnits))
       if (!anomalyUnitIds) setAnomalyUnitIds(flagged)
       const targets = groupUnits.filter((u) => !flagged.has(u.id))
       for (const u of targets) {
