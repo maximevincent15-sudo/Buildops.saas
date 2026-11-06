@@ -3,6 +3,9 @@ import type { LabelFormat } from '../labels'
 
 const mm = (v: number) => (v * 72) / 25.4
 
+/** Pas de coupure de mot (« ENTRE-PRISES ») : retour à la ligne entre les mots seulement */
+const noHyphen = (word: string) => [word]
+
 const styles = StyleSheet.create({
   page: { fontFamily: 'Helvetica', color: '#1C2130' },
   org: { fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#5A6070', textTransform: 'uppercase', letterSpacing: 0.4 },
@@ -38,9 +41,12 @@ export function LabelsPdf({ format, labels, organizationName, phone, startAt, sh
   for (let i = 0; i < slots.length; i += perPage) pages.push(slots.slice(i, i + perPage))
 
   const pad = 2.5
-  const qr = format.height - pad * 2
+  // Grandes étiquettes (2 par ligne) : QR limité à la moitié de la largeur, textes plus grands
+  const qr = Math.min(format.height - pad * 2, format.width * 0.46)
   const textWidth = format.width - qr - pad * 3
-  const titleSize = format.width >= 68 ? 14 : 12
+  const large = format.width >= 95
+  const titleSize = large ? (format.height >= 50 ? 22 : 18) : format.width >= 68 ? 14 : 12
+  const textScale = large && format.height >= 50 ? 1.25 : large ? 1.15 : 1
 
   return (
     <Document title="Étiquettes QR Firovia">
@@ -64,16 +70,16 @@ export function LabelsPdf({ format, labels, organizationName, phone, startAt, sh
                   ...(showBorders ? { borderWidth: 0.5, borderColor: '#B0B6C2', borderStyle: 'dashed', borderRadius: 4 } : {}),
                 }}
               >
-                <Image src={label.qrDataUrl} style={{ width: mm(qr), height: mm(qr) }} />
+                <Image src={label.qrDataUrl} style={{ width: mm(qr), height: mm(qr), alignSelf: 'center' }} />
                 <View style={{ width: mm(textWidth), marginLeft: mm(pad), justifyContent: 'space-between' }}>
                   <View>
-                    <Text style={styles.org}>{organizationName}</Text>
-                    <Text style={[styles.title, { fontSize: titleSize }]}>{label.title}</Text>
+                    <Text hyphenationCallback={noHyphen} style={[styles.org, { fontSize: 6.5 * textScale }]}>{organizationName}</Text>
+                    <Text hyphenationCallback={noHyphen} style={[styles.title, { fontSize: titleSize }]}>{label.title}</Text>
                     {label.lines.slice(0, 3).map((l, k) => (
-                      <Text key={k} style={styles.line}>{l}</Text>
+                      <Text key={k} hyphenationCallback={noHyphen} style={[styles.line, { fontSize: 7 * textScale }]}>{l}</Text>
                     ))}
                   </View>
-                  {phone ? <Text style={styles.phone}>{phone}</Text> : null}
+                  {phone ? <Text hyphenationCallback={noHyphen} style={[styles.phone, { fontSize: 6.5 * textScale }]}>{phone}</Text> : null}
                 </View>
               </View>
             )
