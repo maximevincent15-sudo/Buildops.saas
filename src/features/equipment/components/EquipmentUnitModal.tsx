@@ -185,6 +185,21 @@ export function EquipmentUnitModal({
       .catch(() => setZones([]))
   }, [open, watchedSiteId])
 
+  // Les listes arrivent après le formulaire : on réaffiche la valeur choisie
+  // une fois les options présentes (sinon « Choisir un client » s'affiche)
+  useEffect(() => {
+    const v = getValues('client_id')
+    if (v && clients.some((c) => c.id === v)) setValue('client_id', v)
+  }, [clients, getValues, setValue])
+  useEffect(() => {
+    const v = getValues('site_id')
+    if (v && sites.some((x) => x.id === v)) setValue('site_id', v)
+  }, [sites, getValues, setValue])
+  useEffect(() => {
+    const v = getValues('zone_id')
+    if (v && zones.some((z) => z.id === v)) setValue('zone_id', v)
+  }, [zones, getValues, setValue])
+
   // Si le site sélectionné n'appartient plus à la liste (après changement de client),
   // reset le site sélectionné.
   useEffect(() => {

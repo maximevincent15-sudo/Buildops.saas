@@ -3,15 +3,16 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { flushQueue as flushLegacyQueue, getPendingCount as getLegacyCount, onQueueChange as onLegacyChange } from '../../features/equipment/offlineQueue'
 import { getQueueCounts, isOffline, isSyncing, onOfflineChange } from '../lib/offline/state'
 import { flushOfflineQueue } from '../lib/offline/sync'
+import { countPendingFinalize, onPendingFinalizeChange, processPendingFinalize } from '../../features/rapports/deferredFinalize'
 
-type Snapshot = { offline: boolean; pending: number; failed: number; syncing: boolean }
+type Snapshot = { offline: boolean; pending: number; failed: number; syncing: boolean; reports: number }
 
-let last: Snapshot = { offline: false, pending: 0, failed: 0, syncing: false }
+let last: Snapshot = { offline: false, pending: 0, failed: 0, syncing: false, reports: 0 }
 
 function snapshot(): Snapshot {
   const counts = getQueueCounts()
-  const next = { offline: isOffline(), pending: counts.pending + getLegacyCount(), failed: counts.failed, syncing: isSyncing() }
-  if (next.offline === last.offline && next.pending === last.pending && next.failed === last.failed && next.syncing === last.syncing) return last
+  const next = { offline: isOffline(), pending: counts.pending + getLegacyCount(), failed: counts.failed, syncing: isSyncing(), reports: countPendingFinalize() }
+  if (next.offline === last.offline && next.pending === last.pending && next.failed === last.failed && next.syncing === last.syncing && next.reports === last.reports) return last
   last = next
   return next
 }
@@ -19,7 +20,8 @@ function snapshot(): Snapshot {
 function subscribe(cb: () => void): () => void {
   const a = onOfflineChange(cb)
   const b = onLegacyChange(cb)
-  return () => { a(); b() }
+  const c = onPendingFinalizeChange(cb)
+  return () => { a(); b(); c() }
 }
 
 /**
@@ -28,7 +30,7 @@ function subscribe(cb: () => void): () => void {
  * retour du réseau ; le bouton permet de relancer l'envoi.
  */
 export function OfflineBanner() {
-  const { offline, pending, failed, syncing } = useSyncExternalStore(subscribe, snapshot, snapshot)
+  const { offline, pending, failed, syncing, reports } = useSyncExternalStore(subscribe, snapshot, snapshot)
   const [justSynced, setJustSynced] = useState(false)
   const [wasPending, setWasPending] = useState(0)
 
@@ -46,11 +48,13 @@ export function OfflineBanner() {
   async function handleSync() {
     await flushLegacyQueue().catch(() => {})
     await flushOfflineQueue().catch(() => {})
+    await processPendingFinalize().catch(() => {})
   }
 
-  if (!offline && pending === 0 && failed === 0 && !justSynced) return null
+  if (!offline && pending === 0 && failed === 0 && reports === 0 && !justSynced) return null
+  const reportsText = `${reports} rapport${reports > 1 ? 's' : ''} clôturé${reports > 1 ? 's' : ''} sans réseau`
 
-  if (justSynced && pending === 0 && failed === 0) {
+  if (justSynced && pending === 0 && failed === 0 && reports === 0) {
     return (
       <div style={{ ...bannerStyle, background: '#0E7A3F' }}>
         <CheckCircle2 size={16} strokeWidth={2.2} />
@@ -66,6 +70,7 @@ export function OfflineBanner() {
         <span>
           Hors ligne : vous pouvez continuer, tout est gardé sur l'appareil
           {pending > 0 && ` · ${pending} enregistrement${pending > 1 ? 's' : ''} en attente d'envoi`}
+          {reports > 0 && ` · ${reportsText}, finalisé${reports > 1 ? 's' : ''} au retour du réseau`}
         </span>
       </div>
     )
@@ -80,8 +85,9 @@ export function OfflineBanner() {
         {pending > 0 && `${pending} enregistrement${pending > 1 ? 's' : ''} en attente d'envoi`}
         {pending > 0 && failed > 0 && ' · '}
         {failed > 0 && `${failed} refusé${failed > 1 ? 's' : ''} par le serveur`}
+        {reports > 0 && `${pending > 0 || failed > 0 ? ' · ' : ''}${reportsText} : finalisation (PDF, envoi) en cours`}
       </span>
-      {pending > 0 && (
+      {(pending > 0 || reports > 0) && (
         <button type="button" onClick={() => void handleSync()} disabled={syncing} style={syncBtnStyle}>
           {syncing ? 'Envoi…' : 'Envoyer'}
         </button>

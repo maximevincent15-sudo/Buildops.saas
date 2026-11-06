@@ -118,12 +118,24 @@ export function QrScanner({ onResult, onClose, hint }: Props) {
       let frame = 0
       const startedAt = Date.now()
 
+      // Seule la zone du cadre de visée est lue : sur une planche d'étiquettes,
+      // ou deux appareils côte à côte, le QR voisin n'est pas pris par erreur
       const grab = () => {
         const canvas = canvasRef.current!
-        const scale = Math.min(1, 720 / video.videoWidth)
-        canvas.width = Math.round(video.videoWidth * scale)
-        canvas.height = Math.round(video.videoHeight * scale)
-        canvas.getContext('2d')!.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const vw = video.videoWidth
+        const vh = video.videoHeight
+        const cw = video.clientWidth || vw
+        const ch = video.clientHeight || vh
+        // Vidéo affichée en « cover » : échelle écran → image de la caméra
+        const cover = Math.max(cw / vw, ch / vh)
+        const box = Math.min(window.innerWidth * 0.68, 300) * 1.2 // cadre + petite marge
+        const side = Math.min(vw, vh, Math.round(box / cover))
+        const sx = Math.round((vw - side) / 2)
+        const sy = Math.round((vh - side) / 2)
+        const out = Math.min(side, 720)
+        canvas.width = out
+        canvas.height = out
+        canvas.getContext('2d')!.drawImage(video, sx, sy, side, side, 0, 0, out, out)
         return canvas
       }
 
@@ -134,7 +146,7 @@ export function QrScanner({ onResult, onClose, hint }: Props) {
           let text: string | null = null
           if (native) {
             try {
-              const found = await native.detector.detect(video)
+              const found = await native.detector.detect(grab())
               text = found[0]?.rawValue || null
               nativeErrors = 0
             } catch {

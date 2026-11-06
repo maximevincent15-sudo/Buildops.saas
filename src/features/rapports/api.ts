@@ -89,8 +89,10 @@ export async function finalizeReport(
   interventionId: string,
   organizationId: string,
   input: UpsertReportInput,
+  /** Heure de clôture sur place quand le rapport a été clôturé sans réseau */
+  closedAt?: string,
 ): Promise<Report> {
-  const completedAt = new Date().toISOString()
+  const completedAt = closedAt ?? new Date().toISOString()
   const existing = await getReportByIntervention(interventionId)
   const report = existing
     ? await updateExistingReport(existing.id, input, completedAt)

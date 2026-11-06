@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { countPendingFinalize } from '../../rapports/deferredFinalize'
 import { signOut } from '../api'
 import { useAuthStore } from '../store'
 import { getQueueCounts, isOffline } from '../../../shared/lib/offline/state'
 
 /** Sans réseau, ou avec des enregistrements en attente, on ne déconnecte pas : ils seraient perdus */
 function mustStayConnected(): boolean {
-  return isOffline() || getQueueCounts().pending > 0
+  return isOffline() || getQueueCounts().pending > 0 || countPendingFinalize() > 0
 }
 
 // Timeout d'inactivité en millisecondes (30 min).

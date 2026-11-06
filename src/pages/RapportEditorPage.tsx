@@ -26,16 +26,12 @@ import { HistoricalVisitCard } from '../features/rapports/components/HistoricalV
 import {
   finalizeReport,
   getReportByIntervention,
-  markReportSent,
   reopenReport,
   saveDraftReport,
   setReportConformity,
   setReportPdfUrl,
 } from '../features/rapports/api'
 import { notifyReportCompleted } from '../features/notifications/api'
-import { recipientsForClientId } from '../features/clients/recipients'
-import { sendDocumentEmail } from '../features/email/api'
-import { buildDefaultBody, buildDefaultSubject } from '../features/rapports/components/SendToClientModal'
 import { loadChecklistContext, visitItems } from '../features/checklists/api'
 import type { ChecklistContext } from '../features/checklists/api'
 import { computeConformity } from '../features/rapports/conformity'
@@ -58,7 +54,10 @@ import { listAnomaliesForIntervention } from '../features/anomalies/api'
 import { ACTIVE_ANOMALY_STATUSES, ANOMALY_ACTION_LABELS } from '../features/anomalies/schemas'
 import { listEquipmentUnitsByIds, listZones, markUnitsNotChecked } from '../features/equipment/api'
 import { flushQueue, getPendingCount } from '../features/equipment/offlineQueue'
-import { getQueueCounts, isOffline } from '../shared/lib/offline/state'
+import { getOfflineUser, getQueueCounts, isOffline } from '../shared/lib/offline/state'
+import { getPendingFinalize, isFinalizeInProgress, queuePendingFinalize, removePendingFinalize } from '../features/rapports/deferredFinalize'
+import type { PendingFinalize } from '../features/rapports/deferredFinalize'
+import { sendReportToClientRecipients } from '../features/rapports/autoSend'
 import { flushOfflineQueue } from '../shared/lib/offline/sync'
 import { EQUIPMENT_FAMILIES, EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
@@ -176,6 +175,8 @@ export function RapportEditorPage() {
   // Réouverture d'un rapport finalisé (administrateurs)
   const [reopenedAt, setReopenedAt] = useState<string | null>(null)
   const [reopenedBy, setReopenedBy] = useState<string | null>(null)
+  // Clôture faite sans réseau, en attente de finalisation (PDF, envoi)
+  const [pendingClose, setPendingClose] = useState<PendingFinalize | null>(null)
   const [reopening, setReopening] = useState(false)
   // Verdicts des contrôles équipement par équipement (remontés par UnitBasedControls)
   const [unitVerdicts, setUnitVerdicts] = useState<UnitVerdictItem[]>([])
@@ -247,6 +248,22 @@ export function RapportEditorPage() {
           if (report.equipment_type) {
             setEquipmentType(report.equipment_type as EquipmentType)
           }
+        }
+        // Rapport clôturé sans réseau, pas encore finalisé : on reprend la saisie gardée
+        const pending = getPendingFinalize(interventionId)
+        if (pending) {
+          const input = pending.input
+          setChecklistByType(responsesToByType((input.checklist ?? []) as ChecklistResponse[], input.equipment_type ?? null))
+          setObservations(input.observations ?? '')
+          setNonconformities(input.nonconformities ?? '')
+          setConclusion(input.conclusion ?? '')
+          setSignedBy(input.signed_by_name ?? '')
+          setSignature(input.signature_data_url ?? null)
+          setSignatureStatus(input.signature_status ?? 'pending')
+          setSignatureNote(input.signature_note ?? '')
+          setPhotos((input.photos ?? []) as StoredPhoto[])
+          if (input.equipment_type) setEquipmentType(input.equipment_type as EquipmentType)
+          setPendingClose(pending)
         }
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : 'Erreur inconnue')
@@ -595,20 +612,20 @@ export function RapportEditorPage() {
   }
 
   async function handleFinalize() {
-    // La finalisation fabrique et envoie le PDF : elle attend le réseau (les contrôles, eux, se font sans)
-    if (isOffline()) {
-      alert('Pas de réseau : vos contrôles sont bien enregistrés sur l\'appareil.\n\nLa finalisation (PDF et envoi au client) se fera dès que le réseau revient.')
+    if (isFinalizeInProgress(iid)) {
+      alert('Ce rapport est en cours de finalisation (PDF et envoi). Patientez quelques secondes.')
       return
     }
-    // Contrôles enregistrés hors ligne : ils doivent être envoyés avant le PDF
-    if (getQueueCounts().pending > 0) {
+    // Sans réseau, la clôture est gardée sur l'appareil (voir runFinalize) ;
+    // avec réseau, les contrôles enregistrés hors ligne partent avant le PDF
+    if (!isOffline() && getQueueCounts().pending > 0) {
       await flushOfflineQueue()
       if (getQueueCounts().pending > 0) {
         alert('Des enregistrements faits sans réseau ne sont pas encore envoyés. Réessayez dans un instant, quand le réseau est stable.')
         return
       }
     }
-    if (getPendingCount() > 0) {
+    if (!isOffline() && getPendingCount() > 0) {
       const res = await flushQueue()
       if (res.failed > 0) {
         alert(
@@ -699,7 +716,51 @@ export function RapportEditorPage() {
     await runFinalize()
   }
 
+  /** Sans réseau : la clôture est gardée sur l'appareil, finalisée au retour du réseau */
+  function closeWithoutNetwork() {
+    const userId = getOfflineUser()
+    if (!userId || !intervention) {
+      alert('Impossible de garder la clôture sur cet appareil. Réessayez avec du réseau.')
+      return
+    }
+    queuePendingFinalize({
+      userId,
+      interventionId: iid,
+      reference: intervention.reference,
+      organizationId: orgId,
+      organizationName: orgName,
+      input: {
+        checklist: byTypeToResponses(checklistByType),
+        equipment_type: equipmentType ?? undefined,
+        observations,
+        nonconformities,
+        conclusion,
+        signed_by_name: signedBy,
+        signature_data_url: signature,
+        signature_status: signatureStatus,
+        signature_note: signatureNote,
+        photos,
+      },
+      completedAt: new Date().toISOString(),
+      conformity: { isConform: conformity.isConform, anomalyCount: conformity.anomalyCount },
+      autoSend: !!profile?.organizations?.auto_send_reports,
+    })
+    alert(
+      `Rapport ${intervention.reference} clôturé sur l'appareil.\n\n`
+      + 'Dès que le réseau revient, il est finalisé tout seul : PDF, visite suivante et envoi au client. '
+      + 'Gardez l\'application ouverte un moment une fois revenu dans une zone qui capte.',
+    )
+    navigate('/planning')
+  }
+
   async function runFinalize() {
+    if (isOffline()) {
+      closeWithoutNetwork()
+      return
+    }
+    // Finalisation en ligne : une éventuelle clôture gardée sans réseau est remplacée
+    removePendingFinalize(iid)
+    setPendingClose(null)
     setSaving(true)
     setError(null)
     try {
@@ -754,28 +815,14 @@ export function RapportEditorPage() {
   /** Envoi automatique du rapport aux destinataires « rapports » du client */
   async function autoSendReport(id: string, pdf: string) {
     if (!intervention) return
-    const list = await recipientsForClientId(intervention.client_id, 'reports')
-    if (list.length === 0) return
-    const to = list.join(', ')
-    const equipmentLabel = formatEquipmentTypes(intervention.equipment_types)
-    const result = await sendDocumentEmail({
-      kind: 'report',
-      documentId: id,
-      recipientEmail: to,
-      subject: buildDefaultSubject({ reference: intervention.reference, clientName: intervention.client_name, equipmentLabel }),
-      body: buildDefaultBody({
-        reference: intervention.reference,
-        clientName: intervention.client_name,
-        equipmentLabel,
-        organizationName: profile?.organizations?.name ?? '',
-        scheduledDate: intervention.scheduled_date,
-        pdfUrl: pdf,
-        isConform: conformity.isConform,
-        nokCount: conformity.anomalyCount,
-      }),
+    await sendReportToClientRecipients({
+      intervention,
+      reportId: id,
       pdfUrl: pdf,
-    }, { mailtoFallback: false })
-    if (result.mode === 'resend') await markReportSent(id, to)
+      organizationName: profile?.organizations?.name ?? '',
+      isConform: conformity.isConform,
+      anomalyCount: conformity.anomalyCount,
+    })
   }
 
   /** Administrateur : ouvre une facture pré-remplie pour cette visite */
@@ -918,6 +965,14 @@ export function RapportEditorPage() {
           </div>
         </div>
         {flash && <p className="text-grn text-sm" style={{ margin: '0 0 1rem' }}>{flash}</p>}
+        {pendingClose && (
+          <div style={{ margin: '0 0 1rem', padding: '.7rem .9rem', borderRadius: 10, background: '#FDF3E0', border: '1px solid #F2D49B', color: '#7A4A0C', fontSize: 14, lineHeight: 1.45 }}>
+            <strong>Rapport clôturé sans réseau</strong> le {new Date(pendingClose.completedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} :
+            il sera finalisé tout seul (PDF, envoi) dès le retour du réseau. Vous pouvez encore le modifier,
+            puis toucher « Finaliser » pour mettre la clôture à jour.
+            {pendingClose.lastError && <><br />Dernier essai : {pendingClose.lastError}</>}
+          </div>
+        )}
         <HistoricalVisitCard
           intervention={intervention}
           dossierNumber={dossierNumber}
