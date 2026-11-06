@@ -375,8 +375,8 @@ export function PlanningPage() {
   const tabCounts = new Map(LIST_TABS.map((tb) => [tb.key, listBase.filter((i) => matchesTab(i, tb.key, today, week)).length]))
   const listItems = listBase.filter((i) => matchesTab(i, listTab, today, week))
   const dueById = new Map(listItems.filter((i) => !i.scheduled_date).map((i) => [i.id, estimatedDue(i, interventions)]))
-  // Terminées et Toutes : la visite la plus récente en haut ; les onglets « à faire » gardent la prochaine en haut
-  const listGroups = groupForList(listItems, dueById, listTab === 'done' || listTab === 'all')
+  // Les plus récentes en haut, sauf « Cette semaine » (lundi → vendredi)
+  const listGroups = groupForList(listItems, dueById, listTab !== 'week')
   const listKey = `${listTab}|${listQ}|${listTech}|${mineOnly}`
   const listLimit = listMore.key === listKey ? listMore.n : 50
   // Groupes affichés : les listLimit premières lignes, intertitres compris

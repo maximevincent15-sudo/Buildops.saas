@@ -83,7 +83,8 @@ export type ListGroup = { key: string; label: string; items: Intervention[] }
 
 /**
  * Tri et regroupement : sans date d'abord (échéance la plus proche en tête),
- * puis un groupe par mois. Terminées : les plus récentes d'abord.
+ * puis un groupe par mois. Avec `recentFirst`, les dates les plus récentes en
+ * haut (tous les onglets sauf « Cette semaine »).
  */
 export function groupForList(list: Intervention[], dueById: Map<string, string | null>, recentFirst: boolean): ListGroup[] {
   const undated = list
