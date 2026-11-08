@@ -2,6 +2,7 @@
  * Envoi de la file d'attente hors ligne, dans l'ordre, au retour du réseau.
  * - Réussite : l'enregistrement quitte la file.
  * - Ajout déjà présent (409) : il était déjà parti, il quitte la file.
+ *   De même pour un fichier déjà envoyé (photo partie malgré un délai dépassé).
  * - Refus du serveur (4xx) : gardé et signalé, les suivants continuent.
  * - Réseau absent ou serveur indisponible : on s'arrête, nouvel essai plus tard.
  */
@@ -70,6 +71,18 @@ async function errorMessage(res: Response): Promise<string> {
   }
 }
 
+/** Fichier déjà présent dans le stockage : l'envoi précédent était arrivé */
+async function isDuplicateUpload(q: QueuedRequest, res: Response): Promise<boolean> {
+  if (q.kind !== 'storage' || q.method !== 'POST') return false
+  if (res.status === 409) return true
+  if (res.status !== 400) return false
+  try {
+    return /duplicate|already exists/i.test(await res.clone().text())
+  } catch {
+    return false
+  }
+}
+
 let running: Promise<{ sent: number; failed: number }> | null = null
 
 /** Envoie la file ; renvoie le nombre d'envois réussis et refusés pendant ce passage */
@@ -98,7 +111,7 @@ export function flushOfflineQueue(): Promise<{ sent: number; failed: number }> {
           break
         }
         markNetworkUp()
-        if (res.ok || (res.status === 409 && q.plainInsert)) {
+        if (res.ok || (res.status === 409 && q.plainInsert) || await isDuplicateUpload(q, res)) {
           await deleteQueued(q.seq!)
           if (q.kind === 'storage' && q.method !== 'DELETE') {
             // Fichier envoyé : la copie locale n'est plus utile

@@ -57,6 +57,32 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+const NAVIGATION_TIMEOUT_MS = 4000;
+
+function keptApp() {
+  return caches.match('/').then((r) => r || caches.match('/index.html'));
+}
+
+async function openPage(request) {
+  const network = fetch(request).then((response) => {
+    if (response.ok) {
+      const copy = response.clone();
+      caches.open(RUNTIME_CACHE).then((cache) => cache.put('/', copy));
+    }
+    return response;
+  });
+  network.catch(() => undefined);
+  const timeout = new Promise((resolve) => setTimeout(resolve, NAVIGATION_TIMEOUT_MS, 'timeout'));
+  try {
+    const winner = await Promise.race([network, timeout]);
+    if (winner !== 'timeout') return winner;
+    // Réseau trop lent : l'app gardée, sinon on continue d'attendre le réseau
+    return (await keptApp()) || network;
+  } catch {
+    return (await keptApp()) || Response.error();
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -64,17 +90,10 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   if (NEVER_CACHE_HOSTS.some((host) => url.href.includes(host))) return;
 
-  // Pages : réseau d'abord, sinon l'app gardée (index.html)
+  // Pages : réseau d'abord, sinon l'app gardée (index.html). Avec une barre de
+  // réseau, on n'attend pas plus de quelques secondes : l'app gardée s'ouvre.
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => cache.put('/', copy));
-          return response;
-        })
-        .catch(() => caches.match('/').then((r) => r || caches.match('/index.html'))),
-    );
+    event.respondWith(openPage(request));
     return;
   }
 

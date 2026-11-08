@@ -2,6 +2,7 @@ import { Camera, ImageOff, Loader2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { uploadUnitPhoto } from '../api'
+import { StoredImg } from '../../../shared/ui/StoredImg'
 
 export type UnitPhoto = { path: string; url: string }
 
@@ -53,7 +54,7 @@ export function UnitPhotoField({ organizationId, value, onChange, readOnly, vari
           aria-label="Agrandir la photo de repérage"
           style={{ padding: 0, border: 'none', background: 'none', cursor: 'zoom-in', display: 'block', width: '100%' }}
         >
-          <img
+          <StoredImg
             src={value.url}
             alt="Photo de repérage"
             style={{ width: '100%', height: 190, objectFit: 'cover', borderRadius: 8, display: 'block', border: '1px solid var(--brd)' }}
@@ -66,7 +67,7 @@ export function UnitPhotoField({ organizationId, value, onChange, readOnly, vari
           aria-label="Agrandir la photo de repérage"
           style={{ padding: 0, border: 'none', background: 'none', cursor: 'zoom-in', flexShrink: 0 }}
         >
-          <img
+          <StoredImg
             src={value.url}
             alt="Photo de repérage"
             style={{ width: size, height: size, objectFit: 'cover', borderRadius: 8, display: 'block', border: '1px solid var(--brd)' }}
@@ -122,7 +123,7 @@ export function UnitPhotoField({ organizationId, value, onChange, readOnly, vari
           style={{ zIndex: 10000, cursor: 'zoom-out' }}
           onClick={() => setZoom(false)}
         >
-          <img
+          <StoredImg
             src={value.url}
             alt="Photo de repérage"
             style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 10, boxShadow: '0 10px 40px rgba(0,0,0,.4)' }}

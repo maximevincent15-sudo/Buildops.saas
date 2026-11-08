@@ -4,9 +4,24 @@ import { signOut } from '../api'
 import { useAuthStore } from '../store'
 import { getQueueCounts, isOffline } from '../../../shared/lib/offline/state'
 
-/** Sans réseau, ou avec des enregistrements en attente, on ne déconnecte pas : ils seraient perdus */
+/**
+ * On ne déconnecte pas :
+ * - sans réseau, ou avec des enregistrements en attente : ils seraient perdus ;
+ * - sur téléphone ou tablette pendant un rapport : le technicien est sur place,
+ *   téléphone en poche entre deux appareils, et la déconnexion effacerait les
+ *   données gardées pour travailler sans réseau.
+ */
 function mustStayConnected(): boolean {
-  return isOffline() || getQueueCounts().pending > 0 || countPendingFinalize() > 0
+  return isOffline() || getQueueCounts().pending > 0 || countPendingFinalize() > 0 || onReportOnPhone()
+}
+
+function onReportOnPhone(): boolean {
+  if (!window.location.pathname.startsWith('/rapports/')) return false
+  try {
+    return window.matchMedia('(pointer: coarse)').matches
+  } catch {
+    return false
+  }
 }
 
 // Timeout d'inactivité en millisecondes (30 min).

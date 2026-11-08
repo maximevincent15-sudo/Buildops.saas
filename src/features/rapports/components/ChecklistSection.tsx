@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { uploadReportPhoto } from '../../../shared/lib/storage'
 import type { StoredPhoto } from '../../../shared/lib/storage'
+import { StoredImg } from '../../../shared/ui/StoredImg'
 import type { CheckValue, ChecklistItem } from '../checklists'
 import type { ChecklistResponse, RecommendedAction } from '../schemas'
 import { RECOMMENDED_ACTION_LABEL } from '../schemas'
@@ -171,7 +172,7 @@ export function ChecklistSection({
                     {photos.map((p) => (
                       <div key={p.path} className="check-photo-thumb">
                         <a href={p.url} target="_blank" rel="noreferrer">
-                          <img src={p.url} alt="" loading="lazy" />
+                          <StoredImg src={p.url} alt="" loading="lazy" />
                         </a>
                         {!readOnly && (
                           <button

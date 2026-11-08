@@ -1,3 +1,4 @@
+import { compressImage } from './image'
 import { uploadPrivateFile } from './privateFiles'
 import { supabase } from './supabase'
 
@@ -40,18 +41,22 @@ export async function uploadReportPhoto(
   organizationId: string,
   interventionId: string,
 ): Promise<StoredPhoto> {
-  if (file.size > MAX_UPLOAD_SIZE_BYTES) {
-    throw new FileTooLargeError(file.size, MAX_UPLOAD_SIZE_BYTES)
+  // Photo réduite avant envoi (3 à 6 Mo → quelques centaines de Ko) : envoi
+  // rapide même avec une barre de réseau, et PDF plus légers
+  const blob = await compressImage(file, 1600, 0.82)
+  if (blob.size > MAX_UPLOAD_SIZE_BYTES) {
+    throw new FileTooLargeError(blob.size, MAX_UPLOAD_SIZE_BYTES)
   }
 
-  const safeName = sanitizeFilename(file.name)
+  let safeName = sanitizeFilename(file.name)
+  if (blob !== file && blob.type === 'image/jpeg') safeName = `${safeName.replace(/\.[a-zA-Z0-9]+$/, '')}.jpg`
   const uniquePrefix = crypto.randomUUID()
   const path = `${organizationId}/interventions/${interventionId}/${uniquePrefix}-${safeName}`
 
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
     cacheControl: '3600',
     upsert: false,
-    contentType: file.type || 'image/jpeg',
+    contentType: blob.type || file.type || 'image/jpeg',
   })
   if (error) throw error
 

@@ -38,6 +38,9 @@ const ID_TABLES = new Set([
 const READ_TIMEOUT_MS = 8_000
 /** Écriture : au-delà, elle part en file d'attente (renvoi sans doublon) */
 const WRITE_TIMEOUT_MS = 20_000
+/** Photo : au-delà (réseau trop faible), elle part en file d'attente et l'écran continue */
+const PHOTO_UPLOAD_TIMEOUT_MS = 25_000
+const PHOTO_BUCKET_PATH = /^report-photos\//
 
 /** fetch du navigateur, lu à chaque appel (les tests peuvent le remplacer) */
 const nativeFetch: typeof fetch = (input, init) => globalThis.fetch(input, init)
@@ -327,6 +330,20 @@ async function storageUpload(input: RequestInfo | URL, init: RequestInit | undef
   }
   if (isOffline()) return queueIt()
   try {
+    if (PHOTO_BUCKET_PATH.test(objectPath)) {
+      // Photo : l'envoi est abandonné au-delà du délai et repart de la file
+      // (un envoi arrivé quand même est reconnu au renvoi, sans doublon)
+      const controller = new AbortController()
+      init?.signal?.addEventListener('abort', () => controller.abort(), { once: true })
+      const res = await withTimeout(nativeFetch(input, { ...init, signal: controller.signal }), PHOTO_UPLOAD_TIMEOUT_MS)
+      if (res === 'timeout') {
+        controller.abort()
+        markNetworkDown()
+        return queueIt()
+      }
+      markNetworkUp()
+      return res
+    }
     const res = await nativeFetch(input, init)
     markNetworkUp()
     return res

@@ -57,6 +57,8 @@ import type {
 import { deleteReportPhoto, uploadReportPhoto } from '../../../shared/lib/storage'
 import { matchUnitByQr, qrRawParts } from '../../../shared/lib/qr'
 import { normalizeSearch } from '../../../shared/lib/search'
+import { isOffline } from '../../../shared/lib/offline/state'
+import { StoredImg } from '../../../shared/ui/StoredImg'
 
 /** Équipements affichés d'un coup (puis « Afficher plus ») : reste fluide sur les gros sites */
 const UNITS_STEP = 120
@@ -393,7 +395,13 @@ export function UnitBasedControls({
     const value = code.trim()
     const here = matchUnitByQr(units.filter((u) => !!u.qr_code), value)
     if (here && here.id !== unit.id) throw new Error(`Cette étiquette est déjà celle de ${unitRepere(here)}.`)
-    const elsewhere = (await findUnitsByQrCodes(qrRawParts(value))).find((u) => u.id !== unit.id)
+    let elsewhere: Awaited<ReturnType<typeof findUnitsByQrCodes>>[number] | undefined
+    try {
+      elsewhere = (await findUnitsByQrCodes(qrRawParts(value))).find((u) => u.id !== unit.id)
+    } catch (err) {
+      // Sans réseau, seuls les appareils de ce site sont vérifiés (ci-dessus)
+      if (!isOffline()) throw err
+    }
     if (elsewhere) throw new Error(`Cette étiquette est déjà celle de ${unitRepere(elsewhere)}${elsewhere.site_id !== siteId ? ', sur un autre site' : ''}.`)
     const updated = await updateEquipmentUnit(unit.id, { qr_code: value })
     setUnits((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
@@ -911,7 +919,7 @@ export function UnitBasedControls({
               }}
             >
               {u.photo_url && (
-                <img src={u.photo_url} alt="" loading="lazy" style={unitTileThumbStyle} />
+                <StoredImg src={u.photo_url} alt="" loading="lazy" style={unitTileThumbStyle} />
               )}
               <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
                 <div style={unitTileTitleStyle}>
@@ -1555,7 +1563,7 @@ function UnitCheckModal({
                 {photos.map((p) => (
                   <div key={p.path} style={photoThumbStyle}>
                     <a href={p.url} target="_blank" rel="noreferrer">
-                      <img
+                      <StoredImg
                         src={p.url}
                         alt=""
                         loading="lazy"

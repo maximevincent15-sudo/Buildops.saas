@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { deleteReportPhoto, uploadReportPhoto } from '../lib/storage'
 import type { StoredPhoto } from '../lib/storage'
+import { StoredImg } from './StoredImg'
 
 type Props = {
   photos: StoredPhoto[]
@@ -74,7 +75,7 @@ export function PhotoUploader({ photos, onChange, organizationId, interventionId
       <div className="photos-grid">
         {photos.map((p) => (
           <a key={p.path} href={p.url} target="_blank" rel="noreferrer" className="photo-thumb">
-            <img src={p.url} alt="" loading="lazy" />
+            <StoredImg src={p.url} alt="" loading="lazy" />
           </a>
         ))}
       </div>
@@ -87,7 +88,7 @@ export function PhotoUploader({ photos, onChange, organizationId, interventionId
         {photos.map((p) => (
           <div key={p.path} className="photo-thumb">
             <a href={p.url} target="_blank" rel="noreferrer" aria-label="Ouvrir la photo">
-              <img src={p.url} alt="" loading="lazy" />
+              <StoredImg src={p.url} alt="" loading="lazy" />
             </a>
             <button
               type="button"
