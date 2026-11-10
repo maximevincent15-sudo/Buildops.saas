@@ -1,4 +1,4 @@
-import { AlertTriangle, Camera, Check, Plus, QrCode, Search, X } from 'lucide-react'
+import { AlertTriangle, Camera, Check, Images, Plus, QrCode, Search, X } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import {
@@ -1054,6 +1054,8 @@ function UnitCheckModal({
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Photo déjà prise avec l'appareil photo du téléphone : choisie dans la galerie
+  const galleryInputRef = useRef<HTMLInputElement>(null)
 
   // Rien n'est gardé sans « Enregistrer » : fermer une saisie commencée demande confirmation
   const [initialInput] = useState(() => JSON.stringify({
@@ -1144,6 +1146,7 @@ function UnitCheckModal({
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
+      if (galleryInputRef.current) galleryInputRef.current.value = ''
     }
   }
 
@@ -1607,11 +1610,29 @@ function UnitCheckModal({
                   <Camera size={14} strokeWidth={1.8} />
                   {uploading ? 'Envoi…' : photos.length === 0 ? 'Ajouter une photo' : '+ Ajouter'}
                 </button>
+                <button
+                  type="button"
+                  className="touch-only"
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={uploading}
+                  style={{ ...photoAddBtnStyle, marginLeft: 6 }}
+                >
+                  <Images size={14} strokeWidth={1.8} />
+                  Galerie
+                </button>
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
                   capture="environment"
+                  multiple
+                  hidden
+                  onChange={(e) => void handleFileChange(e)}
+                />
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
                   multiple
                   hidden
                   onChange={(e) => void handleFileChange(e)}

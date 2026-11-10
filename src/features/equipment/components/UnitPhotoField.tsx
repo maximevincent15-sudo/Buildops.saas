@@ -1,4 +1,4 @@
-import { Camera, ImageOff, Loader2 } from 'lucide-react'
+import { Camera, ImageOff, Images, Loader2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { uploadUnitPhoto } from '../api'
@@ -24,6 +24,8 @@ export function UnitPhotoField({ organizationId, value, onChange, readOnly, vari
   const compact = variant === 'compact'
   const large = variant === 'large'
   const inputRef = useRef<HTMLInputElement>(null)
+  // Photo déjà prise avec l'appareil photo du téléphone : choisie dans la galerie
+  const galleryRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [zoom, setZoom] = useState(false)
@@ -105,6 +107,16 @@ export function UnitPhotoField({ organizationId, value, onChange, readOnly, vari
               {uploading ? <Loader2 size={13} className="spin" /> : <Camera size={13} strokeWidth={2} />}
               {uploading ? 'Envoi…' : value ? 'Changer la photo' : 'Prendre la photo'}
             </button>
+            <button
+              type="button"
+              className="btn-sm touch-only"
+              onClick={() => galleryRef.current?.click()}
+              disabled={uploading}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <Images size={13} strokeWidth={2} />
+              Galerie
+            </button>
             {value && !uploading && (
               <button type="button" className="btn-sm" onClick={() => onChange(null)}>
                 Retirer
@@ -116,6 +128,7 @@ export function UnitPhotoField({ organizationId, value, onChange, readOnly, vari
       </div>
 
       <input ref={inputRef} type="file" accept="image/*" capture="environment" hidden onChange={handleFile} />
+      <input ref={galleryRef} type="file" accept="image/*" hidden onChange={handleFile} />
 
       {zoom && value && (
         <div

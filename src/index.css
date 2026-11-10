@@ -3611,3 +3611,10 @@ h1, h2, h3, h4, h5, h6 {
   .parc-paste-foot span { margin-right: auto; }
   .parc-paste-foot .btn-sm:disabled { opacity: .5; cursor: default; }
 }
+
+/* Boutons « Galerie » : seulement sur téléphone et tablette. Sur ordinateur, le bouton photo ouvre déjà les fichiers */
+@layer components {
+  @media (hover: hover) and (pointer: fine) {
+    .touch-only { display: none !important; }
+  }
+}

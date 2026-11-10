@@ -1,4 +1,4 @@
-import { AlertTriangle, Camera, Eye, MessageSquare, Wrench, X } from 'lucide-react'
+import { AlertTriangle, Camera, Eye, Images, MessageSquare, Wrench, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { uploadReportPhoto } from '../../../shared/lib/storage'
@@ -36,6 +36,8 @@ export function ChecklistSection({
   const [uploadingId, setUploadingId] = useState<string | null>(null)
   const [showReasonFor, setShowReasonFor] = useState<string | null>(null)
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({})
+  // Photos déjà prises avec l'appareil photo du téléphone : choisies dans la galerie
+  const galleryInputs = useRef<Record<string, HTMLInputElement | null>>({})
 
   function getResponse(id: string): ChecklistResponse | undefined {
     return responses.find((r) => r.id === id)
@@ -91,6 +93,8 @@ export function ChecklistSection({
       setUploadingId(null)
       const input = fileInputs.current[id]
       if (input) input.value = ''
+      const gallery = galleryInputs.current[id]
+      if (gallery) gallery.value = ''
     }
   }
 
@@ -197,11 +201,29 @@ export function ChecklistSection({
                         <span>{uploadingId === item.id ? '...' : 'Ajouter'}</span>
                       </button>
                     )}
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        className="check-photo-add touch-only"
+                        onClick={() => galleryInputs.current[item.id]?.click()}
+                        disabled={uploadingId === item.id}
+                      >
+                        <Images size={14} strokeWidth={1.8} />
+                        <span>Galerie</span>
+                      </button>
+                    )}
                     <input
                       ref={(el) => { fileInputs.current[item.id] = el }}
                       type="file"
                       accept="image/*"
                       capture="environment"
+                      hidden
+                      onChange={(e) => void handleFileChange(item.id, e)}
+                    />
+                    <input
+                      ref={(el) => { galleryInputs.current[item.id] = el }}
+                      type="file"
+                      accept="image/*"
                       hidden
                       onChange={(e) => void handleFileChange(item.id, e)}
                     />
