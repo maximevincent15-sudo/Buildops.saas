@@ -438,6 +438,38 @@ export async function listChecksByIntervention(
   return (data ?? []) as EquipmentCheck[]
 }
 
+/** Contrôle d'un appareil lors d'une autre visite (résultat de l'année précédente) */
+export type PreviousCheck = Pick<EquipmentCheck, 'verdict' | 'observation' | 'checked_at'>
+
+/**
+ * Derniers vrais contrôles de chaque appareil lors des autres visites (au
+ * plus 5 par appareil, du plus récent au plus ancien), hors « non vérifié ».
+ */
+export async function listPreviousChecks(
+  unitIds: string[],
+  excludeInterventionId: string,
+): Promise<Map<string, PreviousCheck[]>> {
+  const out = new Map<string, PreviousCheck[]>()
+  const ids = Array.from(new Set(unitIds))
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await supabase
+      .from('equipment_checks')
+      .select('equipment_unit_id, verdict, observation, checked_at')
+      .in('equipment_unit_id', ids.slice(i, i + 100))
+      .neq('intervention_id', excludeInterventionId)
+      .neq('verdict', 'non_verifie')
+      .order('checked_at', { ascending: false })
+      .limit(1000)
+    if (error) throw error
+    for (const r of (data ?? []) as Array<PreviousCheck & { equipment_unit_id: string }>) {
+      const list = out.get(r.equipment_unit_id) ?? []
+      if (list.length < 5) list.push({ verdict: r.verdict, observation: r.observation, checked_at: r.checked_at })
+      out.set(r.equipment_unit_id, list)
+    }
+  }
+  return out
+}
+
 export async function getCheck(
   interventionId: string,
   equipmentUnitId: string,

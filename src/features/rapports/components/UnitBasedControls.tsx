@@ -25,10 +25,12 @@ import {
   getSite,
   listChecksByIntervention,
   listEquipmentUnits,
+  listPreviousChecks,
   listSites,
   listZones,
   updateEquipmentUnit,
 } from '../../equipment/api'
+import type { PreviousCheck } from '../../equipment/api'
 import { QuickUnitSheet } from '../../equipment/components/QuickUnitSheet'
 import { QrScanner } from '../../equipment/components/QrScanner'
 import { LinkLabelSheet } from '../../equipment/components/LinkLabelSheet'
@@ -158,6 +160,8 @@ export function UnitBasedControls({
   // Listes de contrôle de l'entreprise (sinon listes Firovia)
   const [checklistCtx, setChecklistCtx] = useState<ChecklistContext | null>(null)
   const [bulkBusy, setBulkBusy] = useState<string | null>(null)
+  // Résultats des visites précédentes, par appareil (« Dernier contrôle » dans la fenêtre)
+  const [previousChecks, setPreviousChecks] = useState<Map<string, PreviousCheck[]>>(new Map())
 
   async function load() {
     if (!siteId) {
@@ -185,6 +189,8 @@ export function UnitBasedControls({
       templates.forEach((t) => { if (t) cache.set(t.family, t) })
       setTemplateCache(cache)
       setAnomalyUnitIds(await listUnitIdsWithActiveAnomalies(u.map((x) => x.id)).catch(() => flaggedByStatus(u)))
+      // Sans réseau ou en cas d'erreur : simplement pas d'historique affiché
+      setPreviousChecks(await listPreviousChecks(u.map((x) => x.id), interventionId).catch(() => new Map()))
       setChecklistCtx(await loadChecklistContext(organizationId))
       // Étiquette scannée avec l'appareil photo du téléphone : la page de
       // l'étiquette ouvre ce rapport avec ?unit=<id> ; on ouvre l'appareil
@@ -603,6 +609,7 @@ export function UnitBasedControls({
           lists={unitLists(checklistCtx, editingUnit.family)}
           initialListKey={checksByUnit.get(editingUnit.id)?.checklist_key ?? editingUnit.checklist_key ?? null}
           existing={checksByUnit.get(editingUnit.id) ?? null}
+          previousChecks={previousChecks.get(editingUnit.id) ?? []}
           onClose={() => setEditingUnitId(null)}
           onSave={handleSaveCheck}
           readOnly={readOnly}
@@ -969,6 +976,8 @@ type ModalProps = {
   /** Liste du contrôle existant, sinon celle gardée sur l'appareil */
   initialListKey: string | null
   existing: EquipmentCheck | null
+  /** Contrôles des visites précédentes, du plus récent au plus ancien */
+  previousChecks: PreviousCheck[]
   onClose: () => void
   onSave: (patch: {
     checklist: Record<string, CheckItemValue>
@@ -994,9 +1003,11 @@ type ModalProps = {
 }
 
 function UnitCheckModal({
-  unit, template, lists, initialListKey, existing, onClose, onSave, readOnly,
+  unit, template, lists, initialListKey, existing, previousChecks, onClose, onSave, readOnly,
   organizationId, interventionId, technicianName, zone, onUnitChange, onLinkLabel, hasNext, outOfScope,
 }: ModalProps) {
+  // Dernier contrôle avant celui-ci (pour un ancien rapport rouvert : pas un contrôle plus récent)
+  const lastCheck = previousChecks.find((c) => !existing || c.checked_at < existing.checked_at) ?? null
   const [photoError, setPhotoError] = useState<string | null>(null)
   // Étiquette collée sur place : scannée puis associée à l'appareil
   const [labelScanOpen, setLabelScanOpen] = useState(false)
@@ -1255,6 +1266,18 @@ function UnitCheckModal({
 
           {/* Meta unité */}
           <div style={metaBoxStyle}>
+            {lastCheck && (
+              <div style={lastCheckStyle}>
+                <span style={{ color: 'var(--ink2)', flexShrink: 0 }}>Dernier contrôle</span>
+                <span style={{ textAlign: 'right', minWidth: 0 }}>
+                  <strong style={{ color: verdictColor(lastCheck.verdict) }}>{CHECK_VERDICT_LABELS[lastCheck.verdict]}</strong>
+                  {' le '}{new Date(lastCheck.checked_at).toLocaleDateString('fr-FR')}
+                  {lastCheck.observation?.trim() && (
+                    <span style={lastCheckObservationStyle}>{lastCheck.observation.trim()}</span>
+                  )}
+                </span>
+              </div>
+            )}
             <MetaLine k="Marque" v={unit.brand ?? '—'} />
             {unit.model && <MetaLine k="Modèle" v={unit.model} />}
             <MetaLine k="Année" v={unit.install_year?.toString() ?? '—'} />
@@ -1691,6 +1714,16 @@ function MetaLine({ k, v }: { k: string; v: string }) {
 }
 
 // ─── Styles ──────────────────────────────────────────────
+
+const lastCheckStyle: React.CSSProperties = {
+  display: 'flex', justifyContent: 'space-between', gap: 12,
+  padding: '2px 0 6px', marginBottom: 4, fontSize: 12.5,
+  borderBottom: '1px solid var(--brd)',
+}
+const lastCheckObservationStyle: React.CSSProperties = {
+  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+  color: 'var(--ink2)', fontWeight: 400, marginTop: 1,
+}
 
 function verdictColor(v: CheckVerdict): string {
   switch (v) {
