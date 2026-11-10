@@ -18,7 +18,7 @@ export async function parseXlsx(
     await wb.xlsx.load(buffer)
   } catch {
     throw new Error(
-      'Impossible de lire ce fichier Excel. S\'il s\'agit d\'un ancien format .xls (Excel 97-2003), ouvre-le dans Excel et enregistre-le en .xlsx ou .csv.',
+      'Impossible de lire ce fichier Excel. S\'il s\'agit d\'un ancien format .xls (Excel 97-2003), ouvrez-le dans Excel et enregistrez-le en .xlsx ou .csv.',
     )
   }
   const ws = wb.worksheets[0]
@@ -122,7 +122,7 @@ function normalizeHeader(s: string): string {
  * Les headers du fichier sont comparés aux `label` et `key` de chaque field,
  * de façon tolérante (accents, casse, espaces ignorés).
  */
-function buildHeaderMap(
+export function buildHeaderMap(
   rawHeader: unknown[],
   fields: ImportField[],
 ): Map<number, string> {

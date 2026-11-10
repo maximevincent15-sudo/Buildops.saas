@@ -23,6 +23,7 @@ import { DevisPage } from './pages/DevisPage'
 import { EquipePage } from './pages/EquipePage'
 import { EquipementsPage } from './pages/EquipementsPage'
 import { ImportEquipementsPage } from './pages/ImportEquipementsPage'
+import { ParcSitePage } from './pages/ParcSitePage'
 import { FacturesPage } from './pages/FacturesPage'
 import { CataloguePage } from './pages/CataloguePage'
 import { ContratsPage } from './pages/ContratsPage'
@@ -87,6 +88,7 @@ function App() {
           <Route path="/clients/import" element={<AdminGate><ImportClientsPage /></AdminGate>} />
           <Route path="/equipements" element={<EquipementsPage />} />
           <Route path="/equipements/import" element={<AdminGate><ImportEquipementsPage /></AdminGate>} />
+          <Route path="/equipements/parc" element={<AdminGate><ParcSitePage /></AdminGate>} />
           <Route path="/e/:code" element={<EquipmentLabelPage />} />
           <Route path="/techniciens/import" element={<AdminGate><ImportTechniciansPage /></AdminGate>} />
           <Route path="/vehicules/import" element={<AdminGate><ImportVehiclesPage /></AdminGate>} />

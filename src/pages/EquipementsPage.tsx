@@ -1,4 +1,4 @@
-import { Building2, FolderOpen, Layers, Pencil, Plus, Printer, QrCode, Search, Upload, X } from 'lucide-react'
+import { Building2, FolderOpen, Layers, Pencil, Plus, Printer, QrCode, Search, Table2, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
@@ -259,6 +259,17 @@ export function EquipementsPage() {
             <Building2 size={13} strokeWidth={2} />
             Nouveau site
           </button>
+          {isAdmin && (
+            <Link
+              to={siteFilter !== 'all' ? `/equipements/parc?site=${siteFilter}` : '/equipements/parc'}
+              className="btn-sm"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              title="Remplir le parc d'un site en tableau : zones, emplacements, appareils d'un ancien rapport"
+            >
+              <Table2 size={13} strokeWidth={2} />
+              Parc du site
+            </Link>
+          )}
           <button
             type="button"
             className="btn-sm"
