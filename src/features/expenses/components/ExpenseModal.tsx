@@ -1,6 +1,6 @@
 import { ImagePlus, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import type { ChangeEvent, MouseEvent } from 'react'
+import type { ChangeEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { listTechnicians } from '../../technicians/api'
 import { technicianFullName } from '../../technicians/schemas'
@@ -172,10 +172,6 @@ export function ExpenseModal({ open, onClose, onCreated }: Props) {
     }
   }
 
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !submitting && !uploading) onClose()
-  }
-
   if (!open) return null
 
   const amountNum = parseFloat(amountStr.replace(',', '.'))
@@ -184,7 +180,7 @@ export function ExpenseModal({ open, onClose, onCreated }: Props) {
   const tva = hasValidAmount ? computeVat(amountNum, vatRate) : 0
 
   return (
-    <div className="overlay open" onClick={handleBackdrop}>
+    <div className="overlay open">
       <div className="modal">
         <div className="modal-head">
           <span className="modal-title">Nouvelle note de frais</span>

@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
 import { createTechnician, deleteTechnician, setTechnicianActive, updateTechnician } from '../api'
@@ -108,16 +107,12 @@ export function TechnicianModal({ open, onClose, onChanged, technician }: Props)
     }
   }
 
-  function handleBackdropClick(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   if (!open) return null
 
   const anyLoading = isSubmitting || isDeleting || isToggling
 
   return (
-    <div className="overlay open" onClick={handleBackdropClick}>
+    <div className="overlay open">
       <div className="modal">
         <div className="modal-head">
           <span className="modal-title">

@@ -1,6 +1,5 @@
 import { Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { listTechnicians } from '../../technicians/api'
 import { technicianFullName } from '../../technicians/schemas'
@@ -121,16 +120,12 @@ export function VehicleModal({ open, onClose, onChanged, vehicle }: Props) {
     }
   }
 
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !submitting && !deleting) onClose()
-  }
-
   if (!open) return null
 
   const anyLoading = submitting || deleting
 
   return (
-    <div className="overlay open" onClick={handleBackdrop}>
+    <div className="overlay open">
       <div className="modal">
         <div className="modal-head">
           <span className="modal-title">

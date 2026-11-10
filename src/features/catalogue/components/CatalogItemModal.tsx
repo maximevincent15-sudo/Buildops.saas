@@ -1,6 +1,6 @@
 import { Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import type { FormEvent, MouseEvent } from 'react'
+import type { FormEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { VAT_RATES, formatAmount } from '../../devis/constants'
 import { createCatalogItem, deleteCatalogItem, updateCatalogItem } from '../api'
@@ -103,12 +103,8 @@ export function CatalogItemModal({ open, onClose, onChanged, item }: Props) {
     }
   }
 
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !saving) onClose()
-  }
-
   return (
-    <div className="overlay open" onClick={handleBackdrop}>
+    <div className="overlay open">
       <div className="modal">
         <div className="modal-head">
           <span className="modal-title">{isEdit ? `Article : ${item.label}` : 'Nouvel article'}</span>

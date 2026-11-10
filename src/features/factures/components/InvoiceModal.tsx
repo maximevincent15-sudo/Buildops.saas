@@ -1,6 +1,5 @@
 import { CheckCircle2, Copy, Download, FileMinus2, FileText, Info, Lock, Mail, Plus, Trash2, Undo2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { cleanLineFormat } from '../../../shared/lib/lineFormat'
@@ -550,17 +549,13 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
     if (invoiceId) onSaved?.(invoiceId)
   }
 
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !submitting && !deleting) onClose()
-  }
-
   if (!open) return null
 
   const anyLoading = submitting || deleting || loading || sending
 
   return (
     <>
-    <div className="overlay open" onClick={handleBackdrop}>
+    <div className="overlay open">
       <div className="modal" style={{ maxWidth: 920 }}>
         <div className="modal-head">
           <span className="modal-title">

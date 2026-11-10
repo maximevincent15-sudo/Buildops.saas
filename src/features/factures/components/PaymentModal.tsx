@@ -1,6 +1,5 @@
 import { CheckCircle2 } from 'lucide-react'
 import { useState } from 'react'
-import type { MouseEvent } from 'react'
 import { formatAmount } from '../../devis/constants'
 import { PAYMENT_METHODS } from '../constants'
 
@@ -52,12 +51,8 @@ export function PaymentModal({ reference, remaining, onClose, onSave }: Props) {
     }
   }
 
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !busy) onClose()
-  }
-
   return (
-    <div className="overlay open" onClick={handleBackdrop}>
+    <div className="overlay open">
       <div className="modal" style={{ maxWidth: 460 }}>
         <div className="modal-head">
           <span className="modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

@@ -1,6 +1,5 @@
 import { Paperclip } from 'lucide-react'
 import { useState } from 'react'
-import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { DOSSIER_FILE_TYPES } from '../../../shared/lib/storage'
 import { DOSSIER_DOCUMENT_KINDS, DOSSIER_DOCUMENT_LABELS, addDossierDocument } from '../api'
@@ -108,7 +107,7 @@ export function DossierDocumentModal({ open, dossierNumber, onClose, onAdded }: 
   }
 
   return (
-    <div className="overlay open" onClick={(e: MouseEvent<HTMLDivElement>) => { if (e.target === e.currentTarget) close() }}>
+    <div className="overlay open">
       <div className="modal" style={{ maxWidth: 560 }}>
         <div className="modal-head">
           <span className="modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

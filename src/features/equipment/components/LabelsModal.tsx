@@ -42,6 +42,10 @@ export function LabelsModal({ open, onClose, onChanged, units, sites, clients, d
   const [formatId, setFormatId] = useState(LABEL_FORMATS[0]!.id)
   const [startAt, setStartAt] = useState(1)
   const [borders, setBorders] = useState(false)
+  // Nom en haut de l'étiquette : l'entreprise, ou le client du site (sous-traitance, marque du client)
+  const [heading, setHeading] = useState<'org' | 'client'>('org')
+  // Cases où le technicien note au stylo la date de chaque passage
+  const [dateBoxes, setDateBoxes] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{ url: string; count: number; pages: number } | null>(null)
@@ -70,6 +74,9 @@ export function LabelsModal({ open, onClose, onChanged, units, sites, clients, d
   const format = LABEL_FORMATS.find((f) => f.id === formatId) ?? LABEL_FORMATS[0]!
   const perPage = format.cols * format.rows
   const count = mode === 'site' ? selected.length : blankCount
+  const orgName = profile?.organizations?.name ?? ''
+  const siteClientName = clientsById.get(sites.find((s) => s.id === siteId)?.client_id ?? '')?.name ?? ''
+  const useClientName = mode === 'site' && heading === 'client' && !!siteClientName
 
   async function generate() {
     if (!profile?.organization_id) return
@@ -126,10 +133,12 @@ export function LabelsModal({ open, onClose, onChanged, units, sites, clients, d
         <LabelsPdf
           format={format}
           labels={labels}
-          organizationName={profile.organizations?.name ?? ''}
-          phone={settings?.legal_phone ?? null}
+          heading={useClientName ? siteClientName : orgName}
+          // Au nom du client : ni le nom ni le téléphone de l'entreprise
+          phone={useClientName ? null : settings?.legal_phone ?? null}
           startAt={startAt}
           showBorders={borders}
+          dateBoxes={dateBoxes}
         />,
       ).toBlob()
       setResult((prev) => {
@@ -233,6 +242,26 @@ export function LabelsModal({ open, onClose, onChanged, units, sites, clients, d
               <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>Pour finir une planche entamée (1 = en haut à gauche)</span>
             </div>
           </div>
+          {mode === 'site' && (
+            <div className="fg">
+              <label>Nom en haut de l'étiquette</label>
+              <select value={heading} onChange={(e) => { setHeading(e.target.value as 'org' | 'client'); setResult(null) }}>
+                <option value="org">Votre entreprise{orgName ? ` (${orgName})` : ''}</option>
+                <option value="client" disabled={!siteClientName}>
+                  Le client du site{siteClientName ? ` (${siteClientName})` : ''}
+                </option>
+              </select>
+              {useClientName && (
+                <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
+                  Le nom et le téléphone de votre entreprise n'apparaissent pas sur l'étiquette.
+                </span>
+              )}
+            </div>
+          )}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+            <input type="checkbox" checked={dateBoxes} onChange={(e) => { setDateBoxes(e.target.checked); setResult(null) }} />
+            Cases « Date de passage » à remplir au stylo
+          </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
             <input type="checkbox" checked={borders} onChange={(e) => { setBorders(e.target.checked); setResult(null) }} />
             Afficher les contours (pour un essai sur papier ordinaire)

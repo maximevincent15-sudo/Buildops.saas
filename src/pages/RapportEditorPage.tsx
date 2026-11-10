@@ -1590,7 +1590,7 @@ export function RapportEditorPage() {
 
       {/* Fenêtre « équipements non contrôlés » avant la finalisation */}
       {notCheckedOpen && uncheckedUnits && uncheckedUnits.length > 0 && (
-        <div className="overlay open" onClick={(e) => { if (e.target === e.currentTarget && !saving) setNotCheckedOpen(false) }}>
+        <div className="overlay open">
           <div className="modal" style={{ maxWidth: 560 }}>
             <div className="modal-head">
               <span className="modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

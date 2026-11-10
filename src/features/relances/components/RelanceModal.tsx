@@ -1,6 +1,5 @@
 import { Bell, ExternalLink, Mail } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import {
   RELANCE_ICONS,
@@ -82,14 +81,10 @@ export function RelanceModal({
     setTimeout(() => onClose(), 1000)
   }
 
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   if (!open) return null
 
   return (
-    <div className="overlay open" onClick={handleBackdrop}>
+    <div className="overlay open">
       <div className="modal" style={{ maxWidth: 620 }}>
         <div className="modal-head">
           <span className="modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

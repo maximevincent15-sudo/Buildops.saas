@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
 import { listClients } from '../../clients/api'
@@ -117,14 +116,10 @@ export function SiteModal({
     }
   }
 
-  function handleBackdropClick(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   if (!open) return null
 
   return (
-    <div className="overlay open" onClick={handleBackdropClick}>
+    <div className="overlay open">
       <div className="modal">
         <div className="modal-head">
           <span className="modal-title">

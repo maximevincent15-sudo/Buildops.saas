@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Camera, CheckCircle2, Loader2, QrCode, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ChangeEvent, MouseEvent } from 'react'
+import type { ChangeEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import type { FieldErrors } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
@@ -129,7 +129,7 @@ export function EquipmentUnitModal({
     watch,
     setValue,
     getValues,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<CreateEquipmentUnitInput>({
     resolver: zodResolver(createEquipmentUnitSchema),
     defaultValues: toFormValues(unit, defaultSiteId, defaultClientId, defaultQrCode),
@@ -337,18 +337,18 @@ export function EquipmentUnitModal({
 
   /** Fermeture sans enregistrer : la photo prise pendant l'édition est supprimée */
   function handleCancel() {
+    const photoChanged = (photo?.path ?? null) !== (unit?.photo_path ?? null)
+    const attrsChanged = JSON.stringify(attrs) !== JSON.stringify(unit?.attributes ?? {})
+    if ((isDirty || photoChanged || attrsChanged)
+      && !window.confirm('Fermer sans enregistrer ?\n\nLes modifications de cette fiche seront perdues.')) return
     if (photo && photo.path !== unit?.photo_path) void deleteUnitPhoto(photo.path)
     onClose()
-  }
-
-  function handleBackdropClick(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) handleCancel()
   }
 
   if (!open) return null
 
   return (
-    <div className="overlay open" onClick={handleBackdropClick}>
+    <div className="overlay open">
       <div className="modal">
         <div className="modal-head">
           <span className="modal-title">

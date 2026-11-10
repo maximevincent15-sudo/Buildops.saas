@@ -15,7 +15,6 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
 import { countActiveTechnicians } from '../features/billing/api'
@@ -129,10 +128,6 @@ export function EquipePage() {
     setInvRole('member')
     setInvError(null)
     setGeneratedInvitation(null)
-  }
-
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !invSubmitting) closeInviteModal()
   }
 
   async function handleCopyLink(token: string) {
@@ -429,7 +424,7 @@ export function EquipePage() {
 
       {/* Modal invitation */}
       {inviteOpen && (
-        <div className="overlay open" onClick={handleBackdrop}>
+        <div className="overlay open">
           <div className="modal" style={{ maxWidth: 540 }}>
             <div className="modal-head">
               <span className="modal-title">

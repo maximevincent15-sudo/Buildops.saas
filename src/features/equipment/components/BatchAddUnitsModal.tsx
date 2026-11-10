@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { listClients } from '../../clients/api'
 import type { Client } from '../../clients/schemas'
@@ -157,14 +156,10 @@ export function BatchAddUnitsModal({ open, onClose, onCreated }: Props) {
     }
   }
 
-  function handleBackdropClick(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !creating) onClose()
-  }
-
   if (!open) return null
 
   return (
-    <div className="overlay open" onClick={handleBackdropClick}>
+    <div className="overlay open">
       <div className="modal">
         <div className="modal-head">
           <span className="modal-title">Ajout rapide en lot</span>

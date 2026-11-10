@@ -1,6 +1,5 @@
 import { CheckCircle2, QrCode } from 'lucide-react'
 import { useState } from 'react'
-import type { MouseEvent } from 'react'
 import { createEquipmentUnit, createZone, deleteUnitPhoto } from '../api'
 import { normalize } from '../familyResolver'
 import { cleanAttributes, unitRepere } from '../identification'
@@ -146,16 +145,19 @@ export function QuickUnitSheet({
 
   /** Fermeture sans ajout : la photo déjà envoyée est supprimée */
   function handleCancel() {
+    if (saving) return
+    const changed = photo !== null
+      || family !== initial.family || serial !== initial.serial || subtype !== initial.subtype
+      || brand !== initial.brand || zoneId !== initial.zoneId || newZone !== initial.newZone
+      || implantation !== initial.implantation || year !== initial.year
+      || JSON.stringify(attrs) !== JSON.stringify(initial.attributes)
+    if (changed && !window.confirm('Fermer sans ajouter l\'équipement ?\n\nCe que vous avez saisi sera perdu.')) return
     if (photo) void deleteUnitPhoto(photo.path)
     onClose()
   }
 
-  function handleBackdropClick(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !saving) handleCancel()
-  }
-
   return (
-    <div className="overlay open" onClick={handleBackdropClick}>
+    <div className="overlay open">
       <div className="modal">
         <div className="modal-head">
           <span className="modal-title">Nouvel équipement sur le site</span>

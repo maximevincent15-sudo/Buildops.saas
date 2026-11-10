@@ -1,6 +1,6 @@
 import { ExternalLink, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import type { FormEvent, MouseEvent } from 'react'
+import type { FormEvent } from 'react'
 import { createPlanningEvent, deleteBlock, updatePlanningEvent } from '../blocksApi'
 import type { PlanningBlock, PlanningBlockColor } from '../blocksApi'
 import { EVENT_COLORS, extractLinks, shortTime } from './eventUtils'
@@ -72,12 +72,8 @@ export function PlanningEventModal({ organizationId, event, defaultDate, onClose
     }
   }
 
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   return (
-    <div className="overlay open" onClick={handleBackdrop}>
+    <div className="overlay open">
       <div className="modal" style={{ maxWidth: 480 }}>
         <div className="modal-head">
           <span className="modal-title">{isEdit ? 'Événement' : 'Nouvel événement'}</span>

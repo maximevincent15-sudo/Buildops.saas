@@ -1,6 +1,5 @@
 import { FileMinus2, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { VAT_RATES, computeQuoteTotals, formatAmount } from '../../devis/constants'
 import type { QuoteLineInput } from '../../devis/schemas'
@@ -151,12 +150,8 @@ export function CreditNoteModal({ invoice, onClose, onIssued }: Props) {
     onIssued({ id: noteId, reference, sent, recipient: sent ? recipient : null, warning })
   }
 
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !busy) onClose()
-  }
-
   return (
-    <div className="overlay open" onClick={handleBackdrop}>
+    <div className="overlay open">
       <div className="modal" style={{ maxWidth: 820 }}>
         <div className="modal-head">
           <span className="modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

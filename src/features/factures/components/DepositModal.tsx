@@ -1,6 +1,5 @@
 import { Coins } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { formatAmount } from '../../devis/constants'
 import { createDepositInvoice, listQuoteDeposits } from '../api'
 import type { QuoteDeposit } from '../api'
@@ -72,12 +71,8 @@ export function DepositModal({ quoteId, quoteReference, quoteTotalTtc, organizat
     }
   }
 
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !busy) onClose()
-  }
-
   return (
-    <div className="overlay open" onClick={handleBackdrop}>
+    <div className="overlay open">
       <div className="modal" style={{ maxWidth: 500 }}>
         <div className="modal-head">
           <span className="modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

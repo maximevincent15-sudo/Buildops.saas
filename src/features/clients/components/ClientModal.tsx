@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AlertTriangle, Building2, CheckCircle2, Loader2, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
 import { ClientPortalSection } from '../../portail/components/ClientPortalSection'
@@ -156,14 +155,10 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
     }
   }
 
-  function handleBackdropClick(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   if (!open) return null
 
   return (
-    <div className="overlay open" onClick={handleBackdropClick}>
+    <div className="overlay open">
       <div className="modal">
         <div className="modal-head">
           <span className="modal-title">

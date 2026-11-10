@@ -116,9 +116,7 @@ export function LegacyImportModal({ open, onClose, onImported }: Props) {
   const anyImporting = files.some((f) => f.status === 'importing')
 
   return (
-    <div className="overlay open" onClick={(e) => {
-      if (e.target === e.currentTarget && !anyImporting) onClose()
-    }}>
+    <div className="overlay open">
       <div className="modal" style={{ maxWidth: 800 }}>
         <div className="modal-head">
           <span className="modal-title">Importer des documents PDF historiques</span>

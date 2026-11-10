@@ -1,6 +1,5 @@
 import { Receipt } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../auth/store'
 import { formatAmount } from '../../devis/constants'
@@ -119,14 +118,10 @@ export function ContractBillingModal({ open, onClose, onDone }: Props) {
     }
   }
 
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !creating) onClose()
-  }
-
   if (!open) return null
 
   return (
-    <div className="overlay open" onClick={handleBackdrop}>
+    <div className="overlay open">
       <div className="modal" style={{ maxWidth: 860 }}>
         <div className="modal-head">
           <span className="modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

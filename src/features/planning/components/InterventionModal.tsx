@@ -2,7 +2,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { InterventionAuthors } from './InterventionAuthors'
 import { Bell, Check, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { useAuthStore } from '../../auth/store'
 import { getClient } from '../../clients/api'
@@ -379,10 +378,6 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
     }
   }
 
-  function handleBackdropClick(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   function goPrev() {
     setStep((s) => Math.max(1, s - 1))
   }
@@ -440,7 +435,7 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
   // ─── Rendu ────────────────────────────────────────────────
 
   return (
-    <div className="overlay open" onClick={handleBackdropClick}>
+    <div className="overlay open">
       <div className="modal">
         <div className="modal-head">
           <span className="modal-title">

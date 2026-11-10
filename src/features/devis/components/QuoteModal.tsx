@@ -4,7 +4,6 @@ import { cleanLineFormat } from '../../../shared/lib/lineFormat'
 import type { LinePart } from '../../../shared/lib/lineFormat'
 import { SignaturePad } from '../../../shared/ui/SignaturePad'
 import { useEffect, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { getClientNumber } from '../../clients/api'
 import { loadDocumentContext } from '../../clients/documentContext'
@@ -646,16 +645,12 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
     onClose()
   }
 
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !submitting && !deleting && !signOpen) handleClose()
-  }
-
   if (!open) return null
 
   const anyLoading = submitting || deleting || loading || signing
 
   return (
-    <div className="overlay open" onClick={handleBackdrop}>
+    <div className="overlay open">
       <div className="modal" style={{ maxWidth: 920 }}>
         <div className="modal-head">
           <span className="modal-title">

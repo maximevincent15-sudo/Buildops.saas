@@ -1,6 +1,5 @@
 import { ExternalLink, Mail } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { getClient } from '../../clients/api'
 import { isValidEmail, recipientsFor, splitEmails } from '../../clients/recipients'
 import { sendDocumentEmail } from '../../email/api'
@@ -137,10 +136,6 @@ export function SendToClientModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !sending) onClose()
-  }
-
   async function handleSend() {
     const list = splitEmails(recipient)
     if (list.length === 0) {
@@ -205,7 +200,7 @@ export function SendToClientModal({
   if (!open) return null
 
   return (
-    <div className="overlay open" onClick={handleBackdrop}>
+    <div className="overlay open">
       <div className="modal" style={{ maxWidth: 620 }}>
         <div className="modal-head">
           <span className="modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

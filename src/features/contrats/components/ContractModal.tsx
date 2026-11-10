@@ -1,6 +1,5 @@
 import { Calculator, FileDown, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import type { MouseEvent } from 'react'
 import { useAuthStore } from '../../auth/store'
 import { CatalogPicker } from '../../catalogue/components/CatalogPicker'
 import type { CatalogItem } from '../../catalogue/schemas'
@@ -289,10 +288,6 @@ export function ContractModal({ open, onClose, onSaved, contract }: Props) {
     }
   }
 
-  function handleBackdrop(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget && !saving) onClose()
-  }
-
   const coveredSites = clientSites.filter((s) => siteIds.includes(s.id))
   const isRunning = contract?.status === 'active' || contract?.status === 'suspended'
 
@@ -309,7 +304,7 @@ export function ContractModal({ open, onClose, onSaved, contract }: Props) {
   const cell = { padding: '.35rem .3rem', verticalAlign: 'top' as const }
 
   return (
-    <div className="overlay open" onClick={handleBackdrop}>
+    <div className="overlay open">
       <div className="modal" style={{ maxWidth: 1040 }}>
         <div className="modal-head">
           <span className="modal-title">

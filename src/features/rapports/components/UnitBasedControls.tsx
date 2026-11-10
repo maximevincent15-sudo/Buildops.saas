@@ -1,6 +1,6 @@
 import { AlertTriangle, Camera, Check, Plus, QrCode, Search, X } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import type { ChangeEvent, MouseEvent } from 'react'
+import type { ChangeEvent } from 'react'
 import {
   createAnomaly,
   listActiveAnomaliesForUnit,
@@ -1055,6 +1055,22 @@ function UnitCheckModal({
   const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Rien n'est gardé sans « Enregistrer » : fermer une saisie commencée demande confirmation
+  const [initialInput] = useState(() => JSON.stringify({
+    checklist: existing?.checklist ?? {},
+    observation: existing?.observation ?? '',
+    verdict: existing?.verdict ?? 'non_verifie',
+    operations: existing?.operations && existing.operations.length > 0 ? existing.operations : DEFAULT_OPERATIONS,
+    photos: existing?.photos ?? [],
+  }))
+  const inputChanged = !readOnly
+    && JSON.stringify({ checklist, observation, verdict, operations, photos }) !== initialInput
+  function requestClose() {
+    if (saving) return
+    if (inputChanged && !window.confirm('Fermer sans enregistrer ?\n\nCe que vous avez saisi pour cet appareil sera perdu.')) return
+    onClose()
+  }
+
   // ─── Anomalies (Slice M3) ─────────────────────────────────
   // Historique d'anomalies actives sur cette unité (Ouverte / Planifiée)
   const [existingAnomalies, setExistingAnomalies] = useState<Anomaly[]>([])
@@ -1194,23 +1210,19 @@ function UnitCheckModal({
     }
   }
 
-  function handleBackdropClick(e: MouseEvent<HTMLDivElement>) {
-    if (e.target === e.currentTarget) onClose()
-  }
-
   const items = list?.items ?? template?.checklist ?? []
   const observationTypes = template?.observation_types ?? []
   const answered = Object.keys(checklist).length
 
   return (
-    <div className="overlay open" onClick={handleBackdropClick}>
+    <div className="overlay open">
       <div className="modal">
         <div className="modal-head">
           <span className="modal-title">
             {unitRepere(unit)} · {EQUIPMENT_FAMILY_LABELS[unit.family]}
             {unit.subtype ? ` · ${unit.subtype}` : ''}
           </span>
-          <button type="button" className="modal-x" onClick={onClose} aria-label="Fermer">×</button>
+          <button type="button" className="modal-x" onClick={requestClose} aria-label="Fermer">×</button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '.9rem', padding: '.5rem 0' }}>
@@ -1615,7 +1627,7 @@ function UnitCheckModal({
         </div>
 
         <div className="modal-foot">
-          <button type="button" className="mf out" onClick={onClose}>
+          <button type="button" className="mf out" onClick={requestClose}>
             Annuler
           </button>
           <button
