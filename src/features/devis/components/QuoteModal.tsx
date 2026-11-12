@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, Coins, Copy, Download, FileText, Mail, PenLine, Plus, Trash2, Undo2, X, XCircle } from 'lucide-react'
+import { ArrowRight, CheckCircle2, ClipboardCheck, Coins, Copy, Download, FileText, Mail, PenLine, Plus, Trash2, Truck, Undo2, X, XCircle } from 'lucide-react'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { cleanLineFormat } from '../../../shared/lib/lineFormat'
 import type { LinePart } from '../../../shared/lib/lineFormat'
@@ -39,6 +39,12 @@ import { LineFormatToolbar } from './LineFormatToolbar'
 import type { CatalogItem } from '../../catalogue/schemas'
 import { FileLink } from '../../../shared/ui/FileLink'
 import { isPrivateFile } from '../../../shared/lib/privateFiles'
+import { OrderAckModal } from './OrderAckModal'
+import { DeliveryNoteModal } from './DeliveryNoteModal'
+import { deleteDeliveryNote, deliveryProgress, listDeliveryNotes, markDeliveryNoteSent } from '../deliveryNotes'
+import { buildDeliveryNotePdf } from '../pdf/deliveryNoteFile'
+import { DELIVERY_MODE_LABELS } from '../schemas'
+import type { DeliveryNoteWithLines } from '../schemas'
 
 type Props = {
   open: boolean
@@ -125,6 +131,14 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
   const [formatTarget, setFormatTarget] = useState<{ index: number; part: LinePart } | null>(null)
   // Intervention d'origine (devis correctif) : conservée à l'enregistrement
   const [interventionId, setInterventionId] = useState('')
+  // Accusé de réception de commande et bons de livraison (devis accepté)
+  const [orderAckPdfUrl, setOrderAckPdfUrl] = useState<string | null>(null)
+  const [orderAckSentAt, setOrderAckSentAt] = useState<string | null>(null)
+  const [ackModal, setAckModal] = useState<{ quote: QuoteWithLines; paymentTerms: string | null } | null>(null)
+  const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteWithLines[]>([])
+  const [savedLines, setSavedLines] = useState<QuoteWithLines['lines']>([])
+  const [dnModal, setDnModal] = useState<{ quote: QuoteWithLines; toSign: DeliveryNoteWithLines | null } | null>(null)
+  const [orderBusy, setOrderBusy] = useState(false)
 
   // Charge si édition
   useEffect(() => {
@@ -175,6 +189,13 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
           setRefusedReason(q.refused_reason ?? null)
           setSignedAt(q.signed_at ?? null)
           setSignedByName(q.signed_by_name ?? null)
+          setOrderAckPdfUrl(q.order_ack_pdf_url ?? null)
+          setOrderAckSentAt(q.order_ack_sent_at ?? null)
+          setSavedLines(q.lines)
+          setDeliveryNotes([])
+          if (q.status === 'accepted') {
+            void listDeliveryNotes(q.id).then(setDeliveryNotes).catch(() => setDeliveryNotes([]))
+          }
         })
         .catch((e) => setError(e instanceof Error ? e.message : 'Erreur'))
         .finally(() => setLoading(false))
@@ -217,8 +238,14 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       setRefusedReason(null)
       setSignedAt(null)
       setSignedByName(null)
+      setOrderAckPdfUrl(null)
+      setOrderAckSentAt(null)
+      setSavedLines([])
+      setDeliveryNotes([])
     }
     setSignOpen(false)
+    setAckModal(null)
+    setDnModal(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, quoteIdProp])
 
@@ -489,8 +516,8 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       await markQuoteAccepted(quoteId)
       setCurrentStatus('accepted')
       setAcceptedAt(new Date().toISOString())
-      setFlash('Devis marqué comme accepté ✅')
-      setTimeout(() => setFlash(null), 2500)
+      setFlash('Devis marqué comme accepté ✅ — vous pouvez envoyer l\'accusé de réception de la commande.')
+      setTimeout(() => setFlash(null), 5000)
       onSaved?.(quoteId)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
@@ -546,7 +573,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       onSaved?.(quoteId)
       setPendingNotify(false)
       // Régénère le PDF avec la signature
-      await handleGeneratePdf(`Devis signé par ${name} ✓ — PDF mis à jour, vous pouvez l'envoyer au client.`)
+      await handleGeneratePdf(`Devis signé par ${name} ✓ — PDF mis à jour. Vous pouvez l'envoyer au client, avec l'accusé de réception de la commande.`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur lors de la signature')
     } finally {
@@ -638,6 +665,97 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
     }
   }
 
+  /** Devis tel qu'enregistré (l'AR et le BL partent de la version enregistrée) */
+  async function loadSavedQuote(): Promise<QuoteWithLines | null> {
+    if (!quoteId) return null
+    const fresh = await getQuote(quoteId)
+    if (!fresh) { setError('Devis introuvable.'); return null }
+    setSavedLines(fresh.lines)
+    return fresh
+  }
+
+  async function openOrderAck() {
+    if (!profile?.organization_id) return
+    setOrderBusy(true)
+    setError(null)
+    try {
+      const [fresh, settings] = await Promise.all([loadSavedQuote(), getInvoicingSettings(profile.organization_id)])
+      if (fresh) setAckModal({ quote: fresh, paymentTerms: settings?.payment_terms ?? null })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setOrderBusy(false)
+    }
+  }
+
+  async function openDeliveryNote(toSign: DeliveryNoteWithLines | null = null) {
+    setOrderBusy(true)
+    setError(null)
+    try {
+      const [fresh, notes] = await Promise.all([loadSavedQuote(), quoteId ? listDeliveryNotes(quoteId) : Promise.resolve([])])
+      setDeliveryNotes(notes)
+      if (fresh) setDnModal({ quote: fresh, toSign })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setOrderBusy(false)
+    }
+  }
+
+  async function sendDeliveryNote(note: DeliveryNoteWithLines) {
+    if (!quoteId || !note.pdf_url) return
+    const recipient = await resolveRecipients()
+    if (!recipient) return
+    try {
+      const greet = clientContact ? `Bonjour ${clientContact.trim()},` : 'Bonjour,'
+      const what = note.mode === 'pickup' ? 'le bon pour enlèvement' : 'le bon de livraison'
+      const signed = note.signed_at
+        ? `, signé le ${new Date(note.signed_at).toLocaleDateString('fr-FR')}${note.signed_by_name ? ` par ${note.signed_by_name}` : ''}`
+        : ''
+      const body =
+        `${greet}\n\nVous trouverez ci-joint ${what} ${note.reference} (devis ${reference})${signed}.\n\nJe reste à votre disposition pour toute question.\n\nCordialement,\n${profile?.organizations?.name ?? 'Maintenance'}`
+      const result = await sendDocumentEmail({
+        kind: 'quote',
+        documentId: quoteId,
+        recipientEmail: recipient,
+        subject: `${note.mode === 'pickup' ? 'Bon pour enlèvement' : 'Bon de livraison'} ${note.reference}`,
+        body,
+        pdfUrl: note.pdf_url,
+      })
+      if (result.mode === 'error') throw new Error(result.error)
+      const sentAt = await markDeliveryNoteSent(note.id)
+      setDeliveryNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, sent_at: sentAt } : n)))
+      setFlash(result.mode === 'resend' ? `${note.reference} envoyé à ${recipient} ✓` : 'Message préparé dans votre messagerie.')
+      setTimeout(() => setFlash(null), 3000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    }
+  }
+
+  async function makeDeliveryNotePdf(note: DeliveryNoteWithLines) {
+    if (!quoteId || !profile?.organization_id) return
+    setOrderBusy(true)
+    setError(null)
+    try {
+      const url = await buildDeliveryNotePdf(note, profile.organization_id, profile.organizations?.name ?? 'Maintenance', quoteId)
+      setDeliveryNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, pdf_url: url } : n)))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur PDF')
+    } finally {
+      setOrderBusy(false)
+    }
+  }
+
+  async function removeDeliveryNote(note: DeliveryNoteWithLines) {
+    if (!window.confirm(`Supprimer le bon ${note.reference} (non signé) ?\n\nLes quantités repasseront « à livrer ».`)) return
+    try {
+      await deleteDeliveryNote(note)
+      setDeliveryNotes((prev) => prev.filter((n) => n.id !== note.id))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    }
+  }
+
   /** Fermeture : un devis créé puis non signé est quand même signalé au parent (liste à jour) */
   function handleClose() {
     if (pendingNotify && quoteId) onSaved?.(quoteId)
@@ -648,6 +766,10 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
   if (!open) return null
 
   const anyLoading = submitting || deleting || loading || signing
+  // Reste à livrer, d'après les lignes enregistrées du devis
+  const progress = deliveryProgress(savedLines, deliveryNotes)
+  const remainingCount = progress.filter((p) => p.remaining > 0).length
+  const allDelivered = deliveryNotes.length > 0 && savedLines.length > 0 && remainingCount === 0
 
   return (
     <div className="overlay open">
@@ -1025,6 +1147,30 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                   {currentStatus === 'accepted' && (
                     <button
                       type="button"
+                      className={orderAckSentAt ? 'btn-sm' : 'btn-sm acc'}
+                      onClick={() => void openOrderAck()}
+                      disabled={orderBusy}
+                      title="Confirmer au client que sa commande est bien reçue"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <ClipboardCheck size={13} strokeWidth={2} /> Accusé de réception
+                    </button>
+                  )}
+                  {currentStatus === 'accepted' && (
+                    <button
+                      type="button"
+                      className="btn-sm"
+                      onClick={() => void openDeliveryNote()}
+                      disabled={orderBusy || allDelivered}
+                      title={allDelivered ? 'Tout le devis est livré' : 'Lignes livrées cette fois, sans les prix, signées sur place'}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <Truck size={13} strokeWidth={2} /> {allDelivered ? 'Tout est livré' : 'Bon de livraison'}
+                    </button>
+                  )}
+                  {currentStatus === 'accepted' && (
+                    <button
+                      type="button"
                       className="btn-sm"
                       onClick={() => setDepositOpen(true)}
                       title="Facture d'un pourcentage ou d'un montant du devis, déduite ensuite de la facture finale"
@@ -1069,6 +1215,72 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                     </button>
                   )}
                 </div>
+                {(currentStatus === 'accepted' || deliveryNotes.length > 0 || orderAckPdfUrl) && (
+                  <div className="order-docs">
+                    <div className="order-docs-row">
+                      <ClipboardCheck size={14} strokeWidth={2} />
+                      <span className="order-docs-main">
+                        <strong>Accusé de réception</strong>
+                        <span className="text-ink-3">
+                          {orderAckSentAt
+                            ? ` · envoyé le ${new Date(orderAckSentAt).toLocaleDateString('fr-FR')}`
+                            : orderAckPdfUrl ? ' · prêt, pas encore envoyé' : ' · pas encore fait'}
+                        </span>
+                      </span>
+                      {orderAckPdfUrl && (
+                        <FileLink url={orderAckPdfUrl} target="_blank" rel="noreferrer" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Download size={11} strokeWidth={2} /> PDF
+                        </FileLink>
+                      )}
+                    </div>
+                    {deliveryNotes.map((n) => (
+                      <div key={n.id} className="order-docs-row">
+                        <Truck size={14} strokeWidth={2} />
+                        <span className="order-docs-main">
+                          <strong>{n.reference}</strong>
+                          <span className="text-ink-3">
+                            {' · '}{DELIVERY_MODE_LABELS[n.mode]} le {new Date(n.delivery_date).toLocaleDateString('fr-FR')}
+                            {' · '}{n.lines.length} ligne{n.lines.length > 1 ? 's' : ''}
+                            {n.signed_at ? ` · signé${n.signed_by_name ? ` par ${n.signed_by_name}` : ''}` : ' · non signé'}
+                            {n.sent_at ? ' · envoyé' : ''}
+                          </span>
+                        </span>
+                        <span className="order-docs-actions">
+                          {n.pdf_url && (
+                            <FileLink url={n.pdf_url} target="_blank" rel="noreferrer" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <Download size={11} strokeWidth={2} /> PDF
+                            </FileLink>
+                          )}
+                          {!n.pdf_url && (
+                            <button type="button" className="btn-sm" onClick={() => void makeDeliveryNotePdf(n)} disabled={orderBusy} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <FileText size={11} strokeWidth={2} /> Créer le PDF
+                            </button>
+                          )}
+                          {!n.signed_at && (
+                            <button type="button" className="btn-sm" onClick={() => void openDeliveryNote(n)} disabled={orderBusy} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <PenLine size={11} strokeWidth={2} /> Faire signer
+                            </button>
+                          )}
+                          {n.pdf_url && (
+                            <button type="button" className="btn-sm" onClick={() => void sendDeliveryNote(n)} title="Envoyer au client" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <Mail size={11} strokeWidth={2} />
+                            </button>
+                          )}
+                          {!n.signed_at && (
+                            <button type="button" className="btn-sm subtle" onClick={() => void removeDeliveryNote(n)} title="Supprimer ce bon non signé" aria-label={`Supprimer ${n.reference}`}>
+                              <Trash2 size={11} strokeWidth={2} />
+                            </button>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                    {deliveryNotes.length > 0 && (
+                      <p className="text-ink-3 text-xs" style={{ margin: '2px 0 0' }}>
+                        {allDelivered ? 'Tout le devis est livré.' : `Reste à livrer : ${remainingCount} ligne${remainingCount > 1 ? 's' : ''} sur ${savedLines.length}.`}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1171,6 +1383,38 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
             </div>
           </div>
         </div>
+      )}
+      {ackModal && profile?.organization_id && (
+        <OrderAckModal
+          quote={ackModal.quote}
+          organizationId={profile.organization_id}
+          organizationName={profile.organizations?.name ?? 'Maintenance'}
+          defaultPaymentTerms={ackModal.paymentTerms}
+          resolveRecipients={resolveRecipients}
+          onClose={() => setAckModal(null)}
+          onChanged={(q) => {
+            setOrderAckPdfUrl(q.order_ack_pdf_url ?? null)
+            setOrderAckSentAt(q.order_ack_sent_at ?? null)
+          }}
+        />
+      )}
+      {dnModal && profile?.organization_id && (
+        <DeliveryNoteModal
+          quote={dnModal.quote}
+          notes={deliveryNotes}
+          toSign={dnModal.toSign}
+          organizationId={profile.organization_id}
+          organizationName={profile.organizations?.name ?? 'Maintenance'}
+          onClose={() => setDnModal(null)}
+          onSaved={(note) => {
+            setDeliveryNotes((prev) => (prev.some((n) => n.id === note.id) ? prev.map((n) => (n.id === note.id ? note : n)) : [...prev, note]))
+            setDnModal(null)
+            setFlash(note.signed_at
+              ? `${note.reference} signé par ${note.signed_by_name ?? 'le client'} ✓${note.pdf_url ? '' : ' (PDF à refaire)'}`
+              : `${note.reference} créé, à imprimer ou à faire signer plus tard.`)
+            setTimeout(() => setFlash(null), 4000)
+          }}
+        />
       )}
       {depositOpen && quoteId && profile?.organization_id && (
         <DepositModal

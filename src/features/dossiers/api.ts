@@ -72,6 +72,19 @@ export type DossierQuote = {
   pdf_url: string | null
   site_name: string | null
   dossier_number?: string | null
+  /** Accusé de réception de la commande et bons de livraison (devis accepté) */
+  order_ack_pdf_url?: string | null
+  delivery_notes?: DossierDeliveryNote[]
+}
+
+export type DossierDeliveryNote = {
+  id: string
+  quote_id: string
+  reference: string
+  delivery_date: string
+  mode: 'delivered' | 'pickup'
+  pdf_url: string | null
+  signed_at: string | null
 }
 
 export type DossierInvoice = DossierQuote & {
@@ -282,7 +295,20 @@ export async function getDossier(number: string): Promise<DossierDetail> {
     invoices.map((i) => i.quote_id ?? '').filter((id) => id && !known.has(id)),
     (c) => supabase.from('quotes').select(quoteCols).in('id', c),
   )
-  const quotes = byId([linkedQuotes, quotesOfInvoices]).sort((a, b) => b.issue_date.localeCompare(a.issue_date))
+  const sortedQuotes = byId([linkedQuotes, quotesOfInvoices]).sort((a, b) => b.issue_date.localeCompare(a.issue_date))
+  // Accusés de réception et bons de livraison des devis (sans effet si absents)
+  const quoteIds = sortedQuotes.map((q) => q.id)
+  const [acks, notes] = await Promise.all([
+    selectIn<{ id: string; order_ack_pdf_url: string | null }>(quoteIds, (c) => supabase.from('quotes').select('id, order_ack_pdf_url').in('id', c)).catch(() => []),
+    selectIn<DossierDeliveryNote>(quoteIds, (c) => supabase.from('delivery_notes')
+      .select('id, quote_id, reference, delivery_date, mode, pdf_url, signed_at').in('quote_id', c).order('created_at', { ascending: true })).catch(() => []),
+  ])
+  const ackById = new Map(acks.map((a) => [a.id, a.order_ack_pdf_url]))
+  const quotes = sortedQuotes.map((q) => ({
+    ...q,
+    order_ack_pdf_url: ackById.get(q.id) ?? null,
+    delivery_notes: notes.filter((n) => n.quote_id === q.id),
+  }))
 
   // Photos : contrôles des équipements, anomalies, photos générales des rapports
   const refById = new Map(interventions.map((i) => [i.id, i.reference]))

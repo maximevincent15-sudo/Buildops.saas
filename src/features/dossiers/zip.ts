@@ -144,7 +144,11 @@ export async function exportDossierZip(
   for (const { intervention: i, report: r } of dossier.visits) {
     add('1 - Rapports', [isoDay(r?.completed_at ?? i.scheduled_date), i.reference, i.site_name].filter(Boolean).join(' - '), 'pdf', r?.pdf_url)
   }
-  for (const q of dossier.quotes) add('2 - Devis', [q.reference, q.site_name].filter(Boolean).join(' - '), 'pdf', q.pdf_url)
+  for (const q of dossier.quotes) {
+    add('2 - Devis', [q.reference, q.site_name].filter(Boolean).join(' - '), 'pdf', q.pdf_url)
+    add('2 - Devis', `${q.reference} - Accusé de réception`, 'pdf', q.order_ack_pdf_url)
+    for (const n of q.delivery_notes ?? []) add('2 - Devis', `${q.reference} - ${n.reference}`, 'pdf', n.pdf_url)
+  }
   for (const f of dossier.invoices) add('3 - Factures', [f.reference, f.site_name].filter(Boolean).join(' - '), 'pdf', f.pdf_url)
   for (const d of dossier.documents) {
     const ext = extensionOf(d.file_url, 'pdf')

@@ -3618,3 +3618,26 @@ h1, h2, h3, h4, h5, h6 {
     .touch-only { display: none !important; }
   }
 }
+
+/* Devis accepté : accusé de réception et bons de livraison */
+@layer components {
+  .order-docs { display: flex; flex-direction: column; gap: 6px; padding-top: .6rem; border-top: .5px solid var(--brd); }
+  .order-docs-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .82rem; color: var(--ink2); }
+  .order-docs-row > svg { flex-shrink: 0; color: var(--acc); }
+  .order-docs-main { flex: 1; min-width: 180px; }
+  .order-docs-main strong { color: var(--ink); font-weight: 600; }
+  .order-docs-actions { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+
+  .dn-head, .dn-row { display: grid; grid-template-columns: minmax(0, 1fr) 72px 78px 96px; gap: 8px; align-items: center; }
+  .dn-head { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; line-height: 1.2; color: var(--ink3); padding: 0 0 6px; border-bottom: .5px solid var(--brd); align-items: end; }
+  .dn-head span:not(:first-child), .dn-row > span:not(:first-child) { text-align: right; }
+  .dn-row { font-size: .85rem; color: var(--ink); padding: 6px 0; border-bottom: .5px solid var(--brd); }
+  .dn-row.done { color: var(--ink3); }
+  .dn-desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dn-row input { width: 100%; padding: .4rem .5rem; font-size: .88rem; text-align: right; background: var(--bg); border: 1px solid var(--brd2); border-radius: var(--r); color: var(--ink); font-family: 'DM Sans', sans-serif; }
+  .dn-row input:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3px rgba(58,92,168,.12); }
+  @media (max-width: 520px) {
+    .dn-head, .dn-row { grid-template-columns: minmax(0, 1fr) 54px 60px 76px; gap: 6px; }
+    .dn-head { font-size: .64rem; }
+  }
+}

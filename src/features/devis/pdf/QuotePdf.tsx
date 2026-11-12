@@ -1,4 +1,4 @@
-import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
+import { Document, Image, Page, Text, View } from '@react-pdf/renderer'
 import { lineStylePdf } from '../../../shared/lib/lineFormat'
 import type { LineFormat } from '../../../shared/lib/lineFormat'
 import { format } from 'date-fns'
@@ -9,205 +9,7 @@ import { PdfLogo } from '../../parametres/pdf/PdfLogo'
 import { formatCompanyNumber } from '../../clients/companyLookup'
 import { computeQuoteTotals, formatAmount, formatNumber } from '../constants'
 import type { QuoteWithLines } from '../schemas'
-
-const colors = {
-  ink: '#1C2130',
-  ink2: '#5A6070',
-  ink3: '#9AA0AE',
-  acc: '#3A5CA8',
-  border: '#E6E8EC',
-  borderLight: '#F2F3F5',
-  bg: '#F8F9FB',
-}
-
-const styles = StyleSheet.create({
-  page: {
-    padding: 36,
-    paddingBottom: 60,
-    fontFamily: 'Helvetica',
-    fontSize: 9.5,
-    color: colors.ink,
-    lineHeight: 1.4,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 24,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomStyle: 'solid',
-    borderBottomColor: colors.ink,
-  },
-  orgName: {
-    fontSize: 18,
-    fontFamily: 'Helvetica-Bold',
-    color: colors.ink,
-    marginBottom: 4,
-  },
-  orgInfo: {
-    fontSize: 8,
-    color: colors.ink2,
-    lineHeight: 1.5,
-  },
-  headerMeta: { alignItems: 'flex-end' },
-  docLabel: {
-    fontSize: 9,
-    color: colors.ink3,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 3,
-  },
-  docRef: {
-    fontSize: 16,
-    fontFamily: 'Helvetica-Bold',
-    color: colors.acc,
-  },
-  docDate: {
-    fontSize: 8.5,
-    color: colors.ink2,
-    marginTop: 4,
-  },
-  // Section adresses
-  addressBlock: {
-    flexDirection: 'row',
-    marginBottom: 18,
-    gap: 20,
-  },
-  addressCol: { flex: 1 },
-  addressLabel: {
-    fontSize: 7.5,
-    color: colors.ink3,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  addressName: { fontFamily: 'Helvetica-Bold', fontSize: 11, marginBottom: 2 },
-  addressLine: { fontSize: 9.5, color: colors.ink2, marginBottom: 1 },
-  // Tableau lignes
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: colors.ink,
-    color: '#FFFFFF',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    fontSize: 8.5,
-    fontFamily: 'Helvetica-Bold',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderBottomWidth: 0.5,
-    borderBottomStyle: 'solid',
-    borderBottomColor: colors.border,
-  },
-  colDesc: { flex: 4 },
-  descDetail: { fontSize: 8, color: colors.ink2, marginTop: 2 },
-  colQty: { flex: 1, textAlign: 'right' },
-  colPu: { flex: 1.4, textAlign: 'right' },
-  colVat: { flex: 0.8, textAlign: 'right' },
-  colTotal: { flex: 1.6, textAlign: 'right' },
-  // Totaux
-  totalsBlock: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 12,
-  },
-  totalsBox: {
-    width: 240,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    fontSize: 9.5,
-  },
-  totalRowGrand: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    fontSize: 12,
-    fontFamily: 'Helvetica-Bold',
-    backgroundColor: colors.ink,
-    color: '#FFFFFF',
-    marginTop: 2,
-  },
-  // Notes
-  notes: {
-    marginTop: 18,
-    padding: 12,
-    backgroundColor: colors.bg,
-    borderRadius: 4,
-    fontSize: 9.5,
-    lineHeight: 1.5,
-  },
-  notesTitle: {
-    fontFamily: 'Helvetica-Bold',
-    fontSize: 8.5,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: colors.ink2,
-    marginBottom: 4,
-  },
-  // Bon pour accord
-  agreement: {
-    marginTop: 18,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-  },
-  agreementBox: {
-    width: 260,
-    padding: 10,
-    borderWidth: 0.5,
-    borderStyle: 'solid',
-    borderColor: colors.border,
-    borderRadius: 4,
-  },
-  agreementTitle: {
-    fontFamily: 'Helvetica-Bold',
-    fontSize: 8.5,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: colors.ink2,
-    marginBottom: 4,
-  },
-  agreementText: { fontSize: 8.5, color: colors.ink2 },
-  agreementBlank: { height: 70 },
-  signature: {
-    marginTop: 6,
-    height: 70,
-    objectFit: 'contain',
-    objectPositionX: 0,
-  },
-  // Mentions légales
-  legal: {
-    marginTop: 14,
-    fontSize: 7.5,
-    color: colors.ink3,
-    lineHeight: 1.5,
-    fontStyle: 'italic',
-  },
-  // Footer fixe
-  footer: {
-    position: 'absolute',
-    bottom: 18,
-    left: 36,
-    right: 36,
-    fontSize: 7,
-    color: colors.ink3,
-    textAlign: 'center',
-    paddingTop: 6,
-    borderTopWidth: 0.5,
-    borderTopStyle: 'solid',
-    borderTopColor: colors.border,
-    lineHeight: 1.5,
-  },
-})
+import { styles } from './quotePdfStyles'
 
 type Props = {
   quote: QuoteWithLines
@@ -215,9 +17,52 @@ type Props = {
   settings: InvoicingSettings | null
   /** N° client de la fiche client (si renseigné) */
   clientNumber?: string | null
+  /** order_ack : accusé de réception de la commande (mêmes lignes et prix, sans « bon pour accord ») */
+  variant?: 'quote' | 'order_ack'
 }
 
-export function QuotePdf({ quote, organizationName, settings, clientNumber }: Props) {
+const frLong = (d: string | null | undefined) => (d ? format(new Date(d), 'd MMMM yyyy', { locale: fr }) : '')
+
+/** En-tête : logo et coordonnées de l'entreprise */
+export function OrgHeaderBlock({ organizationName, settings }: { organizationName: string; settings: InvoicingSettings | null }) {
+  return (
+    <View style={{ flex: 1 }}>
+      <PdfLogo url={settings?.logo_url} />
+      <Text style={styles.orgName}>{organizationName || 'Maintenance'}</Text>
+      {settings && (
+        <View style={styles.orgInfo}>
+          {settings.legal_address && (
+            <Text>{settings.legal_address}</Text>
+          )}
+          {(settings.legal_postal_code || settings.legal_city) && (
+            <Text>{[settings.legal_postal_code, settings.legal_city].filter(Boolean).join(' ')}</Text>
+          )}
+          {settings.legal_phone && <Text>Tél : {settings.legal_phone}</Text>}
+          {settings.legal_email && <Text>{settings.legal_email}</Text>}
+          {settings.siret && <Text>SIRET : {settings.siret}</Text>}
+          {settings.vat_number && <Text>TVA : {settings.vat_number}</Text>}
+        </View>
+      )}
+    </View>
+  )
+}
+
+/** Pied de page fixe : forme juridique, capital, SIRET, APE, TVA */
+export function LegalFooter({ organizationName, settings }: { organizationName: string; settings: InvoicingSettings | null }) {
+  return (
+    <Text style={styles.footer} fixed>
+      {organizationName ? `${organizationName}` : ''}
+      {settings?.legal_form && ` · ${settings.legal_form}`}
+      {settings?.capital && ` au capital de ${settings.capital}`}
+      {settings?.siret && ` · SIRET ${settings.siret}`}
+      {settings?.ape_code && ` · APE ${settings.ape_code}`}
+      {settings?.vat_number && ` · TVA ${settings.vat_number}`}
+    </Text>
+  )
+}
+
+export function QuotePdf({ quote, organizationName, settings, clientNumber, variant = 'quote' }: Props) {
+  const ack = variant === 'order_ack'
   const totals = computeQuoteTotals(
     quote.lines.map((l) => ({
       quantity: Number(l.quantity),
@@ -233,35 +78,32 @@ export function QuotePdf({ quote, organizationName, settings, clientNumber }: Pr
     ? format(new Date(quote.validity_date), 'd MMMM yyyy', { locale: fr })
     : null
 
+  // Commande : date saisie, sinon celle de l'acceptation du devis
+  const orderDate = quote.order_date ?? quote.accepted_at ?? quote.signed_at ?? null
+  const paymentTerms = ack ? (quote.order_payment_terms?.trim() || settings?.payment_terms || null) : settings?.payment_terms
+
   return (
-    <Document>
+    <Document title={ack ? `Accusé de réception ${quote.reference}` : `Devis ${quote.reference}`}>
       <Page size="A4" style={styles.page}>
         {/* HEADER */}
         <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <PdfLogo url={settings?.logo_url} />
-            <Text style={styles.orgName}>{organizationName || 'Maintenance'}</Text>
-            {settings && (
-              <View style={styles.orgInfo}>
-                {settings.legal_address && (
-                  <Text>{settings.legal_address}</Text>
-                )}
-                {(settings.legal_postal_code || settings.legal_city) && (
-                  <Text>{[settings.legal_postal_code, settings.legal_city].filter(Boolean).join(' ')}</Text>
-                )}
-                {settings.legal_phone && <Text>Tél : {settings.legal_phone}</Text>}
-                {settings.legal_email && <Text>{settings.legal_email}</Text>}
-                {settings.siret && <Text>SIRET : {settings.siret}</Text>}
-                {settings.vat_number && <Text>TVA : {settings.vat_number}</Text>}
-              </View>
-            )}
-          </View>
+          <OrgHeaderBlock organizationName={organizationName} settings={settings} />
           <View style={styles.headerMeta}>
-            <Text style={styles.docLabel}>Devis</Text>
-            <Text style={styles.docRef}>{quote.reference}</Text>
-            <Text style={styles.docDate}>Émis le {issueLabel}</Text>
-            {validityLabel && (
-              <Text style={styles.docDate}>Valide jusqu'au {validityLabel}</Text>
+            {ack ? (
+              <>
+                <Text style={styles.docLabel}>Accusé de réception de commande</Text>
+                <Text style={styles.docRef}>{quote.reference}</Text>
+                <Text style={styles.docDate}>Émis le {frLong(quote.order_ack_date ?? new Date().toISOString())}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.docLabel}>Devis</Text>
+                <Text style={styles.docRef}>{quote.reference}</Text>
+                <Text style={styles.docDate}>Émis le {issueLabel}</Text>
+                {validityLabel && (
+                  <Text style={styles.docDate}>Valide jusqu'au {validityLabel}</Text>
+                )}
+              </>
             )}
           </View>
         </View>
@@ -298,6 +140,41 @@ export function QuotePdf({ quote, organizationName, settings, clientNumber }: Pr
             </View>
           )}
         </View>
+
+        {/* ACCUSÉ DE RÉCEPTION : la commande */}
+        {ack && (
+          <View style={styles.orderBox} wrap={false}>
+            <Text style={styles.orderIntro}>
+              Nous accusons réception de votre commande{orderDate ? ` du ${frLong(orderDate)}` : ''}, établie sur la base de notre devis {quote.reference}{issueLabel ? ` du ${issueLabel}` : ''}, et vous en remercions.
+            </Text>
+            {quote.order_reference?.trim() && (
+              <View style={styles.orderRow}>
+                <Text style={styles.orderKey}>Votre référence de commande</Text>
+                <Text style={styles.orderVal}>{quote.order_reference.trim()}</Text>
+              </View>
+            )}
+            {quote.signed_at && (
+              <View style={styles.orderRow}>
+                <Text style={styles.orderKey}>Devis signé</Text>
+                <Text style={styles.orderVal}>
+                  le {frLong(quote.signed_at)}{quote.signed_by_name ? ` par ${quote.signed_by_name}` : ''}
+                </Text>
+              </View>
+            )}
+            {quote.order_lead_time?.trim() && (
+              <View style={styles.orderRow}>
+                <Text style={styles.orderKey}>Délai prévu</Text>
+                <Text style={styles.orderVal}>{quote.order_lead_time.trim()}</Text>
+              </View>
+            )}
+            {paymentTerms && (
+              <View style={styles.orderRow}>
+                <Text style={styles.orderKey}>Conditions de paiement</Text>
+                <Text style={styles.orderVal}>{paymentTerms}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* TABLEAU LIGNES */}
         <View style={styles.tableHeader}>
@@ -348,8 +225,8 @@ export function QuotePdf({ quote, organizationName, settings, clientNumber }: Pr
           </View>
         ) : null}
 
-        {/* BON POUR ACCORD */}
-        <View style={styles.agreement} wrap={false}>
+        {/* BON POUR ACCORD (pas sur l'accusé de réception) */}
+        {!ack && <View style={styles.agreement} wrap={false}>
           <View style={styles.agreementBox}>
             <Text style={styles.agreementTitle}>Bon pour accord</Text>
             {quote.signed_at && quote.signature_data_url ? (
@@ -367,13 +244,13 @@ export function QuotePdf({ quote, organizationName, settings, clientNumber }: Pr
               </>
             )}
           </View>
-        </View>
+        </View>}
 
         {/* MENTIONS LÉGALES */}
         {settings && (
           <View style={styles.legal}>
-            {settings.payment_terms && (
-              <Text>{settings.payment_terms}</Text>
+            {!ack && paymentTerms && (
+              <Text>{paymentTerms}</Text>
             )}
             {settings.no_discount_text && (
               <Text>{settings.no_discount_text}</Text>
@@ -382,22 +259,14 @@ export function QuotePdf({ quote, organizationName, settings, clientNumber }: Pr
           </View>
         )}
 
-        {/* FOOTER */}
-        <Text style={styles.footer} fixed>
-          {organizationName ? `${organizationName}` : ''}
-          {settings?.legal_form && ` · ${settings.legal_form}`}
-          {settings?.capital && ` au capital de ${settings.capital}`}
-          {settings?.siret && ` · SIRET ${settings.siret}`}
-          {settings?.ape_code && ` · APE ${settings.ape_code}`}
-          {settings?.vat_number && ` · TVA ${settings.vat_number}`}
-        </Text>
+        <LegalFooter organizationName={organizationName} settings={settings} />
       </Page>
     </Document>
   )
 }
 
 /** Description d'une ligne : la désignation, puis la précision (délai, référence…) en plus petit, avec leur mise en forme */
-function LineDescription({ text, format }: { text: string; format?: LineFormat | null }) {
+export function LineDescription({ text, format }: { text: string; format?: LineFormat | null }) {
   const [first, ...rest] = text.split('\n')
   const details = rest.join('\n').trim()
   return (

@@ -75,6 +75,14 @@ export type Quote = {
   signed_by_name: string | null
   signature_data_url: string | null
   signed_at: string | null
+  /** Accusé de réception de commande (AR) : fait quand le client valide le devis */
+  order_reference?: string | null
+  order_date?: string | null
+  order_lead_time?: string | null
+  order_payment_terms?: string | null
+  order_ack_date?: string | null
+  order_ack_pdf_url?: string | null
+  order_ack_sent_at?: string | null
   created_at: string
   created_by: string | null
   updated_at: string
@@ -96,3 +104,49 @@ export type QuoteLine = {
 export type QuoteWithLines = Quote & {
   lines: QuoteLine[]
 }
+
+// ─── Bons de livraison ─────────────────────────────────────
+
+/** delivered : livré sur chantier ; pickup : bon pour enlèvement (prêt à être récupéré) */
+export type DeliveryMode = 'delivered' | 'pickup'
+
+export const DELIVERY_MODE_LABELS: Record<DeliveryMode, string> = {
+  delivered: 'Livré sur chantier',
+  pickup: 'Bon pour enlèvement',
+}
+
+export type DeliveryNoteLine = {
+  id: string
+  delivery_note_id: string
+  quote_position: number | null
+  position: number
+  description: string
+  format?: LineFormat | null
+  quantity: number
+}
+
+export type DeliveryNote = {
+  id: string
+  organization_id: string
+  quote_id: string | null
+  reference: string
+  delivery_date: string
+  mode: DeliveryMode
+  quote_reference: string | null
+  order_reference: string | null
+  client_name: string
+  client_contact_name: string | null
+  client_address: string | null
+  site_name: string | null
+  site_address: string | null
+  dossier_number: string | null
+  observations: string | null
+  signed_by_name: string | null
+  signature_data_url: string | null
+  signed_at: string | null
+  pdf_url: string | null
+  sent_at: string | null
+  created_at: string
+}
+
+export type DeliveryNoteWithLines = DeliveryNote & { lines: DeliveryNoteLine[] }

@@ -18,3 +18,17 @@ export async function generateAndUploadQuotePdf(
   const stored = await uploadPrivateFile(path, blob, { contentType: 'application/pdf', upsert: true })
   return `${stored.url}?t=${Date.now()}`
 }
+
+/** PDF rangé avec le devis (accusé de réception, bon de livraison) : dossier réservé aux administrateurs */
+export async function uploadQuoteDocumentPdf(
+  pdfDocument: ReactElement<DocumentProps>,
+  organizationId: string,
+  quoteId: string,
+  fileBase: string,
+): Promise<string> {
+  const blob = await pdf(pdfDocument).toBlob()
+  const safe = fileBase.replace(/[^a-zA-Z0-9-]/g, '-')
+  const path = `${organizationId}/quotes/${quoteId}/${safe}.pdf`
+  const stored = await uploadPrivateFile(path, blob, { contentType: 'application/pdf', upsert: true })
+  return `${stored.url}?t=${Date.now()}`
+}

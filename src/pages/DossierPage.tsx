@@ -332,6 +332,16 @@ export function DossierPage() {
                         <Download size={11} strokeWidth={2} /> PDF
                       </FileLink>
                     )}
+                    {q.order_ack_pdf_url && (
+                      <FileLink url={q.order_ack_pdf_url} target="_blank" rel="noreferrer" className="btn-sm" title="Accusé de réception de la commande" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Download size={11} strokeWidth={2} /> AR
+                      </FileLink>
+                    )}
+                    {(q.delivery_notes ?? []).filter((n) => n.pdf_url).map((n) => (
+                      <FileLink key={n.id} url={n.pdf_url as string} target="_blank" rel="noreferrer" className="btn-sm" title={`${n.mode === 'pickup' ? 'Bon pour enlèvement' : 'Bon de livraison'}${n.signed_at ? ' signé' : ' non signé'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Download size={11} strokeWidth={2} /> {n.reference}
+                      </FileLink>
+                    ))}
                     <Link to={`/devis?open=${q.id}`} className="btn-sm subtle" title="Ouvrir le devis" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <ExternalLink size={11} strokeWidth={2} />
                     </Link>

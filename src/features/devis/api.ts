@@ -242,3 +242,33 @@ export async function setQuotePdfUrl(id: string, pdfUrl: string): Promise<void> 
     .eq('id', id)
   if (error) throw error
 }
+
+// ─── Accusé de réception de commande ───────────────────────
+
+export type OrderAckInput = {
+  order_reference: string | null
+  order_date: string | null
+  order_lead_time: string | null
+  order_payment_terms: string | null
+}
+
+/** Enregistre les informations de l'AR (référence de commande, délai, conditions) */
+export async function saveOrderAck(id: string, input: OrderAckInput): Promise<void> {
+  const { error } = await supabase
+    .from('quotes')
+    .update({ ...input, order_ack_date: new Date().toISOString().slice(0, 10) })
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function setOrderAckPdfUrl(id: string, pdfUrl: string): Promise<void> {
+  const { error } = await supabase.from('quotes').update({ order_ack_pdf_url: pdfUrl }).eq('id', id)
+  if (error) throw error
+}
+
+export async function markOrderAckSent(id: string): Promise<string> {
+  const now = new Date().toISOString()
+  const { error } = await supabase.from('quotes').update({ order_ack_sent_at: now }).eq('id', id)
+  if (error) throw error
+  return now
+}
