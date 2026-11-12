@@ -260,7 +260,7 @@ export function LabelsModal({ open, onClose, onChanged, units, sites, clients, d
           )}
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
             <input type="checkbox" checked={dateBoxes} onChange={(e) => { setDateBoxes(e.target.checked); setResult(null) }} />
-            Cases « Date de passage » à remplir au stylo
+            6 cases « Date de passage » à remplir au stylo
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
             <input type="checkbox" checked={borders} onChange={(e) => { setBorders(e.target.checked); setResult(null) }} />

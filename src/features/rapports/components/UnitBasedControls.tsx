@@ -1,4 +1,4 @@
-import { AlertTriangle, Camera, Check, Images, Plus, QrCode, Search, X } from 'lucide-react'
+import { AlertTriangle, Camera, Check, Copy, Images, Pencil, Plus, QrCode, Search, X } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import {
@@ -19,6 +19,7 @@ import type {
   AnomalyPriority,
 } from '../../anomalies/schemas'
 import {
+  createZone,
   deleteUnitPhoto,
   findUnitsByQrCodes,
   getFamilyTemplate,
@@ -104,6 +105,16 @@ export type UncheckedUnitItem = {
 
 // Cache des templates par famille (partagé sur cette instance)
 type TemplateCache = Map<string, FamilyTemplate>
+
+/** Marques déjà saisies sur le site : proposées quand on corrige la marque d'un appareil */
+function brandsOf(list: EquipmentUnit[]): string[] {
+  const seen = new Map<string, string>()
+  for (const u of list) {
+    const b = u.brand?.trim()
+    if (b && !seen.has(normalizeSearch(b))) seen.set(normalizeSearch(b), b)
+  }
+  return [...seen.values()].sort((a, b) => a.localeCompare(b, 'fr'))
+}
 
 /** Repli sans réseau : un équipement « à surveiller » ou « à remplacer » a sans doute une anomalie en cours */
 function flaggedByStatus(list: EquipmentUnit[]): Set<string> {
@@ -319,6 +330,17 @@ export function UnitBasedControls({
   }, [baseUnits, activeZoneId, familyFilter, onlyRemaining, search, checksByUnit, zonesById])
 
   /** Équipement suivant dans l'ordre de passage, pas encore contrôlé (null s'il n'y en a plus) */
+  /** Dernier appareil contrôlé dans ce rapport (hors celui-ci) : « Comme DSF-xx » reprend son emplacement */
+  function lastControlledUnit(exceptId: string): EquipmentUnit | null {
+    let best: EquipmentCheck | null = null
+    for (const c of checks) {
+      if (c.equipment_unit_id === exceptId) continue
+      if (!best || c.checked_at > best.checked_at) best = c
+    }
+    const id = best?.equipment_unit_id
+    return id ? units.find((u) => u.id === id) ?? null : null
+  }
+
   function nextUnitAfter(unitId: string): string | null {
     const idx = displayedUnits.findIndex((u) => u.id === unitId)
     const order = [...displayedUnits.slice(idx + 1), ...displayedUnits.slice(0, Math.max(idx, 0))]
@@ -617,6 +639,10 @@ export function UnitBasedControls({
           interventionId={interventionId}
           technicianName={technicianName}
           zone={editingUnit.zone_id ? zonesById.get(editingUnit.zone_id) ?? null : null}
+          zones={zones}
+          onZoneCreated={(z) => setZones((prev) => [...prev, z])}
+          siteBrands={brandsOf(units)}
+          previousUnit={lastControlledUnit(editingUnit.id)}
           onUnitChange={(u) => setUnits((prev) => prev.map((x) => (x.id === u.id ? u : x)))}
           onLinkLabel={(code) => linkLabel(editingUnit, code)}
         />
@@ -992,6 +1018,13 @@ type ModalProps = {
   interventionId: string
   technicianName?: string | null
   zone: Zone | null
+  /** Zones du site : l'emplacement se corrige depuis le contrôle */
+  zones: Zone[]
+  onZoneCreated: (zone: Zone) => void
+  /** Marques déjà saisies sur le site (suggestions) */
+  siteBrands: string[]
+  /** Dernier appareil contrôlé dans ce rapport : « Comme DSF-xx » reprend son emplacement */
+  previousUnit: EquipmentUnit | null
   /** Associe une étiquette scannée à l'appareil (refusée si elle est déjà ailleurs) */
   onLinkLabel: (code: string) => Promise<EquipmentUnit>
   /** Photo de repérage ajoutée ou changée pendant le contrôle */
@@ -1004,7 +1037,8 @@ type ModalProps = {
 
 function UnitCheckModal({
   unit, template, lists, initialListKey, existing, previousChecks, onClose, onSave, readOnly,
-  organizationId, interventionId, technicianName, zone, onUnitChange, onLinkLabel, hasNext, outOfScope,
+  organizationId, interventionId, technicianName, zone, zones, onZoneCreated, siteBrands, previousUnit,
+  onUnitChange, onLinkLabel, hasNext, outOfScope,
 }: ModalProps) {
   // Dernier contrôle avant celui-ci (pour un ancien rapport rouvert : pas un contrôle plus récent)
   const lastCheck = previousChecks.find((c) => !existing || c.checked_at < existing.checked_at) ?? null
@@ -1039,6 +1073,70 @@ function UnitCheckModal({
     } catch (e) {
       if (p) void deleteUnitPhoto(p.path)
       setPhotoError(e instanceof Error ? e.message : 'Photo non enregistrée. Vérifiez votre connexion.')
+    }
+  }
+
+  // ─── Emplacement et marque corrigés sur place (enregistrés avec le contrôle) ───
+  const placeMissing = !unit.zone_id && !unit.implantation?.trim()
+  // Rien n'est renseigné : les champs sont ouverts d'emblée
+  const [placeOpen, setPlaceOpen] = useState(!readOnly && placeMissing)
+  const [placeZoneId, setPlaceZoneId] = useState(unit.zone_id ?? '')
+  const [placeNewZone, setPlaceNewZone] = useState('')
+  const [placeImplantation, setPlaceImplantation] = useState(unit.implantation ?? '')
+  const [placeBrand, setPlaceBrand] = useState(unit.brand ?? '')
+  const [placeError, setPlaceError] = useState<string | null>(null)
+  const placePatch: { zone_id?: string; implantation?: string; brand?: string } = {}
+  if (placeZoneId !== (unit.zone_id ?? '')) placePatch.zone_id = placeZoneId
+  if (placeImplantation.trim() !== (unit.implantation ?? '').trim()) placePatch.implantation = placeImplantation.trim()
+  if (placeBrand.trim() !== (unit.brand ?? '').trim()) placePatch.brand = placeBrand.trim()
+  const placeChanged = !readOnly && (Object.keys(placePatch).length > 0 || (!placeZoneId && placeNewZone.trim() !== ''))
+
+  // « Comme DSF-xx » : remplit les champs vides avec l'appareil contrôlé juste avant
+  const prev = previousUnit && previousUnit.id !== unit.id ? previousUnit : null
+  const prevZone = prev?.zone_id ? zones.find((z) => z.id === prev.zone_id) ?? null : null
+  const canCopy = !!prev && (
+    (!placeZoneId && !placeNewZone.trim() && !!prevZone)
+    || (!placeImplantation.trim() && !!prev.implantation?.trim())
+    || (!placeBrand.trim() && !!prev.brand?.trim())
+  )
+  function copyPrevious() {
+    if (!prev) return
+    if (!placeZoneId && !placeNewZone.trim() && prevZone) setPlaceZoneId(prevZone.id)
+    if (!placeImplantation.trim() && prev.implantation?.trim()) setPlaceImplantation(prev.implantation.trim())
+    if (!placeBrand.trim() && prev.brand?.trim()) setPlaceBrand(prev.brand.trim())
+  }
+  function cancelPlace() {
+    setPlaceZoneId(unit.zone_id ?? '')
+    setPlaceNewZone('')
+    setPlaceImplantation(unit.implantation ?? '')
+    setPlaceBrand(unit.brand ?? '')
+    setPlaceError(null)
+    setPlaceOpen(false)
+  }
+  /** Enregistre zone, emplacement et marque sur l'appareil (sans réseau : mis en file d'attente) */
+  async function savePlace(): Promise<boolean> {
+    setPlaceError(null)
+    try {
+      const patch = { ...placePatch }
+      const newName = placeNewZone.trim()
+      if (!placeZoneId && newName) {
+        const same = zones.find((z) => normalizeSearch(z.name) === normalizeSearch(newName))
+        if (same) patch.zone_id = same.id
+        else {
+          const order = zones.reduce((m, z) => Math.max(m, z.display_order ?? 0), -1) + 1
+          const created = await createZone({ site_id: unit.site_id, name: newName, display_order: order }, organizationId)
+          onZoneCreated(created)
+          patch.zone_id = created.id
+        }
+      }
+      if (Object.keys(patch).length === 0) return true
+      const updated = await updateEquipmentUnit(unit.id, patch)
+      onUnitChange(updated)
+      return true
+    } catch (e) {
+      setPlaceError(e instanceof Error ? e.message : 'Emplacement non enregistré. Vérifiez votre connexion.')
+      setPlaceOpen(true)
+      return false
     }
   }
 
@@ -1077,7 +1175,7 @@ function UnitCheckModal({
     photos: existing?.photos ?? [],
   }))
   const inputChanged = !readOnly
-    && JSON.stringify({ checklist, observation, verdict, operations, photos }) !== initialInput
+    && (placeChanged || JSON.stringify({ checklist, observation, verdict, operations, photos }) !== initialInput)
   function requestClose() {
     if (saving) return
     if (inputChanged && !window.confirm('Fermer sans enregistrer ?\n\nCe que vous avez saisi pour cet appareil sera perdu.')) return
@@ -1174,6 +1272,8 @@ function UnitCheckModal({
   async function handleSave(then: 'close' | 'next' = 'close') {
     setSaving(true)
     try {
+      // Emplacement corrigé : enregistré sur l'appareil d'abord (le contrôle attend si ça échoue)
+      if (placeChanged && !(await savePlace())) return
       await onSave({
         checklist,
         checklistKey: list?.key ?? null,
@@ -1248,12 +1348,65 @@ function UnitCheckModal({
 
           {/* Où est l'appareil : emplacement en gros + photo de repérage */}
           <div style={locationBoxStyle}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ink3)' }}>
-              Emplacement
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ink3)' }}>
+                Emplacement
+              </div>
+              {!readOnly && !placeOpen && (
+                <button type="button" className="btn-sm" onClick={() => setPlaceOpen(true)} style={placeSmallBtnStyle}>
+                  <Pencil size={12} /> Modifier
+                </button>
+              )}
             </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35, margin: '2px 0 10px' }}>
-              {unitLocation(unit, zone) || <span style={{ color: 'var(--ink3)', fontWeight: 400, fontStyle: 'italic' }}>Non renseigné</span>}
-            </div>
+            {placeOpen ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '8px 0 12px' }}>
+                {canCopy && prev && (
+                  <button type="button" className="btn-sm" onClick={copyPrevious} style={{ ...placeSmallBtnStyle, alignSelf: 'flex-start', maxWidth: '100%' }}>
+                    <Copy size={12} style={{ flexShrink: 0 }} />
+                    <span style={{ flexShrink: 0 }}>Comme {unitRepere(prev)}</span>
+                    <span style={placeCopyHintStyle}>
+                      {[zoneLabel(prevZone), prev.implantation?.trim(), prev.brand?.trim()].filter(Boolean).join(' · ')}
+                    </span>
+                  </button>
+                )}
+                <div className="mrow">
+                  <div className="fg">
+                    <label>Zone</label>
+                    <select value={placeZoneId} onChange={(e) => { setPlaceZoneId(e.target.value); if (e.target.value) setPlaceNewZone('') }}>
+                      <option value="">{placeNewZone.trim() ? `Nouvelle : ${placeNewZone.trim()}` : '— Aucune zone —'}</option>
+                      {zones.map((z) => (
+                        <option key={z.id} value={z.id}>{zoneLabel(z)}</option>
+                      ))}
+                    </select>
+                    {!placeZoneId && (
+                      <input type="text" value={placeNewZone} onChange={(e) => setPlaceNewZone(e.target.value)} placeholder="+ Nouvelle zone" style={{ marginTop: 6, fontSize: 12.5 }} />
+                    )}
+                  </div>
+                  <div className="fg">
+                    <label>Marque</label>
+                    <input type="text" list={`brands-${unit.id}`} value={placeBrand} onChange={(e) => setPlaceBrand(e.target.value)} placeholder="Ex : Sicli" />
+                    {siteBrands.length > 0 && (
+                      <datalist id={`brands-${unit.id}`}>
+                        {siteBrands.map((b) => <option key={b} value={b} />)}
+                      </datalist>
+                    )}
+                  </div>
+                </div>
+                <div className="fg">
+                  <label>Emplacement précis</label>
+                  <input type="text" value={placeImplantation} onChange={(e) => setPlaceImplantation(e.target.value)} placeholder="Ex : Hall d'accueil, à droite de l'ascenseur" />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11.5, color: 'var(--ink3)' }}>Enregistré sur l'appareil avec le contrôle.</span>
+                  <button type="button" className="btn-sm" onClick={cancelPlace} style={placeSmallBtnStyle}>Annuler</button>
+                </div>
+                {placeError && <span className="ferr on">{placeError}</span>}
+              </div>
+            ) : (
+              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35, margin: '2px 0 10px' }}>
+                {unitLocation(unit, zone) || <span style={{ color: 'var(--ink3)', fontWeight: 400, fontStyle: 'italic' }}>Non renseigné</span>}
+              </div>
+            )}
             <UnitPhotoField
               organizationId={organizationId}
               value={unit.photo_path && unit.photo_url ? { path: unit.photo_path, url: unit.photo_url } : null}
@@ -1278,7 +1431,7 @@ function UnitCheckModal({
                 </span>
               </div>
             )}
-            <MetaLine k="Marque" v={unit.brand ?? '—'} />
+            {!placeOpen && <MetaLine k="Marque" v={unit.brand ?? '—'} />}
             {unit.model && <MetaLine k="Modèle" v={unit.model} />}
             <MetaLine k="Année" v={unit.install_year?.toString() ?? '—'} />
             {attributesSummary(unit.family, unit.attributes) && (
@@ -1844,6 +1997,20 @@ const outOfScopeTagStyle: React.CSSProperties = {
   borderRadius: 4,
   padding: '0 5px',
   marginRight: 6,
+}
+
+const placeSmallBtnStyle: React.CSSProperties = {
+  padding: '.32rem .8rem',
+  fontSize: 12.5,
+  background: 'var(--wht, #fff)',
+}
+
+const placeCopyHintStyle: React.CSSProperties = {
+  color: 'var(--ink3)',
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 }
 
 const locationBoxStyle: React.CSSProperties = {

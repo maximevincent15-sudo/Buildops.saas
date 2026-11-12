@@ -38,9 +38,10 @@ type Props = {
 }
 
 const PAD = 2.5
-/** Colonne des dates (grandes étiquettes) et bande des dates (petites), en mm */
-const DATE_COL_WIDTH = 20
-const DATE_STRIP_HEIGHT = 8.5
+/** 6 cases de date : une par passage (6 ans de visites annuelles) */
+const DATE_COUNT = 6
+/** Bande des dates sous le QR (petites étiquettes) : 2 rangées de 3, en mm */
+const DATE_STRIP_HEIGHT = 14
 const DATE_LEGEND = 'Date de passage'
 
 /** Planches A4 d'étiquettes autocollantes : QR code à gauche, repère et emplacement à droite */
@@ -57,7 +58,12 @@ export function LabelsPdf({ format, labels, heading, phone, startAt, showBorders
   // Dates : en colonne à droite sur les grandes étiquettes, en bande sous le QR sur les petites
   const dateColumn = !!dateBoxes && large
   const dateStrip = !!dateBoxes && !large
-  const qrSide = dateColumn ? Math.min(innerHeight, format.width * 0.36) : Math.min(innerHeight, format.width * 0.46)
+  // Colonne des dates : une seule colonne si l'étiquette est assez haute, sinon 2 colonnes de 3
+  const oneColumn = (innerHeight - 3) / DATE_COUNT >= 7
+  const DATE_COL_WIDTH = oneColumn ? 20 : 32
+  const qrSide = dateColumn
+    ? Math.min(innerHeight, format.width * (oneColumn ? 0.36 : 0.26))
+    : Math.min(innerHeight, format.width * 0.46)
   const qr = dateStrip ? Math.min(qrSide, innerHeight - DATE_STRIP_HEIGHT - 1) : qrSide
   const textWidth = format.width - qr - PAD * 3 - (dateColumn ? DATE_COL_WIDTH + PAD : 0)
   const baseTitle = large ? (format.height >= 50 ? 22 : 18) : format.width >= 68 ? 14 : 12
@@ -67,8 +73,9 @@ export function LabelsPdf({ format, labels, heading, phone, startAt, showBorders
   const clamp = (n: number) => (dateBoxes ? { maxLines: n, textOverflow: 'ellipsis' as const } : {})
   const shownLines = dateStrip ? 2 : 3
 
-  const columnCells = Math.max(2, Math.min(6, Math.floor((innerHeight - 3) / 6.5)))
-  const columnCellHeight = Math.min(8, (innerHeight - 3) / columnCells)
+  const columnRows = oneColumn ? DATE_COUNT : DATE_COUNT / 2
+  const columnCellHeight = Math.min(oneColumn ? 8 : 10, (innerHeight - 3) / columnRows)
+  const columnCellWidth = oneColumn ? DATE_COL_WIDTH : (DATE_COL_WIDTH - 1.5) / 2
 
   return (
     <Document title="Étiquettes QR Firovia">
@@ -94,9 +101,11 @@ export function LabelsPdf({ format, labels, heading, phone, startAt, showBorders
                 {dateColumn && (
                   <View style={{ width: mm(DATE_COL_WIDTH), marginLeft: mm(PAD) }}>
                     <Text style={styles.dateLegend}>{DATE_LEGEND}</Text>
-                    {Array.from({ length: columnCells }, (_, k) => (
-                      <View key={k} style={[styles.dateCell, { height: mm(columnCellHeight - 1), marginTop: mm(1) }]} />
-                    ))}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                      {Array.from({ length: DATE_COUNT }, (_, k) => (
+                        <View key={k} style={[styles.dateCell, { width: mm(columnCellWidth), height: mm(columnCellHeight - 1), marginTop: mm(1) }]} />
+                      ))}
+                    </View>
                   </View>
                 )}
               </View>
@@ -118,11 +127,13 @@ export function LabelsPdf({ format, labels, heading, phone, startAt, showBorders
                 {dateStrip && (
                   <View style={{ marginTop: mm(1), height: mm(DATE_STRIP_HEIGHT) }}>
                     <Text style={styles.dateLegend}>{DATE_LEGEND}</Text>
-                    <View style={{ flexDirection: 'row', marginTop: mm(0.8), height: mm(DATE_STRIP_HEIGHT - 3) }}>
-                      {[0, 1, 2].map((k) => (
-                        <View key={k} style={[styles.dateCell, { flexGrow: 1, flexBasis: 0, marginLeft: k === 0 ? 0 : mm(1.5) }]} />
-                      ))}
-                    </View>
+                    {[0, 1].map((r) => (
+                      <View key={r} style={{ flexDirection: 'row', marginTop: mm(0.8), height: mm((DATE_STRIP_HEIGHT - 4) / 2) }}>
+                        {[0, 1, 2].map((k) => (
+                          <View key={k} style={[styles.dateCell, { flexGrow: 1, flexBasis: 0, marginLeft: k === 0 ? 0 : mm(1.5) }]} />
+                        ))}
+                      </View>
+                    ))}
                   </View>
                 )}
               </View>
