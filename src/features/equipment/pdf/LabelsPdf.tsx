@@ -59,10 +59,11 @@ export function LabelsPdf({ format, labels, heading, phone, startAt, showBorders
   const dateColumn = !!dateBoxes && large
   const dateStrip = !!dateBoxes && !large
   // Colonne des dates : une seule colonne si l'étiquette est assez haute, sinon 2 colonnes de 3
+  // (cases d'environ 12,5 × 7,5 mm : la place d'une date au stylo, sans manger le QR code)
   const oneColumn = (innerHeight - 3) / DATE_COUNT >= 7
-  const DATE_COL_WIDTH = oneColumn ? 20 : 32
+  const DATE_COL_WIDTH = oneColumn ? 20 : 27
   const qrSide = dateColumn
-    ? Math.min(innerHeight, format.width * (oneColumn ? 0.36 : 0.26))
+    ? Math.min(innerHeight, format.width * (oneColumn ? 0.36 : 0.29))
     : Math.min(innerHeight, format.width * 0.46)
   const qr = dateStrip ? Math.min(qrSide, innerHeight - DATE_STRIP_HEIGHT - 1) : qrSide
   const textWidth = format.width - qr - PAD * 3 - (dateColumn ? DATE_COL_WIDTH + PAD : 0)
@@ -74,7 +75,7 @@ export function LabelsPdf({ format, labels, heading, phone, startAt, showBorders
   const shownLines = dateStrip ? 2 : 3
 
   const columnRows = oneColumn ? DATE_COUNT : DATE_COUNT / 2
-  const columnCellHeight = Math.min(oneColumn ? 8 : 10, (innerHeight - 3) / columnRows)
+  const columnCellHeight = Math.min(oneColumn ? 8 : 8.5, (innerHeight - 3) / columnRows)
   const columnCellWidth = oneColumn ? DATE_COL_WIDTH : (DATE_COL_WIDTH - 1.5) / 2
 
   return (
