@@ -140,7 +140,11 @@ export function RapportsListPage() {
                 const isDone = !!r.completed_at
                 return (
                   <tr key={r.id}>
-                    <td><strong>{interv.reference}</strong></td>
+                    <td>
+                      <Link to={`/rapports/${interv.id}`} title="Ouvrir le rapport" style={{ color: 'var(--acc)' }}>
+                        <strong>{interv.reference}</strong>
+                      </Link>
+                    </td>
                     <td>{interv.client_name}</td>
                     <td>{equipLabel}</td>
                     <td>{interv.technician_name ?? '—'}</td>
