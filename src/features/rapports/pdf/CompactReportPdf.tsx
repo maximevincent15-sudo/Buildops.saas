@@ -5,12 +5,12 @@ import { ANOMALY_ACTION_LABELS, ANOMALY_PRIORITY_LABELS } from '../../anomalies/
 import { formatEquipmentTypes } from '../../../shared/constants/interventions'
 import { EQUIPMENT_FAMILIES } from '../../equipment/schemas'
 import { PdfLogo } from '../../parametres/pdf/PdfLogo'
-import { computeConformity } from '../conformity'
 import { RECOMMENDED_ACTION_LABEL } from '../schemas'
 import type { ChecklistResponse } from '../schemas'
 import { ReportPdf } from './ReportPdf'
 import type { ReportPdfProps, UnitReportEntry } from './ReportPdf'
 import { pdfSafe } from './pdfText'
+import { clientInfoLines } from './clientInfo'
 
 /**
  * Rapport compact : la page 1 dit tout (résultat, points à traiter avec
@@ -83,20 +83,15 @@ export function CompactReportPdf(props: ReportPdfProps) {
 
 function CompactContent({
   intervention, report, sections, organizationName, unitEntries = [], settings, anomalyEntries = [],
-  previousAnomalyEntries = [], interventionType, nextInterventionDate, clientNumber, dossierNumber,
+  previousAnomalyEntries = [], interventionType, nextInterventionDate, clientNumber, dossierNumber, clientInfo,
 }: ReportPdfProps) {
-  // ─── Résultat global : même calcul que l'écran, le mail et le portail ───
-  let answered = 0
-  let total = 0
+  // Points NOK de la checklist du site
   const siteNok: Array<{ section: string; r: ChecklistResponse; label: string }> = []
   for (const sec of sections) {
-    total += sec.items.length || sec.responses.length
     for (const r of sec.responses) {
-      if (r.value) answered++
       if (r.value === 'nok') siteNok.push({ section: sec.label, r, label: sec.items.find((it) => it.id === r.id)?.label ?? r.id })
     }
   }
-  const conformity = computeConformity({ answered, total, nokCount: siteNok.length }, unitEntries.map((e) => e.verdict))
   const verified = unitEntries.filter((e) => e.verdict !== 'non_verifie')
   const notVerified = unitEntries.filter((e) => e.verdict === 'non_verifie')
 
@@ -184,12 +179,13 @@ function CompactContent({
   const todayCount = todo.length - previousCount
   const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`
   const controlled = `${plural(verified.length, 'équipement')} contrôlé${verified.length > 1 ? 's' : ''}`
-  const pending = previousCount > 0 ? ` · ${plural(previousCount, 'point')} en attente depuis une visite précédente` : ''
-  const banner = conformity.isConform === true
-    ? { label: 'CONFORME', sub: previousCount > 0 ? `${controlled}, conformes${pending}` : `${controlled}, aucun point à traiter`, fg: c.grn, bg: c.grnLt }
-    : conformity.isConform === false
-      ? { label: 'NON CONFORME', sub: `${plural(todayCount, 'point')} à traiter sur ${controlled}${pending}`, fg: c.red, bg: c.redLt }
-      : { label: 'INCOMPLET', sub: `${notVerified.length} équipement${notVerified.length > 1 ? 's' : ''} non vérifié${notVerified.length > 1 ? 's' : ''} sur ${unitEntries.length}`, fg: c.gry, bg: c.gryLt }
+  // Résumé neutre de la visite : pas de verdict global « conforme / non conforme » sur le site
+  const summaryParts = [
+    controlled,
+    todayCount > 0 ? `${plural(todayCount, 'point')} à traiter` : previousCount > 0 ? 'aucun nouveau point à traiter' : 'aucun point à traiter',
+    previousCount > 0 ? `${plural(previousCount, 'point')} en attente depuis une visite précédente` : null,
+    notVerified.length > 0 ? `${notVerified.length} non vérifié${notVerified.length > 1 ? 's' : ''} sur ${unitEntries.length}` : null,
+  ].filter(Boolean)
 
   const photos = [
     ...anomalyEntries.flatMap((a) => a.anomaly.photos.map((p) => ({ key: p.path, url: p.url, caption: `${a.unitSerial ? `${a.unitSerial} · ` : ''}${a.anomaly.title}` }))),
@@ -213,19 +209,28 @@ function CompactContent({
             <Text style={{ fontSize: 7, color: c.ink3, letterSpacing: 1, textTransform: 'uppercase' }}>Rapport de vérification</Text>
             <Text style={{ fontSize: 14, fontFamily: 'Helvetica-Bold', color: c.acc, marginTop: 2 }}>{intervention.reference}</Text>
             {visitDate && <Text style={{ fontSize: 8.5, color: c.ink2, marginTop: 2 }}>du {visitDate}</Text>}
+            {/* Client destinataire, comme sur un courrier */}
+            {clientInfo?.name && (
+              <View style={{ marginTop: 8, width: 205, backgroundColor: c.bg, borderRadius: 4, paddingVertical: 5, paddingHorizontal: 7 }}>
+                <Text style={s.th}>Client{clientNumber ? ` · n° ${clientNumber}` : ''}</Text>
+                <Text style={{ fontSize: 9.5, fontFamily: 'Helvetica-Bold', marginTop: 2 }}>{clientInfo.name}</Text>
+                {clientInfoLines(clientInfo).map((l, i) => <Text key={i} style={{ fontSize: 7.8, color: c.ink2, marginTop: 1.5 }}>{l}</Text>)}
+              </View>
+            )}
           </View>
         </View>
 
         {/* Qui, où, quoi */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', backgroundColor: c.bg, borderRadius: 4, paddingVertical: 6, paddingHorizontal: 8, marginTop: 8 }}>
-          {[
-            ['Client', intervention.client_name + (clientNumber ? ` (n° ${clientNumber})` : '')],
+          {([
+            // Le client a son bloc en haut à droite quand sa fiche est connue
+            clientInfo?.name ? null : ['Client', intervention.client_name + (clientNumber ? ` (n° ${clientNumber})` : '')],
             ['Site', [intervention.site_name, address].filter(Boolean).join(' — ')],
             ['Technicien', intervention.technician_name ?? '—'],
             ['Intervention', [interventionType, dossierNumber ? `dossier ${dossierNumber}` : null].filter(Boolean).join(' · ') || '—'],
             ['Équipements', formatEquipmentTypes(intervention.equipment_types)],
             ['Prochaine visite', nextLabel ?? '—'],
-          ].map(([k, v]) => (
+          ] as Array<[string, string] | null>).filter((r): r is [string, string] => !!r).map(([k, v]) => (
             <View key={k} style={{ width: '50%', flexDirection: 'row', paddingVertical: 1.5, paddingRight: 6 }}>
               <Text style={{ width: 66, fontSize: 7.5, color: c.ink3 }}>{k}</Text>
               <Text style={{ flex: 1, fontSize: 8.5 }}>{v}</Text>
@@ -233,10 +238,9 @@ function CompactContent({
           ))}
         </View>
 
-        {/* Résultat */}
-        <View style={{ marginTop: 10, borderRadius: 5, backgroundColor: banner.bg, borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: banner.fg, paddingVertical: 9, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ fontSize: 15, fontFamily: 'Helvetica-Bold', color: banner.fg, letterSpacing: 1 }}>{banner.label}</Text>
-          <Text style={{ fontSize: 9.5, color: c.ink, marginLeft: 12, flex: 1 }}>{banner.sub}</Text>
+        {/* Résumé de la visite */}
+        <View style={{ marginTop: 10, borderRadius: 5, backgroundColor: c.bg, borderLeftWidth: 3, borderLeftStyle: 'solid', borderLeftColor: c.acc, paddingVertical: 8, paddingHorizontal: 12 }}>
+          <Text style={{ fontSize: 10, color: c.ink }}>{summaryParts.join(' · ')}</Text>
         </View>
 
         {/* À traiter */}

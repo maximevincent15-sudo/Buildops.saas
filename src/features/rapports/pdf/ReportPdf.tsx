@@ -16,6 +16,8 @@ import type { EquipmentType } from '../../../shared/constants/interventions'
 import { EQUIPMENT_FAMILIES } from '../../equipment/schemas'
 import type { InvoicingSettings } from '../../parametres/api'
 import { PdfLogo } from '../../parametres/pdf/PdfLogo'
+import { clientInfoLines } from './clientInfo'
+import type { ReportClientInfo } from './clientInfo'
 import type { Intervention } from '../../planning/schemas'
 import type { ChecklistItem } from '../checklists'
 import { computeConformity } from '../conformity'
@@ -134,34 +136,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Helvetica-Bold',
     color: colors.acc,
-  },
-  // Tampon Conforme / Non conforme
-  stamp: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderStyle: 'solid',
-    textAlign: 'center',
-    fontFamily: 'Helvetica-Bold',
-    fontSize: 13,
-    letterSpacing: 1.5,
-    marginBottom: 14,
-  },
-  stampConform: {
-    color: colors.grn,
-    borderColor: colors.grn,
-    backgroundColor: colors.grnLt,
-  },
-  stampNonConform: {
-    color: colors.red,
-    borderColor: colors.red,
-    backgroundColor: colors.redLt,
-  },
-  stampPartial: {
-    color: colors.org,
-    borderColor: colors.org,
-    backgroundColor: colors.orgLt,
   },
   // Synthèse
   summaryBox: {
@@ -497,6 +471,8 @@ type Props = {
   nextInterventionDate?: string | null
   /** N° client de la fiche client (si renseigné). */
   clientNumber?: string | null
+  /** Coordonnées du client (fiche client) : nom, adresse, téléphone, mail, SIRET */
+  clientInfo?: ReportClientInfo | null
   /** N° de dossier du site (si renseigné). */
   dossierNumber?: string | null
 }
@@ -509,7 +485,7 @@ export function ReportPdf(props: Props) {
 function ReportPdfContent({
   intervention, report, sections, organizationName,
   unitEntries, settings, anomalyEntries,
-  interventionType, nextInterventionDate, clientNumber, dossierNumber,
+  interventionType, nextInterventionDate, clientNumber, dossierNumber, clientInfo,
 }: Props) {
   const interventionEquipsLabel = formatEquipmentTypes(intervention.equipment_types)
 
@@ -591,15 +567,6 @@ function ReportPdfContent({
     if (value === 'na') return [styles.badge, styles.badgeNa]
     return [styles.badge, styles.badgeEmpty]
   }
-
-  const stampLabel =
-    summary.isConform === true ? 'CONFORME' :
-    summary.isConform === false ? 'NON CONFORME' :
-    'INCOMPLET'
-  const stampStyle =
-    summary.isConform === true ? styles.stampConform :
-    summary.isConform === false ? styles.stampNonConform :
-    styles.stampPartial
 
   // ─── Slice M6 : map "label du contrôle NOK" → [serials d'unités] ──────
   // Permet de préfixer chaque NOK dans la checklist par l'équipement précis
@@ -694,11 +661,6 @@ function ReportPdfContent({
           </View>
         )}
 
-        {/* TAMPON CONFORMITÉ */}
-        <View style={[styles.stamp, stampStyle]}>
-          <Text>{stampLabel}</Text>
-        </View>
-
         {/* SYNTHÈSE — Slice M6 : si anomalyEntries fourni, on ne montre PAS le
             résumé auto-calculé (les blocs anomalies persistantes sont mieux) */}
         {(!anomalyEntries || anomalyEntries.length === 0)
@@ -740,8 +702,8 @@ function ReportPdfContent({
           <View style={[styles.summaryBox, styles.summaryBoxConform]}>
             <Text style={styles.summaryTitle}>
               {unitControlsActive
-                ? `Tous les équipements contrôlés sont conformes (${conformity.unitsChecked}).`
-                : `Tous les points de contrôle sont conformes (${summary.okCount} OK${summary.naCount > 0 ? ` · ${summary.naCount} N/A` : ''}).`}
+                ? `Aucun point à traiter : ${conformity.unitsChecked} équipement${conformity.unitsChecked > 1 ? 's' : ''} contrôlé${conformity.unitsChecked > 1 ? 's' : ''}.`
+                : `Aucun point à traiter (${summary.okCount} OK${summary.naCount > 0 ? ` · ${summary.naCount} N/A` : ''}).`}
             </Text>
           </View>
         ) : null}
@@ -795,7 +757,10 @@ function ReportPdfContent({
             )}
             <View style={styles.infoItemHalf}>
               <Text style={styles.infoLabel}>Client</Text>
-              <Text style={styles.infoValue}>{intervention.client_name}</Text>
+              <Text style={styles.infoValue}>{clientInfo?.name || intervention.client_name}</Text>
+              {clientInfo && clientInfoLines(clientInfo).map((l, i) => (
+                <Text key={i} style={{ fontSize: 8, color: colors.ink2, marginTop: 1.5 }}>{l}</Text>
+              ))}
             </View>
             {clientNumber && (
               <View style={styles.infoItemHalf}>

@@ -59,9 +59,9 @@ Suite à notre intervention${dateLabel} sur ${input.equipmentLabel} chez ${input
 
   const conformity =
     input.isConform === true
-      ? `\n\n✅ Rapport CONFORME : tous les points de contrôle sont conformes.`
+      ? `\n\n✅ Aucune anomalie relevée lors de cette visite.`
       : input.isConform === false
-        ? `\n\n⚠️ Rapport NON CONFORME : ${input.nokCount} anomalie${input.nokCount > 1 ? 's' : ''} détectée${input.nokCount > 1 ? 's' : ''}. Les actions recommandées sont détaillées dans le rapport.`
+        ? `\n\n⚠️ Des points sont à traiter : ils sont détaillés dans le rapport, avec les actions recommandées.`
         : ''
 
   // PDF privé : joint au mail, sans lien (il faudrait être connecté pour l'ouvrir)

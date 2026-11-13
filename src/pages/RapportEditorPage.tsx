@@ -42,6 +42,7 @@ import { ReportHistoryList } from '../features/rapports/components/ReportHistory
 import { TimeSpentCard } from '../features/rapports/components/TimeSpentCard'
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
 import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
+import { loadReportClientInfo } from '../features/rapports/pdf/loadClientInfo'
 import { ClassicReportPdf } from '../features/rapports/pdf/ClassicReportPdf'
 import { CompactReportPdf } from '../features/rapports/pdf/CompactReportPdf'
 import { loadPreviousOpenAnomalies } from '../features/rapports/pdf/previousAnomalies'
@@ -561,7 +562,10 @@ export function RapportEditorPage() {
     } catch {
       anomalyEntries = []
     }
-    const clientNumber = await getClientNumber(intervention?.client_id)
+    const [clientNumber, clientInfo] = await Promise.all([
+      getClientNumber(intervention?.client_id),
+      loadReportClientInfo(intervention?.client_id).catch(() => null),
+    ])
     const visitDossier = intervention?.dossier_number?.trim() || null
     const pdfProps: ReportPdfProps = {
       intervention: intervention!,
@@ -573,6 +577,7 @@ export function RapportEditorPage() {
       anomalyEntries,
       previousAnomalyEntries: await loadPreviousOpenAnomalies(iid, intervention!.site_id).catch(() => []),
       clientNumber,
+      clientInfo,
       dossierNumber: visitDossier,
       interventionType: intervention?.intervention_type
         ? INTERVENTION_TYPE_LABELS[intervention.intervention_type]

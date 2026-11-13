@@ -248,7 +248,7 @@ function ReportsTab({ token }: { token: string }) {
               </div>
               <div className="portal-card-status">
                 {isConform ? (
-                  <span className="portal-badge conform">CONFORME</span>
+                  <span className="portal-badge conform">Aucune anomalie</span>
                 ) : (
                   <span className="portal-badge non-conform">
                     {nokCount} anomalie{nokCount > 1 ? 's' : ''} détectée{nokCount > 1 ? 's' : ''}

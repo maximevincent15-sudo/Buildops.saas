@@ -19,6 +19,7 @@ import { CompactReportPdf } from './CompactReportPdf'
 import { loadPreviousOpenAnomalies } from './previousAnomalies'
 import type { AnomalyPdfEntry, ReportPdfProps } from './ReportPdf'
 import { loadReportExtras } from './reportExtras'
+import { loadReportClientInfo } from './loadClientInfo'
 
 /**
  * Génère le PDF d'un rapport déjà enregistré, à partir de la base (et non de
@@ -54,12 +55,13 @@ export async function generateReportPdfForIntervention(
     responses: byType[t] ?? [],
   }))
 
-  const [unitEntries, settings, anomalies, clientNumber, dossierNumber] = await Promise.all([
+  const [unitEntries, settings, anomalies, clientNumber, dossierNumber, clientInfo] = await Promise.all([
     buildUnitEntriesForIntervention(interventionId, intervention.site_id).catch(() => []),
     getInvoicingSettings(organizationId).catch(() => null),
     listAnomaliesForIntervention(interventionId).catch(() => []),
     getClientNumber(intervention.client_id),
     intervention.dossier_number?.trim() || null,
+    loadReportClientInfo(intervention.client_id).catch(() => null),
   ])
 
   let anomalyEntries: AnomalyPdfEntry[] = []
@@ -95,6 +97,7 @@ export async function generateReportPdfForIntervention(
     anomalyEntries,
     previousAnomalyEntries: await loadPreviousOpenAnomalies(interventionId, intervention.site_id).catch(() => []),
     clientNumber,
+    clientInfo,
     dossierNumber,
     interventionType: intervention.intervention_type ? INTERVENTION_TYPE_LABELS[intervention.intervention_type] : null,
   }

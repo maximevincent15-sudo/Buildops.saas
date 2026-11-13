@@ -9,6 +9,7 @@ import type { ChecklistItem } from '../checklists'
 import { RECOMMENDED_ACTION_LABEL, decodeChecklistId } from '../schemas'
 import type { ChecklistResponse } from '../schemas'
 import type { AnomalyPdfEntry, ReportPdfProps, UnitReportEntry } from './ReportPdf'
+import { clientInfoLines } from './clientInfo'
 
 /**
  * Rapport d'intervention au format « compte rendu de vérification
@@ -135,9 +136,11 @@ export function ClassicReportPdf(props: Props) {
 function ClassicReportPdfContent({
   intervention, report, sections, organizationName,
   unitEntries = [], settings, anomalyEntries = [],
-  interventionType, clientNumber, dossierNumber,
+  interventionType, clientNumber, dossierNumber, clientInfo,
   previousVisitDate, clientAddress, technicianQualifications = [],
 }: Props) {
+  const clientName = clientInfo?.name || intervention.client_name
+  const clientDetails = clientInfo ? clientInfoLines(clientInfo) : [clientAddress?.trim()].filter(Boolean)
   // ─── Entreprise et site ───
   const orgLines = [
     settings?.legal_address?.trim(),
@@ -279,7 +282,7 @@ function ClassicReportPdfContent({
             <Text style={styles.boxStrong}>{pdfText(intervention.site_name) || pdfText(intervention.client_name)}</Text>
             {siteAddress && <Text style={styles.boxLine}>{pdfText(siteAddress)}</Text>}
             {siteContact && <Text style={styles.boxLine}>Contact sur site : {pdfText(siteContact)}</Text>}
-            <Text style={[styles.boxLine, { marginTop: 4 }]}>Client : {pdfText(intervention.client_name)}</Text>
+            <Text style={[styles.boxLine, { marginTop: 4 }]}>Client : {pdfText(clientName)}</Text>
           </View>
         </View>
 
@@ -442,7 +445,7 @@ function ClassicReportPdfContent({
           <Text style={styles.sectionTitle}>Envoi du compte rendu</Text>
           <View style={styles.infoTable}>
             <InfoRow k="Date" v={frDate(report.completed_at)} />
-            <InfoRow k="Destinataire" v={[intervention.client_name, clientAddress?.trim()].filter(Boolean).join(' — ')} />
+            <InfoRow k="Destinataire" v={[clientName, ...clientDetails].filter(Boolean).join(' — ')} />
           </View>
           <View style={styles.signRow}>
             <View style={styles.signBox}>
