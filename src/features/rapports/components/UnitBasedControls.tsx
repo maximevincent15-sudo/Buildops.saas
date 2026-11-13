@@ -1,4 +1,5 @@
 import { AlertTriangle, Camera, Check, Copy, Images, Pencil, Plus, QrCode, Search, X } from 'lucide-react'
+import { ModalPortal } from '../../../shared/ui/ModalPortal'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import {
@@ -1329,531 +1330,533 @@ function UnitCheckModal({
   const answered = Object.keys(checklist).length
 
   return (
-    <div className="overlay open">
-      <div className="modal">
-        <div className="modal-head">
-          <span className="modal-title">
-            {unitRepere(unit)} · {EQUIPMENT_FAMILY_LABELS[unit.family]}
-            {unit.subtype ? ` · ${unit.subtype}` : ''}
-          </span>
-          <button type="button" className="modal-x" onClick={requestClose} aria-label="Fermer">×</button>
-        </div>
+    <ModalPortal>
+      <div className="overlay open">
+        <div className="modal">
+          <div className="modal-head">
+            <span className="modal-title">
+              {unitRepere(unit)} · {EQUIPMENT_FAMILY_LABELS[unit.family]}
+              {unit.subtype ? ` · ${unit.subtype}` : ''}
+            </span>
+            <button type="button" className="modal-x" onClick={requestClose} aria-label="Fermer">×</button>
+          </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '.9rem', padding: '.5rem 0' }}>
-          {outOfScope && (
-            <div style={{ fontSize: 12.5, color: '#8A3D0E', background: '#FDF1E7', border: '1px solid #F0C9A6', borderRadius: 8, padding: '8px 10px' }}>
-              Cet équipement n'est pas prévu dans ce chantier : vérifiez que c'est le bon avant de le contrôler.
-            </div>
-          )}
-
-          {/* Où est l'appareil : emplacement en gros + photo de repérage */}
-          <div style={locationBoxStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ink3)' }}>
-                Emplacement
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '.9rem', padding: '.5rem 0' }}>
+            {outOfScope && (
+              <div style={{ fontSize: 12.5, color: '#8A3D0E', background: '#FDF1E7', border: '1px solid #F0C9A6', borderRadius: 8, padding: '8px 10px' }}>
+                Cet équipement n'est pas prévu dans ce chantier : vérifiez que c'est le bon avant de le contrôler.
               </div>
-              {!readOnly && !placeOpen && (
-                <button type="button" className="btn-sm" onClick={() => setPlaceOpen(true)} style={placeSmallBtnStyle}>
-                  <Pencil size={12} /> Modifier
-                </button>
-              )}
-            </div>
-            {placeOpen ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '8px 0 12px' }}>
-                {canCopy && prev && (
-                  <button type="button" className="btn-sm" onClick={copyPrevious} style={{ ...placeSmallBtnStyle, alignSelf: 'flex-start', maxWidth: '100%' }}>
-                    <Copy size={12} style={{ flexShrink: 0 }} />
-                    <span style={{ flexShrink: 0 }}>Comme {unitRepere(prev)}</span>
-                    <span style={placeCopyHintStyle}>
-                      {[zoneLabel(prevZone), prev.implantation?.trim(), prev.brand?.trim()].filter(Boolean).join(' · ')}
-                    </span>
+            )}
+
+            {/* Où est l'appareil : emplacement en gros + photo de repérage */}
+            <div style={locationBoxStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ink3)' }}>
+                  Emplacement
+                </div>
+                {!readOnly && !placeOpen && (
+                  <button type="button" className="btn-sm" onClick={() => setPlaceOpen(true)} style={placeSmallBtnStyle}>
+                    <Pencil size={12} /> Modifier
                   </button>
                 )}
-                <div className="mrow">
-                  <div className="fg">
-                    <label>Zone</label>
-                    <select value={placeZoneId} onChange={(e) => { setPlaceZoneId(e.target.value); if (e.target.value) setPlaceNewZone('') }}>
-                      <option value="">{placeNewZone.trim() ? `Nouvelle : ${placeNewZone.trim()}` : '— Aucune zone —'}</option>
-                      {zones.map((z) => (
-                        <option key={z.id} value={z.id}>{zoneLabel(z)}</option>
-                      ))}
-                    </select>
-                    {!placeZoneId && (
-                      <input type="text" value={placeNewZone} onChange={(e) => setPlaceNewZone(e.target.value)} placeholder="+ Nouvelle zone" style={{ marginTop: 6, fontSize: 12.5 }} />
-                    )}
-                  </div>
-                  <div className="fg">
-                    <label>Marque</label>
-                    <input type="text" list={`brands-${unit.id}`} value={placeBrand} onChange={(e) => setPlaceBrand(e.target.value)} placeholder="Ex : Sicli" />
-                    {siteBrands.length > 0 && (
-                      <datalist id={`brands-${unit.id}`}>
-                        {siteBrands.map((b) => <option key={b} value={b} />)}
-                      </datalist>
-                    )}
-                  </div>
-                </div>
-                <div className="fg">
-                  <label>Emplacement précis</label>
-                  <input type="text" value={placeImplantation} onChange={(e) => setPlaceImplantation(e.target.value)} placeholder="Ex : Hall d'accueil, à droite de l'ascenseur" />
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 11.5, color: 'var(--ink3)' }}>Enregistré sur l'appareil avec le contrôle.</span>
-                  <button type="button" className="btn-sm" onClick={cancelPlace} style={placeSmallBtnStyle}>Annuler</button>
-                </div>
-                {placeError && <span className="ferr on">{placeError}</span>}
               </div>
-            ) : (
-              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35, margin: '2px 0 10px' }}>
-                {unitLocation(unit, zone) || <span style={{ color: 'var(--ink3)', fontWeight: 400, fontStyle: 'italic' }}>Non renseigné</span>}
-              </div>
-            )}
-            <UnitPhotoField
-              organizationId={organizationId}
-              value={unit.photo_path && unit.photo_url ? { path: unit.photo_path, url: unit.photo_url } : null}
-              onChange={(p) => { void handleUnitPhoto(p) }}
-              readOnly={readOnly}
-              variant="large"
-            />
-            {photoError && <span className="ferr on">{photoError}</span>}
-          </div>
-
-          {/* Meta unité */}
-          <div style={metaBoxStyle}>
-            {lastCheck && (
-              <div style={lastCheckStyle}>
-                <span style={{ color: 'var(--ink2)', flexShrink: 0 }}>Dernier contrôle</span>
-                <span style={{ textAlign: 'right', minWidth: 0 }}>
-                  <strong style={{ color: verdictColor(lastCheck.verdict) }}>{CHECK_VERDICT_LABELS[lastCheck.verdict]}</strong>
-                  {' le '}{new Date(lastCheck.checked_at).toLocaleDateString('fr-FR')}
-                  {lastCheck.observation?.trim() && (
-                    <span style={lastCheckObservationStyle}>{lastCheck.observation.trim()}</span>
+              {placeOpen ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '8px 0 12px' }}>
+                  {canCopy && prev && (
+                    <button type="button" className="btn-sm" onClick={copyPrevious} style={{ ...placeSmallBtnStyle, alignSelf: 'flex-start', maxWidth: '100%' }}>
+                      <Copy size={12} style={{ flexShrink: 0 }} />
+                      <span style={{ flexShrink: 0 }}>Comme {unitRepere(prev)}</span>
+                      <span style={placeCopyHintStyle}>
+                        {[zoneLabel(prevZone), prev.implantation?.trim(), prev.brand?.trim()].filter(Boolean).join(' · ')}
+                      </span>
+                    </button>
                   )}
-                </span>
-              </div>
-            )}
-            {!placeOpen && <MetaLine k="Marque" v={unit.brand ?? '—'} />}
-            {unit.model && <MetaLine k="Modèle" v={unit.model} />}
-            <MetaLine k="Année" v={unit.install_year?.toString() ?? '—'} />
-            {attributesSummary(unit.family, unit.attributes) && (
-              <MetaLine k="Caractéristiques" v={attributesSummary(unit.family, unit.attributes)} />
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12.5, color: 'var(--ink2)' }}>
-                Étiquette : {unit.qr_code
-                  ? <strong>{(firoviaLabelCode(unit.qr_code) ?? unit.qr_code).slice(0, 40)}</strong>
-                  : <span style={{ color: 'var(--ink3)' }}>aucune</span>}
-              </span>
-              {!readOnly && (
-                <button
-                  type="button"
-                  className="btn-sm"
-                  onClick={() => { setLabelMessage(null); setLabelScanOpen(true) }}
-                  disabled={labelBusy}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                >
-                  <QrCode size={13} />
-                  {labelBusy ? 'Association…' : unit.qr_code ? 'Changer d’étiquette' : 'Associer une étiquette'}
-                </button>
+                  <div className="mrow">
+                    <div className="fg">
+                      <label>Zone</label>
+                      <select value={placeZoneId} onChange={(e) => { setPlaceZoneId(e.target.value); if (e.target.value) setPlaceNewZone('') }}>
+                        <option value="">{placeNewZone.trim() ? `Nouvelle : ${placeNewZone.trim()}` : '— Aucune zone —'}</option>
+                        {zones.map((z) => (
+                          <option key={z.id} value={z.id}>{zoneLabel(z)}</option>
+                        ))}
+                      </select>
+                      {!placeZoneId && (
+                        <input type="text" value={placeNewZone} onChange={(e) => setPlaceNewZone(e.target.value)} placeholder="+ Nouvelle zone" style={{ marginTop: 6, fontSize: 12.5 }} />
+                      )}
+                    </div>
+                    <div className="fg">
+                      <label>Marque</label>
+                      <input type="text" list={`brands-${unit.id}`} value={placeBrand} onChange={(e) => setPlaceBrand(e.target.value)} placeholder="Ex : Sicli" />
+                      {siteBrands.length > 0 && (
+                        <datalist id={`brands-${unit.id}`}>
+                          {siteBrands.map((b) => <option key={b} value={b} />)}
+                        </datalist>
+                      )}
+                    </div>
+                  </div>
+                  <div className="fg">
+                    <label>Emplacement précis</label>
+                    <input type="text" value={placeImplantation} onChange={(e) => setPlaceImplantation(e.target.value)} placeholder="Ex : Hall d'accueil, à droite de l'ascenseur" />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11.5, color: 'var(--ink3)' }}>Enregistré sur l'appareil avec le contrôle.</span>
+                    <button type="button" className="btn-sm" onClick={cancelPlace} style={placeSmallBtnStyle}>Annuler</button>
+                  </div>
+                  {placeError && <span className="ferr on">{placeError}</span>}
+                </div>
+              ) : (
+                <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35, margin: '2px 0 10px' }}>
+                  {unitLocation(unit, zone) || <span style={{ color: 'var(--ink3)', fontWeight: 400, fontStyle: 'italic' }}>Non renseigné</span>}
+                </div>
               )}
+              <UnitPhotoField
+                organizationId={organizationId}
+                value={unit.photo_path && unit.photo_url ? { path: unit.photo_path, url: unit.photo_url } : null}
+                onChange={(p) => { void handleUnitPhoto(p) }}
+                readOnly={readOnly}
+                variant="large"
+              />
+              {photoError && <span className="ferr on">{photoError}</span>}
             </div>
-            {labelMessage && (
-              <span className={labelMessage.ok ? 'text-grn text-xs' : 'ferr on'} style={{ display: 'block', marginTop: 4 }}>{labelMessage.text}</span>
-            )}
-          </div>
-          {labelScanOpen && (
-            <QrScanner
-              onClose={() => setLabelScanOpen(false)}
-              onResult={(text) => { void handleLabelScanned(text) }}
-            />
-          )}
 
-          {/* Anomalies déjà ouvertes sur cette unité (Slice M3 + M5) */}
-          {existingAnomalies.length > 0 && (
-            <div style={existingAnomaliesBoxStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <AlertTriangle size={14} strokeWidth={2.2} color="#B36510" />
-                <span style={{ fontWeight: 700, color: '#B36510', fontSize: 12.5 }}>
-                  {existingAnomalies.length} anomalie{existingAnomalies.length > 1 ? 's' : ''}{' '}
-                  déjà ouverte{existingAnomalies.length > 1 ? 's' : ''} sur cette unité
-                </span>
-              </div>
-              {existingAnomalies.slice(0, 3).map((a) => (
-                <div key={a.id} style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 2 }}>
-                  • {a.title}
-                  {a.action ? ` — ${ANOMALY_ACTION_LABELS[a.action]}` : ''}
-                  {a.due_date ? ` · échéance ${a.due_date}` : ''}
-                </div>
-              ))}
-              {existingAnomalies.length > 3 && (
-                <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 4 }}>
-                  + {existingAnomalies.length - 3} autre{existingAnomalies.length - 3 > 1 ? 's' : ''}
-                </div>
-              )}
-
-              {/* Slice M5 — reprise auto quand verdict = conforme */}
-              {canResolveExisting && (
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    marginTop: 10,
-                    padding: '8px 10px',
-                    background: 'white',
-                    border: '1px solid #E6E8EC',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    color: 'var(--ink)',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={resolveExistingOnSave}
-                    onChange={(e) => setResolveExistingOnSave(e.target.checked)}
-                  />
-                  <span>
-                    Marquer ces {existingAnomalies.length} anomalie{existingAnomalies.length > 1 ? 's' : ''}{' '}
-                    comme <strong>résolue{existingAnomalies.length > 1 ? 's' : ''}</strong> (verdict conforme)
+            {/* Meta unité */}
+            <div style={metaBoxStyle}>
+              {lastCheck && (
+                <div style={lastCheckStyle}>
+                  <span style={{ color: 'var(--ink2)', flexShrink: 0 }}>Dernier contrôle</span>
+                  <span style={{ textAlign: 'right', minWidth: 0 }}>
+                    <strong style={{ color: verdictColor(lastCheck.verdict) }}>{CHECK_VERDICT_LABELS[lastCheck.verdict]}</strong>
+                    {' le '}{new Date(lastCheck.checked_at).toLocaleDateString('fr-FR')}
+                    {lastCheck.observation?.trim() && (
+                      <span style={lastCheckObservationStyle}>{lastCheck.observation.trim()}</span>
+                    )}
                   </span>
-                </label>
+                </div>
+              )}
+              {!placeOpen && <MetaLine k="Marque" v={unit.brand ?? '—'} />}
+              {unit.model && <MetaLine k="Modèle" v={unit.model} />}
+              <MetaLine k="Année" v={unit.install_year?.toString() ?? '—'} />
+              {attributesSummary(unit.family, unit.attributes) && (
+                <MetaLine k="Caractéristiques" v={attributesSummary(unit.family, unit.attributes)} />
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12.5, color: 'var(--ink2)' }}>
+                  Étiquette : {unit.qr_code
+                    ? <strong>{(firoviaLabelCode(unit.qr_code) ?? unit.qr_code).slice(0, 40)}</strong>
+                    : <span style={{ color: 'var(--ink3)' }}>aucune</span>}
+                </span>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    className="btn-sm"
+                    onClick={() => { setLabelMessage(null); setLabelScanOpen(true) }}
+                    disabled={labelBusy}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <QrCode size={13} />
+                    {labelBusy ? 'Association…' : unit.qr_code ? 'Changer d’étiquette' : 'Associer une étiquette'}
+                  </button>
+                )}
+              </div>
+              {labelMessage && (
+                <span className={labelMessage.ok ? 'text-grn text-xs' : 'ferr on'} style={{ display: 'block', marginTop: 4 }}>{labelMessage.text}</span>
               )}
             </div>
-          )}
+            {labelScanOpen && (
+              <QrScanner
+                onClose={() => setLabelScanOpen(false)}
+                onResult={(text) => { void handleLabelScanned(text) }}
+              />
+            )}
 
-          {/* Checklist */}
-          {items.length > 0 && (
+            {/* Anomalies déjà ouvertes sur cette unité (Slice M3 + M5) */}
+            {existingAnomalies.length > 0 && (
+              <div style={existingAnomaliesBoxStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <AlertTriangle size={14} strokeWidth={2.2} color="#B36510" />
+                  <span style={{ fontWeight: 700, color: '#B36510', fontSize: 12.5 }}>
+                    {existingAnomalies.length} anomalie{existingAnomalies.length > 1 ? 's' : ''}{' '}
+                    déjà ouverte{existingAnomalies.length > 1 ? 's' : ''} sur cette unité
+                  </span>
+                </div>
+                {existingAnomalies.slice(0, 3).map((a) => (
+                  <div key={a.id} style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 2 }}>
+                    • {a.title}
+                    {a.action ? ` — ${ANOMALY_ACTION_LABELS[a.action]}` : ''}
+                    {a.due_date ? ` · échéance ${a.due_date}` : ''}
+                  </div>
+                ))}
+                {existingAnomalies.length > 3 && (
+                  <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 4 }}>
+                    + {existingAnomalies.length - 3} autre{existingAnomalies.length - 3 > 1 ? 's' : ''}
+                  </div>
+                )}
+
+                {/* Slice M5 — reprise auto quand verdict = conforme */}
+                {canResolveExisting && (
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      marginTop: 10,
+                      padding: '8px 10px',
+                      background: 'white',
+                      border: '1px solid #E6E8EC',
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      color: 'var(--ink)',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={resolveExistingOnSave}
+                      onChange={(e) => setResolveExistingOnSave(e.target.checked)}
+                    />
+                    <span>
+                      Marquer ces {existingAnomalies.length} anomalie{existingAnomalies.length > 1 ? 's' : ''}{' '}
+                      comme <strong>résolue{existingAnomalies.length > 1 ? 's' : ''}</strong> (verdict conforme)
+                    </span>
+                  </label>
+                )}
+              </div>
+            )}
+
+            {/* Checklist */}
+            {items.length > 0 && (
+              <div>
+                <div style={sectionTitleStyle}>
+                  <span>Checklist{list && lists.length < 2 ? ` : ${list.name}` : ''}</span>
+                  <span style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 500 }}>
+                    {answered} / {items.length}
+                  </span>
+                </div>
+                {lists.length > 1 && (
+                  <select
+                    value={listKey ?? ''}
+                    disabled={readOnly}
+                    onChange={(e) => { setListKey(e.target.value); setChecklist({}) }}
+                    aria-label="Liste de contrôle"
+                    style={{ width: '100%', marginBottom: 8 }}
+                  >
+                    {lists.map((l) => <option key={l.key} value={l.key}>{l.name}</option>)}
+                  </select>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {items.map((item) => {
+                    const val = checklist[item.id]
+                    return (
+                      <div key={item.id} style={checkRowStyle}>
+                        <div style={{ flex: 1, fontSize: 13, color: 'var(--ink)' }}>
+                          {item.label}
+                        </div>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button
+                            type="button"
+                            onClick={() => toggleItem(item.id, 'ok')}
+                            disabled={readOnly}
+                            style={{ ...btnPillStyle, ...(val === 'ok' ? btnOkOnStyle : {}) }}
+                          >
+                            <Check size={12} strokeWidth={3} />
+                            OK
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleItem(item.id, 'na')}
+                            disabled={readOnly}
+                            style={{ ...btnPillStyle, ...(val === 'na' ? btnNaOnStyle : {}) }}
+                          >
+                            N/A
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Observation */}
             <div>
               <div style={sectionTitleStyle}>
-                <span>Checklist{list && lists.length < 2 ? ` : ${list.name}` : ''}</span>
-                <span style={{ fontSize: 12, color: 'var(--ink3)', fontWeight: 500 }}>
-                  {answered} / {items.length}
-                </span>
+                <span>Observation</span>
               </div>
-              {lists.length > 1 && (
-                <select
-                  value={listKey ?? ''}
-                  disabled={readOnly}
-                  onChange={(e) => { setListKey(e.target.value); setChecklist({}) }}
-                  aria-label="Liste de contrôle"
-                  style={{ width: '100%', marginBottom: 8 }}
-                >
-                  {lists.map((l) => <option key={l.key} value={l.key}>{l.name}</option>)}
-                </select>
+              {observationTypes.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+                  {observationTypes.map((obs) => (
+                    <button
+                      key={obs}
+                      type="button"
+                      className={`filter-pill${observation === obs ? ' on' : ''}`}
+                      onClick={() => setObservation(obs)}
+                      disabled={readOnly}
+                    >
+                      {obs}
+                    </button>
+                  ))}
+                </div>
               )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {items.map((item) => {
-                  const val = checklist[item.id]
+              <textarea
+                rows={2}
+                value={observation}
+                onChange={(e) => setObservation(e.target.value)}
+                placeholder="Note libre (optionnel)"
+                disabled={readOnly}
+                style={{ width: '100%', padding: '.6rem .8rem', fontSize: 13, fontFamily: 'inherit' }}
+              />
+            </div>
+
+            {/* Verdict */}
+            <div>
+              <div style={sectionTitleStyle}>
+                <span>Verdict</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                {(['conforme', 'surveiller', 'reformer'] as const).map((v) => {
+                  const on = verdict === v
                   return (
-                    <div key={item.id} style={checkRowStyle}>
-                      <div style={{ flex: 1, fontSize: 13, color: 'var(--ink)' }}>
-                        {item.label}
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setVerdict(v)}
+                      disabled={readOnly}
+                      style={{
+                        ...verdictBtnStyle,
+                        ...(on ? verdictBtnOnStyle(v) : {}),
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, fontSize: 13 }}>
+                        {CHECK_VERDICT_LABELS[v]}
                       </div>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button
-                          type="button"
-                          onClick={() => toggleItem(item.id, 'ok')}
-                          disabled={readOnly}
-                          style={{ ...btnPillStyle, ...(val === 'ok' ? btnOkOnStyle : {}) }}
-                        >
-                          <Check size={12} strokeWidth={3} />
-                          OK
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleItem(item.id, 'na')}
-                          disabled={readOnly}
-                          style={{ ...btnPillStyle, ...(val === 'na' ? btnNaOnStyle : {}) }}
-                        >
-                          N/A
-                        </button>
+                      <div style={{ fontSize: 10.5, color: 'var(--ink3)', marginTop: 2 }}>
+                        {v === 'conforme' && 'RAS'}
+                        {v === 'surveiller' && '< 12 mois'}
+                        {v === 'reformer' && 'Remplacement'}
                       </div>
-                    </div>
+                    </button>
                   )
                 })}
               </div>
             </div>
-          )}
 
-          {/* Observation */}
-          <div>
-            <div style={sectionTitleStyle}>
-              <span>Observation</span>
-            </div>
-            {observationTypes.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
-                {observationTypes.map((obs) => (
-                  <button
-                    key={obs}
-                    type="button"
-                    className={`filter-pill${observation === obs ? ' on' : ''}`}
-                    onClick={() => setObservation(obs)}
-                    disabled={readOnly}
-                  >
-                    {obs}
-                  </button>
-                ))}
+            {/* Opérations réalisées (imprimées au compte rendu) */}
+            {familyOperations.length > 0 && (
+              <div>
+                <div style={sectionTitleStyle}>
+                  <span>Opérations réalisées</span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {familyOperations.map((op) => (
+                    <button
+                      key={op.key}
+                      type="button"
+                      className={`filter-pill${operations.includes(op.key) ? ' on' : ''}`}
+                      onClick={() => toggleOperation(op.key)}
+                      disabled={readOnly}
+                    >
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
-            <textarea
-              rows={2}
-              value={observation}
-              onChange={(e) => setObservation(e.target.value)}
-              placeholder="Note libre (optionnel)"
-              disabled={readOnly}
-              style={{ width: '100%', padding: '.6rem .8rem', fontSize: 13, fontFamily: 'inherit' }}
-            />
-          </div>
 
-          {/* Verdict */}
-          <div>
-            <div style={sectionTitleStyle}>
-              <span>Verdict</span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-              {(['conforme', 'surveiller', 'reformer'] as const).map((v) => {
-                const on = verdict === v
-                return (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setVerdict(v)}
-                    disabled={readOnly}
-                    style={{
-                      ...verdictBtnStyle,
-                      ...(on ? verdictBtnOnStyle(v) : {}),
+            {/* Détails de l'anomalie (obligatoire si verdict ≠ conforme) — Slice M3 */}
+            {needsAnomalyForm && (
+              <div style={anomalyFormBoxStyle}>
+                <div style={{ ...sectionTitleStyle, color: '#B02A1E' }}>
+                  <span>⚠ Détails de l'anomalie</span>
+                  <span style={{ fontSize: 10.5, color: 'var(--ink3)', fontWeight: 500, textTransform: 'none' }}>
+                    * champs obligatoires
+                  </span>
+                </div>
+
+                {/* Résumé */}
+                <div style={{ marginBottom: 10 }}>
+                  <label style={anomalyLabelStyle}>Résumé de l'anomalie *</label>
+                  <input
+                    type="text"
+                    value={anomalyTitleTouched ? anomalyTitle : observation}
+                    onChange={(e) => {
+                      setAnomalyTitle(e.target.value)
+                      setAnomalyTitleTouched(true)
                     }}
-                  >
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>
-                      {CHECK_VERDICT_LABELS[v]}
-                    </div>
-                    <div style={{ fontSize: 10.5, color: 'var(--ink3)', marginTop: 2 }}>
-                      {v === 'conforme' && 'RAS'}
-                      {v === 'surveiller' && '< 12 mois'}
-                      {v === 'reformer' && 'Remplacement'}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+                    placeholder="Ex : Manomètre proche zone rouge"
+                    disabled={readOnly}
+                    style={{ width: '100%', padding: '.55rem .8rem', fontSize: 13, fontFamily: 'inherit' }}
+                  />
+                </div>
 
-          {/* Opérations réalisées (imprimées au compte rendu) */}
-          {familyOperations.length > 0 && (
+                {/* Action recommandée */}
+                <div style={{ marginBottom: 10 }}>
+                  <label style={anomalyLabelStyle}>Action recommandée *</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {ANOMALY_ACTIONS.map((act) => (
+                      <button
+                        key={act}
+                        type="button"
+                        className={`filter-pill${anomalyAction === act ? ' on' : ''}`}
+                        onClick={() => setAnomalyAction(act)}
+                        disabled={readOnly}
+                      >
+                        {ANOMALY_ACTION_LABELS[act]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Priorité */}
+                <div style={{ marginBottom: 10 }}>
+                  <label style={anomalyLabelStyle}>Priorité</label>
+                  <div style={{ display: 'flex', gap: 5 }}>
+                    {ANOMALY_PRIORITIES.map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        className={`filter-pill${anomalyPriority === p ? ' on' : ''}`}
+                        onClick={() => setAnomalyPriority(p)}
+                        disabled={readOnly}
+                      >
+                        {ANOMALY_PRIORITY_LABELS[p]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Échéance */}
+                <div>
+                  <label style={anomalyLabelStyle}>Échéance (optionnel)</label>
+                  <input
+                    type="date"
+                    value={anomalyDueDate}
+                    onChange={(e) => setAnomalyDueDate(e.target.value)}
+                    disabled={readOnly}
+                    style={{ padding: '.5rem .7rem', fontSize: 13, fontFamily: 'inherit' }}
+                  />
+                </div>
+
+                <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 8, lineHeight: 1.5 }}>
+                  Cette anomalie sera enregistrée dans Firovia et suivie jusqu'à sa résolution.
+                  Elle apparaîtra automatiquement à la prochaine intervention sur cette unité.
+                </div>
+              </div>
+            )}
+
+            {/* Photos horodatées */}
             <div>
               <div style={sectionTitleStyle}>
-                <span>Opérations réalisées</span>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {familyOperations.map((op) => (
-                  <button
-                    key={op.key}
-                    type="button"
-                    className={`filter-pill${operations.includes(op.key) ? ' on' : ''}`}
-                    onClick={() => toggleOperation(op.key)}
-                    disabled={readOnly}
-                  >
-                    {op.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Détails de l'anomalie (obligatoire si verdict ≠ conforme) — Slice M3 */}
-          {needsAnomalyForm && (
-            <div style={anomalyFormBoxStyle}>
-              <div style={{ ...sectionTitleStyle, color: '#B02A1E' }}>
-                <span>⚠ Détails de l'anomalie</span>
-                <span style={{ fontSize: 10.5, color: 'var(--ink3)', fontWeight: 500, textTransform: 'none' }}>
-                  * champs obligatoires
+                <span>Photos ({photos.length})</span>
+                <span style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 500 }}>
+                  Preuves horodatées
                 </span>
               </div>
-
-              {/* Résumé */}
-              <div style={{ marginBottom: 10 }}>
-                <label style={anomalyLabelStyle}>Résumé de l'anomalie *</label>
-                <input
-                  type="text"
-                  value={anomalyTitleTouched ? anomalyTitle : observation}
-                  onChange={(e) => {
-                    setAnomalyTitle(e.target.value)
-                    setAnomalyTitleTouched(true)
-                  }}
-                  placeholder="Ex : Manomètre proche zone rouge"
-                  disabled={readOnly}
-                  style={{ width: '100%', padding: '.55rem .8rem', fontSize: 13, fontFamily: 'inherit' }}
-                />
-              </div>
-
-              {/* Action recommandée */}
-              <div style={{ marginBottom: 10 }}>
-                <label style={anomalyLabelStyle}>Action recommandée *</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                  {ANOMALY_ACTIONS.map((act) => (
-                    <button
-                      key={act}
-                      type="button"
-                      className={`filter-pill${anomalyAction === act ? ' on' : ''}`}
-                      onClick={() => setAnomalyAction(act)}
-                      disabled={readOnly}
-                    >
-                      {ANOMALY_ACTION_LABELS[act]}
-                    </button>
+              {photos.length > 0 && (
+                <div style={photoGridStyle}>
+                  {photos.map((p) => (
+                    <div key={p.path} style={photoThumbStyle}>
+                      <a href={p.url} target="_blank" rel="noreferrer">
+                        <StoredImg
+                          src={p.url}
+                          alt=""
+                          loading="lazy"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }}
+                        />
+                      </a>
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => void removePhoto(p)}
+                          style={photoRemoveStyle}
+                          aria-label="Retirer la photo"
+                        >
+                          <X size={11} strokeWidth={2.5} />
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
-              </div>
-
-              {/* Priorité */}
-              <div style={{ marginBottom: 10 }}>
-                <label style={anomalyLabelStyle}>Priorité</label>
-                <div style={{ display: 'flex', gap: 5 }}>
-                  {ANOMALY_PRIORITIES.map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      className={`filter-pill${anomalyPriority === p ? ' on' : ''}`}
-                      onClick={() => setAnomalyPriority(p)}
-                      disabled={readOnly}
-                    >
-                      {ANOMALY_PRIORITY_LABELS[p]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Échéance */}
-              <div>
-                <label style={anomalyLabelStyle}>Échéance (optionnel)</label>
-                <input
-                  type="date"
-                  value={anomalyDueDate}
-                  onChange={(e) => setAnomalyDueDate(e.target.value)}
-                  disabled={readOnly}
-                  style={{ padding: '.5rem .7rem', fontSize: 13, fontFamily: 'inherit' }}
-                />
-              </div>
-
-              <div style={{ fontSize: 11, color: 'var(--ink3)', marginTop: 8, lineHeight: 1.5 }}>
-                Cette anomalie sera enregistrée dans Firovia et suivie jusqu'à sa résolution.
-                Elle apparaîtra automatiquement à la prochaine intervention sur cette unité.
-              </div>
+              )}
+              {!readOnly && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    style={photoAddBtnStyle}
+                  >
+                    <Camera size={14} strokeWidth={1.8} />
+                    {uploading ? 'Envoi…' : photos.length === 0 ? 'Ajouter une photo' : '+ Ajouter'}
+                  </button>
+                  <button
+                    type="button"
+                    className="touch-only"
+                    onClick={() => galleryInputRef.current?.click()}
+                    disabled={uploading}
+                    style={{ ...photoAddBtnStyle, marginLeft: 6 }}
+                  >
+                    <Images size={14} strokeWidth={1.8} />
+                    Galerie
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    multiple
+                    hidden
+                    onChange={(e) => void handleFileChange(e)}
+                  />
+                  <input
+                    ref={galleryInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    onChange={(e) => void handleFileChange(e)}
+                  />
+                  {uploadError && (
+                    <div style={{ fontSize: 11.5, color: 'var(--red, #A83A3A)', marginTop: 4 }}>
+                      ⚠ {uploadError}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-          )}
+          </div>
 
-          {/* Photos horodatées */}
-          <div>
-            <div style={sectionTitleStyle}>
-              <span>Photos ({photos.length})</span>
-              <span style={{ fontSize: 11, color: 'var(--ink3)', fontWeight: 500 }}>
-                Preuves horodatées
-              </span>
-            </div>
-            {photos.length > 0 && (
-              <div style={photoGridStyle}>
-                {photos.map((p) => (
-                  <div key={p.path} style={photoThumbStyle}>
-                    <a href={p.url} target="_blank" rel="noreferrer">
-                      <StoredImg
-                        src={p.url}
-                        alt=""
-                        loading="lazy"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }}
-                      />
-                    </a>
-                    {!readOnly && (
-                      <button
-                        type="button"
-                        onClick={() => void removePhoto(p)}
-                        style={photoRemoveStyle}
-                        aria-label="Retirer la photo"
-                      >
-                        <X size={11} strokeWidth={2.5} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            {!readOnly && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  style={photoAddBtnStyle}
-                >
-                  <Camera size={14} strokeWidth={1.8} />
-                  {uploading ? 'Envoi…' : photos.length === 0 ? 'Ajouter une photo' : '+ Ajouter'}
-                </button>
-                <button
-                  type="button"
-                  className="touch-only"
-                  onClick={() => galleryInputRef.current?.click()}
-                  disabled={uploading}
-                  style={{ ...photoAddBtnStyle, marginLeft: 6 }}
-                >
-                  <Images size={14} strokeWidth={1.8} />
-                  Galerie
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  multiple
-                  hidden
-                  onChange={(e) => void handleFileChange(e)}
-                />
-                <input
-                  ref={galleryInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  hidden
-                  onChange={(e) => void handleFileChange(e)}
-                />
-                {uploadError && (
-                  <div style={{ fontSize: 11.5, color: 'var(--red, #A83A3A)', marginTop: 4 }}>
-                    ⚠ {uploadError}
-                  </div>
-                )}
-              </>
+          <div className="modal-foot">
+            <button type="button" className="mf out" onClick={requestClose}>
+              Annuler
+            </button>
+            <button
+              type="button"
+              className={hasNext ? 'mf out' : 'mf prim'}
+              onClick={() => void handleSave('close')}
+              disabled={saving || readOnly || verdict === 'non_verifie' || !anomalyFormValid}
+            >
+              {saving
+                ? 'Enregistrement…'
+                : verdict === 'non_verifie'
+                  ? 'Choisissez un verdict'
+                  : !anomalyFormValid
+                    ? 'Complétez les détails d\'anomalie'
+                    : 'Enregistrer'}
+            </button>
+            {hasNext && !readOnly && (
+              <button
+                type="button"
+                className="mf prim"
+                onClick={() => void handleSave('next')}
+                disabled={saving || verdict === 'non_verifie' || !anomalyFormValid}
+              >
+                Enregistrer et suivant →
+              </button>
             )}
           </div>
         </div>
-
-        <div className="modal-foot">
-          <button type="button" className="mf out" onClick={requestClose}>
-            Annuler
-          </button>
-          <button
-            type="button"
-            className={hasNext ? 'mf out' : 'mf prim'}
-            onClick={() => void handleSave('close')}
-            disabled={saving || readOnly || verdict === 'non_verifie' || !anomalyFormValid}
-          >
-            {saving
-              ? 'Enregistrement…'
-              : verdict === 'non_verifie'
-                ? 'Choisissez un verdict'
-                : !anomalyFormValid
-                  ? 'Complétez les détails d\'anomalie'
-                  : 'Enregistrer'}
-          </button>
-          {hasNext && !readOnly && (
-            <button
-              type="button"
-              className="mf prim"
-              onClick={() => void handleSave('next')}
-              disabled={saving || verdict === 'non_verifie' || !anomalyFormValid}
-            >
-              Enregistrer et suivant →
-            </button>
-          )}
-        </div>
       </div>
-    </div>
+    </ModalPortal>
   )
 }
 

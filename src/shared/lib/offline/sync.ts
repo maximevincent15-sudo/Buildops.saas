@@ -44,6 +44,17 @@ export async function dropQueueItem(seq: number): Promise<void> {
   await refreshQueueCounts()
 }
 
+/** Remet un enregistrement refusé dans la file et relance l'envoi */
+export async function retryQueueItem(seq: number): Promise<void> {
+  const userId = getOfflineUser()
+  if (!userId) return
+  const item = (await listQueue(userId)).find((q) => q.seq === seq)
+  if (!item) return
+  await updateQueued({ ...item, failed: false })
+  await refreshQueueCounts()
+  await flushOfflineQueue()
+}
+
 function buildBody(q: QueuedRequest): BodyInit | null {
   if (q.form) {
     const fd = new FormData()

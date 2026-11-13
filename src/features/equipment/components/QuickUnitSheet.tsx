@@ -1,4 +1,5 @@
 import { CheckCircle2, QrCode } from 'lucide-react'
+import { ModalPortal } from '../../../shared/ui/ModalPortal'
 import { useState } from 'react'
 import { createEquipmentUnit, createZone, deleteUnitPhoto } from '../api'
 import { normalize } from '../familyResolver'
@@ -157,111 +158,113 @@ export function QuickUnitSheet({
   }
 
   return (
-    <div className="overlay open">
-      <div className="modal">
-        <div className="modal-head">
-          <span className="modal-title">Nouvel équipement sur le site</span>
-          <button type="button" className="modal-x" onClick={handleCancel} aria-label="Fermer">×</button>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '.85rem', padding: '.25rem 0' }}>
-          {qrCode && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink2)', background: 'var(--wht)', border: '1px solid var(--bd, #E6E8EC)', borderRadius: 8, padding: '7px 10px', minWidth: 0 }}>
-              <QrCode size={14} strokeWidth={2} style={{ flexShrink: 0 }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Étiquette : {qrCode.trim()}</span>
-            </div>
-          )}
-          {info && (
-            <div style={{ display: 'flex', gap: 6, fontSize: 12.5, color: 'var(--grn)', lineHeight: 1.4 }}>
-              <CheckCircle2 size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-              <span>{info}</span>
-            </div>
-          )}
-
-          <div className="mrow">
-            <div className="fg">
-              <label>Famille</label>
-              <select value={family} onChange={(e) => changeFamily(e.target.value as EquipmentFamily)}>
-                {EQUIPMENT_FAMILIES.map((f) => (
-                  <option key={f} value={f}>{EQUIPMENT_FAMILY_LABELS[f]}</option>
-                ))}
-              </select>
-            </div>
-            <div className="fg">
-              <label>N° de repère</label>
-              <input type="text" value={serial} onChange={(e) => { setSerial(e.target.value); setSerialTouched(true) }} placeholder="Ex : 0452" />
-              {duplicate ? (
-                <span className="ferr on">Déjà utilisé pour cette famille sur ce site</span>
-              ) : serial.trim() ? (
-                <span className="text-ink-3" style={{ fontSize: 11.5, marginTop: 4 }}>
-                  Affiché : <strong>{unitRepere({ family, serial_number: serial })}</strong>
-                </span>
-              ) : null}
-            </div>
+    <ModalPortal>
+      <div className="overlay open">
+        <div className="modal">
+          <div className="modal-head">
+            <span className="modal-title">Nouvel équipement sur le site</span>
+            <button type="button" className="modal-x" onClick={handleCancel} aria-label="Fermer">×</button>
           </div>
 
-          <div className="mrow">
-            <div className="fg">
-              <label>Type</label>
-              <input type="text" value={subtype} onChange={(e) => setSubtype(e.target.value)} placeholder="Ex : EP6 ABC, CO² 5 kg" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '.85rem', padding: '.25rem 0' }}>
+            {qrCode && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink2)', background: 'var(--wht)', border: '1px solid var(--bd, #E6E8EC)', borderRadius: 8, padding: '7px 10px', minWidth: 0 }}>
+                <QrCode size={14} strokeWidth={2} style={{ flexShrink: 0 }} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Étiquette : {qrCode.trim()}</span>
+              </div>
+            )}
+            {info && (
+              <div style={{ display: 'flex', gap: 6, fontSize: 12.5, color: 'var(--grn)', lineHeight: 1.4 }}>
+                <CheckCircle2 size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>{info}</span>
+              </div>
+            )}
+
+            <div className="mrow">
+              <div className="fg">
+                <label>Famille</label>
+                <select value={family} onChange={(e) => changeFamily(e.target.value as EquipmentFamily)}>
+                  {EQUIPMENT_FAMILIES.map((f) => (
+                    <option key={f} value={f}>{EQUIPMENT_FAMILY_LABELS[f]}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="fg">
+                <label>N° de repère</label>
+                <input type="text" value={serial} onChange={(e) => { setSerial(e.target.value); setSerialTouched(true) }} placeholder="Ex : 0452" />
+                {duplicate ? (
+                  <span className="ferr on">Déjà utilisé pour cette famille sur ce site</span>
+                ) : serial.trim() ? (
+                  <span className="text-ink-3" style={{ fontSize: 11.5, marginTop: 4 }}>
+                    Affiché : <strong>{unitRepere({ family, serial_number: serial })}</strong>
+                  </span>
+                ) : null}
+              </div>
             </div>
-            <div className="fg">
-              <label>Marque</label>
-              <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Ex : Sicli" />
+
+            <div className="mrow">
+              <div className="fg">
+                <label>Type</label>
+                <input type="text" value={subtype} onChange={(e) => setSubtype(e.target.value)} placeholder="Ex : EP6 ABC, CO² 5 kg" />
+              </div>
+              <div className="fg">
+                <label>Marque</label>
+                <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Ex : Sicli" />
+              </div>
             </div>
-          </div>
 
-          <div className="mrow">
-            <div className="fg">
-              <label>Zone</label>
-              <select value={zoneId} onChange={(e) => { setZoneId(e.target.value); if (e.target.value) setNewZone('') }}>
-                <option value="">{newZone.trim() ? `Nouvelle : ${newZone.trim()}` : '— Aucune zone —'}</option>
-                {zones.map((z) => (
-                  <option key={z.id} value={z.id}>{z.parent_zone ? `${z.parent_zone} · ${z.name}` : z.name}</option>
-                ))}
-              </select>
-              {!zoneId && (
-                <input type="text" value={newZone} onChange={(e) => setNewZone(e.target.value)} placeholder="+ Nouvelle zone (ex : Bâtiment B)" style={{ marginTop: 6, fontSize: 12.5 }} />
-              )}
+            <div className="mrow">
+              <div className="fg">
+                <label>Zone</label>
+                <select value={zoneId} onChange={(e) => { setZoneId(e.target.value); if (e.target.value) setNewZone('') }}>
+                  <option value="">{newZone.trim() ? `Nouvelle : ${newZone.trim()}` : '— Aucune zone —'}</option>
+                  {zones.map((z) => (
+                    <option key={z.id} value={z.id}>{z.parent_zone ? `${z.parent_zone} · ${z.name}` : z.name}</option>
+                  ))}
+                </select>
+                {!zoneId && (
+                  <input type="text" value={newZone} onChange={(e) => setNewZone(e.target.value)} placeholder="+ Nouvelle zone (ex : Bâtiment B)" style={{ marginTop: 6, fontSize: 12.5 }} />
+                )}
+              </div>
+              <div className="fg">
+                <label>Année</label>
+                <input type="number" inputMode="numeric" min={1900} max={2100} value={year} onChange={(e) => setYear(e.target.value)} placeholder="2020" />
+                {yearInvalid && <span className="ferr on">Année invalide</span>}
+              </div>
             </div>
+
             <div className="fg">
-              <label>Année</label>
-              <input type="number" inputMode="numeric" min={1900} max={2100} value={year} onChange={(e) => setYear(e.target.value)} placeholder="2020" />
-              {yearInvalid && <span className="ferr on">Année invalide</span>}
+              <label>Emplacement précis</label>
+              <input type="text" value={implantation} onChange={(e) => setImplantation(e.target.value)} placeholder="Ex : Hall d'accueil, à droite de l'ascenseur" />
             </div>
-          </div>
 
-          <div className="fg">
-            <label>Emplacement précis</label>
-            <input type="text" value={implantation} onChange={(e) => setImplantation(e.target.value)} placeholder="Ex : Hall d'accueil, à droite de l'ascenseur" />
-          </div>
+            <UnitAttributesFields family={family} value={attrs} onChange={setAttrs} />
 
-          <UnitAttributesFields family={family} value={attrs} onChange={setAttrs} />
+            <div className="fg">
+              <label>Photo de repérage <span className="text-ink-3 text-xs font-light">(conseillée)</span></label>
+              <UnitPhotoField organizationId={organizationId} value={photo} onChange={(p) => { if (photo && photo.path !== p?.path) void deleteUnitPhoto(photo.path); setPhoto(p) }} variant="compact" />
+            </div>
 
-          <div className="fg">
-            <label>Photo de repérage <span className="text-ink-3 text-xs font-light">(conseillée)</span></label>
-            <UnitPhotoField organizationId={organizationId} value={photo} onChange={(p) => { if (photo && photo.path !== p?.path) void deleteUnitPhoto(photo.path); setPhoto(p) }} variant="compact" />
-          </div>
+            {error && <span className="ferr on">{error}</span>}
 
-          {error && <span className="ferr on">{error}</span>}
-
-          {/* Boutons toujours visibles, même quand la fiche défile sur téléphone */}
-          <div style={{ position: 'sticky', bottom: -20, background: 'var(--wht)', padding: '10px 0 20px', marginBottom: -20, display: 'flex', flexDirection: 'column', gap: 8, boxShadow: '0 -8px 12px -10px rgba(0,0,0,.25)' }}>
-            <button type="button" className="mf prim" onClick={() => void submit('check')} disabled={!!saving}
-              style={{ width: '100%', padding: '12px 16px', fontSize: '1rem' }}>
-              {saving === 'check' ? 'Ajout…' : 'Ajouter et contrôler'}
-            </button>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" className="mf out" onClick={handleCancel} disabled={!!saving} style={{ flex: 1 }}>
-                Annuler
+            {/* Boutons toujours visibles, même quand la fiche défile sur téléphone */}
+            <div style={{ position: 'sticky', bottom: -20, background: 'var(--wht)', padding: '10px 0 20px', marginBottom: -20, display: 'flex', flexDirection: 'column', gap: 8, boxShadow: '0 -8px 12px -10px rgba(0,0,0,.25)' }}>
+              <button type="button" className="mf prim" onClick={() => void submit('check')} disabled={!!saving}
+                style={{ width: '100%', padding: '12px 16px', fontSize: '1rem' }}>
+                {saving === 'check' ? 'Ajout…' : 'Ajouter et contrôler'}
               </button>
-              <button type="button" className="mf out" onClick={() => void submit('next')} disabled={!!saving} style={{ flex: 1 }}>
-                {saving === 'next' ? 'Ajout…' : 'Ajouter seulement'}
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="mf out" onClick={handleCancel} disabled={!!saving} style={{ flex: 1 }}>
+                  Annuler
+                </button>
+                <button type="button" className="mf out" onClick={() => void submit('next')} disabled={!!saving} style={{ flex: 1 }}>
+                  {saving === 'next' ? 'Ajout…' : 'Ajouter seulement'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </ModalPortal>
   )
 }

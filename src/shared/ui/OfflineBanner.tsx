@@ -4,6 +4,7 @@ import { flushQueue as flushLegacyQueue, getPendingCount as getLegacyCount, onQu
 import { getQueueCounts, isOffline, isSyncing, onOfflineChange } from '../lib/offline/state'
 import { flushOfflineQueue } from '../lib/offline/sync'
 import { countPendingFinalize, onPendingFinalizeChange, processPendingFinalize } from '../../features/rapports/deferredFinalize'
+import { OfflineFailuresModal } from './OfflineFailuresModal'
 
 type Snapshot = { offline: boolean; pending: number; failed: number; syncing: boolean; reports: number }
 
@@ -33,6 +34,7 @@ export function OfflineBanner() {
   const { offline, pending, failed, syncing, reports } = useSyncExternalStore(subscribe, snapshot, snapshot)
   const [justSynced, setJustSynced] = useState(false)
   const [wasPending, setWasPending] = useState(0)
+  const [showFailures, setShowFailures] = useState(false)
 
   // « Synchronisation terminée » quand la file se vide
   if (pending !== wasPending) {
@@ -87,11 +89,19 @@ export function OfflineBanner() {
         {failed > 0 && `${failed} refusé${failed > 1 ? 's' : ''} par le serveur`}
         {reports > 0 && `${pending > 0 || failed > 0 ? ' · ' : ''}${reportsText} : finalisation (PDF, envoi) en cours`}
       </span>
-      {(pending > 0 || reports > 0) && (
-        <button type="button" onClick={() => void handleSync()} disabled={syncing} style={syncBtnStyle}>
-          {syncing ? 'Envoi…' : 'Envoyer'}
-        </button>
-      )}
+      <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexShrink: 0 }}>
+        {failed > 0 && (
+          <button type="button" onClick={() => setShowFailures(true)} style={syncBtnStyle}>
+            Voir
+          </button>
+        )}
+        {(pending > 0 || reports > 0) && (
+          <button type="button" onClick={() => void handleSync()} disabled={syncing} style={syncBtnStyle}>
+            {syncing ? 'Envoi…' : 'Envoyer'}
+          </button>
+        )}
+      </span>
+      {showFailures && <OfflineFailuresModal onClose={() => setShowFailures(false)} />}
       <style>{'@keyframes spin { from { transform: rotate(0) } to { transform: rotate(360deg) } }'}</style>
     </div>
   )
@@ -115,7 +125,6 @@ const bannerStyle: React.CSSProperties = {
 }
 
 const syncBtnStyle: React.CSSProperties = {
-  marginLeft: 'auto',
   padding: '4px 12px',
   background: 'rgba(255,255,255,.15)',
   color: 'white',

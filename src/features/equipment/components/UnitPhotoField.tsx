@@ -1,4 +1,5 @@
 import { Camera, ImageOff, Images, Loader2 } from 'lucide-react'
+import { ModalPortal } from '../../../shared/ui/ModalPortal'
 import { useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { uploadUnitPhoto } from '../api'
@@ -131,17 +132,19 @@ export function UnitPhotoField({ organizationId, value, onChange, readOnly, vari
       <input ref={galleryRef} type="file" accept="image/*" hidden onChange={handleFile} />
 
       {zoom && value && (
-        <div
-          className="overlay open"
-          style={{ zIndex: 10000, cursor: 'zoom-out' }}
-          onClick={() => setZoom(false)}
-        >
-          <StoredImg
-            src={value.url}
-            alt="Photo de repérage"
-            style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 10, boxShadow: '0 10px 40px rgba(0,0,0,.4)' }}
-          />
-        </div>
+        <ModalPortal>
+          <div
+            className="overlay open"
+            style={{ zIndex: 10000, cursor: 'zoom-out' }}
+            onClick={() => setZoom(false)}
+          >
+            <StoredImg
+              src={value.url}
+              alt="Photo de repérage"
+              style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 10, boxShadow: '0 10px 40px rgba(0,0,0,.4)' }}
+            />
+          </div>
+        </ModalPortal>
       )}
     </div>
   )

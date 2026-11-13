@@ -1,4 +1,5 @@
 import { Camera, X } from 'lucide-react'
+import { ModalPortal } from '../../../shared/ui/ModalPortal'
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { decodeBarcodeImage } from '../barcode'
@@ -211,33 +212,35 @@ export function QrScanner({ onResult, onClose, hint }: Props) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#0E1220', display: 'flex', flexDirection: 'column' }} role="dialog" aria-label="Scanner une étiquette">
-      <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', color: 'white', gap: 10 }}>
-        <span style={{ flex: 1, fontWeight: 700, fontSize: 17 }}>Scanner l'étiquette</span>
-        <button type="button" onClick={onClose} aria-label="Fermer" style={{ background: 'rgba(255,255,255,.12)', border: 'none', color: 'white', borderRadius: 999, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <X size={20} />
-        </button>
-      </div>
+    <ModalPortal>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#0E1220', display: 'flex', flexDirection: 'column' }} role="dialog" aria-label="Scanner une étiquette">
+        <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', color: 'white', gap: 10 }}>
+          <span style={{ flex: 1, fontWeight: 700, fontSize: 17 }}>Scanner l'étiquette</span>
+          <button type="button" onClick={onClose} aria-label="Fermer" style={{ background: 'rgba(255,255,255,.12)', border: 'none', color: 'white', borderRadius: 999, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <X size={20} />
+          </button>
+        </div>
 
-      <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
-        <video ref={videoRef} playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        {/* Cadre de visée */}
-        <div style={{ position: 'absolute', left: '50%', top: '50%', width: 'min(68vw, 300px)', height: 'min(68vw, 300px)', transform: 'translate(-50%, -50%)',
-          border: '3px solid rgba(255,255,255,.9)', borderRadius: 22, boxShadow: '0 0 0 9999px rgba(14,18,32,.45)' }} />
-        {starting && !error && (
-          <p style={{ position: 'absolute', left: 0, right: 0, top: '50%', textAlign: 'center', color: 'white', fontSize: 15 }}>Ouverture de la caméra…</p>
-        )}
-      </div>
+        <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
+          <video ref={videoRef} playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          {/* Cadre de visée */}
+          <div style={{ position: 'absolute', left: '50%', top: '50%', width: 'min(68vw, 300px)', height: 'min(68vw, 300px)', transform: 'translate(-50%, -50%)',
+            border: '3px solid rgba(255,255,255,.9)', borderRadius: 22, boxShadow: '0 0 0 9999px rgba(14,18,32,.45)' }} />
+          {starting && !error && (
+            <p style={{ position: 'absolute', left: 0, right: 0, top: '50%', textAlign: 'center', color: 'white', fontSize: 15 }}>Ouverture de la caméra…</p>
+          )}
+        </div>
 
-      <div style={{ padding: '14px 16px 22px', color: 'rgba(255,255,255,.85)', fontSize: 14, textAlign: 'center' }}>
-        {error ? <p style={{ color: '#FFB4A8', marginBottom: 12 }}>{error}</p> : <p style={{ marginBottom: 12 }}>{hint ?? 'Visez le QR code ou le code-barres de l\'étiquette : la lecture est automatique.'}</p>}
-        <button type="button" onClick={() => fileRef.current?.click()}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'white', color: '#1C2130', border: 'none', borderRadius: 999, padding: '11px 18px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
-          <Camera size={16} /> Prendre une photo à la place
-        </button>
-        <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={(e) => void handlePhoto(e)} style={{ display: 'none' }} />
+        <div style={{ padding: '14px 16px 22px', color: 'rgba(255,255,255,.85)', fontSize: 14, textAlign: 'center' }}>
+          {error ? <p style={{ color: '#FFB4A8', marginBottom: 12 }}>{error}</p> : <p style={{ marginBottom: 12 }}>{hint ?? 'Visez le QR code ou le code-barres de l\'étiquette : la lecture est automatique.'}</p>}
+          <button type="button" onClick={() => fileRef.current?.click()}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'white', color: '#1C2130', border: 'none', borderRadius: 999, padding: '11px 18px', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+            <Camera size={16} /> Prendre une photo à la place
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={(e) => void handlePhoto(e)} style={{ display: 'none' }} />
+        </div>
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
       </div>
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
-    </div>
+    </ModalPortal>
   )
 }
