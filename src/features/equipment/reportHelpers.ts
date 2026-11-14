@@ -60,9 +60,15 @@ export async function buildUnitEntriesForIntervention(
     const keyedList = c.checklist_key ? unitListFor(ctx, u.family, c.checklist_key) : null
     const template = (c.family_template_id ? templatesById.get(c.family_template_id) : undefined)
       ?? templatesByFamily.get(u.family)
-    const items = c.checklist_key ? keyedList?.items ?? [] : template?.checklist ?? []
-    const listName = (c.checklist_key ? keyedList?.name : template?.name) || EQUIPMENT_FAMILY_LABELS[u.family]
     const answers = c.checklist ?? {}
+    // Un point ajouté à la liste après ce contrôle ne compte pas (sauf s'il a été renseigné)
+    const checkDay = (c.created_at ?? '').slice(0, 10)
+    const items = (c.checklist_key ? keyedList?.items ?? [] : template?.checklist ?? [])
+      .filter((it) => {
+        const since = (it as { since?: string }).since
+        return !since || !!answers[it.id] || checkDay >= since
+      })
+    const listName = (c.checklist_key ? keyedList?.name : template?.name) || EQUIPMENT_FAMILY_LABELS[u.family]
     const naItems = items.filter((it) => answers[it.id] === 'na').map((it) => it.label)
     const uncheckedItems = items.filter((it) => !answers[it.id]).map((it) => it.label)
 

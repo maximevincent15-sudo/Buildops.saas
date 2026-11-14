@@ -3631,6 +3631,23 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Devis accepté : accusé de réception et bons de livraison */
 @layer components {
+  /* Planning, vue liste : cartes sur téléphone à la place du tableau */
+  .plan-cards { display: none; }
+  @media (max-width: 767px) {
+    .plan-list-table { display: none; }
+    .plan-cards { display: flex; flex-direction: column; gap: 8px; }
+  }
+  .plan-cards-group { font-size: 12px; font-weight: 700; color: var(--ink2); text-transform: uppercase; letter-spacing: .04em; padding: 8px 2px 0; }
+  .plan-cards-group span { font-weight: 500; color: var(--ink3); }
+  .plan-card { border: .5px solid var(--brd); border-radius: 12px; padding: 12px 14px; background: var(--wht); cursor: pointer; }
+  .plan-card:active { background: var(--bg); }
+  .plan-card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .plan-card-client { margin-top: 6px; font-weight: 600; font-size: .92rem; }
+  .plan-card-site { font-size: .8rem; color: var(--ink2); margin-top: 1px; }
+  .plan-card-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: .8rem; color: var(--ink2); }
+  .plan-card-prio { margin-top: 6px; font-size: .74rem; font-weight: 600; color: var(--org); }
+  .plan-card-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
   .order-docs { display: flex; flex-direction: column; gap: 6px; padding-top: .6rem; border-top: .5px solid var(--brd); }
   .order-docs-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .82rem; color: var(--ink2); }
   .order-docs-row > svg { flex-shrink: 0; color: var(--acc); }

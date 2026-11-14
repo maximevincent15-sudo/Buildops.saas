@@ -12,7 +12,8 @@ export type BuiltinUnitList = {
   key: string
   family: EquipmentFamily
   name: string
-  items: Array<{ id: string; label: string }>
+  /** since : date d'ajout du point (les contrôles plus anciens ne le comptent pas) */
+  items: Array<{ id: string; label: string; since?: string }>
 }
 
 export const DESENFUMAGE_NATUREL_KEY = 'unit:desenfumage:naturel'
@@ -27,8 +28,11 @@ export const CODE_UNIT_LISTS: BuiltinUnitList[] = [
     items: [
       { id: 'nat_commande', label: 'Commande (coffret, armoire ou treuil) accessible et signalée' },
       { id: 'nat_essai_ouverture', label: "Essai d'ouverture réel depuis la commande" },
+      { id: 'nat_bizone', label: 'Commande bizone (le cas échéant) : essai de chaque déclenchement, bizone bien réalisé', since: '2026-11-14' },
       { id: 'nat_cartouche_ouverture', label: "Cartouche(s) d'ouverture percutée(s) puis remplacée(s)" },
+      { id: 'nat_cartouche_pv', label: "Cartouches adaptées au PV de l'ouvrant (marque et dimensions relevées)", since: '2026-11-14' },
       { id: 'nat_ouvrant', label: 'Ouvrant (exutoire, lanterneau, châssis) : ouverture complète, charnières et vérin en état' },
+      { id: 'nat_nettoyage', label: 'Ouvrant nettoyé et graissé (charnières, mécanisme)', since: '2026-11-14' },
       { id: 'fermeture', label: "Fermeture et verrouillage de l'ouvrant après l'essai" },
       { id: 'nat_cartouche_fermeture', label: 'Cartouche de fermeture percutée puis remplacée (commande ouverture / fermeture)' },
       { id: 'nat_plombage', label: 'Commande refermée et plombée' },

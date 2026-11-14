@@ -7,7 +7,7 @@
  * - Réseau absent ou serveur indisponible : on s'arrête, nouvel essai plus tard.
  */
 
-import { deleteFile, deleteQueued, listQueue, updateQueued } from './db'
+import { deleteFile, deleteQueued, getFile, listQueue, updateQueued } from './db'
 import type { QueuedRequest } from './db'
 import { getOfflineUser, isOffline, markNetworkDown, markNetworkUp, onOfflineChange, setQueueCounts, setSyncing } from './state'
 
@@ -55,17 +55,51 @@ export async function retryQueueItem(seq: number): Promise<void> {
   await flushOfflineQueue()
 }
 
-function buildBody(q: QueuedRequest): BodyInit | null {
+/** Chemin du fichier dans le stockage (« bucket/dossier/fichier »), à partir de l'adresse de l'envoi */
+function storagePathOf(q: QueuedRequest): string {
+  return decodeURIComponent(q.url.replace(/^\/storage\/v1\/object\//, '').split('?')[0]!)
+}
+
+/**
+ * Fichier relu en entier, en mémoire. Sur iPhone, une photo relue depuis la
+ * mémoire de l'appareil s'affichait mais partait vide à l'envoi (« No content
+ * provided »). À défaut, la copie gardée sur l'appareil pour l'affichage.
+ * null : la photo est vraiment vide.
+ */
+async function readWhole(blob: Blob | null, path: string | null): Promise<Blob | null> {
+  if (blob) {
+    const buf = await blob.arrayBuffer().catch(() => null)
+    if (buf && buf.byteLength > 0) return new Blob([buf], { type: blob.type })
+  }
+  if (path) {
+    const f = await getFile(path).catch(() => undefined)
+    const buf = f ? await f.blob.arrayBuffer().catch(() => null) : null
+    if (f && buf && buf.byteLength > 0) return new Blob([buf], { type: f.contentType || f.blob.type })
+  }
+  return null
+}
+
+async function buildBody(q: QueuedRequest): Promise<{ body: BodyInit | null; emptyFile: boolean }> {
+  const path = q.kind === 'storage' && q.method !== 'DELETE' ? storagePathOf(q) : null
   if (q.form) {
     const fd = new FormData()
+    let emptyFile = false
     for (const e of q.form) {
-      if (typeof e.value === 'string') fd.append(e.name, e.value)
-      else fd.append(e.name, e.value, e.filename)
+      if (typeof e.value === 'string') {
+        fd.append(e.name, e.value)
+        continue
+      }
+      const whole = await readWhole(e.value, path)
+      if (!whole) emptyFile = true
+      else fd.append(e.name, whole, e.filename)
     }
-    return fd
+    return { body: fd, emptyFile }
   }
-  if (q.blob) return q.blob
-  return q.body
+  if (q.blob) {
+    const whole = await readWhole(q.blob, path)
+    return whole ? { body: whole, emptyFile: false } : { body: null, emptyFile: true }
+  }
+  return { body: q.body, emptyFile: false }
 }
 
 async function errorMessage(res: Response): Promise<string> {
@@ -114,9 +148,16 @@ export function flushOfflineQueue(): Promise<{ sent: number; failed: number }> {
         const headers: Record<string, string> = { ...q.headers, apikey: config.apiKey, Authorization: `Bearer ${token}` }
         // FormData : le navigateur pose lui-même le content-type (avec la frontière)
         if (q.form) delete headers['content-type']
+        const built = await buildBody(q)
+        if (built.emptyFile) {
+          // Rien à envoyer : la photo est perdue sur l'appareil, il faut la reprendre
+          await updateQueued({ ...q, attempts: q.attempts + 1, lastError: 'Photo vide sur cet appareil : reprenez-la.', failed: true })
+          failed++
+          continue
+        }
         let res: Response
         try {
-          res = await nativeFetch(`${config.url}${q.url}`, { method: q.method, headers, body: buildBody(q) })
+          res = await nativeFetch(`${config.url}${q.url}`, { method: q.method, headers, body: built.body })
         } catch {
           markNetworkDown()
           break
@@ -126,8 +167,7 @@ export function flushOfflineQueue(): Promise<{ sent: number; failed: number }> {
           await deleteQueued(q.seq!)
           if (q.kind === 'storage' && q.method !== 'DELETE') {
             // Fichier envoyé : la copie locale n'est plus utile
-            const path = decodeURIComponent(q.url.replace(/^\/storage\/v1\/object\//, '').split('?')[0]!)
-            await deleteFile(path).catch(() => {})
+            await deleteFile(storagePathOf(q)).catch(() => {})
           }
           sent++
           continue

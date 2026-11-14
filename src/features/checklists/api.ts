@@ -11,7 +11,12 @@ import { CODE_LIST_FAMILIES, CODE_UNIT_LISTS } from './builtins'
  */
 
 export type ChecklistScope = 'visit' | 'unit'
-export type ChecklistPoint = { id: string; label: string }
+export type ChecklistPoint = {
+  id: string
+  label: string
+  /** Point ajouté à une liste Firovia ce jour-là (AAAA-MM-JJ) : pas compté pour les contrôles plus anciens */
+  since?: string
+}
 
 export type ChecklistTemplateRow = {
   id: string

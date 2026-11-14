@@ -641,7 +641,8 @@ export function PlanningPage() {
                 Aucune intervention{listQ || listTech !== 'all' ? ' ne correspond à ces filtres' : ' dans cet onglet'}.
               </p>
             ) : (
-            <table className="dtbl">
+            <>
+            <table className="dtbl plan-list-table">
               <thead>
                 <tr>
                   <th>Réf.</th>
@@ -762,6 +763,64 @@ export function PlanningPage() {
                 ))}
               </tbody>
             </table>
+
+            {/* Téléphone : une carte par intervention à la place du tableau */}
+            <div className="plan-cards">
+              {visibleGroups.map((g) => (
+                <Fragment key={g.key}>
+                  <div className="plan-cards-group">{g.label} <span>· {g.count}</span></div>
+                  {g.items.map((i) => {
+                    const due = i.scheduled_date ? undefined : dueById.get(i.id)
+                    const address = interventionAddress(i)
+                    return (
+                      <div
+                        key={i.id}
+                        className="plan-card"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openIntervention(i)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') openIntervention(i) }}
+                      >
+                        <div className="plan-card-top">
+                          <strong>{i.reference}</strong>
+                          <InterventionStatusBadge status={i.status} />
+                        </div>
+                        <div className="plan-card-client">{i.client_name}</div>
+                        {i.site_name && <div className="plan-card-site">{i.site_name}</div>}
+                        <div className="plan-card-meta">
+                          <span>
+                            {i.scheduled_date
+                              ? formatDate(i.scheduled_date)
+                              : due
+                                ? <span style={{ color: due < today ? 'var(--red)' : undefined }}>Échéance {formatDate(due)}</span>
+                                : 'Sans date'}
+                          </span>
+                          <span>{formatEquipmentTypesShort(i)}</span>
+                          <span>{i.technician_name ?? 'Non assignée'}</span>
+                        </div>
+                        {i.priority && i.priority !== 'normale' && (
+                          <div className="plan-card-prio">{INTERVENTION_PRIORITIES[i.priority as InterventionPriority] ?? i.priority}</div>
+                        )}
+                        <div className="plan-card-foot" onClick={(e) => e.stopPropagation()}>
+                          {(address || i.scheduled_date) && (
+                            <QuickActions
+                              address={address || null}
+                              onAddToCalendar={
+                                i.scheduled_date
+                                  ? () => downloadIcs(`${i.reference}.ics`, buildIcsForIntervention(i))
+                                  : undefined
+                              }
+                            />
+                          )}
+                          <InterventionRowActions intervention={i} onChanged={() => void load()} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </Fragment>
+              ))}
+            </div>
+            </>
             )}
             {listItems.length > listLimit && (
               <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>
