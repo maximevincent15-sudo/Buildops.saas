@@ -144,6 +144,8 @@ export function RapportEditorPage() {
   const [saving, setSaving] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [completedAt, setCompletedAt] = useState<string | null>(null)
+  // Jour du rapport : un point ajouté plus tard à la checklist du site ne compte pas pour un rapport déjà finalisé
+  const visitDay = (completedAt ?? new Date().toISOString()).slice(0, 10)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [reportId, setReportId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -410,7 +412,7 @@ export function RapportEditorPage() {
   }
 
   // Items du type actuellement affiché (pour la section checklist visible)
-  const items = equipmentType ? visitItems(checklistCtx, equipmentType) : []
+  const items = equipmentType ? visitItems(checklistCtx, equipmentType, visitDay) : []
   // Checklist du type actuellement affiché
   const currentChecklist: ChecklistResponse[] = equipmentType
     ? (checklistByType[equipmentType] ?? [])
@@ -421,7 +423,7 @@ export function RapportEditorPage() {
   // Synthèse GLOBALE couvrant tous les types (pour tampon + bouton correctif)
   const totalByType: Record<string, number> = {}
   for (const t of availableTypes) {
-    totalByType[t] = visitItems(checklistCtx, t).length
+    totalByType[t] = visitItems(checklistCtx, t, visitDay).length
   }
   const globalSummary = computeGlobalSummary(checklistByType, totalByType)
   const isCompleted = !!completedAt
@@ -446,7 +448,7 @@ export function RapportEditorPage() {
   const nokWithoutPhoto: Array<{ type: EquipmentType; label: string }> = []
   const nokWithoutAction: Array<{ type: EquipmentType; label: string }> = []
   for (const t of availableTypes) {
-    const itemsForType = visitItems(checklistCtx, t)
+    const itemsForType = visitItems(checklistCtx, t, visitDay)
     const responsesForType = checklistByType[t] ?? []
     for (const it of itemsForType) {
       const r = responsesForType.find((c) => c.id === it.id)
@@ -465,7 +467,7 @@ export function RapportEditorPage() {
   // Anomalies GLOBALES pour la synthèse (tous types)
   const anomalies: Array<{ label: string; action?: string; note?: string; typeLabel: string }> = []
   for (const t of availableTypes) {
-    const itemsForType = visitItems(checklistCtx, t)
+    const itemsForType = visitItems(checklistCtx, t, visitDay)
     const responsesForType = checklistByType[t] ?? []
     for (const it of itemsForType) {
       const r = responsesForType.find((c) => c.id === it.id)
@@ -511,7 +513,7 @@ export function RapportEditorPage() {
     const sections = availableTypes.map((t) => ({
       type: t,
       label: EQUIPMENT_TYPES[t] ?? t,
-      items: visitItems(checklistCtx, t),
+      items: visitItems(checklistCtx, t, visitDay),
       responses: checklistByType[t] ?? [],
     }))
     // Registre nominatif (Slice E) — chargé si le site a des équipements
@@ -1080,7 +1082,7 @@ export function RapportEditorPage() {
           <div className="equip-pills" style={{ marginTop: '.4rem' }}>
             {availableTypes.map((t) => {
               const doneCount = (checklistByType[t] ?? []).filter((r) => r.value).length
-              const totalCount = visitItems(checklistCtx, t).length
+              const totalCount = visitItems(checklistCtx, t, visitDay).length
               const hasNok = (checklistByType[t] ?? []).some((r) => r.value === 'nok')
               return (
                 <button
@@ -1293,7 +1295,7 @@ export function RapportEditorPage() {
                 >
                   {EQUIPMENT_TYPES[t]}
                   <span className="equip-pill-count">
-                    {(checklistByType[t] ?? []).filter((r) => r.value).length}/{visitItems(checklistCtx, t).length}
+                    {(checklistByType[t] ?? []).filter((r) => r.value).length}/{visitItems(checklistCtx, t, visitDay).length}
                   </span>
                 </button>
               ))}

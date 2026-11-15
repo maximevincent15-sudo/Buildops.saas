@@ -51,7 +51,7 @@ export async function generateReportPdfForIntervention(
   const sections = (resolveEquipmentTypes(intervention) as EquipmentType[]).map((t) => ({
     type: t,
     label: EQUIPMENT_TYPES[t] ?? t,
-    items: visitItems(checklistCtx, t),
+    items: visitItems(checklistCtx, t, (report.completed_at ?? new Date().toISOString()).slice(0, 10)),
     responses: byType[t] ?? [],
   }))
 

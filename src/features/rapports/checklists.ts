@@ -3,6 +3,8 @@ import type { EquipmentType } from '../../shared/constants/interventions'
 export type ChecklistItem = {
   id: string
   label: string
+  /** Point ajouté ce jour-là (AAAA-MM-JJ) : absent des rapports finalisés avant */
+  since?: string
   helper?: string
 }
 
@@ -66,6 +68,7 @@ export const CHECKLISTS: Record<EquipmentType, ChecklistItem[]> = {
     { id: 'ventilateurs', label: "Ventilateurs de désenfumage : essai fonctionnel (démarrage, débit conforme)" },
     { id: 'gaines', label: "Étanchéité des gaines de désenfumage (calfeutrement)" },
     { id: 'asservissement', label: "Cohérence avec le SSI (asservissement de mise en sécurité)" },
+    { id: 'adequation_batiment', label: "Installation toujours adaptée au bâtiment (cloisonnement, stockage, changement d'usage)", since: '2026-11-15' },
     { id: 'etiquette', label: "Étiquette de contrôle annuel apposée (date + signataire)" },
   ],
   // SSI / Alarme incendie — APSAD R7 · NF S 61-950 — 15 items

@@ -82,22 +82,26 @@ export function invalidateChecklistContext() {
 
 // ─── Listes applicables ──────────────────────────────────
 
-/** Checklist de la visite pour un type d'équipement */
-export function visitList(ctx: ChecklistContext | null, type: EquipmentType): EffectiveList {
+/**
+ * Checklist de la visite pour un type d'équipement. day (AAAA-MM-JJ, jour du
+ * rapport) : les points ajoutés après ce jour ne comptent pas pour ce rapport.
+ */
+export function visitList(ctx: ChecklistContext | null, type: EquipmentType, day?: string): EffectiveList {
   const builtinKey = visitBuiltinKey(type)
   const row = ctx?.rows.find((r) => r.scope === 'visit' && r.builtin_key === builtinKey)
+  const items: ChecklistPoint[] = row?.items ?? CHECKLISTS[type] ?? []
   return {
     key: builtinKey,
     name: row?.name ?? 'Checklist de la visite',
-    items: row?.items ?? CHECKLISTS[type] ?? [],
+    items: day ? items.filter((it) => !it.since || day >= it.since) : items,
     builtinKey,
     rowId: row?.id ?? null,
   }
 }
 
 /** Points de la checklist de la visite pour un type (liste de l'entreprise, sinon Firovia) */
-export function visitItems(ctx: ChecklistContext | null, type: EquipmentType): ChecklistPoint[] {
-  return visitList(ctx, type).items
+export function visitItems(ctx: ChecklistContext | null, type: EquipmentType, day?: string): ChecklistPoint[] {
+  return visitList(ctx, type, day).items
 }
 
 /** Listes par appareil d'une famille : les listes Firovia (modifiées ou non), puis celles créées par l'entreprise */
