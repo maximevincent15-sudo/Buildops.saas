@@ -73,13 +73,21 @@ export async function loadFullReportPhotos(
   // ─── Photos à placer, avant réduction ─────────────────
   type Pending = { url: string; caption: string }
   const draft: Array<{ key: string; title: string; subtitle: string | null; photos: Pending[] }> = []
+  // Une photo n'apparaît qu'une fois, même si elle est rattachée au contrôle
+  // et à une ou plusieurs anomalies (contrôle réenregistré, doublons fermés)
+  const placed = new Set<string>()
+  const add = (list: Pending[], url: string, caption: string) => {
+    if (placed.has(url)) return
+    placed.add(url)
+    list.push({ url, caption })
+  }
   for (const u of units) {
     const photos: Pending[] = []
-    if (u.photo_url) photos.push({ url: u.photo_url, caption: 'Repérage' })
-    const checkPhotos = checks.filter((c) => c.equipment_unit_id === u.id).flatMap((c) => c.photos ?? []).filter((p) => p.url)
-    checkPhotos.forEach((p, i) => photos.push({ url: p.url!, caption: checkPhotos.length > 1 ? `Contrôle ${i + 1}` : 'Contrôle' }))
+    if (u.photo_url) add(photos, u.photo_url, 'Repérage')
+    const checkPhotos = [...new Set(checks.filter((c) => c.equipment_unit_id === u.id).flatMap((c) => c.photos ?? []).map((p) => p.url).filter((x): x is string => !!x))]
+    checkPhotos.forEach((url, i) => add(photos, url, checkPhotos.length > 1 ? `Contrôle ${i + 1}` : 'Contrôle'))
     for (const a of anomalies.filter((x) => x.equipment_unit_id === u.id)) {
-      for (const p of (a.photos ?? []).filter((x) => x.url)) photos.push({ url: p.url!, caption: `Anomalie : ${a.title}` })
+      for (const p of (a.photos ?? []).filter((x) => x.url)) add(photos, p.url!, `Anomalie : ${a.title}`)
     }
     if (photos.length === 0) continue
     const zone = u.zone_id ? zoneById.get(u.zone_id) : null
@@ -90,10 +98,11 @@ export async function loadFullReportPhotos(
       photos,
     })
   }
-  const sitePhotos: Pending[] = [
-    ...reportPhotos.filter((p) => p.url).map((p, i) => ({ url: p.url!, caption: `Photo du site ${i + 1}` })),
-    ...anomalies.filter((a) => !a.equipment_unit_id).flatMap((a) => (a.photos ?? []).filter((p) => p.url).map((p) => ({ url: p.url!, caption: `Anomalie : ${a.title}` }))),
-  ]
+  const sitePhotos: Pending[] = []
+  reportPhotos.filter((p) => p.url).forEach((p, i) => add(sitePhotos, p.url!, `Photo du site ${i + 1}`))
+  for (const a of anomalies.filter((x) => !x.equipment_unit_id)) {
+    for (const p of (a.photos ?? []).filter((x) => x.url)) add(sitePhotos, p.url!, `Anomalie : ${a.title}`)
+  }
   if (sitePhotos.length > 0) draft.push({ key: 'site', title: 'Site', subtitle: null, photos: sitePhotos })
 
   // ─── Téléchargement et réduction, quelques photos à la fois ───

@@ -151,6 +151,7 @@ export function RapportEditorPage() {
   // PDF complet avec toutes les photos (à côté du rapport habituel)
   const [fullPdfBusy, setFullPdfBusy] = useState<string | null>(null)
   const [fullPdfUrl, setFullPdfUrl] = useState<string | null>(null)
+  const [fullPdfError, setFullPdfError] = useState<string | null>(null)
   const [completedAt, setCompletedAt] = useState<string | null>(null)
   // Jour du rapport : un point ajouté plus tard à la checklist du site ne compte pas pour un rapport déjà finalisé
   const visitDay = (completedAt ?? new Date().toISOString()).slice(0, 10)
@@ -610,7 +611,7 @@ export function RapportEditorPage() {
   /** PDF complet : le rapport et toutes les photos de la visite, rangé aussi dans le dossier */
   async function handleFullPdf() {
     if (!intervention) return
-    setError(null)
+    setFullPdfError(null)
     setFlash(null)
     setFullPdfUrl(null)
     setFullPdfBusy('Préparation des photos…')
@@ -637,7 +638,11 @@ export function RapportEditorPage() {
       const photoCount = groups.reduce((n, g) => n + g.photos.length, 0)
       setFlash(`PDF complet prêt : ${photoCount} photo${photoCount > 1 ? 's' : ''}${dossier ? ', rangé aussi dans le dossier' : ''}.`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de la création du PDF complet.')
+      // L'erreur s'affiche sous le bouton : la page reste ouverte
+      const msg = e instanceof Error ? e.message : ''
+      setFullPdfError(/maximum allowed size|too large|payload/i.test(msg)
+        ? 'Le PDF complet est trop lourd pour être enregistré. Prévenez le support Firovia.'
+        : `Le PDF complet n'a pas pu être créé${msg ? ` : ${msg}` : '.'}`)
     } finally {
       setFullPdfBusy(null)
     }
@@ -1638,6 +1643,9 @@ export function RapportEditorPage() {
               >
                 <Download size={13} /> PDF complet
               </FileLink>
+            )}
+            {fullPdfError && !fullPdfBusy && (
+              <p className="text-red text-sm" style={{ flexBasis: '100%', textAlign: 'right', margin: 0 }}>{fullPdfError}</p>
             )}
             <button
               type="button"
