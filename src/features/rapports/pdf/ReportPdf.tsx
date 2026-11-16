@@ -18,6 +18,8 @@ import type { InvoicingSettings } from '../../parametres/api'
 import { PdfLogo } from '../../parametres/pdf/PdfLogo'
 import { clientInfoLines } from './clientInfo'
 import type { ReportClientInfo } from './clientInfo'
+import { FullPhotosPages } from './FullPhotosPages'
+import type { FullPhotoGroup } from './FullPhotosPages'
 import type { Intervention } from '../../planning/schemas'
 import type { ChecklistItem } from '../checklists'
 import { computeConformity } from '../conformity'
@@ -473,6 +475,8 @@ type Props = {
   clientNumber?: string | null
   /** Coordonnées du client (fiche client) : nom, adresse, téléphone, mail, SIRET */
   clientInfo?: ReportClientInfo | null
+  /** PDF complet : toutes les photos de la visite en annexe, par équipement */
+  fullPhotos?: FullPhotoGroup[]
   /** N° de dossier du site (si renseigné). */
   dossierNumber?: string | null
 }
@@ -485,7 +489,7 @@ export function ReportPdf(props: Props) {
 function ReportPdfContent({
   intervention, report, sections, organizationName,
   unitEntries, settings, anomalyEntries,
-  interventionType, nextInterventionDate, clientNumber, dossierNumber, clientInfo,
+  interventionType, nextInterventionDate, clientNumber, dossierNumber, clientInfo, fullPhotos,
 }: Props) {
   const interventionEquipsLabel = formatEquipmentTypes(intervention.equipment_types)
 
@@ -1179,6 +1183,7 @@ function ReportPdfContent({
           {'  ·  '}Généré avec Firovia
         </Text>
       </Page>
+      {fullPhotos && fullPhotos.length > 0 && <FullPhotosPages groups={fullPhotos} footer={`${organizationName} · Rapport ${intervention.reference}`} />}
     </Document>
   )
 }

@@ -10,6 +10,7 @@ import { RECOMMENDED_ACTION_LABEL, decodeChecklistId } from '../schemas'
 import type { ChecklistResponse } from '../schemas'
 import type { AnomalyPdfEntry, ReportPdfProps, UnitReportEntry } from './ReportPdf'
 import { clientInfoLines } from './clientInfo'
+import { FullPhotosPages } from './FullPhotosPages'
 
 /**
  * Rapport d'intervention au format « compte rendu de vérification
@@ -136,7 +137,7 @@ export function ClassicReportPdf(props: Props) {
 function ClassicReportPdfContent({
   intervention, report, sections, organizationName,
   unitEntries = [], settings, anomalyEntries = [],
-  interventionType, clientNumber, dossierNumber, clientInfo,
+  interventionType, clientNumber, dossierNumber, clientInfo, fullPhotos,
   previousVisitDate, clientAddress, technicianQualifications = [],
 }: Props) {
   const clientName = clientInfo?.name || intervention.client_name
@@ -472,6 +473,7 @@ function ClassicReportPdfContent({
             `${pdfText(organizationName)} — Rapport de vérification ${intervention.reference} — page ${pageNumber} / ${totalPages}`}
         />
       </Page>
+      {fullPhotos && fullPhotos.length > 0 && <FullPhotosPages groups={fullPhotos} footer={`${organizationName} · Rapport ${intervention.reference}`} />}
     </Document>
   )
 }

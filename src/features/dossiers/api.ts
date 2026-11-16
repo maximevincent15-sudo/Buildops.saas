@@ -382,6 +382,54 @@ export async function addDossierDocument(input: {
   return data as DossierDocument
 }
 
+/**
+ * Range dans le dossier un fichier déjà enregistré (ex. rapport complet avec
+ * photos). Un fichier déjà rangé au même endroit est mis à jour, sans doublon.
+ */
+export async function linkDossierDocument(input: {
+  organizationId: string
+  dossierNumber: string
+  kind: DossierDocumentKind
+  title: string
+  filePath: string
+  fileUrl: string
+  fileName: string
+  sizeBytes: number
+  createdByName: string | null
+}): Promise<void> {
+  const fileUrl = input.fileUrl.split('?')[0]!
+  const { data: existing } = await supabase
+    .from('dossier_documents')
+    .select('id')
+    .eq('organization_id', input.organizationId)
+    .eq('file_path', input.filePath)
+    .limit(1)
+  const row = {
+    title: input.title,
+    document_date: new Date().toISOString().slice(0, 10),
+    file_url: fileUrl,
+    file_name: input.fileName,
+    mime_type: 'application/pdf',
+    size_bytes: input.sizeBytes,
+  }
+  if (existing && existing.length > 0) {
+    const { error } = await supabase.from('dossier_documents').update(row).eq('id', (existing[0] as { id: string }).id)
+    if (error) throw error
+    return
+  }
+  const { data: auth } = await supabase.auth.getUser()
+  const { error } = await supabase.from('dossier_documents').insert({
+    ...row,
+    organization_id: input.organizationId,
+    dossier_number: input.dossierNumber,
+    kind: input.kind,
+    file_path: input.filePath,
+    created_by: auth.user?.id ?? null,
+    created_by_name: input.createdByName,
+  })
+  if (error) throw error
+}
+
 /** Retire un document du dossier (fiche, puis fichier) */
 export async function deleteDossierDocument(doc: Pick<DossierDocument, 'id' | 'file_path' | 'file_url'>): Promise<void> {
   const { error } = await supabase.from('dossier_documents').delete().eq('id', doc.id)

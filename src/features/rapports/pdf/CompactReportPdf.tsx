@@ -11,6 +11,7 @@ import { ReportPdf } from './ReportPdf'
 import type { ReportPdfProps, UnitReportEntry } from './ReportPdf'
 import { pdfSafe } from './pdfText'
 import { clientInfoLines } from './clientInfo'
+import { FullPhotosPages } from './FullPhotosPages'
 
 /**
  * Rapport compact : la page 1 dit tout (résultat, points à traiter avec
@@ -83,7 +84,7 @@ export function CompactReportPdf(props: ReportPdfProps) {
 
 function CompactContent({
   intervention, report, sections, organizationName, unitEntries = [], settings, anomalyEntries = [],
-  previousAnomalyEntries = [], interventionType, nextInterventionDate, clientNumber, dossierNumber, clientInfo,
+  previousAnomalyEntries = [], interventionType, nextInterventionDate, clientNumber, dossierNumber, clientInfo, fullPhotos,
 }: ReportPdfProps) {
   // Points NOK de la checklist du site
   const siteNok: Array<{ section: string; r: ChecklistResponse; label: string }> = []
@@ -434,6 +435,7 @@ function CompactContent({
           <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber}/${totalPages} · Généré avec Firovia`} />
         </View>
       </Page>
+      {fullPhotos && fullPhotos.length > 0 && <FullPhotosPages groups={fullPhotos} footer={`${organizationName} · Rapport ${intervention.reference}`} />}
     </Document>
   )
 }

@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Download,
   FileText,
+  Images,
   Mail,
   MapPin,
   Receipt,
@@ -41,7 +42,10 @@ import type { UncheckedUnitItem, UnitVerdictItem } from '../features/rapports/co
 import { ReportHistoryList } from '../features/rapports/components/ReportHistoryList'
 import { TimeSpentCard } from '../features/rapports/components/TimeSpentCard'
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
-import { generateAndUploadReportPdf } from '../features/rapports/pdf/generateReportPdf'
+import { generateAndUploadReportPdf, renderAndStoreReportPdf } from '../features/rapports/pdf/generateReportPdf'
+import { loadFullReportPhotos } from '../features/rapports/pdf/loadFullPhotos'
+import type { FullPhotoGroup } from '../features/rapports/pdf/FullPhotosPages'
+import { linkDossierDocument } from '../features/dossiers/api'
 import { loadReportClientInfo } from '../features/rapports/pdf/loadClientInfo'
 import { ClassicReportPdf } from '../features/rapports/pdf/ClassicReportPdf'
 import { CompactReportPdf } from '../features/rapports/pdf/CompactReportPdf'
@@ -143,6 +147,9 @@ export function RapportEditorPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [generatingPdf, setGeneratingPdf] = useState(false)
+  // PDF complet avec toutes les photos (à côté du rapport habituel)
+  const [fullPdfBusy, setFullPdfBusy] = useState<string | null>(null)
+  const [fullPdfUrl, setFullPdfUrl] = useState<string | null>(null)
   const [completedAt, setCompletedAt] = useState<string | null>(null)
   // Jour du rapport : un point ajouté plus tard à la checklist du site ne compte pas pour un rapport déjà finalisé
   const visitDay = (completedAt ?? new Date().toISOString()).slice(0, 10)
@@ -506,7 +513,13 @@ export function RapportEditorPage() {
     }
   }
 
+  /** Rapport PDF habituel, régénéré depuis l'état de l'éditeur */
   async function regeneratePdfFromCurrent(): Promise<string> {
+    return generateAndUploadReportPdf(await buildReportElement(), orgId, iid, intervention!.reference)
+  }
+
+  /** Document PDF du rapport ; fullPhotos : annexe avec toutes les photos de la visite */
+  async function buildReportElement(fullPhotos?: FullPhotoGroup[]) {
     const snapshot = currentReportSnapshot()
     // Sections PDF : une par type contrôlé (au moins un OK/NOK/NA) OU par type
     // planifié dans l'intervention — on affiche tout pour être exhaustif.
@@ -584,12 +597,48 @@ export function RapportEditorPage() {
       interventionType: intervention?.intervention_type
         ? INTERVENTION_TYPE_LABELS[intervention.intervention_type]
         : null,
+      fullPhotos,
     }
     // Modèle choisi dans Paramètres : compte rendu classique ou rapport Firovia
-    const element = invoicingSettings?.report_template === 'classic'
+    return invoicingSettings?.report_template === 'classic'
       ? <ClassicReportPdf {...pdfProps} {...await loadReportExtras(intervention!).catch(() => ({}))} />
       : <CompactReportPdf {...pdfProps} />
-    return generateAndUploadReportPdf(element, orgId, iid, intervention!.reference)
+  }
+
+  /** PDF complet : le rapport et toutes les photos de la visite, rangé aussi dans le dossier */
+  async function handleFullPdf() {
+    if (!intervention) return
+    setError(null)
+    setFlash(null)
+    setFullPdfUrl(null)
+    setFullPdfBusy('Préparation des photos…')
+    try {
+      const groups = await loadFullReportPhotos(iid, intervention.site_id, (done, total) =>
+        setFullPdfBusy(`Préparation des photos : ${done}/${total}`))
+      setFullPdfBusy('Création du PDF…')
+      const stored = await renderAndStoreReportPdf(await buildReportElement(groups), orgId, iid, intervention.reference, '-complet')
+      setFullPdfUrl(stored.url)
+      const dossier = intervention.dossier_number?.trim()
+      if (dossier) {
+        await linkDossierDocument({
+          organizationId: orgId,
+          dossierNumber: dossier,
+          kind: 'report',
+          title: `Rapport complet ${intervention.reference} (toutes les photos)`,
+          filePath: stored.path,
+          fileUrl: stored.url,
+          fileName: stored.fileName,
+          sizeBytes: stored.size,
+          createdByName: [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || null,
+        }).catch((e) => console.warn('Rangement du PDF complet dans le dossier échoué', e))
+      }
+      const photoCount = groups.reduce((n, g) => n + g.photos.length, 0)
+      setFlash(`PDF complet prêt : ${photoCount} photo${photoCount > 1 ? 's' : ''}${dossier ? ', rangé aussi dans le dossier' : ''}.`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la création du PDF complet.')
+    } finally {
+      setFullPdfBusy(null)
+    }
   }
 
   async function handleSaveDraft() {
@@ -1566,6 +1615,28 @@ export function RapportEditorPage() {
               <FileText size={14} />
               {generatingPdf ? 'Génération…' : pdfUrl ? 'Régénérer le PDF' : 'Générer le PDF'}
             </button>
+            <button
+              type="button"
+              className="btn-sm"
+              onClick={() => void handleFullPdf()}
+              disabled={!!fullPdfBusy}
+              title="Le rapport et toutes les photos de la visite (repérage, contrôles, anomalies), appareil par appareil"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <Images size={14} />
+              {fullPdfBusy ?? 'PDF complet avec photos'}
+            </button>
+            {fullPdfUrl && !fullPdfBusy && (
+              <FileLink
+                url={fullPdfUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-sm acc"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+              >
+                <Download size={13} /> PDF complet
+              </FileLink>
+            )}
             <button
               type="button"
               className="btn-sm acc"
