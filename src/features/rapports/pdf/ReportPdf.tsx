@@ -903,7 +903,7 @@ function ReportPdfContent({
                     <Text style={[styles.unitStatValue, { color: colors.grn }]}>{cnt.conforme}</Text>
                   </View>
                   <View style={[styles.unitStatChip, { borderColor: colors.org, backgroundColor: colors.orgLt }]}>
-                    <Text style={styles.unitStatLabel}>À surveiller</Text>
+                    <Text style={styles.unitStatLabel}>À traiter</Text>
                     <Text style={[styles.unitStatValue, { color: colors.org }]}>{cnt.surveiller}</Text>
                   </View>
                   <View style={[styles.unitStatChip, { borderColor: colors.red, backgroundColor: colors.redLt }]}>
@@ -927,7 +927,7 @@ function ReportPdfContent({
               const counts = [
                 `${g.entries.length} équipement${g.entries.length > 1 ? 's' : ''}`,
                 c.conforme > 0 && `${c.conforme} conforme${c.conforme > 1 ? 's' : ''}`,
-                c.surveiller > 0 && `${c.surveiller} à surveiller`,
+                c.surveiller > 0 && `${c.surveiller} à traiter`,
                 c.reformer > 0 && `${c.reformer} à réformer`,
                 c.non_verifie > 0 && `${c.non_verifie} non vérifié${c.non_verifie > 1 ? 's' : ''}`,
               ].filter(Boolean).join(' · ')
@@ -1377,7 +1377,7 @@ function ZoneControls({ entries, anomaliesAbove }: { entries: UnitReportEntry[];
         const summaryParts = [
           `${list.length} équipement${list.length > 1 ? 's' : ''}`,
           counts.conforme > 0 ? `${counts.conforme} conforme${counts.conforme > 1 ? 's' : ''}` : null,
-          counts.surveiller > 0 ? `${counts.surveiller} à surveiller` : null,
+          counts.surveiller > 0 ? `${counts.surveiller} à traiter` : null,
           counts.reformer > 0 ? `${counts.reformer} à réformer` : null,
           counts.non_verifie > 0 ? `${counts.non_verifie} non vérifié${counts.non_verifie > 1 ? 's' : ''}` : null,
         ].filter(Boolean)

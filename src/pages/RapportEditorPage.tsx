@@ -47,6 +47,7 @@ import { loadFullReportPhotos } from '../features/rapports/pdf/loadFullPhotos'
 import type { FullPhotoGroup } from '../features/rapports/pdf/FullPhotosPages'
 import { linkDossierDocument } from '../features/dossiers/api'
 import { loadReportClientInfo } from '../features/rapports/pdf/loadClientInfo'
+import { loadNextVisitDate } from '../features/rapports/pdf/loadNextVisit'
 import { ClassicReportPdf } from '../features/rapports/pdf/ClassicReportPdf'
 import { CompactReportPdf } from '../features/rapports/pdf/CompactReportPdf'
 import { loadPreviousOpenAnomalies } from '../features/rapports/pdf/previousAnomalies'
@@ -66,7 +67,7 @@ import { sendReportToClientRecipients } from '../features/rapports/autoSend'
 import { flushOfflineQueue } from '../shared/lib/offline/sync'
 import { EQUIPMENT_FAMILIES, EQUIPMENT_FAMILY_LABELS } from '../features/equipment/schemas'
 import { QuoteModal } from '../features/devis/components/QuoteModal'
-import { familiesForTypes } from '../features/equipment/identification'
+import { familiesForTypes, unitRepere } from '../features/equipment/identification'
 import { useModuleEnabled } from '../features/parametres/modules'
 import type { UpsertQuoteInput } from '../features/devis/schemas'
 import { InvoiceModal } from '../features/factures/components/InvoiceModal'
@@ -322,7 +323,7 @@ export function RapportEditorPage() {
       // Contrôles équipement par équipement : unités à surveiller / à réformer
       ...unitVerdicts
         .filter((u) => u.verdict === 'surveiller' || u.verdict === 'reformer')
-        .map((u) => `• ${u.label} : ${u.verdict === 'reformer' ? 'à réformer' : 'à surveiller'}`),
+        .map((u) => `• ${u.label} : ${u.verdict === 'reformer' ? 'à réformer' : 'à traiter'}`),
     ]
     const anomaliesText = anomalyLines.length > 0
       ? 'Anomalies à traiter :\n' + anomalyLines.join('\n')
@@ -566,7 +567,7 @@ export function RapportEditorPage() {
           const zone = unit?.zone_id ? zoneById.get(unit.zone_id) ?? null : null
           return {
             anomaly,
-            unitSerial: unit?.serial_number ?? null,
+            unitSerial: unit ? unitRepere(unit) : null,
             unitFamilyLabel: unit ? EQUIPMENT_FAMILY_LABELS[unit.family] : null,
             unitSubtype: unit?.subtype ?? null,
             unitImplantation: unit?.implantation ?? null,
@@ -594,6 +595,7 @@ export function RapportEditorPage() {
       clientNumber,
       clientInfo,
       dossierNumber: visitDossier,
+      nextInterventionDate: await loadNextVisitDate(intervention!).catch(() => null),
       interventionType: intervention?.intervention_type
         ? INTERVENTION_TYPE_LABELS[intervention.intervention_type]
         : null,
@@ -973,7 +975,7 @@ export function RapportEditorPage() {
       for (const u of unitAnomalyItems) {
         lines.push({
           position: lines.length,
-          description: `[${u.label}] ${u.verdict === 'reformer' ? 'Équipement à réformer — Remplacement' : 'Équipement à surveiller'}`,
+          description: `[${u.label}] ${u.verdict === 'reformer' ? 'Équipement à réformer — Remplacement' : 'Équipement à traiter'}`,
           quantity: 1,
           unit_price_ht: 0,
           vat_rate: 20,
@@ -1196,7 +1198,7 @@ export function RapportEditorPage() {
                 })),
                 ...unitAnomalyItems.map((u) => ({
                   tag: u.label,
-                  label: u.verdict === 'reformer' ? 'À réformer' : 'À surveiller',
+                  label: u.verdict === 'reformer' ? 'À réformer' : 'À traiter',
                   action: null,
                 })),
               ]
@@ -1392,7 +1394,7 @@ export function RapportEditorPage() {
         />
         {!isCompleted && nonconformities.trim() && conformity.isConform === true && (
           <p className="text-ink-3 text-xs" style={{ margin: '4px 0 0' }}>
-            Le rapport reste marqué conforme : si un équipement est en cause, passez-le aussi en « À surveiller » ou « À réformer ».
+            Le rapport reste marqué conforme : si un équipement est en cause, passez-le aussi en « À traiter » ou « À réformer ».
           </p>
         )}
         <label className="report-text-label" htmlFor="report-conclusion">Conclusion</label>

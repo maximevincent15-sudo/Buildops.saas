@@ -269,7 +269,7 @@ export function AnomaliesPage() {
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--ink2)', marginTop: 6 }}>
               Les anomalies sont créées automatiquement quand un contrôle unitaire
-              se termine avec un verdict "à surveiller" ou "à réformer".
+              se termine avec un verdict "à traiter" ou "à réformer".
             </div>
           </div>
         )}

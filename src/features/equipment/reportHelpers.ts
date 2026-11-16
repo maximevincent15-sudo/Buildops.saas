@@ -10,7 +10,7 @@ import {
 } from './schemas'
 import type { EquipmentUnit, FamilyTemplate, Zone } from './schemas'
 import type { UnitReportEntry } from '../rapports/pdf/ReportPdf'
-import { unitTypeLine } from './identification'
+import { unitRepere, unitTypeLine } from './identification'
 import { operationLabels } from './operations'
 
 /**
@@ -73,7 +73,8 @@ export async function buildUnitEntriesForIntervention(
     const uncheckedItems = items.filter((it) => !answers[it.id]).map((it) => it.label)
 
     entries.push({
-      unitSerial: u.serial_number,
+      // Même repère que dans l'app (« DSF-21 » et non « 21 »)
+      unitSerial: unitRepere(u),
       zoneName: zone?.name ?? null,
       parentZone: zone?.parent_zone ?? null,
       implantation: u.implantation,

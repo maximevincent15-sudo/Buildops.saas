@@ -10,6 +10,7 @@ import type { ChecklistResponse } from '../schemas'
 import { ReportPdf } from './ReportPdf'
 import type { ReportPdfProps, UnitReportEntry } from './ReportPdf'
 import { pdfSafe } from './pdfText'
+import type { ReactNode } from 'react'
 import { clientInfoLines } from './clientInfo'
 import { FullPhotosPages } from './FullPhotosPages'
 
@@ -141,7 +142,7 @@ function CompactContent({
       where: zoneLine(e),
       problem: e.observation ?? e.verdictLabel,
       detail: null,
-      action: e.verdict === 'reformer' ? 'Remplacement' : 'À surveiller',
+      action: e.verdict === 'reformer' ? 'Remplacement' : 'À traiter',
       due: null,
     })
   }
@@ -169,7 +170,9 @@ function CompactContent({
   const visitDate = fmt(report.completed_at ?? intervention.scheduled_date, 'd MMMM yyyy')
   const completedLabel = fmt(report.completed_at, "d MMMM yyyy 'à' HH:mm") ?? '—'
   const nextLabel = fmt(nextInterventionDate, 'd MMMM yyyy')
-  const address = intervention.address || intervention.chantier_address || null
+  const address = intervention.address
+    || [intervention.chantier_address, [intervention.chantier_postal_code, intervention.chantier_city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+    || null
   const companyLines = [
     [settings?.legal_address, [settings?.legal_postal_code, settings?.legal_city].filter(Boolean).join(' ')].filter(Boolean).join(', '),
     [settings?.legal_phone, settings?.legal_email].filter(Boolean).join(' · '),
@@ -226,12 +229,15 @@ function CompactContent({
           {([
             // Le client a son bloc en haut à droite quand sa fiche est connue
             clientInfo?.name ? null : ['Client', intervention.client_name + (clientNumber ? ` (n° ${clientNumber})` : '')],
-            ['Site', [intervention.site_name, address].filter(Boolean).join(' — ')],
+            // Nom du site, puis son adresse en dessous (le nom la reprend souvent en partie)
+            ['Site', intervention.site_name
+              ? <>{intervention.site_name}{address ? <Text style={{ fontSize: 7.8, color: c.ink2 }}>{`\n${address}`}</Text> : null}</>
+              : address ?? '—'],
             ['Technicien', intervention.technician_name ?? '—'],
             ['Intervention', [interventionType, dossierNumber ? `dossier ${dossierNumber}` : null].filter(Boolean).join(' · ') || '—'],
             ['Équipements', formatEquipmentTypes(intervention.equipment_types)],
             ['Prochaine visite', nextLabel ?? '—'],
-          ] as Array<[string, string] | null>).filter((r): r is [string, string] => !!r).map(([k, v]) => (
+          ] as Array<[string, ReactNode] | null>).filter((r): r is [string, ReactNode] => !!r).map(([k, v]) => (
             <View key={k} style={{ width: '50%', flexDirection: 'row', paddingVertical: 1.5, paddingRight: 6 }}>
               <Text style={{ width: 66, fontSize: 7.5, color: c.ink3 }}>{k}</Text>
               <Text style={{ flex: 1, fontSize: 8.5 }}>{v}</Text>

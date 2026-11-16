@@ -5,6 +5,7 @@ import { getClientNumber } from '../../clients/api'
 import { listEquipmentUnitsByIds, listZones } from '../../equipment/api'
 import { buildUnitEntriesForIntervention } from '../../equipment/reportHelpers'
 import { EQUIPMENT_FAMILY_LABELS } from '../../equipment/schemas'
+import { unitRepere } from '../../equipment/identification'
 import { getInvoicingSettings } from '../../parametres/api'
 import { supabase } from '../../../shared/lib/supabase'
 import { EQUIPMENT_TYPES, resolveEquipmentTypes } from '../../../shared/constants/interventions'
@@ -20,6 +21,7 @@ import { loadPreviousOpenAnomalies } from './previousAnomalies'
 import type { AnomalyPdfEntry, ReportPdfProps } from './ReportPdf'
 import { loadReportExtras } from './reportExtras'
 import { loadReportClientInfo } from './loadClientInfo'
+import { loadNextVisitDate } from './loadNextVisit'
 
 /**
  * Génère le PDF d'un rapport déjà enregistré, à partir de la base (et non de
@@ -78,7 +80,7 @@ export async function generateReportPdfForIntervention(
       const zone = unit?.zone_id ? zoneById.get(unit.zone_id) ?? null : null
       return {
         anomaly,
-        unitSerial: unit?.serial_number ?? null,
+        unitSerial: unit ? unitRepere(unit) : null,
         unitFamilyLabel: unit ? EQUIPMENT_FAMILY_LABELS[unit.family] : null,
         unitSubtype: unit?.subtype ?? null,
         unitImplantation: unit?.implantation ?? null,
@@ -99,6 +101,7 @@ export async function generateReportPdfForIntervention(
     clientNumber,
     clientInfo,
     dossierNumber,
+    nextInterventionDate: await loadNextVisitDate(intervention).catch(() => null),
     interventionType: intervention.intervention_type ? INTERVENTION_TYPE_LABELS[intervention.intervention_type] : null,
   }
   // Modèle choisi dans Paramètres : compte rendu classique ou rapport Firovia

@@ -1,6 +1,7 @@
 import { listAnomalies } from '../../anomalies/api'
 import { listEquipmentUnitsByIds, listZones } from '../../equipment/api'
 import { EQUIPMENT_FAMILY_LABELS } from '../../equipment/schemas'
+import { unitRepere } from '../../equipment/identification'
 import type { AnomalyPdfEntry } from './ReportPdf'
 
 /**
@@ -24,7 +25,7 @@ export async function loadPreviousOpenAnomalies(interventionId: string, siteId: 
     const zone = unit?.zone_id ? zoneById.get(unit.zone_id) ?? null : null
     return {
       anomaly,
-      unitSerial: unit?.serial_number ?? null,
+      unitSerial: unit ? unitRepere(unit) : null,
       unitFamilyLabel: unit ? EQUIPMENT_FAMILY_LABELS[unit.family] : null,
       unitSubtype: unit?.subtype ?? null,
       unitImplantation: unit?.implantation ?? null,

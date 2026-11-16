@@ -156,7 +156,7 @@ export function PublicRegistryPage() {
         <div style={statsRowStyle}>
           <StatCard label="Équipements" value={units.length} color="#3A5CA8" bg="#E8EEF8" />
           <StatCard label="Conformes" value={counts.active} color="#0E7A3F" bg="#E6F4EB" />
-          <StatCard label="À surveiller" value={counts.to_watch} color="#B36510" bg="#FDF3E0" />
+          <StatCard label="À traiter" value={counts.to_watch} color="#B36510" bg="#FDF3E0" />
           <StatCard label="À réformer" value={counts.to_replace} color="#B02A1E" bg="#FDECEC" />
           {counts.unchecked > 0 && (
             <StatCard label="Non contrôlés" value={counts.unchecked} color="#5A6070" bg="#F1F1F1" />

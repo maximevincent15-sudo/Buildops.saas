@@ -34,7 +34,7 @@ export const EQUIPMENT_FAMILY_LABELS: Record<EquipmentFamily, string> = {
 
 export const EQUIPMENT_STATUS_LABELS: Record<EquipmentStatus, string> = {
   active: 'Conforme',
-  to_watch: 'À surveiller',
+  to_watch: 'À traiter',
   to_replace: 'À réformer',
   replaced: 'Remplacé',
   removed: 'Retiré',
@@ -210,7 +210,7 @@ export type CheckVerdict = (typeof CHECK_VERDICTS)[number]
 export const CHECK_VERDICT_LABELS: Record<CheckVerdict, string> = {
   non_verifie: 'Non vérifié',
   conforme: 'Conforme',
-  surveiller: 'À surveiller',
+  surveiller: 'À traiter',
   reformer: 'À réformer',
 }
 

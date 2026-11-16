@@ -7,6 +7,7 @@ import {
   listActiveAnomaliesForUnit,
   listUnitIdsWithActiveAnomalies,
   resolveAnomaly,
+  updateAnomaly,
 } from '../../anomalies/api'
 import {
   ANOMALY_ACTIONS,
@@ -1200,13 +1201,23 @@ function UnitCheckModal({
     void (async () => {
       try {
         const list = await listActiveAnomaliesForUnit(unit.id)
-        if (!cancelled) setExistingAnomalies(list)
+        if (cancelled) return
+        setExistingAnomalies(list)
+        // Contrôle rouvert : la fiche reprend l'anomalie déjà notée pendant cette visite
+        const sameVisit = list.find((a) => a.intervention_id === interventionId)
+        if (sameVisit) {
+          setAnomalyTitle(sameVisit.title)
+          setAnomalyTitleTouched(true)
+          setAnomalyAction(sameVisit.action ?? '')
+          setAnomalyPriority(sameVisit.priority)
+          setAnomalyDueDate(sameVisit.due_date ?? '')
+        }
       } catch {
         if (!cancelled) setExistingAnomalies([])
       }
     })()
     return () => { cancelled = true }
-  }, [unit.id])
+  }, [unit.id, interventionId])
 
   // Défaut priorité selon verdict ; « À réformer » = remplacement par défaut
   useEffect(() => {
@@ -1283,29 +1294,43 @@ function UnitCheckModal({
         operations,
         photos,
       }, then)
-      // Si le verdict signale une anomalie (surveiller/reformer),
-      // on crée l'entité `anomalies` liée à l'unité + intervention.
+      // Si le verdict signale une anomalie (surveiller/reformer), on crée l'anomalie liée à
+      // l'unité et à l'intervention ; si le contrôle est réenregistré, celle de cette visite
+      // est mise à jour (pas de doublon)
       if (needsAnomalyForm && anomalySummary.length >= 3 && anomalyAction !== '') {
         try {
-          await createAnomaly(
-            {
-              equipment_unit_id: unit.id,
-              intervention_id: interventionId,
-              equipment_check_id: null,
+          // L'observation n'est reprise en détail que si elle dit autre chose que le résumé
+          const detail = observation.trim() && observation.trim() !== anomalySummary ? observation.trim() : null
+          const active = await listActiveAnomaliesForUnit(unit.id).catch(() => existingAnomalies)
+          const sameVisit = active.find((a) => a.intervention_id === interventionId)
+          if (sameVisit) {
+            await updateAnomaly(sameVisit.id, {
               title: anomalySummary,
-              // L'observation n'est reprise en détail que si elle dit autre chose que le résumé
-              description: observation.trim() && observation.trim() !== anomalySummary
-                ? observation.trim()
-                : undefined,
+              // Chaîne vide : le détail est effacé s'il n'y en a plus
+              description: detail ?? '',
               action: anomalyAction,
               priority: anomalyPriority,
               due_date: anomalyDueDate || null,
               photos,
-              detected_by_name: technicianName ?? undefined,
-            },
-            organizationId,
-            { name: technicianName ?? null },
-          )
+            })
+          } else {
+            await createAnomaly(
+              {
+                equipment_unit_id: unit.id,
+                intervention_id: interventionId,
+                equipment_check_id: null,
+                title: anomalySummary,
+                description: detail ?? undefined,
+                action: anomalyAction,
+                priority: anomalyPriority,
+                due_date: anomalyDueDate || null,
+                photos,
+                detected_by_name: technicianName ?? undefined,
+              },
+              organizationId,
+              { name: technicianName ?? null },
+            )
+          }
         } catch (err) {
           // Non bloquant : le check est déjà sauvegardé.
           // On log dans la console mais on ne bloque pas la fermeture.
@@ -1631,7 +1656,7 @@ function UnitCheckModal({
                       </div>
                       <div style={{ fontSize: 10.5, color: 'var(--ink3)', marginTop: 2 }}>
                         {v === 'conforme' && 'RAS'}
-                        {v === 'surveiller' && '< 12 mois'}
+                        {v === 'surveiller' && 'Intervention à prévoir'}
                         {v === 'reformer' && 'Remplacement'}
                       </div>
                     </button>

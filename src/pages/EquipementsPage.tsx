@@ -429,7 +429,7 @@ export function EquipementsPage() {
           <option value="all">Tous statuts</option>
           <option value="unchecked">Non contrôlé</option>
           <option value="active">Conforme</option>
-          <option value="to_watch">À surveiller</option>
+          <option value="to_watch">À traiter</option>
           <option value="to_replace">À réformer</option>
           <option value="replaced">Remplacé</option>
         </select>

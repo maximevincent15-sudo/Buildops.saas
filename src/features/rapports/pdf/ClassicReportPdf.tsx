@@ -104,7 +104,7 @@ function designation(e: UnitReportEntry): string {
 
 const STATE_LABELS: Record<UnitReportEntry['verdict'], string> = {
   conforme: 'Oui',
-  surveiller: 'Oui, à surveiller',
+  surveiller: 'Oui, à traiter',
   reformer: 'Non, à réformer',
   non_verifie: 'Non vérifié',
 }
@@ -250,7 +250,7 @@ function ClassicReportPdfContent({
     const head = pdfText([unitNumber(e.unitSerial), designation(e), e.implantation].filter(Boolean).join(' — '))
     if (e.verdict === 'reformer') annex2.push({ head, text: pdfText(e.observation) || 'À réformer', photos: [] })
     else if (e.verdict === 'surveiller' || (e.verdict === 'conforme' && e.observation?.trim())) {
-      annex1.push({ head, text: pdfText(e.observation) || 'À surveiller', photos: [] })
+      annex1.push({ head, text: pdfText(e.observation) || 'À traiter', photos: [] })
     }
   }
   if (counts.out > 0) blocking = true
@@ -314,7 +314,7 @@ function ClassicReportPdfContent({
           {counts.total > 0 && (
             <Text style={styles.counts}>
               {counts.total} équipement{counts.total > 1 ? 's' : ''} prévu{counts.total > 1 ? 's' : ''} : {counts.ok} en état de fonctionner
-              {counts.watch > 0 ? `, ${counts.watch} à surveiller` : ''}
+              {counts.watch > 0 ? `, ${counts.watch} à traiter` : ''}
               {counts.out > 0 ? `, ${counts.out} à réformer` : ''}
               {counts.notVerified > 0 ? `, ${counts.notVerified} non vérifié${counts.notVerified > 1 ? 's' : ''} lors de cette visite` : ''}.
             </Text>
