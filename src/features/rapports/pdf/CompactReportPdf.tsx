@@ -56,6 +56,8 @@ const PRIORITY_STYLE: Record<TodoRow['priority'], { fg: string; bg: string }> = 
 }
 
 const VERDICT_FG: Record<UnitReportEntry['verdict'], string> = { conforme: c.grn, surveiller: c.org, reformer: c.red, non_verifie: c.gry }
+/** Fond de la case « Résultat » : seuls les appareils à traiter ou à réformer ressortent */
+const VERDICT_BG: Partial<Record<UnitReportEntry['verdict'], string>> = { surveiller: c.orgLt, reformer: c.redLt }
 
 function familyGroups(entries: UnitReportEntry[]) {
   const groups = new Map<string, { key: string; label: string; entries: UnitReportEntry[] }>()
@@ -375,7 +377,9 @@ function CompactContent({
                     <Text style={{ width: '27%', fontSize: 7.8, paddingRight: 4 }}>{zoneLine(e) ?? '—'}</Text>
                     <Text style={{ width: '33%', fontSize: 7.8, paddingRight: 4 }}>{[e.subtype ?? e.familyLabel, e.brand, e.installYear].filter(Boolean).join(' · ')}</Text>
                     <Text style={{ width: '8%', fontSize: 7.8 }}>{pointsText(e)}</Text>
-                    <View style={{ width: '22%' }}>
+                    <View style={VERDICT_BG[e.verdict]
+                      ? { width: '22%', backgroundColor: VERDICT_BG[e.verdict], borderRadius: 2, paddingHorizontal: 4, paddingVertical: 2, marginVertical: -1 }
+                      : { width: '22%' }}>
                       <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: VERDICT_FG[e.verdict] }}>{e.verdictLabel}</Text>
                       {note && <Text style={{ fontSize: 6.8, color: c.ink2 }}>{note}</Text>}
                     </View>

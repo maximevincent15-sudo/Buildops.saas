@@ -99,13 +99,11 @@ export async function buildUnitEntriesForIntervention(
     })
   }
 
-  // Tri : par zone (parent + name) puis par N° d'unité
-  entries.sort((a, b) => {
-    const zA = `${a.parentZone ?? ''}·${a.zoneName ?? ''}`
-    const zB = `${b.parentZone ?? ''}·${b.zoneName ?? ''}`
-    if (zA !== zB) return zA.localeCompare(zB, 'fr')
-    return a.unitSerial.localeCompare(b.unitSerial, 'fr', { numeric: true })
-  })
+  // Tri par repère d'appareil (DSF-01, DSF-02 … DSF-30), même ordre que les
+  // étiquettes ; à repère égal, par zone (« Canton 2.1 » avant « Canton 10.1 »)
+  entries.sort((a, b) =>
+    a.unitSerial.localeCompare(b.unitSerial, 'fr', { numeric: true })
+    || `${a.parentZone ?? ''}·${a.zoneName ?? ''}`.localeCompare(`${b.parentZone ?? ''}·${b.zoneName ?? ''}`, 'fr', { numeric: true }))
 
   return entries
 }

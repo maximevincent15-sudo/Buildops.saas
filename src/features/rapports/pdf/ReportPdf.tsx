@@ -979,7 +979,9 @@ function ReportPdfContent({
                           <View style={[styles.regCell, { width: '10%' }]}><Text style={{ fontSize: 8 }}>{e.brand ?? '—'}</Text></View>
                           <View style={[styles.regCell, { width: '7%' }]}><Text style={{ fontSize: 8 }}>{e.installYear ?? '—'}</Text></View>
                           <View style={[styles.regCell, { width: '7%' }]}><Text style={{ fontSize: 8 }}>{pointsText}</Text></View>
-                          <View style={[styles.regCell, styles.regCellLast, { width: '26%' }]}>
+                          {/* Case colorée pour les appareils à traiter ou à réformer */}
+                          <View style={[styles.regCell, styles.regCellLast, { width: '26%' },
+                            e.verdict === 'surveiller' ? { backgroundColor: '#FBEBDD' } : e.verdict === 'reformer' ? { backgroundColor: '#F6E3E3' } : {}]}>
                             <Text style={[{ fontSize: 8 }, verdictStyle]}>{verdictText}</Text>
                           </View>
                         </View>
