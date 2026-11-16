@@ -87,7 +87,7 @@ export function PlanningEventModal({ organizationId, event, defaultDate, onClose
               type="text"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="Ex : Visio avec HDPI, Déjeuner avec Marc, RDV banque…"
+              placeholder="Ex : Visio avec un prospect, Déjeuner avec Marc, RDV banque…"
               autoFocus
             />
           </div>

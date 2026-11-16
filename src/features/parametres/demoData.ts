@@ -643,7 +643,7 @@ export function buildReportSpecs(): ReportSpec[] {
       observations: 'Deux anomalies relevées : un extincteur à réformer (durée de vie dépassée) et une goupille manquante. Devis de remplacement à transmettre.',
       anomalies: [
         {
-          family: 'extincteurs', serial: '04', verdict: 'reformer',
+          family: 'extincteurs', serial: '04', verdict: 'surveiller',
           title: 'Durée de vie dépassée (fabrication 2004)',
           observation: 'Appareil fabriqué en 2004 : à remplacer.',
           action: 'replacement', priority: 'high', dueInDays: 15,
@@ -888,7 +888,7 @@ export async function loadDemoData(
         .from('equipment_units')
         .update({
           last_check_date: r.date,
-          status: verdict === 'reformer' ? 'to_replace' : verdict === 'surveiller' ? 'to_watch' : 'active',
+          status: verdict === 'reformer' || anomaly?.action === 'replacement' ? 'to_replace' : verdict === 'surveiller' ? 'to_watch' : 'active',
         })
         .eq('id', u.id)
       if (anomaly) {

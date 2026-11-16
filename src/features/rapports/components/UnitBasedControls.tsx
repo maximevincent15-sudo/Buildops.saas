@@ -55,6 +55,7 @@ import type {
   CheckVerdict,
   EquipmentCheck,
   EquipmentFamily,
+  EquipmentStatus,
   EquipmentUnit,
   FamilyTemplate,
   Zone,
@@ -450,6 +451,7 @@ export function UnitBasedControls({
     verdict: CheckVerdict
     operations: string[]
     photos: CheckPhoto[]
+    unitStatus?: EquipmentStatus
   }, then: 'close' | 'next' = 'close') {
     if (!editingUnit) return
     try {
@@ -474,7 +476,7 @@ export function UnitBasedControls({
           photos: patch.photos,
         },
         organizationId,
-        { technicianId, technicianName },
+        { technicianId, technicianName, unitStatus: patch.unitStatus },
       )
       setChecks((prev) => {
         const filtered = prev.filter((c) => c.equipment_unit_id !== saved.equipment_unit_id)
@@ -1014,6 +1016,7 @@ type ModalProps = {
     verdict: CheckVerdict
     operations: string[]
     photos: CheckPhoto[]
+    unitStatus?: EquipmentStatus
   }, then?: 'close' | 'next') => Promise<void> | void
   readOnly?: boolean
   organizationId: string
@@ -1293,6 +1296,8 @@ function UnitCheckModal({
         verdict,
         operations,
         photos,
+        // Remplacement prévu : l'appareil est marqué « À réformer » dans le parc et le registre
+        unitStatus: verdict === 'surveiller' && anomalyAction === 'replacement' ? 'to_replace' : undefined,
       }, then)
       // Si le verdict signale une anomalie (surveiller/reformer), on crée l'anomalie liée à
       // l'unité et à l'intervention ; si le contrôle est réenregistré, celle de cette visite
@@ -1637,8 +1642,9 @@ function UnitCheckModal({
               <div style={sectionTitleStyle}>
                 <span>Verdict</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                {(['conforme', 'surveiller', 'reformer'] as const).map((v) => {
+              {/* Conforme ou À traiter ; « À réformer » ne reste que sur les anciens contrôles */}
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${verdict === 'reformer' ? 3 : 2}, 1fr)`, gap: 6 }}>
+                {(verdict === 'reformer' ? ['conforme', 'surveiller', 'reformer'] as const : ['conforme', 'surveiller'] as const).map((v) => {
                   const on = verdict === v
                   return (
                     <button
@@ -1717,7 +1723,8 @@ function UnitCheckModal({
                 <div style={{ marginBottom: 10 }}>
                   <label style={anomalyLabelStyle}>Action recommandée *</label>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                    {ANOMALY_ACTIONS.map((act) => (
+                    {/* Remplacement ou Réparation (« Vérification » seulement sur une ancienne anomalie) */}
+                    {ANOMALY_ACTIONS.filter((act) => act !== 'verification' || anomalyAction === 'verification').map((act) => (
                       <button
                         key={act}
                         type="button"

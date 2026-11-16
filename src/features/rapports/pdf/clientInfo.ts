@@ -4,7 +4,7 @@ export type ReportClientInfo = {
   address: string | null
   phone: string | null
   email: string | null
-  /** « SIRET 983 752 346 00012 » ou « SIREN 983 752 346 » */
+  /** « SIRET 123 456 789 00012 » ou « SIREN 123 456 789 » */
   companyId: string | null
 }
 

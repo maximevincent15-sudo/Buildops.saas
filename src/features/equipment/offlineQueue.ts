@@ -20,6 +20,7 @@ import type {
   CheckPhoto,
   CheckVerdict,
   EquipmentCheck,
+  EquipmentStatus,
   UpsertEquipmentCheckInput,
 } from './schemas'
 
@@ -33,6 +34,7 @@ export type PendingCheck = {
     updateUnitStatus?: boolean
     technicianName?: string | null
     technicianId?: string | null
+    unitStatus?: EquipmentStatus
   }
   createdAt: string
 }

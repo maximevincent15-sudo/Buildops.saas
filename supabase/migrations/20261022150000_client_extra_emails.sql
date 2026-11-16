@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Firovia — Plusieurs destinataires par client, selon le type de document
 -- ============================================================================
--- Retour Mont-Blanc Prévention : un client a souvent plusieurs interlocuteurs
+-- Retour terrain : un client a souvent plusieurs interlocuteurs
 -- (syndic, gardien, comptabilité). L'email principal (contact_email) reçoit
 -- tout ; les destinataires supplémentaires choisissent rapports, devis et/ou
 -- factures. Ex. : [{"email": "compta@x.fr", "name": "Comptabilité",

@@ -40,7 +40,7 @@ const intervention: Intervention = {
   address: '14 Rue du Mesnil, 14000 Caen',
   equipment_type: 'extincteurs',
   equipment_types: ['extincteurs', 'ria', 'desenfumage'],
-  technician_name: 'Bernard Vincent',
+  technician_name: 'Julien Moreau',
   technician_id: 'demo-tech',
   scheduled_date: '2026-09-16T08:30:00+02:00',
   priority: 'reglementaire',
@@ -272,11 +272,11 @@ const settings: InvoicingSettings = {
   ape_code: '8010Z',
   vat_number: 'FR12892314578',
   capital: '10 000 €',
-  legal_address: '18 rue de la Prévention',
+  legal_address: '18 rue des Artisans',
   legal_city: 'Caen',
   legal_postal_code: '14000',
   legal_phone: '02 31 42 18 06',
-  legal_email: 'contact@epi-prevention-demo.fr',
+  legal_email: 'contact@vincent-securite-demo.fr',
   iban: null,
   bic: null,
   bank_name: null,
@@ -312,7 +312,7 @@ function makeAnomaly(overrides: Partial<Anomaly> & Pick<Anomaly, 'id' | 'title'>
     photos: overrides.photos ?? [],
     detected_at: '2026-09-16T10:15:00+02:00',
     detected_by: null,
-    detected_by_name: 'Bernard Vincent',
+    detected_by_name: 'Julien Moreau',
     created_at: '2026-09-16T10:15:00+02:00',
     updated_at: '2026-09-16T10:15:00+02:00',
     created_by: null,
@@ -396,7 +396,7 @@ async function main() {
       intervention={intervention}
       report={report}
       sections={sections}
-      organizationName="SARL EPI Prévention"
+      organizationName="SARL Vincent Sécurité"
       unitEntries={unitEntries}
       settings={settings}
       anomalyEntries={anomalyEntries}

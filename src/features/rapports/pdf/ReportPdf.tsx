@@ -906,10 +906,13 @@ function ReportPdfContent({
                     <Text style={styles.unitStatLabel}>À traiter</Text>
                     <Text style={[styles.unitStatValue, { color: colors.org }]}>{cnt.surveiller}</Text>
                   </View>
-                  <View style={[styles.unitStatChip, { borderColor: colors.red, backgroundColor: colors.redLt }]}>
-                    <Text style={styles.unitStatLabel}>À réformer</Text>
-                    <Text style={[styles.unitStatValue, { color: colors.red }]}>{cnt.reformer}</Text>
-                  </View>
+                  {/* « À réformer » : seulement sur les anciens rapports qui en ont */}
+                  {cnt.reformer > 0 && (
+                    <View style={[styles.unitStatChip, { borderColor: colors.red, backgroundColor: colors.redLt }]}>
+                      <Text style={styles.unitStatLabel}>À réformer</Text>
+                      <Text style={[styles.unitStatValue, { color: colors.red }]}>{cnt.reformer}</Text>
+                    </View>
+                  )}
                   {cnt.non_verifie > 0 && (
                     <View style={[styles.unitStatChip, { borderColor: colors.border, backgroundColor: colors.bg }]}>
                       <Text style={styles.unitStatLabel}>Non vérifiés</Text>

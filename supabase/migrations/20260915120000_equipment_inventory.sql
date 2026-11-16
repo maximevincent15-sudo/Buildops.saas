@@ -208,7 +208,7 @@ create policy "family_templates_select_authenticated"
 
 -- ─── SEED : Template R (Extincteurs — APSAD R4) ─────────────
 -- Issu du "Guide pour la maintenance des extincteurs mobiles"
--- (référentiel technique Bernard Vincent Entreprises)
+-- (référentiel technique d'une entreprise de maintenance)
 insert into public.family_templates (
   family, name, reference_code, standard_ref, checklist, observation_types
 ) values (

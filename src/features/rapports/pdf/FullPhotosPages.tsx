@@ -1,4 +1,5 @@
 import { Image, Page, Text, View } from '@react-pdf/renderer'
+import type { ReactNode } from 'react'
 
 /** Une photo de l'annexe complète (image déjà réduite, en data URL) */
 export type FullPhoto = { src: string; caption: string }
@@ -19,11 +20,13 @@ const PER_ROW = 3
  * Annexe du « PDF complet » : toutes les photos de la visite, rangées
  * équipement par équipement, trois par ligne avec leur légende.
  */
-export function FullPhotosPages({ groups, footer }: { groups: FullPhotoGroup[]; footer: string }) {
+export function FullPhotosPages({ groups, footer, header }: { groups: FullPhotoGroup[]; footer: string; header?: ReactNode }) {
   const total = groups.reduce((n, g) => n + g.photos.length, 0)
   if (total === 0) return null
   return (
     <Page size="A4" style={{ paddingTop: 30, paddingHorizontal: 34, paddingBottom: 44, fontFamily: 'Helvetica', fontSize: 9, color: ink }}>
+      {/* Même bandeau que le rapport, en haut de chaque page */}
+      {header && <View fixed style={{ marginBottom: 10 }}>{header}</View>}
       <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: acc, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 }}>
         Annexe · Toutes les photos de la visite ({total})
       </Text>

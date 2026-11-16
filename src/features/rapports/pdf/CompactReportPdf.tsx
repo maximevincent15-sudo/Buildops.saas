@@ -201,33 +201,38 @@ function CompactContent({
   // Petit site : la liste et les photos suivent sur la même page, sans saut de page
   const separatePages = verified.length > 15
 
+  // En-tête : entreprise à gauche, n° et date à droite, client en dessous ; répété sur chaque page
+  const header = (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 8, borderBottomWidth: 1, borderBottomStyle: 'solid', borderBottomColor: c.ink }}>
+      <View style={{ flex: 1, paddingRight: 12 }}>
+        <PdfLogo url={settings?.logo_url} height={30} />
+        <Text style={{ fontSize: 12.5, fontFamily: 'Helvetica-Bold' }}>{organizationName}</Text>
+        {companyLines.map((l, i) => <Text key={i} style={[s.small, { marginTop: 1.5, color: c.ink2 }]}>{l}</Text>)}
+      </View>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={{ fontSize: 7, color: c.ink3, letterSpacing: 1, textTransform: 'uppercase' }}>Rapport de vérification</Text>
+        <Text style={{ fontSize: 14, fontFamily: 'Helvetica-Bold', color: c.acc, marginTop: 2 }}>{intervention.reference}</Text>
+        {visitDate && <Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: c.grn, marginTop: 2 }}>du {visitDate}</Text>}
+        {/* Client destinataire, comme sur un courrier */}
+        {clientInfo?.name && (
+          <View style={{ marginTop: 8, width: 205, backgroundColor: c.bg, borderRadius: 4, paddingVertical: 5, paddingHorizontal: 7 }}>
+            <Text style={s.th}>Client{clientNumber ? ` · n° ${clientNumber}` : ''}</Text>
+            <Text style={{ fontSize: 9.5, fontFamily: 'Helvetica-Bold', marginTop: 2 }}>{clientInfo.name}</Text>
+            {clientInfoLines(clientInfo).map((l, i) => <Text key={i} style={{ fontSize: 7.8, color: c.ink2, marginTop: 1.5 }}>{l}</Text>)}
+          </View>
+        )}
+      </View>
+    </View>
+  )
+
   return (
     <Document title={`Rapport ${intervention.reference}`}>
       <Page size="A4" style={s.page}>
-        {/* En-tête : entreprise à gauche, n° et date à droite */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 8, borderBottomWidth: 1, borderBottomStyle: 'solid', borderBottomColor: c.ink }}>
-          <View style={{ flex: 1, paddingRight: 12 }}>
-            <PdfLogo url={settings?.logo_url} height={30} />
-            <Text style={{ fontSize: 12.5, fontFamily: 'Helvetica-Bold' }}>{organizationName}</Text>
-            {companyLines.map((l, i) => <Text key={i} style={[s.small, { marginTop: 1.5, color: c.ink2 }]}>{l}</Text>)}
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ fontSize: 7, color: c.ink3, letterSpacing: 1, textTransform: 'uppercase' }}>Rapport de vérification</Text>
-            <Text style={{ fontSize: 14, fontFamily: 'Helvetica-Bold', color: c.acc, marginTop: 2 }}>{intervention.reference}</Text>
-            {visitDate && <Text style={{ fontSize: 8.5, color: c.ink2, marginTop: 2 }}>du {visitDate}</Text>}
-            {/* Client destinataire, comme sur un courrier */}
-            {clientInfo?.name && (
-              <View style={{ marginTop: 8, width: 205, backgroundColor: c.bg, borderRadius: 4, paddingVertical: 5, paddingHorizontal: 7 }}>
-                <Text style={s.th}>Client{clientNumber ? ` · n° ${clientNumber}` : ''}</Text>
-                <Text style={{ fontSize: 9.5, fontFamily: 'Helvetica-Bold', marginTop: 2 }}>{clientInfo.name}</Text>
-                {clientInfoLines(clientInfo).map((l, i) => <Text key={i} style={{ fontSize: 7.8, color: c.ink2, marginTop: 1.5 }}>{l}</Text>)}
-              </View>
-            )}
-          </View>
-        </View>
+        {/* Bandeau répété en haut de chaque page (entreprise, n° et date, client) */}
+        <View fixed style={{ marginBottom: 8 }}>{header}</View>
 
         {/* Qui, où, quoi */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', backgroundColor: c.bg, borderRadius: 4, paddingVertical: 6, paddingHorizontal: 8, marginTop: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', backgroundColor: c.bg, borderRadius: 4, paddingVertical: 6, paddingHorizontal: 8 }}>
           {([
             // Le client a son bloc en haut à droite quand sa fiche est connue
             clientInfo?.name ? null : ['Client', intervention.client_name + (clientNumber ? ` (n° ${clientNumber})` : '')],
@@ -394,9 +399,10 @@ function CompactContent({
         {/* Ce qui a été vérifié : chaque liste de contrôle une seule fois */}
         {pointLists.length > 0 && (
           <View style={{ marginTop: 12 }}>
-            <Text style={[s.h2, { marginBottom: 3 }]} minPresenceAhead={60}>Points contrôlés sur chaque équipement</Text>
-            {pointLists.map((l) => (
+            {pointLists.map((l, li) => (
               <View key={l.key} style={{ marginTop: 4 }} wrap={false}>
+                {/* Le titre reste avec la première liste (jamais seul en bas de page) */}
+                {li === 0 && <Text style={[s.h2, { marginBottom: 3 }]}>Points contrôlés sur chaque équipement</Text>}
                 <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold' }}>
                   {l.name} <Text style={{ fontFamily: 'Helvetica', color: c.ink3 }}>· {plural(l.count, 'équipement')} · {plural(l.points.length, 'point')}</Text>
                 </Text>
@@ -445,7 +451,7 @@ function CompactContent({
           <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber}/${totalPages} · Généré avec Firovia`} />
         </View>
       </Page>
-      {fullPhotos && fullPhotos.length > 0 && <FullPhotosPages groups={fullPhotos} footer={`${organizationName} · Rapport ${intervention.reference}`} />}
+      {fullPhotos && fullPhotos.length > 0 && <FullPhotosPages groups={fullPhotos} header={header} footer={`${organizationName} · Rapport ${intervention.reference}`} />}
     </Document>
   )
 }

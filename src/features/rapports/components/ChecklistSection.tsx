@@ -272,7 +272,9 @@ export function ChecklistSection({
                     )}
                   </div>
                   <div className="check-action-pills">
-                    {(['replacement', 'repair', 'verification'] as RecommendedAction[]).map((a) => {
+                    {(['replacement', 'repair', 'verification'] as RecommendedAction[])
+                      .filter((a) => a !== 'verification' || resp?.action === 'verification')
+                      .map((a) => {
                       const Icon = ACTION_ICONS[a]
                       const on = resp?.action === a
                       return (

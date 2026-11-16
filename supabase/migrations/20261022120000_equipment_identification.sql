@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Firovia — Identification des équipements sur place
 -- ============================================================================
--- Retours prospects (Alert'Incendie, ALES, Mont-Blanc) : sur le terrain, le
+-- Retours terrain d'entreprises de maintenance : sur le terrain, le
 -- technicien doit savoir de quel extincteur ou de quelle porte coupe-feu on
 -- parle. On ajoute :
 --   - une photo de repérage (l'appareil dans son environnement) ;

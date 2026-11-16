@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Firovia — Modules affichés (« mode terrain »)
 -- ============================================================================
--- Retour Alert'Incendie : « logiciel trop poussé », leur gestion (devis,
+-- Retour d'un prospect : « logiciel trop poussé », leur gestion (devis,
 -- factures) reste dans leur logiciel (Sage…). Chaque organisation peut
 -- masquer les modules qu'elle n'utilise pas : le menu et les boutons qui y
 -- mènent disparaissent. Aucune donnée n'est supprimée.

@@ -12,6 +12,7 @@ import type {
   FamilyTemplate,
   EquipmentFamily,
   EquipmentCheck,
+  EquipmentStatus,
   UpsertEquipmentCheckInput,
 } from './schemas'
 import { VERDICT_TO_UNIT_STATUS } from './schemas'
@@ -492,7 +493,7 @@ export async function getCheck(
 export async function upsertCheck(
   input: UpsertEquipmentCheckInput,
   organizationId: string,
-  options: { updateUnitStatus?: boolean; technicianName?: string | null; technicianId?: string | null } = {},
+  options: { updateUnitStatus?: boolean; technicianName?: string | null; technicianId?: string | null; unitStatus?: EquipmentStatus } = {},
 ): Promise<EquipmentCheck> {
   const row = {
     organization_id: organizationId,
@@ -522,7 +523,8 @@ export async function upsertCheck(
 
   // Synchro statut d'unité
   if (options.updateUnitStatus !== false && check.verdict !== 'non_verifie') {
-    const newStatus = VERDICT_TO_UNIT_STATUS[check.verdict]
+    // « À traiter » avec un remplacement prévu : l'appareil passe « À réformer » dans le parc
+    const newStatus = options.unitStatus ?? VERDICT_TO_UNIT_STATUS[check.verdict]
     if (newStatus) {
       const patch: Record<string, unknown> = { status: newStatus, last_check_date: new Date().toISOString().slice(0, 10) }
       await supabase
