@@ -34,6 +34,7 @@ export async function createClient(
       address: input.address || null,
       notes: input.notes || null,
       extra_emails: input.extra_emails ?? [],
+      vat_reverse_charge: !!input.vat_reverse_charge,
     })
     .select()
     .single()
@@ -67,6 +68,7 @@ export async function updateClient(
       address: input.address || null,
       notes: input.notes || null,
       ...(input.extra_emails ? { extra_emails: input.extra_emails } : {}),
+      ...(input.vat_reverse_charge !== undefined ? { vat_reverse_charge: input.vat_reverse_charge } : {}),
     })
     .eq('id', id)
     .select()

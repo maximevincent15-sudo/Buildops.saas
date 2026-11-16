@@ -76,6 +76,15 @@ export type QuoteTotals = {
   ht_by_rate: Record<string, number>
 }
 
+/** Mention légale imprimée sur un devis ou une facture en autoliquidation */
+export const REVERSE_CHARGE_MENTION =
+  'Autoliquidation : TVA due par le preneur assujetti, en application de l\'article 283-2 nonies du CGI.'
+
+/** Autoliquidation : toutes les lignes passent à 0 % de TVA */
+export function applyReverseCharge<T extends { vat_rate: number }>(lines: T[], reverseCharge: boolean | null | undefined): T[] {
+  return reverseCharge ? lines.map((l) => ({ ...l, vat_rate: 0 })) : lines
+}
+
 export function computeQuoteTotals(lines: QuoteLineCompute[]): QuoteTotals {
   let total_ht = 0
   let total_vat = 0

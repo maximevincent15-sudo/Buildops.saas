@@ -111,6 +111,8 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
   const [dueDate, setDueDate] = useState(defaultDueDate(todayIso()))
   const [notes, setNotes] = useState('')
   const [lines, setLines] = useState<InvoiceLineInput[]>([{ ...EMPTY_LINE }])
+  /** Autoliquidation de la TVA (sous-traitance) : lignes à 0 % et mention légale */
+  const [reverseCharge, setReverseCharge] = useState(false)
   // Zone de texte où se trouve le curseur, mise en forme par la barre
   const [formatTarget, setFormatTarget] = useState<{ index: number; part: LinePart } | null>(null)
 
@@ -158,6 +160,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
       setDueDate(inv.due_date ?? '')
     }
     setNotes(inv.notes ?? '')
+    setReverseCharge(!!inv.vat_reverse_charge)
     setLines(
       inv.lines.length > 0
         ? inv.lines.map((l) => ({
@@ -230,9 +233,12 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
           setClientEmail((v) => v || client.contact_email || '')
           setClientAddress((v) => v || client.address || '')
           setClientSiren((v) => v || client.siren || '')
+          // Client en autoliquidation (sauf si le devis d'origine précise le contraire)
+          if (client.vat_reverse_charge && seed?.vat_reverse_charge === undefined) toggleReverseCharge(true)
         }
         if (dossier) setDossierNumber((v) => v || dossier)
       })
+      setReverseCharge(!!seed?.vat_reverse_charge)
       // La facture prendra la date de son envoi : on garde seulement le délai de paiement proposé
       const today = todayIso()
       setIssueDate(today)
@@ -271,13 +277,19 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
   }
 
   function addLine() {
-    setLines((prev) => [...prev, { ...EMPTY_LINE, position: prev.length }])
+    setLines((prev) => [...prev, { ...EMPTY_LINE, position: prev.length, vat_rate: reverseCharge ? 0 : EMPTY_LINE.vat_rate }])
+  }
+
+  /** Autoliquidation : TVA à 0 % sur toutes les lignes ; décocher remet 20 % sur les lignes à 0 % */
+  function toggleReverseCharge(on: boolean) {
+    setReverseCharge(on)
+    setLines((prev) => prev.map((l) => (l.deposit_invoice_id ? l : { ...l, vat_rate: on ? 0 : l.vat_rate === 0 ? 20 : l.vat_rate })))
   }
 
   /** Article du catalogue : remplace la dernière ligne si elle est vide, sinon ajoute une ligne */
   function addCatalogItem(item: CatalogItem) {
     setLines((prev) => {
-      const line: QuoteLineInput = { ...EMPTY_LINE, description: item.label, unit_price_ht: item.unit_price_ht, vat_rate: item.vat_rate }
+      const line: QuoteLineInput = { ...EMPTY_LINE, description: item.label, unit_price_ht: item.unit_price_ht, vat_rate: reverseCharge ? 0 : item.vat_rate }
       const last = prev[prev.length - 1]
       const lastIsEmpty = !!last && !last.description.trim() && !last.unit_price_ht
       const next = lastIsEmpty ? [...prev.slice(0, -1), line] : [...prev, line]
@@ -323,6 +335,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
       site_address: siteAddress || undefined,
       dossier_number: dossierNumber || undefined,
       notes: notes || undefined,
+      vat_reverse_charge: reverseCharge,
       lines: lines
         // Les déductions d'acompte ne se recopient pas
         .filter((l) => l.description.trim() && !l.deposit_invoice_id)
@@ -365,6 +378,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
         issue_date: issueDate,
         due_date: dueDate || undefined,
         notes: notes || undefined,
+        vat_reverse_charge: reverseCharge,
         lines: cleanLines.map((l, i) => ({ ...l, position: i })),
       }
       let savedId: string
@@ -627,6 +641,7 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                         if (c.contact_email && !clientEmail) setClientEmail(c.contact_email)
                         if (c.address && !clientAddress) setClientAddress(c.address)
                         if (c.siren && !clientSiren) setClientSiren(c.siren)
+                        if (c.vat_reverse_charge && !reverseCharge) toggleReverseCharge(true)
                       }
                     }}
                     placeholder="Tapez le nom du client"
@@ -820,6 +835,8 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
                         <select
                           value={line.vat_rate}
                           onChange={(e) => updateLine(i, { vat_rate: parseFloat(e.target.value) })}
+                          disabled={reverseCharge}
+                          title={reverseCharge ? 'TVA autoliquidée : 0 %' : undefined}
                         >
                           {VAT_RATES.map((r) => (
                             <option key={r} value={r}>{r}%</option>
@@ -856,13 +873,27 @@ export function InvoiceModal({ open, onClose, onSaved, invoiceId, seed, onDuplic
               </div>
             </div>
 
+            {/* Autoliquidation (sous-traitance du bâtiment) */}
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: '.85rem', margin: '.7rem 0 0', cursor: 'pointer' }}>
+              <input type="checkbox" checked={reverseCharge} onChange={(e) => toggleReverseCharge(e.target.checked)} style={{ marginTop: 3 }} />
+              <span>
+                TVA autoliquidée (sous-traitance du bâtiment)
+                <span className="text-ink-3 text-xs font-light"> : TVA à 0 % et mention légale sur le PDF</span>
+              </span>
+            </label>
+
             {/* Totaux */}
             <div className="quote-totals">
               <div className="quote-total-row">
                 <span>Total HT</span>
                 <strong>{formatAmount(totals.total_ht)}</strong>
               </div>
-              {Object.entries(totals.vat_by_rate).map(([rate, vat]) => (
+              {reverseCharge ? (
+                <div className="quote-total-row vat">
+                  <span>TVA autoliquidée</span>
+                  <span>{formatAmount(0)}</span>
+                </div>
+              ) : Object.entries(totals.vat_by_rate).map(([rate, vat]) => (
                 <div key={rate} className="quote-total-row vat">
                   <span>TVA {rate}%</span>
                   <span>{formatAmount(vat)}</span>

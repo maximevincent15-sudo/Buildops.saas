@@ -4,7 +4,7 @@ import type { LineFormat } from '../../../shared/lib/lineFormat'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { formatCompanyNumber } from '../../clients/companyLookup'
-import { computeQuoteTotals, formatAmount, formatNumber } from '../../devis/constants'
+import { REVERSE_CHARGE_MENTION, computeQuoteTotals, formatAmount, formatNumber } from '../../devis/constants'
 import { VAT_MENTION_TEXT } from '../../parametres/api'
 import type { InvoicingSettings } from '../../parametres/api'
 import { PdfLogo } from '../../parametres/pdf/PdfLogo'
@@ -458,7 +458,12 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber, 
               <Text>Total HT</Text>
               <Text>{formatAmount(totals.total_ht)}</Text>
             </View>
-            {Object.entries(totals.vat_by_rate).map(([rate, vat]) => (
+            {invoice.vat_reverse_charge ? (
+              <View style={styles.totalRow}>
+                <Text>TVA autoliquidée</Text>
+                <Text>{formatAmount(0)}</Text>
+              </View>
+            ) : Object.entries(totals.vat_by_rate).map(([rate, vat]) => (
               <View key={rate} style={styles.totalRow}>
                 <Text>TVA {rate}%</Text>
                 <Text>{formatAmount(vat)}</Text>
@@ -487,6 +492,11 @@ export function InvoicePdf({ invoice, organizationName, settings, clientNumber, 
             )}
           </View>
         </View>
+
+        {/* AUTOLIQUIDATION : mention légale obligatoire, sous les totaux */}
+        {invoice.vat_reverse_charge && (
+          <Text style={{ marginTop: 8, fontSize: 8.5, fontFamily: 'Helvetica-Bold', textAlign: 'right' }}>{REVERSE_CHARGE_MENTION}</Text>
+        )}
 
         {/* COORDONNÉES BANCAIRES (uniquement si non payée + non annulée, jamais sur un avoir) */}
         {!isCredit && !isPaid && !isCancelled && settings && (settings.iban || settings.bic) && (

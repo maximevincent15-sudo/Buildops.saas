@@ -7,7 +7,7 @@ import { VAT_MENTION_TEXT } from '../../parametres/api'
 import type { InvoicingSettings } from '../../parametres/api'
 import { PdfLogo } from '../../parametres/pdf/PdfLogo'
 import { formatCompanyNumber } from '../../clients/companyLookup'
-import { computeQuoteTotals, formatAmount, formatNumber } from '../constants'
+import { REVERSE_CHARGE_MENTION, computeQuoteTotals, formatAmount, formatNumber } from '../constants'
 import type { QuoteWithLines } from '../schemas'
 import { styles } from './quotePdfStyles'
 
@@ -204,7 +204,12 @@ export function QuotePdf({ quote, organizationName, settings, clientNumber, vari
               <Text>Total HT</Text>
               <Text>{formatAmount(totals.total_ht)}</Text>
             </View>
-            {Object.entries(totals.vat_by_rate).map(([rate, vat]) => (
+            {quote.vat_reverse_charge ? (
+              <View style={styles.totalRow}>
+                <Text>TVA autoliquidée</Text>
+                <Text>{formatAmount(0)}</Text>
+              </View>
+            ) : Object.entries(totals.vat_by_rate).map(([rate, vat]) => (
               <View key={rate} style={styles.totalRow}>
                 <Text>TVA {rate}%</Text>
                 <Text>{formatAmount(vat)}</Text>
@@ -216,6 +221,11 @@ export function QuotePdf({ quote, organizationName, settings, clientNumber, vari
             </View>
           </View>
         </View>
+
+        {/* AUTOLIQUIDATION : mention légale obligatoire, sous les totaux */}
+        {quote.vat_reverse_charge && (
+          <Text style={{ marginTop: 8, fontSize: 8.5, fontFamily: 'Helvetica-Bold', textAlign: 'right' }}>{REVERSE_CHARGE_MENTION}</Text>
+        )}
 
         {/* NOTES */}
         {quote.notes ? (

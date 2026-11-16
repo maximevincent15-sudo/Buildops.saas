@@ -15,6 +15,8 @@ export const createClientSchema = z.object({
   contact_phone: z.string().optional(),
   address: z.string().optional(),
   notes: z.string().optional(),
+  // Sous-traitance : nouveaux devis et factures en autoliquidation de la TVA
+  vat_reverse_charge: z.boolean().optional(),
 })
 
 export type CreateClientInput = z.infer<typeof createClientSchema> & {
@@ -46,6 +48,8 @@ export type Client = {
   notes: string | null
   /** Destinataires supplémentaires (contact_email reçoit tous les documents) */
   extra_emails: ClientEmailRecipient[]
+  /** Sous-traitance : nouveaux devis et factures en autoliquidation de la TVA */
+  vat_reverse_charge?: boolean
   created_at: string
   created_by: string | null
 }

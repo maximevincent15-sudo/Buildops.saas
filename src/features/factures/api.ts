@@ -1,6 +1,6 @@
 import { supabase } from '../../shared/lib/supabase'
 import { cleanLineFormat } from '../../shared/lib/lineFormat'
-import { computeQuoteTotals } from '../devis/constants'
+import { applyReverseCharge, computeQuoteTotals } from '../devis/constants'
 import { getQuote } from '../devis/api'
 import { netTotalTtc } from './constants'
 import type { Invoice, InvoiceLine, InvoiceLineInput, InvoiceWithLines, UpsertInvoiceInput } from './schemas'
@@ -44,6 +44,7 @@ export async function createInvoice(
   contractLink?: { contract_id: string; contract_period_start?: string | null },
   options: { isDeposit?: boolean } = {},
 ): Promise<InvoiceWithLines> {
+  input = { ...input, lines: applyReverseCharge(input.lines, input.vat_reverse_charge) }
   const totals = computeQuoteTotals(
     input.lines.map((l) => ({
       quantity: l.quantity,
@@ -70,6 +71,7 @@ export async function createInvoice(
       issue_date: input.issue_date,
       due_date: input.due_date || null,
       notes: input.notes || null,
+      vat_reverse_charge: !!input.vat_reverse_charge,
       total_ht: totals.total_ht,
       total_vat: totals.total_vat,
       total_ttc: totals.total_ttc,
@@ -107,6 +109,7 @@ export async function updateInvoice(
   id: string,
   input: UpsertInvoiceInput,
 ): Promise<InvoiceWithLines> {
+  input = { ...input, lines: applyReverseCharge(input.lines, input.vat_reverse_charge) }
   const totals = computeQuoteTotals(
     input.lines.map((l) => ({
       quantity: l.quantity,
@@ -132,6 +135,7 @@ export async function updateInvoice(
       issue_date: input.issue_date,
       due_date: input.due_date || null,
       notes: input.notes || null,
+      vat_reverse_charge: !!input.vat_reverse_charge,
       total_ht: totals.total_ht,
       total_vat: totals.total_vat,
       total_ttc: totals.total_ttc,
@@ -285,6 +289,7 @@ export async function createCreditNote(
   lines: InvoiceLineInput[],
   reason: string,
 ): Promise<InvoiceWithLines> {
+  lines = applyReverseCharge(lines, invoice.vat_reverse_charge)
   const totals = computeQuoteTotals(lines.map((l) => ({ quantity: l.quantity, unit_price_ht: l.unit_price_ht, vat_rate: l.vat_rate })))
   const { data: note, error } = await supabase
     .from('invoices')
@@ -305,6 +310,7 @@ export async function createCreditNote(
       issue_date: new Date().toISOString().slice(0, 10),
       due_date: null,
       notes: reason.trim() || null,
+      vat_reverse_charge: !!invoice.vat_reverse_charge,
       total_ht: totals.total_ht,
       total_vat: totals.total_vat,
       total_ttc: totals.total_ttc,
@@ -406,6 +412,7 @@ export async function createDepositInvoice(
       issue_date: today,
       // Acompte payable à réception
       due_date: today,
+      vat_reverse_charge: !!quote.vat_reverse_charge,
       lines: rates.map((rate, i) => ({
         position: i,
         description: `${label}${rates.length > 1 ? ` (TVA ${rate.replace('.', ',')} %)` : ''}\nMontant du devis : ${totals.total_ht.toFixed(2).replace('.', ',')} € HT`,
@@ -486,6 +493,7 @@ export async function createInvoiceFromQuote(
       issue_date: issueDate,
       due_date: dueDate,
       notes: quote.notes ?? undefined,
+      vat_reverse_charge: !!quote.vat_reverse_charge,
       lines: [
         ...quote.lines.map((l, i) => ({
           position: i,

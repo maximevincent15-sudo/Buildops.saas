@@ -39,6 +39,8 @@ export const upsertQuoteSchema = z.object({
   issue_date: z.string().min(1, 'Date d\'émission requise'),
   validity_date: z.string().optional(),
   notes: z.string().optional(),
+  /** Autoliquidation de la TVA (sous-traitance) : lignes à 0 % et mention légale */
+  vat_reverse_charge: z.boolean().optional(),
   lines: z.array(quoteLineInputSchema).min(1, 'Au moins une ligne'),
 })
 
@@ -60,6 +62,8 @@ export type Quote = {
   dossier_number: string | null
   issue_date: string
   validity_date: string | null
+  /** Autoliquidation de la TVA (sous-traitance) */
+  vat_reverse_charge?: boolean
   sent_at: string | null
   accepted_at: string | null
   refused_at: string | null

@@ -26,6 +26,8 @@ export const upsertInvoiceSchema = z.object({
   issue_date: z.string().min(1, 'Date d\'émission requise'),
   due_date: z.string().optional(),
   notes: z.string().optional(),
+  /** Autoliquidation de la TVA (sous-traitance) : lignes à 0 % et mention légale */
+  vat_reverse_charge: z.boolean().optional(),
   lines: z.array(quoteLineInputSchema).min(1, 'Au moins une ligne'),
 })
 
@@ -77,6 +79,8 @@ export type Invoice = {
   credited_ttc?: number
   /** Facture d'acompte (déduite ensuite de la facture finale du devis) */
   is_deposit?: boolean
+  /** Autoliquidation de la TVA (sous-traitance) */
+  vat_reverse_charge?: boolean
 }
 
 export type InvoiceLine = {

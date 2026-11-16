@@ -34,6 +34,7 @@ function toFormValues(c: Client | null | undefined): Partial<CreateClientInput> 
     contact_phone: c.contact_phone ?? '',
     address: c.address ?? '',
     notes: c.notes ?? '',
+    vat_reverse_charge: !!c.vat_reverse_charge,
   }
 }
 
@@ -239,6 +240,14 @@ export function ClientModal({ open, onClose, onChanged, client }: Props) {
             <label>Notes internes</label>
             <input type="text" placeholder="Accès, consignes, infos utiles au technicien" {...register('notes')} />
           </div>
+
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: '.85rem', cursor: 'pointer' }}>
+            <input type="checkbox" {...register('vat_reverse_charge')} style={{ marginTop: 3 }} />
+            <span>
+              Sous-traitance : TVA autoliquidée
+              <span className="text-ink-3 text-xs font-light"> (ses nouveaux devis et factures sont à 0 % de TVA, avec la mention légale)</span>
+            </span>
+          </label>
 
           {/* Contrats de maintenance — uniquement en édition */}
           {isEdit && client && contratsEnabled && <ClientContractsSection clientId={client.id} />}

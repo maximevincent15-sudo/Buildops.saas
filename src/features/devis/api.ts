@@ -1,6 +1,6 @@
 import { supabase } from '../../shared/lib/supabase'
 import { cleanLineFormat } from '../../shared/lib/lineFormat'
-import { computeQuoteTotals } from './constants'
+import { applyReverseCharge, computeQuoteTotals } from './constants'
 import type { Quote, QuoteLine, QuoteWithLines, UpsertQuoteInput } from './schemas'
 
 export async function listQuotes(): Promise<Quote[]> {
@@ -39,6 +39,7 @@ export async function createQuote(
   input: UpsertQuoteInput,
   organizationId: string,
 ): Promise<QuoteWithLines> {
+  input = { ...input, lines: applyReverseCharge(input.lines, input.vat_reverse_charge) }
   const totals = computeQuoteTotals(
     input.lines.map((l) => ({
       quantity: l.quantity,
@@ -64,6 +65,7 @@ export async function createQuote(
       issue_date: input.issue_date,
       validity_date: input.validity_date || null,
       notes: input.notes || null,
+      vat_reverse_charge: !!input.vat_reverse_charge,
       total_ht: totals.total_ht,
       total_vat: totals.total_vat,
       total_ttc: totals.total_ttc,
@@ -94,6 +96,7 @@ export async function updateQuote(
   id: string,
   input: UpsertQuoteInput,
 ): Promise<QuoteWithLines> {
+  input = { ...input, lines: applyReverseCharge(input.lines, input.vat_reverse_charge) }
   const totals = computeQuoteTotals(
     input.lines.map((l) => ({
       quantity: l.quantity,
@@ -118,6 +121,7 @@ export async function updateQuote(
       issue_date: input.issue_date,
       validity_date: input.validity_date || null,
       notes: input.notes || null,
+      vat_reverse_charge: !!input.vat_reverse_charge,
       total_ht: totals.total_ht,
       total_vat: totals.total_vat,
       total_ttc: totals.total_ttc,
