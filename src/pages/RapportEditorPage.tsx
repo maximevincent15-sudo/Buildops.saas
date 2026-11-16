@@ -552,7 +552,8 @@ export function RapportEditorPage() {
     // Enrichies avec les infos d'unité (N°, famille, implantation, zone).
     let anomalyEntries: AnomalyPdfEntry[] = []
     try {
-      const anomalies = await listAnomaliesForIntervention(iid)
+      // Les anomalies clôturées (doublons, classées sans suite) ne vont pas au rapport
+      const anomalies = (await listAnomaliesForIntervention(iid)).filter((a) => a.status !== 'closed')
       if (anomalies.length > 0) {
         const siteId = intervention!.site_id
         const [allUnits, allZones] = await Promise.all([

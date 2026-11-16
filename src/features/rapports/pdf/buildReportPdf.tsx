@@ -60,7 +60,8 @@ export async function generateReportPdfForIntervention(
   const [unitEntries, settings, anomalies, clientNumber, dossierNumber, clientInfo] = await Promise.all([
     buildUnitEntriesForIntervention(interventionId, intervention.site_id).catch(() => []),
     getInvoicingSettings(organizationId).catch(() => null),
-    listAnomaliesForIntervention(interventionId).catch(() => []),
+    // Les anomalies clôturées (doublons, classées sans suite) ne vont pas au rapport
+    listAnomaliesForIntervention(interventionId).then((list) => list.filter((a) => a.status !== 'closed')).catch(() => []),
     getClientNumber(intervention.client_id),
     intervention.dossier_number?.trim() || null,
     loadReportClientInfo(intervention.client_id).catch(() => null),

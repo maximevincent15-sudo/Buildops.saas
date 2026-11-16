@@ -193,10 +193,11 @@ function CompactContent({
     notVerified.length > 0 ? `${notVerified.length} non vérifié${notVerified.length > 1 ? 's' : ''} sur ${unitEntries.length}` : null,
   ].filter(Boolean)
 
+  // Chaque photo une seule fois, même rattachée à plusieurs anomalies ; les anomalies clôturées n'y vont pas
   const photos = [
-    ...anomalyEntries.flatMap((a) => a.anomaly.photos.map((p) => ({ key: p.path, url: p.url, caption: `${a.unitSerial ? `${a.unitSerial} · ` : ''}${a.anomaly.title}` }))),
+    ...anomalyEntries.filter((a) => a.anomaly.status !== 'closed').flatMap((a) => a.anomaly.photos.map((p) => ({ key: p.path, url: p.url, caption: `${a.unitSerial ? `${a.unitSerial} · ` : ''}${a.anomaly.title}` }))),
     ...report.photos.map((p, i) => ({ key: p.path, url: p.url, caption: `Photo du site ${i + 1}` })),
-  ]
+  ].filter((p, i, all) => all.findIndex((q) => q.url === p.url) === i)
   const clientSigned = !!report.signature_data_url && (report.signature_status === 'signed' || report.signature_status === 'pending')
   // Petit site : la liste et les photos suivent sur la même page, sans saut de page
   const separatePages = verified.length > 15

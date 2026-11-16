@@ -51,7 +51,7 @@ export async function loadFullReportPhotos(
 ): Promise<FullPhotoGroup[]> {
   const [checksRes, anomaliesRes, reportRes] = await Promise.all([
     supabase.from('equipment_checks').select('equipment_unit_id, photos').eq('intervention_id', interventionId),
-    supabase.from('anomalies').select('equipment_unit_id, title, photos').eq('intervention_id', interventionId),
+    supabase.from('anomalies').select('equipment_unit_id, title, photos').eq('intervention_id', interventionId).neq('status', 'closed'),
     supabase.from('reports').select('photos').eq('intervention_id', interventionId).maybeSingle(),
   ])
   if (checksRes.error) throw checksRes.error
