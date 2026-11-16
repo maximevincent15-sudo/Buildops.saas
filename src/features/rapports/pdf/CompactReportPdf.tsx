@@ -389,7 +389,19 @@ function CompactContent({
                 <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold' }}>
                   {l.name} <Text style={{ fontFamily: 'Helvetica', color: c.ink3 }}>· {plural(l.count, 'équipement')} · {plural(l.points.length, 'point')}</Text>
                 </Text>
-                <Text style={{ fontSize: 7.5, color: c.ink2, lineHeight: 1.35 }}>{l.points.join(' · ')}</Text>
+                {/* Points numérotés, sur deux colonnes (lecture de haut en bas) */}
+                <View style={{ flexDirection: 'row', gap: 14, marginTop: 3 }}>
+                  {[l.points.slice(0, Math.ceil(l.points.length / 2)), l.points.slice(Math.ceil(l.points.length / 2))].map((col, ci) => (
+                    <View key={ci} style={{ flex: 1 }}>
+                      {col.map((p, i) => (
+                        <View key={i} style={{ flexDirection: 'row', marginBottom: 2.5 }}>
+                          <Text style={{ width: 13, fontSize: 7.5, color: c.ink3 }}>{ci * Math.ceil(l.points.length / 2) + i + 1}.</Text>
+                          <Text style={{ flex: 1, fontSize: 7.5, color: c.ink2, lineHeight: 1.3 }}>{p}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+                </View>
               </View>
             ))}
             <Text style={[s.small, { marginTop: 4 }]}>Les points sans objet pour un équipement ne sont pas comptés dans sa colonne « Points ».</Text>
