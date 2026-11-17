@@ -179,11 +179,49 @@ export async function deleteIntervention(id: string): Promise<void> {
   if (error) throw error
 }
 
+const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
 export async function setInterventionStatus(id: string, status: string): Promise<Intervention> {
   const { data, error } = await supabase
     .from('interventions')
     .update({ status })
     .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  let row = data as Intervention
+  // Rapport fait sans date prévue : la visite prend la date du jour, sinon
+  // elle sortirait du planning, de l'historique et du calcul des visites
+  if (status === 'terminee' && !row.scheduled_date) {
+    const { data: dated } = await supabase
+      .from('interventions')
+      .update({ scheduled_date: localDay(new Date()) })
+      .eq('id', id)
+      .is('scheduled_date', null)
+      .select()
+      .maybeSingle()
+    if (dated) row = dated as Intervention
+  }
+  return normalizeIntervention(row)
+}
+
+/**
+ * Intervention démarrée par erreur : elle revient « planifiée » (ou « à
+ * planifier » sans date) et l'heure d'arrivée notée au démarrage est effacée.
+ */
+export async function cancelInterventionStart(id: string): Promise<Intervention> {
+  const { data: current, error: fetchErr } = await supabase
+    .from('interventions')
+    .select('scheduled_date')
+    .eq('id', id)
+    .single()
+  if (fetchErr) throw fetchErr
+  const hasDate = !!(current as { scheduled_date: string | null }).scheduled_date
+  const { data, error } = await supabase
+    .from('interventions')
+    .update({ status: hasDate ? 'planifiee' : 'a_planifier', started_at: null })
+    .eq('id', id)
+    .eq('status', 'en_cours')
     .select()
     .single()
   if (error) throw error

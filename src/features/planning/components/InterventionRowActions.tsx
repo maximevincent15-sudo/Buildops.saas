@@ -48,16 +48,33 @@ export function InterventionRowActions({ intervention, onChanged }: Props) {
   const effectiveStatus =
     status === 'a_planifier' && scheduled_date ? 'planifiee' : status
 
+  // Préparer = ouvrir le rapport avant la visite, sans démarrer l'intervention
+  // ni noter d'heure d'arrivée
+  const prepare = (
+    <Link
+      to={`/rapports/${intervention.id}`}
+      className="act-btn subtle"
+      onClick={stopPropagation}
+      title="Ouvrir le rapport sans démarrer l'intervention"
+      style={{ textAlign: 'center' }}
+    >
+      Préparer
+    </Link>
+  )
+
   if (effectiveStatus === 'planifiee') {
     return (
-      <button
-        type="button"
-        className="act-btn"
-        onClick={(e) => handleClick(e, 'en_cours')}
-        disabled={loading}
-      >
-        Démarrer
-      </button>
+      <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'stretch', gap: 4 }}>
+        <button
+          type="button"
+          className="act-btn"
+          onClick={(e) => handleClick(e, 'en_cours')}
+          disabled={loading}
+        >
+          Démarrer
+        </button>
+        {prepare}
+      </div>
     )
   }
 
@@ -86,7 +103,7 @@ export function InterventionRowActions({ intervention, onChanged }: Props) {
   }
 
   if (effectiveStatus === 'a_planifier') {
-    return <span className="text-ink-3 text-xs font-light">Ajouter une date</span>
+    return prepare
   }
 
   return null

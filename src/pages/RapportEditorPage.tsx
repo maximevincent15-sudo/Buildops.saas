@@ -20,7 +20,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
 import { useSubscription } from '../features/billing/hooks'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
-import { setInterventionStatus } from '../features/planning/api'
+import { cancelInterventionStart, setInterventionStatus } from '../features/planning/api'
 import { INTERVENTION_TYPE_LABELS, normalizeIntervention } from '../features/planning/schemas'
 import { interventionAddress } from '../features/planning/address'
 import type { CreateInterventionInput, Intervention } from '../features/planning/schemas'
@@ -136,6 +136,8 @@ export function RapportEditorPage() {
   const { limits } = useSubscription()
 
   const [intervention, setIntervention] = useState<Intervention | null>(null)
+  // Démarrer depuis le rapport préparé, ou annuler un démarrage par erreur
+  const [startBusy, setStartBusy] = useState(false)
   const [equipmentType, setEquipmentType] = useState<EquipmentType | null>(null)
   // Checklist par équipement : Record<type, ChecklistResponse[]>
   // On garde TOUTES les checklists en mémoire pour que changer de type ne perde rien.
@@ -1013,6 +1015,38 @@ export function RapportEditorPage() {
   const scheduledLabel = intervention.scheduled_date
     ? format(new Date(intervention.scheduled_date), 'd MMMM yyyy', { locale: fr })
     : '—'
+
+  // Rapport ouvert avant la visite (« Préparer ») : l'intervention n'est pas démarrée
+  const notStarted = !isCompleted && (intervention.status === 'planifiee' || intervention.status === 'a_planifier')
+  // Démarrée par erreur : annulable tant que rien n'est contrôlé ni finalisé
+  const canCancelStart = !isCompleted && !reopenedAt && intervention.status === 'en_cours' && unitVerdicts.length === 0
+
+  async function startOnSite() {
+    if (isOffline()) {
+      alert('Une connexion est nécessaire pour démarrer. Vous pouvez continuer à remplir le rapport en attendant.')
+      return
+    }
+    setStartBusy(true)
+    try {
+      setIntervention(await setInterventionStatus(iid, 'en_cours'))
+    } catch {
+      alert('Impossible de démarrer. Vérifiez votre connexion et réessayez.')
+    } finally {
+      setStartBusy(false)
+    }
+  }
+
+  async function cancelStart() {
+    if (!window.confirm('Annuler le démarrage ? L’intervention redevient planifiée et l’heure d’arrivée notée est effacée.')) return
+    setStartBusy(true)
+    try {
+      setIntervention(await cancelInterventionStart(iid))
+    } catch {
+      alert('Impossible d’annuler le démarrage. Vérifiez votre connexion et réessayez.')
+    } finally {
+      setStartBusy(false)
+    }
+  }
   const equipmentsLabel = formatEquipmentTypes(intervention.equipment_types)
   const isAdmin = (profile?.user_role ?? 'admin') === 'admin'
 
@@ -1133,6 +1167,33 @@ export function RapportEditorPage() {
           </Link>
         </div>
       </div>
+
+      {notStarted && (
+        <div
+          className="text-sm"
+          style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: '1rem', color: '#8A3D0E', background: '#FDF1E7', border: '1px solid #F0C9A6', borderRadius: 8, padding: '10px 14px' }}
+        >
+          <span>
+            <strong>Intervention pas encore démarrée.</strong> Vous pouvez préparer le rapport ; l’heure d’arrivée sera notée quand vous démarrerez sur place.
+          </span>
+          <button type="button" className="btn-sm acc" onClick={() => void startOnSite()} disabled={startBusy}>
+            {startBusy ? 'Démarrage…' : 'Je suis sur place'}
+          </button>
+        </div>
+      )}
+      {canCancelStart && (
+        <p className="text-ink-3 text-xs" style={{ margin: '-.4rem 0 1rem' }}>
+          Démarrée par erreur ?{' '}
+          <button
+            type="button"
+            onClick={() => void cancelStart()}
+            disabled={startBusy}
+            style={{ background: 'none', border: 0, padding: 0, color: 'var(--ink2)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}
+          >
+            Annuler le démarrage
+          </button>
+        </p>
+      )}
 
       {/* Sélecteur d'équipement si l'intervention en a plusieurs (rapport sans contrôle appareil par appareil) */}
       {availableTypes.length > 1 && !unitMode && (

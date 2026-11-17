@@ -96,6 +96,9 @@ export function InterventionSheet({ intervention: i, onClose, onEdit }: Props) {
           {status === 'a_planifier' && (
             <button type="button" className="mf prim" style={bigBtn} onClick={onEdit}>Choisir une date</button>
           )}
+          {(status === 'planifiee' || status === 'a_planifier') && (
+            <Link to={`/rapports/${i.id}`} className="mf out" style={bigBtn}>Préparer le rapport</Link>
+          )}
           {address && status !== 'terminee' && (
             <a
               className="mf out"
