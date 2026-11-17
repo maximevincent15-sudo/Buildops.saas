@@ -102,6 +102,8 @@ export type Report = {
   reopened_by_name?: string | null
   /** Conformité figée à la finalisation (null = rapport antérieur ou incomplet) */
   is_conform?: boolean | null
+  /** Bon d'intervention (saisie en plus du rapport, signature, PDF) */
+  work_order?: import('./workOrder').WorkOrder | null
   anomaly_count?: number | null
   created_at: string
   updated_at: string

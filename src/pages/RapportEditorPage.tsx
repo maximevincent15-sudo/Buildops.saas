@@ -10,6 +10,7 @@ import {
   Images,
   Mail,
   MapPin,
+  ClipboardSignature,
   Receipt,
   RotateCcw,
   XCircle,
@@ -42,6 +43,8 @@ import type { UncheckedUnitItem, UnitVerdictItem } from '../features/rapports/co
 import { ReportHistoryList } from '../features/rapports/components/ReportHistoryList'
 import { TimeSpentCard } from '../features/rapports/components/TimeSpentCard'
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
+import { WorkOrderModal } from '../features/rapports/components/WorkOrderModal'
+import type { WorkOrder } from '../features/rapports/workOrder'
 import { generateAndUploadReportPdf, renderAndStoreReportPdf } from '../features/rapports/pdf/generateReportPdf'
 import { loadFullReportPhotos } from '../features/rapports/pdf/loadFullPhotos'
 import type { FullPhotoGroup } from '../features/rapports/pdf/FullPhotosPages'
@@ -152,6 +155,9 @@ export function RapportEditorPage() {
   const [fullPdfBusy, setFullPdfBusy] = useState<string | null>(null)
   const [fullPdfUrl, setFullPdfUrl] = useState<string | null>(null)
   const [fullPdfError, setFullPdfError] = useState<string | null>(null)
+  // Bon d'intervention (une page signée par le client)
+  const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null)
+  const [workOrderOpen, setWorkOrderOpen] = useState(false)
   const [completedAt, setCompletedAt] = useState<string | null>(null)
   // Jour du rapport : un point ajouté plus tard à la checklist du site ne compte pas pour un rapport déjà finalisé
   const visitDay = (completedAt ?? new Date().toISOString()).slice(0, 10)
@@ -257,6 +263,7 @@ export function RapportEditorPage() {
           setSentAt(report.sent_at ?? null)
           setReopenedAt(report.reopened_at ?? null)
           setReopenedBy(report.reopened_by_name ?? null)
+          setWorkOrder(report.work_order ?? null)
           if (report.equipment_type) {
             setEquipmentType(report.equipment_type as EquipmentType)
           }
@@ -1648,6 +1655,28 @@ export function RapportEditorPage() {
             {fullPdfError && !fullPdfBusy && (
               <p className="text-red text-sm" style={{ flexBasis: '100%', textAlign: 'right', margin: 0 }}>{fullPdfError}</p>
             )}
+            {reportId && (
+              <button
+                type="button"
+                className="btn-sm"
+                onClick={() => setWorkOrderOpen(true)}
+                title="Une page signée par le client : heures, travaux faits et travaux restants"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <ClipboardSignature size={14} /> {workOrder?.pdf_url ? 'Refaire le bon d\'intervention' : 'Bon d\'intervention'}
+              </button>
+            )}
+            {workOrder?.pdf_url && (
+              <FileLink
+                url={workOrder.pdf_url}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-sm acc"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+              >
+                <Download size={13} /> Bon d'intervention
+              </FileLink>
+            )}
             <button
               type="button"
               className="btn-sm acc"
@@ -1726,6 +1755,27 @@ export function RapportEditorPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Bon d'intervention */}
+      {workOrderOpen && reportId && intervention && (
+        <WorkOrderModal
+          intervention={intervention}
+          reportId={reportId}
+          equipmentTypes={availableTypes}
+          initial={workOrder}
+          reportSignature={signatureStatus === 'signed' && signature ? { name: signedBy.trim(), dataUrl: signature } : null}
+          completedAt={completedAt}
+          organizationId={orgId}
+          organizationName={orgName}
+          createdByName={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || null}
+          onClose={() => setWorkOrderOpen(false)}
+          onSaved={(wo) => {
+            setWorkOrder(wo)
+            setWorkOrderOpen(false)
+            setFlash(`Bon d'intervention prêt${intervention.dossier_number?.trim() ? ', rangé aussi dans le dossier' : ''}.`)
+          }}
+        />
       )}
 
       {/* Modale envoi au client */}

@@ -26,10 +26,12 @@ export async function renderAndStoreReportPdf(
   interventionId: string,
   reference: string,
   fileSuffix = '',
+  /** Début du nom de fichier : « rapport », ou « bon-intervention » pour le bon */
+  filePrefix = 'rapport',
 ): Promise<{ url: string; path: string; fileName: string; size: number }> {
   const blob = await pdf(pdfDocument).toBlob()
   const safeRef = reference.replace(/[^a-zA-Z0-9-]/g, '-')
-  const filename = `rapport-${safeRef}${fileSuffix}.pdf`
+  const filename = `${filePrefix}-${safeRef}${fileSuffix}.pdf`
   const path = `${organizationId}/interventions/${interventionId}/${filename}`
 
   // Stockage privé : la base garde l'adresse de référence, ouverte par lien temporaire
