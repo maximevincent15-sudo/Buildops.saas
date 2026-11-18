@@ -1,8 +1,9 @@
 import { addDays, format, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { CalendarPlus, MapPin, PanelRightClose, PanelRightOpen, Search, Upload } from 'lucide-react'
+import { CalendarPlus, CloudDownload, MapPin, PanelRightClose, PanelRightOpen, Search, Upload } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { QuickActions } from '../shared/ui/QuickActions'
+import { PrepareDayModal } from '../features/planning/components/PrepareDayModal'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useAuthStore } from '../features/auth/store'
 import { listAnomalies, updateAnomaly } from '../features/anomalies/api'
@@ -103,6 +104,7 @@ export function PlanningPage() {
   const [exporting, setExporting] = useState(false)
   const profile = useAuthStore((s) => s.profile)
   const myTechnicianId = useAuthStore((s) => s.myTechnicianId)
+  const [prepareOpen, setPrepareOpen] = useState(false)
   // Devis : administrateurs uniquement (et module affiché)
   const devisEnabled = useModuleEnabled()('devis') && (profile?.user_role ?? 'admin') === 'admin'
   // Technicien (compte membre) : ses interventions par défaut ; l'administrateur voit toute l'équipe
@@ -423,6 +425,17 @@ export function PlanningPage() {
           )}
         </div>
         <div className="dash-acts">
+          <button
+            type="button"
+            className="btn-sm"
+            onClick={() => setPrepareOpen(true)}
+            title="Garder les rapports du jour sur cet appareil pour travailler sans réseau"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+          >
+            <CloudDownload size={14} strokeWidth={2} />
+            Préparer ma journée
+          </button>
+          {prepareOpen && <PrepareDayModal technicianId={myTechnicianId} onClose={() => setPrepareOpen(false)} />}
           {total > 0 && (
             <button
               type="button"

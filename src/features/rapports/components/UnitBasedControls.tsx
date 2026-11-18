@@ -950,7 +950,7 @@ export function UnitBasedControls({
               type="button"
               className="unit-tile"
               onClick={() => setEditingUnitId(u.id)}
-              disabled={readOnly}
+              title={readOnly ? 'Voir le contrôle et les photos (rapport finalisé : lecture seule)' : undefined}
               style={{
                 ...unitTileStyle,
                 background: verdictTileBg(verdict),
@@ -1869,6 +1869,12 @@ function UnitCheckModal({
             </div>
           </div>
 
+          {readOnly ? (
+          <div className="modal-foot">
+            <span className="text-ink-3 text-xs" style={{ marginRight: 'auto' }}>Rapport finalisé : lecture seule</span>
+            <button type="button" className="mf prim" onClick={onClose}>Fermer</button>
+          </div>
+          ) : (
           <div className="modal-foot">
             <button type="button" className="mf out" onClick={requestClose}>
               Annuler
@@ -1898,6 +1904,7 @@ function UnitCheckModal({
               </button>
             )}
           </div>
+          )}
         </div>
       </div>
     </ModalPortal>

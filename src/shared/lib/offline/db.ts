@@ -43,7 +43,15 @@ export type QueuedRequest = {
   failed: boolean
 }
 
-export type StoredFile = { path: string; userId: string; blob: Blob; contentType: string; savedAt: number }
+export type StoredFile = {
+  path: string
+  userId: string
+  blob: Blob
+  contentType: string
+  savedAt: number
+  /** Copie téléchargée à l'avance (« Préparer ma journée »), pas un envoi en attente */
+  prefetched?: boolean
+}
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -155,4 +163,21 @@ export async function getFile(path: string): Promise<StoredFile | undefined> {
 
 export async function deleteFile(path: string): Promise<void> {
   await done((await store('files', 'readwrite')).delete(path))
+}
+
+/** Ménage : copies téléchargées à l'avance depuis plus de `maxAgeMs` (jamais les envois en attente) */
+export async function prunePrefetchedFiles(maxAgeMs: number): Promise<void> {
+  const limit = Date.now() - maxAgeMs
+  const s = await store('files', 'readwrite')
+  await new Promise<void>((resolve, reject) => {
+    const req = s.openCursor()
+    req.onsuccess = () => {
+      const cursor = req.result
+      if (!cursor) { resolve(); return }
+      const f = cursor.value as StoredFile
+      if (f.prefetched && f.savedAt < limit) cursor.delete()
+      cursor.continue()
+    }
+    req.onerror = () => reject(req.error)
+  })
 }

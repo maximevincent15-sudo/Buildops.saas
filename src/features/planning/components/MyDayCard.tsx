@@ -1,4 +1,4 @@
-import { MapPin, Navigation } from 'lucide-react'
+import { CloudDownload, MapPin, Navigation } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../auth/store'
@@ -6,6 +6,8 @@ import { formatEquipmentTypesShort } from '../../../shared/constants/interventio
 import { listMyInterventions, setInterventionStatus } from '../api'
 import type { Intervention } from '../schemas'
 import { interventionAddress as addressOf } from '../address'
+import { lastPrepared } from '../prepareDay'
+import { PrepareDayModal } from './PrepareDayModal'
 
 const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
@@ -23,6 +25,8 @@ export function MyDayCard() {
   const navigate = useNavigate()
   const [items, setItems] = useState<Intervention[] | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [prepareOpen, setPrepareOpen] = useState(false)
+  const [prepared, setPrepared] = useState(() => lastPrepared())
 
   useEffect(() => {
     if (!myTechnicianId) return
@@ -36,6 +40,9 @@ export function MyDayCard() {
   if (!myTechnicianId) return null
 
   const today = isoDay(new Date())
+  const preparedLabel = prepared && prepared.at.slice(0, 10) === today && prepared.ids.length > 0
+    ? `Journée préparée à ${new Date(prepared.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} : ${prepared.ids.length} visite${prepared.ids.length > 1 ? 's' : ''} disponible${prepared.ids.length > 1 ? 's' : ''} sans réseau`
+    : null
   const todayItems = (items ?? []).filter((i) => i.status === 'en_cours' || i.scheduled_date === today)
   const upcoming = (items ?? []).filter((i) => i.status !== 'en_cours' && i.scheduled_date && i.scheduled_date > today && i.status !== 'terminee')
 
@@ -59,8 +66,26 @@ export function MyDayCard() {
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </div>
         </div>
-        <Link to="/planning" className="btn-sm">Mon planning</Link>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            className="btn-sm"
+            onClick={() => setPrepareOpen(true)}
+            title="Garder les rapports du jour sur cet appareil pour travailler sans réseau"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+          >
+            <CloudDownload size={13} strokeWidth={2} />
+            Préparer ma journée
+          </button>
+          <Link to="/planning" className="btn-sm">Mon planning</Link>
+        </div>
       </div>
+      {preparedLabel && (
+        <p className="text-ink-3 text-xs" style={{ margin: '-4px 0 8px' }}>{preparedLabel}</p>
+      )}
+      {prepareOpen && (
+        <PrepareDayModal technicianId={myTechnicianId} onClose={() => setPrepareOpen(false)} onDone={() => setPrepared(lastPrepared())} />
+      )}
 
       {items === null ? (
         <p className="text-ink-3 text-sm font-light" style={{ margin: 0 }}>Chargement…</p>

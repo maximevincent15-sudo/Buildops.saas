@@ -106,12 +106,26 @@ function cacheKey(userId: string, method: string, headers: Headers, url: URL, bo
   return [userId, method, headers.get('accept') ?? '', headers.get('prefer') ?? '', url.pathname + url.search, body].join('|')
 }
 
+// ─── Activité (pour savoir quand un écran a fini de charger) ──
+let inflight = 0
+let lastActivity = 0
+function activityStart() { inflight += 1; lastActivity = Date.now() }
+function activityEnd() { inflight = Math.max(0, inflight - 1); lastActivity = Date.now() }
+
+/** Requêtes en cours (et copies en train d'être gardées), et dernière activité */
+export function fetchActivity(): { inflight: number; lastActivity: number } {
+  return { inflight, lastActivity }
+}
+
 async function storeResponse(key: string, userId: string, table: string, url: URL, res: Response): Promise<void> {
+  activityStart()
   try {
     const body = await res.clone().text()
     if (body.length > 4_000_000) return
     await putResponse({ key, userId, table, url: url.pathname + url.search, status: res.status, headers: keptHeaders(res.headers), body, savedAt: Date.now() })
-  } catch { /* stockage plein ou indisponible : on continue en ligne */ }
+  } catch { /* stockage plein ou indisponible : on continue en ligne */ } finally {
+    activityEnd()
+  }
 }
 
 // ─── Lectures ──────────────────────────────────────────────
@@ -405,6 +419,18 @@ async function functionCall(input: RequestInfo | URL, init: RequestInit | undefi
 // ─── Point d'entrée ────────────────────────────────────────
 
 export function createOfflineFetch(supabaseUrl: string): typeof fetch {
+  const handle = offlineHandler(supabaseUrl)
+  return async (input, init) => {
+    activityStart()
+    try {
+      return await handle(input, init)
+    } finally {
+      activityEnd()
+    }
+  }
+}
+
+function offlineHandler(supabaseUrl: string): typeof fetch {
   const base = new URL(supabaseUrl).origin
   return async (input, init) => {
     let url: URL
