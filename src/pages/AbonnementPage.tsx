@@ -23,6 +23,8 @@ export function AbonnementPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { subscription, loading, reload, isActive, isTrialing, trialDaysLeft, isBlocked } = useSubscription()
   const isMember = useAuthStore((s) => s.profile?.user_role === 'member')
+  // Abonnement commencé mais jamais payé : aucune formule n'est « actuelle »
+  const unpaidStart = subscription?.status === 'incomplete' || subscription?.status === 'incomplete_expired'
   const profile = useAuthStore((s) => s.profile)
   const userEmail = useAuthStore((s) => s.user?.email ?? null)
   const [quoteLoading, setQuoteLoading] = useState<Plan | null>(null)
@@ -146,7 +148,7 @@ export function AbonnementPage() {
 
       {statusToast === 'canceled' && (
         <div style={toastStyle('info')}>
-          <span>Vous avez annulé le paiement. Aucun frais n'a été prélevé.</span>
+          <span>Paiement non finalisé : aucun frais n'a été prélevé. Si votre carte a été refusée, validez le paiement dans l'application de votre banque ou essayez une autre carte, puis choisissez à nouveau votre formule.</span>
           <button
             type="button"
             onClick={() => setStatusToast(null)}
@@ -332,7 +334,7 @@ export function AbonnementPage() {
               offer={offer}
               period={period}
               technicians={technicians}
-              currentPlan={isBlocked || (subscription?.stripe_subscription_id && !subscription.seat_based) ? null : subscription?.plan ?? null}
+              currentPlan={isBlocked || unpaidStart || (subscription?.stripe_subscription_id && !subscription.seat_based) ? null : subscription?.plan ?? null}
               currentPeriod={subscription?.billing_period ?? null}
               onChoose={handleChoose}
               loading={redirecting}

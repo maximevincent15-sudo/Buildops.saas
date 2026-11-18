@@ -168,7 +168,20 @@ serve(async (req) => {
     if (sub?.stripe_subscription_id && ['active', 'past_due'].includes(sub.status)) {
       const current = await stripe.subscriptions.retrieve(sub.stripe_subscription_id)
       const item = current.items.data[0]
-      if (item && !['canceled', 'incomplete_expired'].includes(current.status)) {
+      // Abonnement jamais payé (premier paiement refusé) : on l'abandonne et
+      // on rouvre une page de paiement plus bas. Sinon, réessayer ne ferait
+      // que « changer de formule » sur un abonnement impayé, sans page Stripe.
+      if (['incomplete', 'incomplete_expired'].includes(current.status)) {
+        // On retire le lien d'abord : le webhook ignore la suppression d'un
+        // abonnement qui n'est plus celui de l'organisation
+        await adminClient
+          .from('subscriptions')
+          .update({ stripe_subscription_id: null })
+          .eq('organization_id', profile.organization_id)
+        if (current.status === 'incomplete') {
+          await stripe.subscriptions.cancel(current.id).catch((err) => console.warn('[stripe-checkout] annulation abonnement inachevé', err))
+        }
+      } else if (item && ['active', 'past_due', 'trialing'].includes(current.status)) {
         await stripe.subscriptions.update(current.id, {
           items: [{ id: item.id, price: priceId, quantity }],
           proration_behavior: 'always_invoice',

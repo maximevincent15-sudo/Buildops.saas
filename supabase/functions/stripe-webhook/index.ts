@@ -155,6 +155,19 @@ serve(async (req) => {
           break
         }
 
+        // Abonnement jamais payé (premier paiement refusé ou abandonné, puis
+        // expiré au bout de 23 h) : on garde seulement le client Stripe. On ne
+        // touche ni à l'essai ni au statut, sinon un essai encore en cours
+        // serait coupé par une simple tentative de paiement ratée.
+        if (subscription.status === 'incomplete' || subscription.status === 'incomplete_expired') {
+          await supabase
+            .from('subscriptions')
+            .update({ stripe_customer_id: subscription.customer as string })
+            .eq('organization_id', orgId)
+          console.log('[stripe-webhook] abonnement inachevé ignoré', subscription.id, subscription.status)
+          break
+        }
+
         // Récupère l'état AVANT update pour détecter la transition trial → active
         const { data: prevSub } = await supabase
           .from('subscriptions')
@@ -194,11 +207,15 @@ serve(async (req) => {
           (subscription.metadata?.organization_id as string | undefined) ??
           (await resolveOrgFromCustomer(supabase, subscription.customer as string))
         if (orgId) {
-          await supabase
+          // Seulement l'abonnement en cours de l'organisation : la suppression
+          // d'un abonnement inachevé (jamais payé) ne doit pas bloquer le compte
+          const { data: updated } = await supabase
             .from('subscriptions')
             .update({ status: 'canceled' })
             .eq('organization_id', orgId)
-          notifyLifecycle('subscription_canceled', orgId)
+            .eq('stripe_subscription_id', subscription.id)
+            .select('organization_id')
+          if (updated && updated.length > 0) notifyLifecycle('subscription_canceled', orgId)
         }
         break
       }
@@ -206,6 +223,12 @@ serve(async (req) => {
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice
         const customerId = invoice.customer as string | null
+        // Premier paiement refusé sur la page Stripe : le client peut encore
+        // réessayer, ce n'est pas un impayé (pas de statut ni d'alerte)
+        if (invoice.billing_reason === 'subscription_create') {
+          console.log('[stripe-webhook] premier paiement refusé, client toujours sur la page de paiement', invoice.id)
+          break
+        }
         if (customerId) {
           await supabase
             .from('subscriptions')
