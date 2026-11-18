@@ -6,7 +6,8 @@ import { DOSSIER_FILE_TYPES } from '../../../shared/lib/storage'
 import { supabase } from '../../../shared/lib/supabase'
 import { DOSSIER_DOCUMENT_KINDS, DOSSIER_DOCUMENT_LABELS, addDossierDocument } from '../api'
 import type { DossierDocumentKind } from '../api'
-import { dateFromText, findDossierNumber, guessDocumentKind, readPdfText, titleFromFileName } from '../classify'
+import { DOSSIER_VIA_LABELS, classifyBatch, dateFromText, guessDocumentKind, readPdfText, titleFromFileName } from '../classify'
+import type { DossierVia } from '../classify'
 
 type Props = {
   /** N° de dossier déjà connus dans l'entreprise */
@@ -33,6 +34,10 @@ type Row = {
   error: string | null
   /** Même fichier déjà présent plus haut dans cet import (non importé) */
   inBatchCopy: boolean
+  /** Méthode qui a donné le n° de dossier */
+  via: DossierVia | null
+  /** Début de n° lu (lettre finale manquante), proposé à compléter */
+  suggestion: string | null
 }
 
 const ACCEPT = ['.zip', ...Object.keys(DOSSIER_FILE_TYPES).map((ext) => `.${ext}`)].join(',')
@@ -101,34 +106,39 @@ export function DossierImportModal({ knownNumbers, onClose, onImported }: Props)
       setExisting(already)
       setReadCount({ done: 0, total: expanded.length })
       const out: Row[] = []
+      // 1. Lecture de chaque fichier (texte des PDF)
+      const read: Array<{ file: File; source: string; folder: string; text: string; supported: boolean }> = []
       for (const { file, source } of expanded) {
         const ext = extOf(file.name)
         const supported = !!DOSSIER_FILE_TYPES[ext]
         const text = supported && ext === 'pdf' ? await readPdfText(file) : ''
-        const folders = source.split('/').slice(0, -1).join(' / ')
-        const dossier = findDossierNumber(folders, knownNumbers)
-          ?? findDossierNumber(file.name, knownNumbers)
-          ?? findDossierNumber(text, knownNumbers)
-          ?? ''
+        read.push({ file, source, folder: source.split('/').slice(0, -1).join(' / '), text, supported })
+        setReadCount((c) => ({ ...c, done: c.done + 1 }))
+      }
+      // 2. Classement du lot : chaque méthode complète les autres (ZIP, fichier, PDF, même ZIP, même devis)
+      const classified = classifyBatch(read.map((r) => ({ name: r.file.name, folder: r.folder, text: r.text })), knownNumbers)
+      read.forEach((r, i) => {
+        const { dossier, via, suggestion } = classified[i]!
         // Déjà dans le dossier, ou même fichier déjà vu dans cet import (copie « (1) »…)
-        const sameInBatch = out.some((o) => o.dossier === dossier && o.file.name === file.name && o.file.size === file.size)
-        const duplicate = !!dossier && (already.has(dupKey(dossier, file.name)) || sameInBatch)
+        const sameInBatch = out.some((o) => o.dossier === dossier && o.file.name === r.file.name && o.file.size === r.file.size)
+        const duplicate = !!dossier && (already.has(dupKey(dossier, r.file.name)) || sameInBatch)
         out.push({
           id: crypto.randomUUID(),
-          file,
-          source,
-          dossier,
-          kind: guessDocumentKind(file.name, text),
-          title: titleFromFileName(file.name),
-          date: dateFromText(text) ?? '',
-          include: supported && !!dossier && !duplicate,
+          file: r.file,
+          source: r.source,
+          dossier: r.supported ? dossier : '',
+          via: r.supported ? via : null,
+          suggestion: r.supported ? suggestion : null,
+          kind: guessDocumentKind(r.file.name, r.text),
+          title: titleFromFileName(r.file.name),
+          date: dateFromText(r.text) ?? '',
+          include: r.supported && !!dossier && !duplicate,
           inBatchCopy: !!dossier && sameInBatch,
-          supported,
+          supported: r.supported,
           state: 'pending',
           error: null,
         })
-        setReadCount((c) => ({ ...c, done: c.done + 1 }))
-      }
+      })
       // D'abord ce qui demande une action (n° manquant), puis par dossier ; les formats refusés à la fin
       const rank = (r: Row) => (!r.supported ? 2 : r.dossier ? 1 : 0)
       out.sort((a, b) => rank(a) - rank(b)
@@ -306,10 +316,10 @@ export function DossierImportModal({ knownNumbers, onClose, onImported }: Props)
                             list="dossier-import-numbers"
                             value={r.dossier}
                             disabled={locked || !r.supported}
-                            placeholder="N° à saisir"
+                            placeholder={r.suggestion ? `${r.suggestion}… ?` : 'N° à saisir'}
                             onChange={(e) => {
                               const v = e.target.value
-                              update(r.id, { dossier: v, inBatchCopy: false, include: !!v.trim() && !existing.has(dupKey(v.trim(), r.file.name)) })
+                              update(r.id, { dossier: v, via: null, inBatchCopy: false, include: !!v.trim() && !existing.has(dupKey(v.trim(), r.file.name)) })
                             }}
                             style={{ width: '100%', fontSize: 12.5, padding: '3px 6px' }}
                           />
@@ -338,10 +348,16 @@ export function DossierImportModal({ knownNumbers, onClose, onImported }: Props)
                             : r.state === 'done' ? <span className="text-grn" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><CheckCircle2 size={12} /> Importé</span>
                               : r.state === 'error' ? <span className="text-red" title={r.error ?? ''} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><XCircle size={12} /> {r.error?.slice(0, 40)}</span>
                                 : !r.supported ? <span className="text-ink-3">Format non accepté</span>
-                                  : !r.dossier.trim() ? <span className="text-red">N° manquant</span>
+                                  : !r.dossier.trim() ? <span className="text-red">{r.suggestion ? `N° incomplet (${r.suggestion}…)` : 'N° manquant'}</span>
                                     : dup ? <span className="text-ink-3">{r.inBatchCopy ? 'En double dans cet import' : 'Déjà dans le dossier'}</span>
-                                      : isNew ? <span className="text-ink-2">Nouveau dossier</span>
-                                        : <span className="text-ink-2">Prêt</span>}
+                                      : <span className="text-ink-2" title={r.via ? DOSSIER_VIA_LABELS[r.via] : undefined}>
+                                          {isNew ? 'Nouveau dossier' : 'Prêt'}
+                                          {r.via && r.via !== 'dossier' && r.via !== 'fichier' && (
+                                            <span className="text-ink-3" style={{ display: 'block', fontSize: 10.5 }}>
+                                              {r.via === 'pdf' ? 'lu dans le PDF' : r.via === 'meme-zip' ? 'même ZIP' : r.via === 'meme-devis' ? 'même devis' : 'complété'}
+                                            </span>
+                                          )}
+                                        </span>}
                         </td>
                       </tr>
                     )
