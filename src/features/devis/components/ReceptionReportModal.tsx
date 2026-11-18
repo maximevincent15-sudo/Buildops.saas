@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { isOffline } from '../../../shared/lib/offline/state'
-import { DEFAULT_STANDARDS } from '../../rapports/workOrder'
 import { buildReceptionReportPdf } from '../pdf/receptionReportFile'
 import { createReceptionReport } from '../receptionReports'
 import type { ReceptionReport } from '../receptionReports'
@@ -12,6 +11,8 @@ type Props = {
   deliveryNotes: DeliveryNoteWithLines[]
   /** Dernier PV de l'entreprise : ses référentiels servent de point de départ */
   previous: ReceptionReport | null
+  /** Référentiels proposés : ceux de l'entreprise (Paramètres), sinon la liste par défaut */
+  standardOptions: string[]
   /** Ville de l'entreprise (Paramètres), imprimée devant la date */
   defaultCity: string | null
   signatoryName: string | null
@@ -25,9 +26,9 @@ const todayIso = () => new Date().toISOString().slice(0, 10)
 const toggle = (list: string[], x: string) => (list.includes(x) ? list.filter((y) => y !== x) : [...list, x])
 
 /** Procès-verbal de réception d'un devis accepté (installation terminée) */
-export function ReceptionReportModal({ quote, deliveryNotes, previous, defaultCity, signatoryName, organizationId, organizationName, onClose, onSaved }: Props) {
+export function ReceptionReportModal({ quote, deliveryNotes, previous, standardOptions, defaultCity, signatoryName, organizationId, organizationName, onClose, onSaved }: Props) {
   const lastDelivery = [...deliveryNotes].map((n) => n.delivery_date).sort().pop() ?? ''
-  const defaults: string[] = [...DEFAULT_STANDARDS]
+  const defaults = standardOptions
   const [issueDate, setIssueDate] = useState(todayIso())
   const [city, setCity] = useState(defaultCity?.trim() ?? '')
   const [clientName, setClientName] = useState(quote.client_name)

@@ -52,13 +52,15 @@ export type InvoicingSettings = {
   invoice_prefix: string | null
   /** Modèle du rapport PDF (migration 20261103180000) */
   report_template?: ReportTemplate
+  /** Référentiels du bon et du PV (migration 20261118140000) ; vide = liste par défaut */
+  standards_list?: string[] | null
   updated_at: string
 }
 
 /** « standard » : rapport Firovia ; « classic » : compte rendu de vérification classique */
 export type ReportTemplate = 'standard' | 'classic'
 
-export type UpsertInvoicingInput = Omit<InvoicingSettings, 'organization_id' | 'updated_at' | 'report_template'>
+export type UpsertInvoicingInput = Omit<InvoicingSettings, 'organization_id' | 'updated_at' | 'report_template' | 'standards_list'>
 
 export async function getInvoicingSettings(organizationId: string): Promise<InvoicingSettings | null> {
   const { data, error } = await supabase
@@ -115,6 +117,18 @@ export async function setReportTemplate(organizationId: string, template: Report
     .from('organization_invoicing_settings')
     .upsert(
       { organization_id: organizationId, report_template: template, updated_at: new Date().toISOString() },
+      { onConflict: 'organization_id' },
+    )
+  if (error) throw error
+}
+
+/** Référentiels proposés sur le bon et le PV : enregistrés seuls (vide = liste par défaut) */
+export async function setStandardsList(organizationId: string, list: string[]): Promise<void> {
+  const clean = Array.from(new Set(list.map((x) => x.trim()).filter(Boolean)))
+  const { error } = await supabase
+    .from('organization_invoicing_settings')
+    .upsert(
+      { organization_id: organizationId, standards_list: clean.length > 0 ? clean : null, updated_at: new Date().toISOString() },
       { onConflict: 'organization_id' },
     )
   if (error) throw error

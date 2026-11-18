@@ -5,6 +5,7 @@ import { uploadPrivateFile } from '../../../shared/lib/privateFiles'
 import { setReceptionReportPdfUrl } from '../receptionReports'
 import type { ReceptionReport } from '../receptionReports'
 import { ReceptionReportPdf } from './ReceptionReportPdf'
+import { standardsFor } from '../../rapports/workOrder'
 
 /** Crée (ou refait) le PDF d'un PV, rangé avec son devis et dans le dossier */
 export async function buildReceptionReportPdf(
@@ -13,7 +14,7 @@ export async function buildReceptionReportPdf(
   createdByName: string | null,
 ): Promise<string> {
   const settings = await getInvoicingSettings(report.organization_id)
-  const blob = await pdf(<ReceptionReportPdf report={report} organizationName={organizationName} settings={settings} />).toBlob()
+  const blob = await pdf(<ReceptionReportPdf report={report} options={standardsFor(settings?.standards_list)} organizationName={organizationName} settings={settings} />).toBlob()
   const fileName = `${report.reference.replace(/[^a-zA-Z0-9-]/g, '-')}.pdf`
   const folder = report.quote_id ? `quotes/${report.quote_id}` : 'reception-reports'
   const stored = await uploadPrivateFile(`${report.organization_id}/${folder}/${fileName}`, blob, { contentType: 'application/pdf', upsert: true })

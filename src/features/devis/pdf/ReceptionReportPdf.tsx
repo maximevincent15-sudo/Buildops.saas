@@ -2,7 +2,6 @@ import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import type { InvoicingSettings } from '../../parametres/api'
-import { DEFAULT_STANDARDS } from '../../rapports/workOrder'
 import { pdfSafe } from '../../rapports/pdf/pdfText'
 import { splitOtherStandards } from '../receptionReports'
 import type { ReceptionReport } from '../receptionReports'
@@ -53,12 +52,12 @@ function Check({ label, checked }: { label: string; checked: boolean }) {
  * Procès-verbal de réception : document à part, adressé au client après une
  * installation (descriptif, référentiels cochés, date de livraison).
  */
-export function ReceptionReportPdf({ report: raw, organizationName, settings }: { report: ReceptionReport; organizationName: string; settings: InvoicingSettings | null }) {
+export function ReceptionReportPdf({ report: raw, options, organizationName, settings }: { report: ReceptionReport; options: string[]; organizationName: string; settings: InvoicingSettings | null }) {
   // Textes nettoyés pour la police du PDF (« CO₂ »…)
   const report = pdfSafe(raw)
   const others = splitOtherStandards(report.other_standards)
-  const defaults: string[] = [...DEFAULT_STANDARDS]
-  // Normes proposées (cochées ou non), puis celles de l'entreprise, toujours cochées
+  const defaults = pdfSafe(options)
+  // Référentiels proposés (cochés ou non), puis ceux ajoutés à la main, toujours cochés
   const items = [
     ...defaults.map((label) => ({ label, checked: report.standards.includes(label) })),
     ...report.standards.filter((x) => !defaults.includes(x)).map((label) => ({ label, checked: true })),

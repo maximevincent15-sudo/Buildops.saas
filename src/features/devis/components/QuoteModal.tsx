@@ -45,6 +45,7 @@ import { ReceptionReportModal } from './ReceptionReportModal'
 import { deleteReceptionReport, lastReceptionReport, listReceptionReports, markReceptionReportSent } from '../receptionReports'
 import type { ReceptionReport } from '../receptionReports'
 import { buildReceptionReportPdf } from '../pdf/receptionReportFile'
+import { standardsFor } from '../../rapports/workOrder'
 import { deleteDeliveryNote, deliveryProgress, listDeliveryNotes, markDeliveryNoteSent } from '../deliveryNotes'
 import { buildDeliveryNotePdf } from '../pdf/deliveryNoteFile'
 import { DELIVERY_MODE_LABELS } from '../schemas'
@@ -146,7 +147,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
   const [dnModal, setDnModal] = useState<{ quote: QuoteWithLines; toSign: DeliveryNoteWithLines | null } | null>(null)
   // Procès-verbaux de réception (installation terminée)
   const [receptionReports, setReceptionReports] = useState<ReceptionReport[]>([])
-  const [pvModal, setPvModal] = useState<{ quote: QuoteWithLines; previous: ReceptionReport | null; city: string | null } | null>(null)
+  const [pvModal, setPvModal] = useState<{ quote: QuoteWithLines; previous: ReceptionReport | null; city: string | null; standards: string[] } | null>(null)
   const [orderBusy, setOrderBusy] = useState(false)
 
   // Charge si édition
@@ -769,7 +770,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
         quoteId ? listDeliveryNotes(quoteId) : Promise.resolve([]),
       ])
       setDeliveryNotes(notes)
-      if (fresh) setPvModal({ quote: fresh, previous, city: settings?.legal_city ?? null })
+      if (fresh) setPvModal({ quote: fresh, previous, city: settings?.legal_city ?? null, standards: standardsFor(settings?.standards_list) })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
     } finally {
@@ -1575,6 +1576,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
           quote={pvModal.quote}
           deliveryNotes={deliveryNotes}
           previous={pvModal.previous}
+          standardOptions={pvModal.standards}
           defaultCity={pvModal.city}
           signatoryName={[profile.first_name, profile.last_name].filter(Boolean).join(' ') || null}
           organizationId={profile.organization_id}

@@ -1,4 +1,5 @@
 import { AlertTriangle, Camera, Check, Copy, Images, Pencil, Plus, QrCode, Search, X } from 'lucide-react'
+import { describesDefect } from '../../equipment/defectHints'
 import { ModalPortal } from '../../../shared/ui/ModalPortal'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
@@ -1669,6 +1670,16 @@ function UnitCheckModal({
                   )
                 })}
               </div>
+              {!readOnly && verdict === 'conforme' && describesDefect(observation) && (
+                <div style={defectHintStyle}>
+                  <span style={{ flex: 1, minWidth: 180 }}>
+                    L'observation semble décrire un défaut alors que l'appareil est noté <strong>Conforme</strong>.
+                  </span>
+                  <button type="button" className="btn-sm" onClick={() => setVerdict('surveiller')}>
+                    Passer en « À traiter »
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Opérations réalisées (imprimées au compte rendu) */}
@@ -2222,3 +2233,19 @@ const anomalyLabelStyle: React.CSSProperties = {
   letterSpacing: 0.3,
 }
 
+
+/** Avertissement « Conforme » avec une observation qui décrit un défaut */
+const defectHintStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: 10,
+  marginTop: 8,
+  padding: '8px 10px',
+  borderRadius: 8,
+  fontSize: 12.5,
+  lineHeight: 1.4,
+  color: '#8A3D0E',
+  background: '#FDF1E7',
+  border: '1px solid #F0C9A6',
+}

@@ -12,6 +12,7 @@ import { LogoCard } from '../features/parametres/components/LogoCard'
 import { ModulesCard } from '../features/parametres/components/ModulesCard'
 import { NotificationsCard } from '../features/parametres/components/NotificationsCard'
 import { ReportTemplateCard } from '../features/parametres/components/ReportTemplateCard'
+import { StandardsCard } from '../features/parametres/components/StandardsCard'
 import { NextNumberFields } from '../features/parametres/components/NextNumberFields'
 import {
   fetchLegalIdentity,
@@ -499,6 +500,7 @@ export function ParametresPage() {
       {/* Notifications par mail (administrateurs) */}
       {(profile?.user_role ?? 'admin') === 'admin' && <NotificationsCard />}
       {(profile?.user_role ?? 'admin') === 'admin' && <ReportTemplateCard />}
+      {(profile?.user_role ?? 'admin') === 'admin' && <StandardsCard />}
       {(profile?.user_role ?? 'admin') === 'admin' && (
         <div className="card" style={{ marginBottom: '1rem' }}>
           <div className="card-top">

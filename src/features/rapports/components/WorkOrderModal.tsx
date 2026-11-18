@@ -19,7 +19,7 @@ import { loadReportClientInfo } from '../pdf/loadClientInfo'
 import { renderAndStoreReportPdf } from '../pdf/generateReportPdf'
 import { WorkOrderPdf } from '../pdf/WorkOrderPdf'
 import type { WorkOrderPdfData } from '../pdf/WorkOrderPdf'
-import { DEFAULT_STANDARDS, SAFETY_ITEMS, WORK_NATURES, WORK_NATURE_LABELS, natureFromType, saveWorkOrder } from '../workOrder'
+import { DEFAULT_STANDARDS, SAFETY_ITEMS, WORK_NATURES, WORK_NATURE_LABELS, natureFromType, saveWorkOrder, standardsFor } from '../workOrder'
 import type { WorkNature, WorkOrder } from '../workOrder'
 
 type Props = {
@@ -54,6 +54,8 @@ export function WorkOrderModal({
   const [safety, setSafety] = useState<string[]>(initial?.safety ?? [])
   const [standards, setStandards] = useState<string[]>(initial?.standards ?? [])
   const [otherStandards, setOtherStandards] = useState(initial?.other_standards ?? '')
+  // Référentiels proposés : ceux de l'entreprise (Paramètres), sinon la liste par défaut
+  const [standardOptions, setStandardOptions] = useState<string[]>([...DEFAULT_STANDARDS])
   const [finished, setFinished] = useState(initial?.finished ?? true)
   const [finishedDate, setFinishedDate] = useState(initial?.finished_date ?? (completedAt ?? new Date().toISOString()).slice(0, 10))
   const [remaining, setRemaining] = useState(initial?.remaining ?? '')
@@ -63,6 +65,14 @@ export function WorkOrderModal({
   const [signData, setSignData] = useState<string | null>(initial?.signature_data_url ?? null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    void getInvoicingSettings(organizationId)
+      .then((s) => { if (alive) setStandardOptions(standardsFor(s?.standards_list)) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [organizationId])
 
   // Premier bon : description et travaux restants préremplis depuis le rapport
   useEffect(() => {
@@ -128,7 +138,7 @@ export function WorkOrderModal({
         natures: WORK_NATURES.map((n) => ({ label: WORK_NATURE_LABELS[n], checked: n === nature })),
         description,
         safety: SAFETY_ITEMS.map((x) => ({ label: x, checked: safety.includes(x) })),
-        standards: [...DEFAULT_STANDARDS.filter((x) => standards.includes(x)), ...extra],
+        standards: [...standardOptions.filter((x) => standards.includes(x)), ...standards.filter((x) => !standardOptions.includes(x)), ...extra],
         finished,
         finishedDate: finished ? finishedDate : null,
         remaining,
@@ -231,7 +241,7 @@ export function WorkOrderModal({
               <div className="fg">
                 <label>Référentiels <span className="text-ink-3 text-xs font-light">(facultatif)</span></label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                  {DEFAULT_STANDARDS.map((x) => (
+                  {standardOptions.map((x) => (
                     <button key={x} type="button" className={`filter-pill${standards.includes(x) ? ' on' : ''}`} onClick={() => setStandards((l) => toggle(l, x))}>
                       {x}
                     </button>

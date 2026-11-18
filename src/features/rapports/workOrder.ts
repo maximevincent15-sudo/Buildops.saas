@@ -33,6 +33,12 @@ export const DEFAULT_STANDARDS = [
   'NF EN 12101-3',
 ] as const
 
+/** Référentiels proposés : la liste de l'entreprise (Paramètres), sinon la liste par défaut */
+export function standardsFor(list: string[] | null | undefined): string[] {
+  const own = (list ?? []).map((x) => x.trim()).filter(Boolean)
+  return own.length > 0 ? own : [...DEFAULT_STANDARDS]
+}
+
 /** Ce qui est saisi en plus du rapport, gardé pour refaire le PDF à l'identique */
 export type WorkOrder = {
   nature: WorkNature

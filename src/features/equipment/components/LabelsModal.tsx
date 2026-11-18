@@ -38,6 +38,9 @@ export function LabelsModal({ open, onClose, onChanged, units, sites, clients, d
   const [siteId, setSiteId] = useState(defaultSiteId && defaultSiteId !== 'all' ? defaultSiteId : '')
   const [family, setFamily] = useState<EquipmentFamily | 'all'>('all')
   const [onlyMissing, setOnlyMissing] = useState(true)
+  // Plage de numéros (ex. du 21 au 30) : vide = tous
+  const [rangeFrom, setRangeFrom] = useState('')
+  const [rangeTo, setRangeTo] = useState('')
   const [blankCount, setBlankCount] = useState(24)
   const [formatId, setFormatId] = useState(LABEL_FORMATS[0]!.id)
   const [startAt, setStartAt] = useState(1)
@@ -65,10 +68,20 @@ export function LabelsModal({ open, onClose, onChanged, units, sites, clients, d
     [sites, clientsById],
   )
 
-  const siteUnits = useMemo(
-    () => units.filter((u) => u.site_id === siteId && (family === 'all' || u.family === family)),
-    [units, siteId, family],
-  )
+  const siteUnits = useMemo(() => {
+    const from = rangeFrom.trim() ? Number(rangeFrom) : null
+    const to = rangeTo.trim() ? Number(rangeTo) : null
+    const inRange = (serial: string) => {
+      if (from === null && to === null) return true
+      // Dernier nombre du numéro : « 21 », « DSF-21 » ou « EXT 21 » → 21
+      const m = /(\d+)(?!.*\d)/.exec(serial)
+      if (!m) return false
+      const n = Number(m[1])
+      return (from === null || n >= from) && (to === null || n <= to)
+    }
+    return units.filter((u) => u.site_id === siteId && (family === 'all' || u.family === family) && inRange(u.serial_number))
+  }, [units, siteId, family, rangeFrom, rangeTo])
+  const rangeSet = !!(rangeFrom.trim() || rangeTo.trim())
   const selected = onlyMissing ? siteUnits.filter((u) => !u.qr_code) : siteUnits
   const missingCount = selected.filter((u) => !u.qr_code).length
   const format = LABEL_FORMATS.find((f) => f.id === formatId) ?? LABEL_FORMATS[0]!
@@ -198,6 +211,18 @@ export function LabelsModal({ open, onClose, onChanged, units, sites, clients, d
                   ))}
                 </select>
               </div>
+              <div className="mrow">
+                <div className="fg">
+                  <label>Du N° <span className="text-ink-3 text-xs font-light">(facultatif)</span></label>
+                  <input type="number" inputMode="numeric" min={0} value={rangeFrom} placeholder="ex. 21"
+                    onChange={(e) => { setRangeFrom(e.target.value); setResult(null) }} />
+                </div>
+                <div className="fg">
+                  <label>Au N° <span className="text-ink-3 text-xs font-light">(facultatif)</span></label>
+                  <input type="number" inputMode="numeric" min={0} value={rangeTo} placeholder="ex. 30"
+                    onChange={(e) => { setRangeTo(e.target.value); setResult(null) }} />
+                </div>
+              </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
                 <input type="checkbox" checked={onlyMissing} onChange={(e) => { setOnlyMissing(e.target.checked); setResult(null) }} />
                 Seulement les équipements qui n'ont pas encore d'étiquette QR
@@ -206,6 +231,9 @@ export function LabelsModal({ open, onClose, onChanged, units, sites, clients, d
                 <p className="text-ink-2 text-sm" style={{ margin: 0, lineHeight: 1.5 }}>
                   <strong>{selected.length}</strong> étiquette{selected.length > 1 ? 's' : ''}, dans l'ordre de passage.
                   {missingCount > 0 && ` ${missingCount} équipement${missingCount > 1 ? 's' : ''} sans code : un code Firovia ${missingCount > 1 ? 'leur' : 'lui'} sera attribué et enregistré.`}
+                  {rangeSet && onlyMissing && siteUnits.length > selected.length && (
+                    <> {siteUnits.length - selected.length} de la plage {siteUnits.length - selected.length > 1 ? 'ont' : 'a'} déjà une étiquette : décochez la case ci-dessus pour {siteUnits.length - selected.length > 1 ? 'les' : 'la'} réimprimer.</>
+                  )}
                 </p>
               )}
             </>
