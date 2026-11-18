@@ -1,4 +1,5 @@
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
+import { pdfImageSrc } from '../../../shared/lib/privateFiles'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ANOMALY_ACTION_LABELS, ANOMALY_PRIORITY_LABELS } from '../../anomalies/schemas'
@@ -439,7 +440,7 @@ function CompactContent({
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
               {photos.map((p) => (
                 <View key={p.key} style={{ width: '48.5%', marginBottom: 10 }} wrap={false}>
-                  <Image src={p.url} style={{ width: '100%', height: 170, objectFit: 'cover', borderRadius: 3 }} />
+                  <Image src={pdfImageSrc(p.url)} style={{ width: '100%', height: 170, objectFit: 'cover', borderRadius: 3 }} />
                   <Text style={{ fontSize: 7.8, color: c.ink2, marginTop: 3 }}>{p.caption}</Text>
                 </View>
               ))}

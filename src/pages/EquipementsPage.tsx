@@ -1,4 +1,5 @@
 import { Building2, FolderOpen, Layers, Pencil, Plus, Printer, QrCode, Search, Table2, Upload, X } from 'lucide-react'
+import { StoredImg } from '../shared/ui/StoredImg'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../features/auth/store'
@@ -542,7 +543,7 @@ export function EquipementsPage() {
                     >
                       <td style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                         {u.photo_url && (
-                          <img src={u.photo_url} alt="" loading="lazy"
+                          <StoredImg src={u.photo_url} alt="" loading="lazy"
                             style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 5, verticalAlign: 'middle', marginRight: 6 }} />
                         )}
                         {unitRepere(u)}

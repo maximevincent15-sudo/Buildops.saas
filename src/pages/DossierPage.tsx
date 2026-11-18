@@ -1,4 +1,5 @@
 import { format } from 'date-fns'
+import { StoredImg } from '../shared/ui/StoredImg'
 import { fr } from 'date-fns/locale'
 import {
   ArrowLeft,
@@ -443,10 +444,10 @@ export function DossierPage() {
           <>
             <div className="dossier-photos">
               {photos.slice(0, photoLimit).map((p, n) => (
-                <a key={`${p.url}-${n}`} href={p.url} target="_blank" rel="noreferrer" className="dossier-photo" title={p.label}>
-                  <img src={p.url} alt={p.label} loading="lazy" />
+                <FileLink key={`${p.url}-${n}`} url={p.url} className="dossier-photo" title={p.label}>
+                  <StoredImg src={p.url} alt={p.label} loading="lazy" />
                   <span>{p.label}{p.reference ? ` · ${p.reference}` : ''} · {formatDate(p.date)}</span>
-                </a>
+                </FileLink>
               ))}
             </div>
             {photos.length > photoLimit && (

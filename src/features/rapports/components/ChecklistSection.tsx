@@ -1,4 +1,5 @@
 import { AlertTriangle, Camera, Eye, Images, MessageSquare, Wrench, X } from 'lucide-react'
+import { FileLink } from '../../../shared/ui/FileLink'
 import { useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { uploadReportPhoto } from '../../../shared/lib/storage'
@@ -175,9 +176,9 @@ export function ChecklistSection({
                   <div className="check-photos-grid">
                     {photos.map((p) => (
                       <div key={p.path} className="check-photo-thumb">
-                        <a href={p.url} target="_blank" rel="noreferrer">
+                        <FileLink url={p.url}>
                           <StoredImg src={p.url} alt="" loading="lazy" />
-                        </a>
+                        </FileLink>
                         {!readOnly && (
                           <button
                             type="button"

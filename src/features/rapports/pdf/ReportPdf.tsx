@@ -1,4 +1,5 @@
 import { pdfSafe } from './pdfText'
+import { pdfImageSrc } from '../../../shared/lib/privateFiles'
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -1074,7 +1075,7 @@ function ReportPdfContent({
                         {resp?.photos && resp.photos.length > 0 && (
                           <View style={styles.nokPhotos}>
                             {resp.photos.map((p) => (
-                              <Image key={p.path} src={p.url} style={styles.nokPhoto} />
+                              <Image key={p.path} src={pdfImageSrc(p.url)} style={styles.nokPhoto} />
                             ))}
                           </View>
                         )}
@@ -1115,7 +1116,7 @@ function ReportPdfContent({
             </Text>
             <View style={styles.photosGrid}>
               {report.photos.map((photo) => (
-                <Image key={photo.path} src={photo.url} style={styles.photo} />
+                <Image key={photo.path} src={pdfImageSrc(photo.url)} style={styles.photo} />
               ))}
             </View>
           </View>
@@ -1615,7 +1616,7 @@ function AnomalyBlock({ entry }: { entry: AnomalyPdfEntry }) {
           {anomaly.photos.slice(0, 3).map((p, i) => (
             <Image
               key={`${p.path}-${i}`}
-              src={p.url}
+              src={pdfImageSrc(p.url)}
               style={{
                 width: 60,
                 height: 60,

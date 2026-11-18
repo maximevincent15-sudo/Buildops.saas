@@ -1,4 +1,5 @@
 import { pdfSafe } from './pdfText'
+import { pdfImageSrc } from '../../../shared/lib/privateFiles'
 import { Document, Image, Page, StyleSheet, Text, View } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -436,7 +437,7 @@ function ClassicReportPdfContent({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Annexe 3 — Photos</Text>
             <View style={styles.photos}>
-              {generalPhotos.map((p, i) => <Image key={`ph-${i}`} src={p.url} style={styles.photo} />)}
+              {generalPhotos.map((p, i) => <Image key={`ph-${i}`} src={pdfImageSrc(p.url)} style={styles.photo} />)}
             </View>
           </View>
         )}
@@ -494,7 +495,7 @@ function AnnexBlock({ entry }: { entry: AnnexEntry }) {
       {entry.text ? <Text style={styles.annexText}>{entry.text}</Text> : null}
       {photos.length > 0 && (
         <View style={styles.photos}>
-          {photos.map((p, i) => <Image key={i} src={p.url!} style={{ width: 90, height: 68, objectFit: 'cover' }} />)}
+          {photos.map((p, i) => <Image key={i} src={pdfImageSrc(p.url!)} style={{ width: 90, height: 68, objectFit: 'cover' }} />)}
         </View>
       )}
     </View>

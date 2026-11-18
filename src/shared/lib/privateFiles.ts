@@ -2,15 +2,14 @@ import { supabase } from './supabase'
 
 /**
  * Fichiers en accès privé : PDF des rapports, devis et factures, documents
- * des dossiers, archives (bucket « documents ») et justificatifs de dépenses.
- * La base garde une adresse de référence ; pour ouvrir le fichier, on
- * demande un lien temporaire signé, valable une heure, réservé aux membres
- * de l'entreprise (règles du stockage). Les autres fichiers (photos) gardent
- * leur lien public, renvoyé tel quel.
+ * des dossiers, archives (bucket « documents »), justificatifs de dépenses
+ * et photos de visite (bucket « report-photos »). La base garde une adresse
+ * de référence ; pour ouvrir le fichier, on demande un lien temporaire signé,
+ * valable une heure, réservé aux membres de l'entreprise (règles du stockage).
  */
 
 export const PRIVATE_BUCKET = 'documents'
-const PRIVATE_BUCKETS = new Set([PRIVATE_BUCKET, 'expense-receipts'])
+const PRIVATE_BUCKETS = new Set([PRIVATE_BUCKET, 'expense-receipts', 'report-photos'])
 const SIGNED_TTL_SECONDS = 3600
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/+$/, '') ?? ''
@@ -65,16 +64,69 @@ function cached(url: string): string | null {
   return hit && hit.expires > Date.now() + 60_000 ? hit.url : null
 }
 
+// Demandes du même instant regroupées (une page de vignettes = une requête)
+let pending: Array<{ url: string; resolve: (u: string) => void; reject: (e: unknown) => void }> = []
+let flushTimer: ReturnType<typeof setTimeout> | null = null
+
+async function flushPending() {
+  const batch = pending
+  pending = []
+  flushTimer = null
+  try {
+    const links = await signMany(batch.map((b) => b.url))
+    for (const b of batch) {
+      const signed = links.get(b.url)
+      if (signed) b.resolve(signed)
+      else b.reject(new Error('Lien du fichier indisponible'))
+    }
+  } catch (e) {
+    for (const b of batch) b.reject(e)
+  }
+}
+
 /** Lien utilisable tout de suite : temporaire pour un fichier privé, l'adresse elle-même sinon */
 export async function openableUrl(url: string): Promise<string> {
   if (!isPrivateFile(url)) return url
   const hit = cached(url)
   if (hit) return hit
-  const loc = storageLocation(url)!
-  const { data, error } = await supabase.storage.from(loc.bucket).createSignedUrl(loc.path, SIGNED_TTL_SECONDS)
-  if (error || !data?.signedUrl) throw error ?? new Error('Lien du fichier indisponible')
-  cache.set(url, { url: data.signedUrl, expires: Date.now() + SIGNED_TTL_SECONDS * 1000 })
-  return data.signedUrl
+  return new Promise<string>((resolve, reject) => {
+    pending.push({ url, resolve, reject })
+    if (!flushTimer) flushTimer = setTimeout(() => void flushPending(), 0)
+  })
+}
+
+/** Signe des fichiers privés par lots ; seuls ceux réellement signés sont renvoyés */
+async function signMany(urls: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  const byBucket = new Map<string, string[]>()
+  for (const url of new Set(urls)) {
+    const hit = cached(url)
+    if (hit) { out.set(url, hit); continue }
+    const loc = storageLocation(url)!
+    byBucket.set(loc.bucket, [...(byBucket.get(loc.bucket) ?? []), url])
+  }
+  for (const [bucket, list] of byBucket) {
+    for (let i = 0; i < list.length; i += 100) {
+      const chunk = list.slice(i, i + 100)
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrls(chunk.map((u) => storageLocation(u)!.path), SIGNED_TTL_SECONDS)
+      if (error) throw error
+      chunk.forEach((u, j) => {
+        const signed = data?.[j]?.signedUrl
+        if (!signed) return
+        cache.set(u, { url: signed, expires: Date.now() + SIGNED_TTL_SECONDS * 1000 })
+        out.set(u, signed)
+      })
+    }
+  }
+  return out
+}
+
+/**
+ * Image d'un PDF : le moteur PDF va chercher lui-même l'image ; pour une
+ * photo privée, on lui donne une fonction qui fournit le lien temporaire.
+ */
+export function pdfImageSrc(url: string): string | (() => Promise<string>) {
+  return isPrivateFile(url) ? () => openableUrl(url).catch(() => url) : url
 }
 
 /**

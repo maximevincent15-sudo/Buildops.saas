@@ -1,4 +1,5 @@
 import { ImagePlus, X } from 'lucide-react'
+import { FileLink } from './FileLink'
 import { useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { deleteReportPhoto, uploadReportPhoto } from '../lib/storage'
@@ -74,9 +75,9 @@ export function PhotoUploader({ photos, onChange, organizationId, interventionId
     return (
       <div className="photos-grid">
         {photos.map((p) => (
-          <a key={p.path} href={p.url} target="_blank" rel="noreferrer" className="photo-thumb">
+          <FileLink key={p.path} url={p.url} className="photo-thumb">
             <StoredImg src={p.url} alt="" loading="lazy" />
-          </a>
+          </FileLink>
         ))}
       </div>
     )
@@ -87,9 +88,9 @@ export function PhotoUploader({ photos, onChange, organizationId, interventionId
       <div className="photos-grid">
         {photos.map((p) => (
           <div key={p.path} className="photo-thumb">
-            <a href={p.url} target="_blank" rel="noreferrer" aria-label="Ouvrir la photo">
+            <FileLink url={p.url} aria-label="Ouvrir la photo">
               <StoredImg src={p.url} alt="" loading="lazy" />
-            </a>
+            </FileLink>
             <button
               type="button"
               className="photo-remove"

@@ -1,4 +1,5 @@
 import { AlertTriangle, Camera, Check, Copy, Images, Pencil, Plus, QrCode, Search, X } from 'lucide-react'
+import { FileLink } from '../../../shared/ui/FileLink'
 import { describesDefect } from '../../equipment/defectHints'
 import { ModalPortal } from '../../../shared/ui/ModalPortal'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
@@ -1798,14 +1799,14 @@ function UnitCheckModal({
                 <div style={photoGridStyle}>
                   {photos.map((p) => (
                     <div key={p.path} style={photoThumbStyle}>
-                      <a href={p.url} target="_blank" rel="noreferrer">
+                      <FileLink url={p.url}>
                         <StoredImg
                           src={p.url}
                           alt=""
                           loading="lazy"
                           style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }}
                         />
-                      </a>
+                      </FileLink>
                       {!readOnly && (
                         <button
                           type="button"
