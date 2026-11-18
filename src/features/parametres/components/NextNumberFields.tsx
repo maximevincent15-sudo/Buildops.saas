@@ -9,6 +9,7 @@ type Props = {
 }
 
 const pad = (n: number) => String(n).padStart(4, '0')
+const pad3 = (n: number) => String(n).padStart(3, '0')
 
 /**
  * Prochain numéro de devis et de facture : pour continuer la numérotation
@@ -18,13 +19,15 @@ export function NextNumberFields({ organizationId, quotePrefix, invoicePrefix }:
   const [info, setInfo] = useState<NextNumbers | null>(null)
   const [quote, setQuote] = useState('')
   const [invoice, setInvoice] = useState('')
-  const [busy, setBusy] = useState<'quote' | 'invoice' | null>(null)
+  const [reception, setReception] = useState('')
+  const [busy, setBusy] = useState<'quote' | 'invoice' | 'reception' | null>(null)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
 
   function show(n: NextNumbers) {
     setInfo(n)
     setQuote(String(n.nextQuote))
     setInvoice(String(n.nextInvoice))
+    setReception(String(n.nextReception))
   }
 
   async function load() {
@@ -39,8 +42,8 @@ export function NextNumberFields({ organizationId, quotePrefix, invoicePrefix }:
     return () => { alive = false }
   }, [organizationId])
 
-  async function apply(kind: 'quote' | 'invoice') {
-    const value = Number(kind === 'quote' ? quote : invoice)
+  async function apply(kind: 'quote' | 'invoice' | 'reception') {
+    const value = Number(kind === 'quote' ? quote : kind === 'invoice' ? invoice : reception)
     if (!Number.isInteger(value) || value < 1) {
       setMessage({ ok: false, text: 'Indiquez un numéro entier (ex : 154).' })
       return
@@ -49,8 +52,12 @@ export function NextNumberFields({ organizationId, quotePrefix, invoicePrefix }:
     setMessage(null)
     try {
       await setNextDocumentNumber(kind, value)
-      const prefix = kind === 'quote' ? quotePrefix : invoicePrefix
-      setMessage({ ok: true, text: `C'est noté : ${kind === 'quote' ? 'le prochain devis' : 'la prochaine facture'} sera ${prefix}-${info?.year}-${pad(value)}.` })
+      const next = kind === 'quote'
+        ? `le prochain devis sera ${quotePrefix}-${info?.year}-${pad(value)}`
+        : kind === 'invoice'
+          ? `la prochaine facture sera ${invoicePrefix}-${info?.year}-${pad(value)}`
+          : `le prochain procès-verbal sera PV-${info?.year}-${pad3(value)}`
+      setMessage({ ok: true, text: `C'est noté : ${next}.` })
       await load()
     } catch (e) {
       setMessage({ ok: false, text: e instanceof Error ? e.message : 'Numéro refusé.' })
@@ -97,6 +104,22 @@ export function NextNumberFields({ organizationId, quotePrefix, invoicePrefix }:
               : <>Prochaine facture : <strong>{invoicePrefix}-{info.year}-{pad(Number(invoice) || info.nextInvoice)}</strong></>}
           </span>
         </div>
+      </div>
+      <div className="mrow" style={{ marginTop: '.6rem' }}>
+        <div className="fg">
+          <label>Prochain numéro de procès-verbal (PV)</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input type="number" inputMode="numeric" min={info.nextReception} value={reception}
+              onChange={(e) => setReception(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+            <button type="button" className="btn-sm" disabled={!!busy || Number(reception) === info.nextReception} onClick={() => void apply('reception')}>
+              {busy === 'reception' ? '…' : 'Appliquer'}
+            </button>
+          </div>
+          <span className="text-ink-3 text-xs font-light" style={{ marginTop: 4 }}>
+            Prochain PV : <strong>PV-{info.year}-{pad3(Number(reception) || info.nextReception)}</strong>
+          </span>
+        </div>
+        <div className="fg" />
       </div>
       {message && (
         <p className={message.ok ? 'text-grn text-sm' : 'text-red text-sm'} style={{ margin: '.6rem 0 0' }}>{message.text}</p>

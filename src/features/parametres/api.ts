@@ -126,6 +126,8 @@ export type NextNumbers = {
   year: number
   nextQuote: number
   nextInvoice: number
+  /** Procès-verbaux de réception (PV-AAAA-NNN, migration 20261118120000) */
+  nextReception: number
   /** Des factures existent déjà cette année : leur numérotation ne peut plus changer */
   invoicesThisYear: boolean
 }
@@ -135,7 +137,7 @@ export async function getNextNumbers(organizationId: string): Promise<NextNumber
   const [counters, invoices] = await Promise.all([
     supabase
       .from('organization_year_counters')
-      .select('quotes_counter, invoices_counter')
+      .select('quotes_counter, invoices_counter, reception_reports_counter')
       .eq('organization_id', organizationId)
       .eq('year', year)
       .maybeSingle(),
@@ -155,6 +157,7 @@ export async function getNextNumbers(organizationId: string): Promise<NextNumber
     year,
     nextQuote: Number(counters.data?.quotes_counter ?? 0) + 1,
     nextInvoice: Number(counters.data?.invoices_counter ?? 0) + 1,
+    nextReception: Number((counters.data as { reception_reports_counter?: number } | null)?.reception_reports_counter ?? 0) + 1,
     invoicesThisYear: (invoices.count ?? 0) > 0,
   }
 }
@@ -162,12 +165,12 @@ export async function getNextNumbers(organizationId: string): Promise<NextNumber
 const NEXT_NUMBER_ERRORS: Record<string, string> = {
   not_admin: 'Seul un administrateur peut changer la numérotation.',
   bad_number: 'Indiquez un numéro entre 1 et 999 999.',
-  would_reuse: 'Ce numéro de devis est déjà utilisé : choisissez un numéro plus grand.',
+  would_reuse: 'Ce numéro est déjà utilisé : choisissez un numéro plus grand.',
   invoices_already_issued: 'Des factures ont déjà été créées cette année : leur numérotation doit rester continue et ne peut plus être changée.',
 }
 
 /** Fixe le prochain numéro de l'année en cours (reprise de la numérotation d'un ancien logiciel) */
-export async function setNextDocumentNumber(kind: 'quote' | 'invoice', next: number): Promise<void> {
+export async function setNextDocumentNumber(kind: 'quote' | 'invoice' | 'reception', next: number): Promise<void> {
   const { data, error } = await supabase.rpc('set_next_document_number', { p_kind: kind, p_next: next })
   if (error) throw error
   const code = (data as { error?: string } | null)?.error

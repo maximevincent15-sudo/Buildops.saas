@@ -4,6 +4,7 @@ import { fr } from 'date-fns/locale'
 import type { InvoicingSettings } from '../../parametres/api'
 import { LegalFooter, OrgHeaderBlock } from '../../devis/pdf/QuotePdf'
 import { colors, styles as base } from '../../devis/pdf/quotePdfStyles'
+import { pdfSafe } from './pdfText'
 
 /** Tout ce qu'imprime le bon d'intervention, déjà préparé */
 export type WorkOrderPdfData = {
@@ -82,7 +83,9 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 
 /** Bon d'intervention : une page, signée par le client à la fin de la visite */
-export function WorkOrderPdf({ data, organizationName, settings }: { data: WorkOrderPdfData; organizationName: string; settings: InvoicingSettings | null }) {
+export function WorkOrderPdf({ data: raw, organizationName, settings }: { data: WorkOrderPdfData; organizationName: string; settings: InvoicingSettings | null }) {
+  // Textes nettoyés pour la police du PDF (« CO₂ »…)
+  const data = pdfSafe(raw)
   return (
     <Document title={`Bon d'intervention ${data.reference}`}>
       <Page size="A4" style={[base.page, { paddingTop: 28, paddingBottom: 46 }]}>

@@ -44,6 +44,7 @@ import { ReportHistoryList } from '../features/rapports/components/ReportHistory
 import { TimeSpentCard } from '../features/rapports/components/TimeSpentCard'
 import { SendToClientModal } from '../features/rapports/components/SendToClientModal'
 import { WorkOrderModal } from '../features/rapports/components/WorkOrderModal'
+import { markWorkOrderSent } from '../features/rapports/workOrder'
 import type { WorkOrder } from '../features/rapports/workOrder'
 import { generateAndUploadReportPdf, renderAndStoreReportPdf } from '../features/rapports/pdf/generateReportPdf'
 import { loadFullReportPhotos } from '../features/rapports/pdf/loadFullPhotos'
@@ -160,6 +161,7 @@ export function RapportEditorPage() {
   // Bon d'intervention (une page signée par le client)
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null)
   const [workOrderOpen, setWorkOrderOpen] = useState(false)
+  const [workOrderSendOpen, setWorkOrderSendOpen] = useState(false)
   const [completedAt, setCompletedAt] = useState<string | null>(null)
   // Jour du rapport : un point ajouté plus tard à la checklist du site ne compte pas pour un rapport déjà finalisé
   const visitDay = (completedAt ?? new Date().toISOString()).slice(0, 10)
@@ -1713,6 +1715,12 @@ export function RapportEditorPage() {
                 <Download size={13} /> PDF complet
               </FileLink>
             )}
+            {workOrder?.sent_at && (
+              <p className="text-ink-3 text-xs" style={{ flexBasis: '100%', textAlign: 'right', margin: 0 }}>
+                Bon d'intervention envoyé le {format(new Date(workOrder.sent_at), "d MMMM yyyy 'à' HH'h'mm", { locale: fr })}
+                {workOrder.sent_to ? ` à ${workOrder.sent_to}` : ''}
+              </p>
+            )}
             {fullPdfError && !fullPdfBusy && (
               <p className="text-red text-sm" style={{ flexBasis: '100%', textAlign: 'right', margin: 0 }}>{fullPdfError}</p>
             )}
@@ -1737,6 +1745,18 @@ export function RapportEditorPage() {
               >
                 <Download size={13} /> Bon d'intervention
               </FileLink>
+            )}
+            {workOrder?.pdf_url && (
+              <button
+                type="button"
+                className="btn-sm"
+                onClick={() => setWorkOrderSendOpen(true)}
+                title="Envoyer le bon d'intervention au client, en pièce jointe"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <Mail size={13} strokeWidth={2} />
+                {workOrder.sent_at ? 'Renvoyer le bon' : 'Envoyer le bon'}
+              </button>
             )}
             <button
               type="button"
@@ -1835,6 +1855,42 @@ export function RapportEditorPage() {
             setWorkOrder(wo)
             setWorkOrderOpen(false)
             setFlash(`Bon d'intervention prêt${intervention.dossier_number?.trim() ? ', rangé aussi dans le dossier' : ''}.`)
+          }}
+        />
+      )}
+
+      {/* Envoi du bon d'intervention au client */}
+      {reportId && intervention && workOrder?.pdf_url && (
+        <SendToClientModal
+          open={workOrderSendOpen}
+          onClose={() => setWorkOrderSendOpen(false)}
+          reportId={reportId}
+          pdfUrl={workOrder.pdf_url}
+          reference={intervention.reference}
+          clientId={intervention.client_id}
+          clientName={intervention.client_name}
+          equipmentLabel={formatEquipmentTypes(intervention.equipment_types)}
+          organizationName={orgName}
+          scheduledDate={intervention.scheduled_date}
+          isConform={null}
+          nokCount={0}
+          previousEmail={workOrder.sent_to ?? sentToEmail}
+          variant={(() => {
+            const visitDay = completedAt ?? intervention.scheduled_date
+            const dayLabel = visitDay ? ` du ${format(new Date(visitDay), 'd MMMM yyyy', { locale: fr })}` : ''
+            return {
+              title: 'Envoyer le bon d’intervention au client',
+              intro: 'Le bon d’intervention part en pièce jointe (PDF), au nom de votre entreprise. Si le client répond, sa réponse arrive sur votre adresse.',
+              subject: `Bon d'intervention ${intervention.reference} — ${formatEquipmentTypes(intervention.equipment_types)}`,
+              body: `Bonjour,\n\nSuite à notre intervention${dayLabel} chez ${intervention.client_name}, vous trouverez ci-joint le bon d'intervention.\n\nJe reste à votre disposition pour toute question.\n\nCordialement,\n${orgName}`,
+              markSent: async (to: string) => {
+                setWorkOrder(await markWorkOrderSent(reportId, workOrder, to))
+              },
+            }
+          })()}
+          onSent={() => {
+            setFlash('Bon d’intervention envoyé.')
+            setTimeout(() => setFlash(null), 2500)
           }}
         />
       )}

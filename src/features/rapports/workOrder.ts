@@ -52,6 +52,9 @@ export type WorkOrder = {
   pdf_url: string | null
   pdf_path: string | null
   updated_at: string
+  /** Envoi au client par mail (indépendant de l'envoi du rapport) */
+  sent_to?: string | null
+  sent_at?: string | null
 }
 
 export function natureFromType(t: InterventionType | null | undefined): WorkNature {
@@ -64,4 +67,11 @@ export function natureFromType(t: InterventionType | null | undefined): WorkNatu
 export async function saveWorkOrder(reportId: string, workOrder: WorkOrder): Promise<void> {
   const { error } = await supabase.from('reports').update({ work_order: workOrder }).eq('id', reportId)
   if (error) throw error
+}
+
+/** Note l'envoi du bon au client (le rapport, lui, garde son propre suivi) */
+export async function markWorkOrderSent(reportId: string, workOrder: WorkOrder, to: string): Promise<WorkOrder> {
+  const updated: WorkOrder = { ...workOrder, sent_to: to, sent_at: new Date().toISOString() }
+  await saveWorkOrder(reportId, updated)
+  return updated
 }

@@ -23,6 +23,17 @@ type Props = {
   isConform: boolean | null
   nokCount: number
   previousEmail: string | null
+  /**
+   * Autre document que le rapport (bon d'intervention) : ses propres textes et
+   * son propre suivi d'envoi ; le rapport n'est alors pas marqué comme envoyé.
+   */
+  variant?: {
+    title: string
+    intro: string
+    subject: string
+    body: string
+    markSent: (to: string) => Promise<void>
+  }
 }
 
 function formatDateLong(d: string | null): string {
@@ -91,6 +102,7 @@ export function SendToClientModal({
   isConform,
   nokCount,
   previousEmail,
+  variant,
 }: Props) {
   const [recipient, setRecipient] = useState('')
   const [subject, setSubject] = useState('')
@@ -98,15 +110,15 @@ export function SendToClientModal({
   const [loadingClient, setLoadingClient] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [sentHint, setSentHint] = useState(false)
+  const [sentHint, setSentHint] = useState<'resend' | 'mailto' | 'copied' | null>(null)
 
   useEffect(() => {
     if (!open) return
     setError(null)
-    setSentHint(false)
-    setSubject(buildDefaultSubject({ reference, clientName, equipmentLabel }))
+    setSentHint(null)
+    setSubject(variant?.subject ?? buildDefaultSubject({ reference, clientName, equipmentLabel }))
     setBody(
-      buildDefaultBody({
+      variant?.body ?? buildDefaultBody({
         reference,
         clientName,
         equipmentLabel,
@@ -151,8 +163,8 @@ export function SendToClientModal({
     setSending(true)
     setError(null)
     try {
-      // 1. Marquer le rapport comme envoyé en base
-      await markReportSent(reportId, to)
+      // 1. Marquer le rapport comme envoyé en base (un autre document : après l'envoi)
+      if (!variant) await markReportSent(reportId, to)
 
       // 2. Tenter l'envoi via Resend (avec PDF en pièce jointe).
       //    Fallback automatique sur mailto: si Resend n'est pas configuré.
@@ -165,13 +177,10 @@ export function SendToClientModal({
         pdfUrl,
       })
 
-      if (result.mode === 'resend' && result.success) {
-        // Envoi automatique réussi
-        setSentHint(true)
-      } else if (result.mode === 'mailto') {
-        // La messagerie par défaut s'est ouverte
-        setSentHint(true)
-      }
+      if (result.mode === 'error') throw new Error("L'envoi a échoué. Réessayez dans quelques instants.")
+      if (variant) await variant.markSent(to)
+      // Envoi automatique réussi, ou messagerie ouverte en secours
+      setSentHint(result.mode === 'resend' ? 'resend' : 'mailto')
 
       setTimeout(() => {
         onSent?.()
@@ -190,8 +199,8 @@ export function SendToClientModal({
       // PDF privé : lien temporaire valable 7 jours, à coller dans un autre outil
       const link = isPrivateFile(pdfUrl) ? (await openableUrls([pdfUrl], 7 * 86400)).get(pdfUrl) ?? pdfUrl : pdfUrl
       await navigator.clipboard.writeText(link)
-      setSentHint(true)
-      setTimeout(() => setSentHint(false), 2000)
+      setSentHint('copied')
+      setTimeout(() => setSentHint(null), 2000)
     } catch {
       // ignore
     }
@@ -205,15 +214,14 @@ export function SendToClientModal({
         <div className="modal-head">
           <span className="modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             <Mail size={16} strokeWidth={2} />
-            Envoyer le rapport au client
+            {variant?.title ?? 'Envoyer le rapport au client'}
           </span>
           <button type="button" className="modal-x" onClick={onClose} aria-label="Fermer">×</button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <p className="text-ink-2 text-sm font-light" style={{ margin: 0 }}>
-            Le rapport va s'ouvrir dans <strong>votre messagerie</strong> (Gmail, Mail, Outlook…) avec tout pré-rempli.
-            Le client reçoit un email <strong>depuis votre adresse</strong> avec le <strong>lien de téléchargement du PDF</strong>.
+            {variant?.intro ?? 'Le rapport part en pièce jointe (PDF), au nom de votre entreprise. Si le client répond, sa réponse arrive sur votre adresse.'}
           </p>
 
           <div className="fg">
@@ -263,7 +271,11 @@ export function SendToClientModal({
 
           {sentHint && (
             <p className="text-grn text-sm" style={{ margin: 0 }}>
-              ✅ Votre messagerie devrait s'ouvrir — finalisez l'envoi depuis celle-ci.
+              {sentHint === 'resend'
+                ? '✅ Envoyé.'
+                : sentHint === 'copied'
+                  ? '✅ Lien copié.'
+                  : '✅ Votre messagerie devrait s’ouvrir : finalisez l’envoi depuis celle-ci.'}
             </p>
           )}
 
@@ -291,7 +303,7 @@ export function SendToClientModal({
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               <Mail size={14} strokeWidth={2} />
-              {sending ? 'Ouverture…' : 'Ouvrir dans ma messagerie'}
+              {sending ? 'Envoi…' : 'Envoyer'}
             </button>
           </div>
         </div>

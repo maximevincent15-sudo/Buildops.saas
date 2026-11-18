@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, ClipboardCheck, Coins, Copy, Download, FileText, Mail, PenLine, Plus, Trash2, Truck, Undo2, X, XCircle } from 'lucide-react'
+import { ArrowRight, CheckCircle2, ClipboardCheck, Coins, Copy, Download, FileText, Mail, PenLine, Plus, Stamp, Trash2, Truck, Undo2, X, XCircle } from 'lucide-react'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { cleanLineFormat } from '../../../shared/lib/lineFormat'
 import type { LinePart } from '../../../shared/lib/lineFormat'
@@ -41,6 +41,10 @@ import { FileLink } from '../../../shared/ui/FileLink'
 import { isPrivateFile } from '../../../shared/lib/privateFiles'
 import { OrderAckModal } from './OrderAckModal'
 import { DeliveryNoteModal } from './DeliveryNoteModal'
+import { ReceptionReportModal } from './ReceptionReportModal'
+import { deleteReceptionReport, lastReceptionReport, listReceptionReports, markReceptionReportSent } from '../receptionReports'
+import type { ReceptionReport } from '../receptionReports'
+import { buildReceptionReportPdf } from '../pdf/receptionReportFile'
 import { deleteDeliveryNote, deliveryProgress, listDeliveryNotes, markDeliveryNoteSent } from '../deliveryNotes'
 import { buildDeliveryNotePdf } from '../pdf/deliveryNoteFile'
 import { DELIVERY_MODE_LABELS } from '../schemas'
@@ -140,6 +144,9 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteWithLines[]>([])
   const [savedLines, setSavedLines] = useState<QuoteWithLines['lines']>([])
   const [dnModal, setDnModal] = useState<{ quote: QuoteWithLines; toSign: DeliveryNoteWithLines | null } | null>(null)
+  // Procès-verbaux de réception (installation terminée)
+  const [receptionReports, setReceptionReports] = useState<ReceptionReport[]>([])
+  const [pvModal, setPvModal] = useState<{ quote: QuoteWithLines; previous: ReceptionReport | null; city: string | null } | null>(null)
   const [orderBusy, setOrderBusy] = useState(false)
 
   // Charge si édition
@@ -196,8 +203,10 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
           setOrderAckSentAt(q.order_ack_sent_at ?? null)
           setSavedLines(q.lines)
           setDeliveryNotes([])
+          setReceptionReports([])
           if (q.status === 'accepted') {
             void listDeliveryNotes(q.id).then(setDeliveryNotes).catch(() => setDeliveryNotes([]))
+            void listReceptionReports(q.id).then(setReceptionReports).catch(() => setReceptionReports([]))
           }
         })
         .catch((e) => setError(e instanceof Error ? e.message : 'Erreur'))
@@ -248,10 +257,12 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
       setOrderAckSentAt(null)
       setSavedLines([])
       setDeliveryNotes([])
+      setReceptionReports([])
     }
     setSignOpen(false)
     setAckModal(null)
     setDnModal(null)
+    setPvModal(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, quoteIdProp])
 
@@ -746,6 +757,75 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
     }
   }
 
+  async function openReceptionReport() {
+    if (!profile?.organization_id) return
+    setOrderBusy(true)
+    setError(null)
+    try {
+      const [fresh, previous, settings, notes] = await Promise.all([
+        loadSavedQuote(),
+        lastReceptionReport().catch(() => null),
+        getInvoicingSettings(profile.organization_id).catch(() => null),
+        quoteId ? listDeliveryNotes(quoteId) : Promise.resolve([]),
+      ])
+      setDeliveryNotes(notes)
+      if (fresh) setPvModal({ quote: fresh, previous, city: settings?.legal_city ?? null })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setOrderBusy(false)
+    }
+  }
+
+  async function sendReceptionReport(report: ReceptionReport) {
+    if (!quoteId || !report.pdf_url) return
+    const recipient = await resolveRecipients()
+    if (!recipient) return
+    try {
+      const greet = report.client_contact_name?.trim() ? `Bonjour ${report.client_contact_name.trim()},` : clientContact ? `Bonjour ${clientContact.trim()},` : 'Bonjour,'
+      const body =
+        `${greet}\n\nVous trouverez ci-joint le procès-verbal de réception ${report.reference}${report.site_address ? ` (${report.site_address})` : ''}.\n\nJe reste à votre disposition pour toute question.\n\nCordialement,\n${profile?.organizations?.name ?? 'Maintenance'}`
+      const result = await sendDocumentEmail({
+        kind: 'quote',
+        documentId: quoteId,
+        recipientEmail: recipient,
+        subject: `Procès-verbal de réception ${report.reference}`,
+        body,
+        pdfUrl: report.pdf_url,
+      })
+      if (result.mode === 'error') throw new Error(result.error)
+      const sentAt = await markReceptionReportSent(report.id)
+      setReceptionReports((prev) => prev.map((r) => (r.id === report.id ? { ...r, sent_at: sentAt } : r)))
+      setFlash(result.mode === 'resend' ? `${report.reference} envoyé à ${recipient} ✓` : 'Message préparé dans votre messagerie.')
+      setTimeout(() => setFlash(null), 3000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    }
+  }
+
+  async function makeReceptionReportPdf(report: ReceptionReport) {
+    setOrderBusy(true)
+    setError(null)
+    try {
+      const url = await buildReceptionReportPdf(report, profile?.organizations?.name ?? 'Maintenance', report.signatory_name)
+      setReceptionReports((prev) => prev.map((r) => (r.id === report.id ? { ...r, pdf_url: url } : r)))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur PDF')
+    } finally {
+      setOrderBusy(false)
+    }
+  }
+
+  async function removeReceptionReport(report: ReceptionReport) {
+    if (!window.confirm(`Supprimer le procès-verbal ${report.reference} ?\n\nSon numéro ne sera pas réattribué.`)) return
+    try {
+      await deleteReceptionReport(report)
+      setReceptionReports((prev) => prev.filter((r) => r.id !== report.id))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    }
+  }
+
   async function makeDeliveryNotePdf(note: DeliveryNoteWithLines) {
     if (!quoteId || !profile?.organization_id) return
     setOrderBusy(true)
@@ -1203,6 +1283,18 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                     <button
                       type="button"
                       className="btn-sm"
+                      onClick={() => void openReceptionReport()}
+                      disabled={orderBusy}
+                      title="Procès-verbal de réception après une installation : descriptif, référentiels, date de livraison"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <Stamp size={13} strokeWidth={2} /> PV de réception
+                    </button>
+                  )}
+                  {currentStatus === 'accepted' && (
+                    <button
+                      type="button"
+                      className="btn-sm"
                       onClick={() => setDepositOpen(true)}
                       title="Facture d'un pourcentage ou d'un montant du devis, déduite ensuite de la facture finale"
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
@@ -1246,7 +1338,7 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                     </button>
                   )}
                 </div>
-                {(currentStatus === 'accepted' || deliveryNotes.length > 0 || orderAckPdfUrl) && (
+                {(currentStatus === 'accepted' || deliveryNotes.length > 0 || receptionReports.length > 0 || orderAckPdfUrl) && (
                   <div className="order-docs">
                     <div className="order-docs-row">
                       <ClipboardCheck size={14} strokeWidth={2} />
@@ -1302,6 +1394,37 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
                               <Trash2 size={11} strokeWidth={2} />
                             </button>
                           )}
+                        </span>
+                      </div>
+                    ))}
+                    {receptionReports.map((r) => (
+                      <div key={r.id} className="order-docs-row">
+                        <Stamp size={14} strokeWidth={2} />
+                        <span className="order-docs-main">
+                          <strong>{r.reference}</strong>
+                          <span className="text-ink-3">
+                            {' · '}PV de réception du {new Date(r.issue_date).toLocaleDateString('fr-FR')}
+                            {r.sent_at ? ' · envoyé' : ''}
+                          </span>
+                        </span>
+                        <span className="order-docs-actions">
+                          {r.pdf_url ? (
+                            <FileLink url={r.pdf_url} target="_blank" rel="noreferrer" className="btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <Download size={11} strokeWidth={2} /> PDF
+                            </FileLink>
+                          ) : (
+                            <button type="button" className="btn-sm" onClick={() => void makeReceptionReportPdf(r)} disabled={orderBusy} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <FileText size={11} strokeWidth={2} /> Créer le PDF
+                            </button>
+                          )}
+                          {r.pdf_url && (
+                            <button type="button" className="btn-sm" onClick={() => void sendReceptionReport(r)} title="Envoyer au client" aria-label={`Envoyer ${r.reference} au client`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <Mail size={11} strokeWidth={2} />
+                            </button>
+                          )}
+                          <button type="button" className="btn-sm subtle" onClick={() => void removeReceptionReport(r)} title="Supprimer ce PV" aria-label={`Supprimer ${r.reference}`}>
+                            <Trash2 size={11} strokeWidth={2} />
+                          </button>
                         </span>
                       </div>
                     ))}
@@ -1443,6 +1566,24 @@ export function QuoteModal({ open, onClose, onSaved, quoteId: quoteIdProp, seed,
             setFlash(note.signed_at
               ? `${note.reference} signé par ${note.signed_by_name ?? 'le client'} ✓${note.pdf_url ? '' : ' (PDF à refaire)'}`
               : `${note.reference} créé, à imprimer ou à faire signer plus tard.`)
+            setTimeout(() => setFlash(null), 4000)
+          }}
+        />
+      )}
+      {pvModal && profile?.organization_id && (
+        <ReceptionReportModal
+          quote={pvModal.quote}
+          deliveryNotes={deliveryNotes}
+          previous={pvModal.previous}
+          defaultCity={pvModal.city}
+          signatoryName={[profile.first_name, profile.last_name].filter(Boolean).join(' ') || null}
+          organizationId={profile.organization_id}
+          organizationName={profile.organizations?.name ?? 'Maintenance'}
+          onClose={() => setPvModal(null)}
+          onSaved={(r) => {
+            setReceptionReports((prev) => [...prev, r])
+            setPvModal(null)
+            setFlash(`${r.reference} créé${r.pdf_url ? '' : ' (PDF à refaire)'}${r.dossier_number ? ', rangé aussi dans le dossier' : ''}.`)
             setTimeout(() => setFlash(null), 4000)
           }}
         />
