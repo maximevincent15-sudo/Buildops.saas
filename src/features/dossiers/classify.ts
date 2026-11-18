@@ -61,15 +61,27 @@ export function titleFromFileName(name: string): string {
     .trim()
 }
 
-/** Date du document (« Date : 22/10/2026 », sinon la première date du début du texte) */
-export function dateFromText(text: string): string | null {
-  const m = /Date\s*:?\s*(\d{2})\/(\d{2})\/(\d{4})/.exec(text) ?? /\b(\d{2})\/(\d{2})\/(20\d{2})\b/.exec(text.slice(0, 1500))
-  if (!m) return null
-  const [, d, mo, y] = m
+const toIso = (d: string, mo: string, y: string): string | null => {
   const day = Number(d)
   const month = Number(mo)
-  if (day < 1 || day > 31 || month < 1 || month > 12) return null
-  return `${y}-${mo}-${d}`
+  return day >= 1 && day <= 31 && month >= 1 && month <= 12 ? `${y}-${mo}-${d}` : null
+}
+
+/**
+ * Date du document : celle qui suit le mot « Date » (« Date : 22/10/2026 »,
+ * ou en tête de tableau : « Date  Votre contact  Page(s)  23/10/2026 ») ;
+ * sinon la plus récente du début du texte (une date plus ancienne est souvent
+ * une référence, ex. « devis accepté le 13/06/2024 »).
+ */
+export function dateFromText(text: string): string | null {
+  const flat = text.replace(/\s+/g, ' ')
+  const m = /\bDate\b[^\d]{0,60}?(\d{2})\/(\d{2})\/(\d{4})/.exec(flat)
+  if (m) return toIso(m[1]!, m[2]!, m[3]!)
+  const all = [...flat.slice(0, 2500).matchAll(/\b(\d{2})\/(\d{2})\/(20\d{2})\b/g)]
+    .map((x) => toIso(x[1]!, x[2]!, x[3]!))
+    .filter((x): x is string => !!x)
+    .sort()
+  return all.length > 0 ? all[all.length - 1]! : null
 }
 
 // ─── Lecture du texte d'un PDF (chargée à la demande) ────

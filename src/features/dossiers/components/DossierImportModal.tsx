@@ -31,6 +31,8 @@ type Row = {
   supported: boolean
   state: RowState
   error: string | null
+  /** Même fichier déjà présent plus haut dans cet import (non importé) */
+  inBatchCopy: boolean
 }
 
 const ACCEPT = ['.zip', ...Object.keys(DOSSIER_FILE_TYPES).map((ext) => `.${ext}`)].join(',')
@@ -108,7 +110,9 @@ export function DossierImportModal({ knownNumbers, onClose, onImported }: Props)
           ?? findDossierNumber(file.name, knownNumbers)
           ?? findDossierNumber(text, knownNumbers)
           ?? ''
-        const duplicate = !!dossier && already.has(dupKey(dossier, file.name))
+        // Déjà dans le dossier, ou même fichier déjà vu dans cet import (copie « (1) »…)
+        const sameInBatch = out.some((o) => o.dossier === dossier && o.file.name === file.name && o.file.size === file.size)
+        const duplicate = !!dossier && (already.has(dupKey(dossier, file.name)) || sameInBatch)
         out.push({
           id: crypto.randomUUID(),
           file,
@@ -118,6 +122,7 @@ export function DossierImportModal({ knownNumbers, onClose, onImported }: Props)
           title: titleFromFileName(file.name),
           date: dateFromText(text) ?? '',
           include: supported && !!dossier && !duplicate,
+          inBatchCopy: !!dossier && sameInBatch,
           supported,
           state: 'pending',
           error: null,
@@ -153,7 +158,7 @@ export function DossierImportModal({ knownNumbers, onClose, onImported }: Props)
     setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)))
   }
 
-  const isDuplicate = (r: Row) => !!r.dossier && existing.has(dupKey(r.dossier.trim(), r.file.name))
+  const isDuplicate = (r: Row) => !!r.dossier && (r.inBatchCopy || existing.has(dupKey(r.dossier.trim(), r.file.name)))
   const selected = rows.filter((r) => r.include && r.supported && r.dossier.trim())
   const dossiersSelected = new Set(selected.map((r) => r.dossier.trim()))
   const newDossiers = [...dossiersSelected].filter((d) => !known.has(d))
@@ -254,7 +259,7 @@ export function DossierImportModal({ knownNumbers, onClose, onImported }: Props)
               <strong>{selected.length}</strong> à importer dans <strong>{dossiersSelected.size}</strong> dossier{dossiersSelected.size > 1 ? 's' : ''}
               {newDossiers.length > 0 && <> · dont {newDossiers.length} nouveau{newDossiers.length > 1 ? 'x' : ''} ({newDossiers.join(', ')})</>}
               {withoutDossier > 0 && <span className="text-red"> · {withoutDossier} sans n° de dossier (à compléter)</span>}
-              {duplicates > 0 && <> · {duplicates} déjà dans leur dossier (décochés)</>}
+              {duplicates > 0 && <> · {duplicates} en double ou déjà dans leur dossier (décochés)</>}
             </p>
 
             <div style={{ maxHeight: '55vh', overflow: 'auto', border: '1px solid var(--brd)', borderRadius: 8 }}>
@@ -304,7 +309,7 @@ export function DossierImportModal({ knownNumbers, onClose, onImported }: Props)
                             placeholder="N° à saisir"
                             onChange={(e) => {
                               const v = e.target.value
-                              update(r.id, { dossier: v, include: !!v.trim() && !existing.has(dupKey(v.trim(), r.file.name)) })
+                              update(r.id, { dossier: v, inBatchCopy: false, include: !!v.trim() && !existing.has(dupKey(v.trim(), r.file.name)) })
                             }}
                             style={{ width: '100%', fontSize: 12.5, padding: '3px 6px' }}
                           />
@@ -334,7 +339,7 @@ export function DossierImportModal({ knownNumbers, onClose, onImported }: Props)
                               : r.state === 'error' ? <span className="text-red" title={r.error ?? ''} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><XCircle size={12} /> {r.error?.slice(0, 40)}</span>
                                 : !r.supported ? <span className="text-ink-3">Format non accepté</span>
                                   : !r.dossier.trim() ? <span className="text-red">N° manquant</span>
-                                    : dup ? <span className="text-ink-3">Déjà dans le dossier</span>
+                                    : dup ? <span className="text-ink-3">{r.inBatchCopy ? 'En double dans cet import' : 'Déjà dans le dossier'}</span>
                                       : isNew ? <span className="text-ink-2">Nouveau dossier</span>
                                         : <span className="text-ink-2">Prêt</span>}
                         </td>
