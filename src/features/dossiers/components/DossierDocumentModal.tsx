@@ -4,6 +4,7 @@ import { useAuthStore } from '../../auth/store'
 import { DOSSIER_FILE_TYPES } from '../../../shared/lib/storage'
 import { DOSSIER_DOCUMENT_KINDS, DOSSIER_DOCUMENT_LABELS, addDossierDocument } from '../api'
 import type { DossierDocumentKind } from '../api'
+import { guessDocumentKind } from '../classify'
 
 type Props = {
   open: boolean
@@ -21,13 +22,7 @@ function todayIso(): string {
 
 /** Type proposé d'après le nom du fichier (modifiable) */
 function guessKind(file: File): DossierDocumentKind {
-  const n = file.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-  if (/\bbl\b|livraison/.test(n)) return 'delivery_note'
-  if (/plan/.test(n)) return 'plan'
-  if (/\bpv\b|proces|attestation|certificat/.test(n)) return 'certificate'
-  if (/rapport/.test(n)) return 'report'
-  if (file.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|heif)$/.test(n)) return 'photo'
-  return 'other'
+  return file.type.startsWith('image/') ? 'photo' : guessDocumentKind(file.name)
 }
 
 function titleFromFile(file: File): string {

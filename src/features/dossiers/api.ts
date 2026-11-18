@@ -14,11 +14,20 @@ import type { Intervention } from '../planning/schemas'
  * ajoutés à la main).
  */
 
-export const DOSSIER_DOCUMENT_KINDS = ['delivery_note', 'plan', 'certificate', 'report', 'photo', 'other'] as const
+// Types de documents (migration 20261118180000 pour devis, AR, commande, facture, CGV)
+export const DOSSIER_DOCUMENT_KINDS = [
+  'quote', 'order_ack', 'purchase_order', 'delivery_note', 'invoice', 'terms',
+  'plan', 'certificate', 'report', 'photo', 'other',
+] as const
 export type DossierDocumentKind = (typeof DOSSIER_DOCUMENT_KINDS)[number]
 
 export const DOSSIER_DOCUMENT_LABELS: Record<DossierDocumentKind, string> = {
+  quote: 'Devis',
+  order_ack: 'AR de commande',
+  purchase_order: 'Bon de commande client',
   delivery_note: 'Bon de livraison',
+  invoice: 'Facture',
+  terms: 'CGV',
   plan: 'Plan',
   certificate: 'PV / attestation',
   report: 'Ancien rapport',

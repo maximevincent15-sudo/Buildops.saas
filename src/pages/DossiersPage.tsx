@@ -1,7 +1,8 @@
-import { FolderOpen, Search } from 'lucide-react'
+import { FolderInput, FolderOpen, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listDossiers } from '../features/dossiers/api'
+import { DossierImportModal } from '../features/dossiers/components/DossierImportModal'
 import type { DossierSummary } from '../features/dossiers/api'
 import { matchesSearch } from '../shared/lib/search'
 
@@ -11,6 +12,9 @@ export function DossiersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
+  const [flash, setFlash] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let alive = true
@@ -19,7 +23,7 @@ export function DossiersPage() {
       .catch((e) => { if (alive) setError(e instanceof Error ? e.message : 'Erreur inconnue') })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [])
+  }, [reloadKey])
 
   const filtered = useMemo(
     () => dossiers.filter((d) => matchesSearch(search, [d.number, ...d.years, ...d.clientNames, ...d.siteNames])),
@@ -38,7 +42,30 @@ export function DossiersPage() {
             Chaque chantier et tout ce qui s'y rattache : visites, rapports, devis, factures, documents et photos.
           </div>
         </div>
+        <div className="dash-acts">
+          <button
+            type="button"
+            className="btn-sm acc"
+            onClick={() => setImportOpen(true)}
+            title="Déposer des ZIP, des dossiers ou des fichiers : chaque document est rangé dans son dossier"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <FolderInput size={14} strokeWidth={2} /> Importer des documents
+          </button>
+        </div>
       </div>
+      {flash && <p className="text-grn text-sm" style={{ margin: '0 0 .8rem' }}>{flash}</p>}
+      {importOpen && (
+        <DossierImportModal
+          knownNumbers={dossiers.map((d) => d.number)}
+          onClose={() => setImportOpen(false)}
+          onImported={(count) => {
+            setReloadKey((k) => k + 1)
+            setFlash(`${count} document${count > 1 ? 's' : ''} rangé${count > 1 ? 's' : ''} dans leurs dossiers.`)
+            setTimeout(() => setFlash(null), 5000)
+          }}
+        />
+      )}
 
       <div className="card">
         {dossiers.length > 0 && (
