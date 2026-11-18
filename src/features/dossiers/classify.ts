@@ -64,7 +64,9 @@ export function titleFromFileName(name: string): string {
 const toIso = (d: string, mo: string, y: string): string | null => {
   const day = Number(d)
   const month = Number(mo)
-  return day >= 1 && day <= 31 && month >= 1 && month <= 12 ? `${y}-${mo}-${d}` : null
+  return day >= 1 && day <= 31 && month >= 1 && month <= 12
+    ? `${y}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    : null
 }
 
 /**
@@ -75,9 +77,10 @@ const toIso = (d: string, mo: string, y: string): string | null => {
  */
 export function dateFromText(text: string): string | null {
   const flat = text.replace(/\s+/g, ' ')
-  const m = /\bDate\b[^\d]{0,60}?(\d{2})\/(\d{2})\/(\d{4})/.exec(flat)
+  // Espaces tolérés autour des « / » : certains PDF découpent la date (« 04 / 11 /2026 »)
+  const m = /\bDate\b[^\d]{0,60}?(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})/.exec(flat)
   if (m) return toIso(m[1]!, m[2]!, m[3]!)
-  const all = [...flat.slice(0, 2500).matchAll(/\b(\d{2})\/(\d{2})\/(20\d{2})\b/g)]
+  const all = [...flat.slice(0, 2500).matchAll(/\b(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(20\d{2})\b/g)]
     .map((x) => toIso(x[1]!, x[2]!, x[3]!))
     .filter((x): x is string => !!x)
     .sort()
