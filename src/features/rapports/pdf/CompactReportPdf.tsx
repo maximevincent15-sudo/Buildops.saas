@@ -194,11 +194,28 @@ function CompactContent({
     notVerified.length > 0 ? `${notVerified.length} non vérifié${notVerified.length > 1 ? 's' : ''} sur ${unitEntries.length}` : null,
   ].filter(Boolean)
 
+  // Annexe 2 : un bloc par constat (titre une seule fois, ses photos côte à côte).
   // Chaque photo une seule fois, même rattachée à plusieurs anomalies ; les anomalies clôturées n'y vont pas
-  const photos = [
-    ...anomalyEntries.filter((a) => a.anomaly.status !== 'closed').flatMap((a) => a.anomaly.photos.map((p) => ({ key: p.path, url: p.url, caption: `${a.unitSerial ? `${a.unitSerial} · ` : ''}${a.anomaly.title}` }))),
-    ...report.photos.map((p, i) => ({ key: p.path, url: p.url, caption: `Photo du site ${i + 1}` })),
-  ].filter((p, i, all) => all.findIndex((q) => q.url === p.url) === i)
+  const seenPhotos = new Set<string>()
+  const firstTime = (p: { path: string; url: string }) => {
+    if (seenPhotos.has(p.path) || seenPhotos.has(p.url)) return false
+    seenPhotos.add(p.path)
+    seenPhotos.add(p.url)
+    return true
+  }
+  const photoGroups = [
+    ...anomalyEntries.filter((a) => a.anomaly.status !== 'closed').map((a, i) => ({
+      key: `a-${i}`,
+      title: [a.unitSerial, a.anomaly.title].filter(Boolean).join(' · '),
+      detail: [
+        [a.unitZoneName, a.unitImplantation].filter(Boolean).join(' · '),
+        a.anomaly.action ? ANOMALY_ACTION_LABELS[a.anomaly.action] : null,
+      ].filter(Boolean).join(' · ') || null,
+      photos: a.anomaly.photos.filter(firstTime).map((p) => ({ key: p.path, url: p.url })),
+    })),
+    { key: 'site', title: 'Photos du site', detail: null, photos: report.photos.filter(firstTime).map((p) => ({ key: p.path, url: p.url })) },
+  ].filter((g) => g.photos.length > 0)
+  const photoCount = photoGroups.reduce((n, g) => n + g.photos.length, 0)
   const clientSigned = !!report.signature_data_url && (report.signature_status === 'signed' || report.signature_status === 'pending')
   // Petit site : la liste et les photos suivent sur la même page, sans saut de page
   const separatePages = verified.length > 15
@@ -428,23 +445,32 @@ function CompactContent({
         )}
 
         {/* ─── Annexe 2 : photos et constats ─── */}
-        {(photos.length > 0 || report.nonconformities) && (
+        {(photoCount > 0 || report.nonconformities) && (
           // Peu de photos : l'annexe reste d'un seul bloc (titre et photos ensemble)
-          <View break={separatePages} wrap={photos.length > 4} style={separatePages ? undefined : { marginTop: 16 }}>
-            <Text style={[s.h2, { fontSize: 9 }]}>Annexe 2 · Photos et constats</Text>
+          <View break={separatePages} wrap={photoCount > 6} style={separatePages ? undefined : { marginTop: 16 }}>
             {report.nonconformities && (
-              <Text style={{ fontSize: 8.5, lineHeight: 1.4, marginBottom: 8 }}>
-                <Text style={{ fontFamily: 'Helvetica-Bold' }}>Non-conformités constatées : </Text>{report.nonconformities}
-              </Text>
+              <View wrap={false}>
+                <Text style={[s.h2, { fontSize: 9 }]}>Annexe 2 · Photos et constats</Text>
+                <Text style={{ fontSize: 8.5, lineHeight: 1.4, marginBottom: 8 }}>
+                  <Text style={{ fontFamily: 'Helvetica-Bold' }}>Non-conformités constatées : </Text>{report.nonconformities}
+                </Text>
+              </View>
             )}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-              {photos.map((p) => (
-                <View key={p.key} style={{ width: '48.5%', marginBottom: 10 }} wrap={false}>
-                  <Image src={pdfImageSrc(p.url)} style={{ width: '100%', height: 170, objectFit: 'cover', borderRadius: 3 }} />
-                  <Text style={{ fontSize: 7.8, color: c.ink2, marginTop: 3 }}>{p.caption}</Text>
+            {photoGroups.map((g, gi) => (
+              // Les titres (annexe, constat) ne restent jamais seuls en bas de page : ils suivent les photos du constat
+              <View key={g.key} style={{ marginBottom: 10 }} wrap={g.photos.length > 6}>
+                {gi === 0 && !report.nonconformities && <Text style={[s.h2, { fontSize: 9 }]}>Annexe 2 · Photos et constats</Text>}
+                <Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold' }} minPresenceAhead={130}>{g.title}</Text>
+                {g.detail && <Text style={[s.small, { marginTop: 1 }]}>{g.detail}</Text>}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                  {g.photos.map((p) => (
+                    <View key={p.key} style={{ width: '32%' }} wrap={false}>
+                      <Image src={pdfImageSrc(p.url)} style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 3 }} />
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
+              </View>
+            ))}
           </View>
         )}
 
