@@ -1,8 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/relais/:path*",
-      "destination": "https://eu.i.posthog.com/:path*"
+      "source": "/relais/:chemin(.*)",
+      "destination": "https://eu.i.posthog.com/:chemin"
     },
     {
       "source": "/((?!assets/|relais/).*)",
