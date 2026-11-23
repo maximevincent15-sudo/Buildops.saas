@@ -4,10 +4,13 @@ import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './app/providers'
 import App from './App.tsx'
 import './index.css'
+import { initAnalytics } from './shared/lib/analytics'
 import { initMonitoring } from './shared/lib/monitoring'
 
 // Suivi des erreurs en production (inactif sans VITE_SENTRY_DSN)
 void initMonitoring()
+// Mesure d'usage sans cookie (inactive sans clé PostHog)
+void initAnalytics()
 
 // Après une mise en ligne, un onglet resté ouvert réclame d'anciens fichiers
 // (ex. le PDF du contrat) qui n'existent plus : on recharge la page une fois

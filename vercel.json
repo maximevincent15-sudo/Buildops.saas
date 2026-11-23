@@ -1,6 +1,13 @@
 {
   "rewrites": [
-    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+    {
+      "source": "/relais/:path*",
+      "destination": "https://eu.i.posthog.com/:path*"
+    },
+    {
+      "source": "/((?!assets/|relais/).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {

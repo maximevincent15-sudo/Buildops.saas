@@ -34,6 +34,7 @@ const NEVER_CACHE_HOSTS = [
   '_vercel/insights',
   '_vercel/speed-insights',
   'sentry.io',
+  '/relais/', // mesure d'usage (PostHog) via le relais du même domaine
 ];
 
 self.addEventListener('install', (event) => {

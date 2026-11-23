@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { fetchProfile } from '../features/auth/api'
 import { useAuthStore } from '../features/auth/store'
+import { setAnalyticsUser } from '../shared/lib/analytics'
 import { setMonitoringUser } from '../shared/lib/monitoring'
 import { readStoredSession, supabase } from '../shared/lib/supabase'
 import { clearUserCache, pruneResponses } from '../shared/lib/offline/db'
@@ -19,6 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profile = await fetchProfile(userId)
         setProfile(profile)
         setMonitoringUser({ id: userId, organizationId: profile?.organization_id ?? null })
+        setAnalyticsUser({ id: userId, organizationId: profile?.organization_id ?? null })
         // Fiche technicien du compte (reliée automatiquement si l'email correspond)
         const { data: techId } = await supabase.rpc('link_my_technician')
         setMyTechnicianId(typeof techId === 'string' ? techId : null)
@@ -67,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null)
         setMyTechnicianId(null)
         setMonitoringUser(null)
+        setAnalyticsUser(null)
       }
     })
 
