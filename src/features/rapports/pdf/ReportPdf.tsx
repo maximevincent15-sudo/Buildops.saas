@@ -495,7 +495,7 @@ function ReportPdfContent({
   const interventionEquipsLabel = formatEquipmentTypes(intervention.equipment_types)
 
   const dateLabel = (() => {
-    const d = safeParseDate(intervention.scheduled_date)
+    const d = safeParseDate(intervention.started_at || intervention.scheduled_date)
     return d ? format(d, 'd MMMM yyyy', { locale: fr }) : '—'
   })()
   const completedLabel = (() => {

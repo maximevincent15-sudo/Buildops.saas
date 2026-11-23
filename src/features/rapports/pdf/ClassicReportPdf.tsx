@@ -12,6 +12,7 @@ import type { ChecklistResponse } from '../schemas'
 import type { AnomalyPdfEntry, ReportPdfProps, UnitReportEntry } from './ReportPdf'
 import { clientInfoLines } from './clientInfo'
 import { FullPhotosPages } from './FullPhotosPages'
+import { visitDateSource } from './reportDates'
 
 /**
  * Rapport d'intervention au format « compte rendu de vérification
@@ -160,7 +161,7 @@ function ClassicReportPdfContent({
   const siteContact = [intervention.chantier_contact_name?.trim(), intervention.chantier_contact_phone?.trim()].filter(Boolean).join(' · ')
 
   // ─── Dates : du jour prévu au jour de clôture ───
-  const startLabel = frDate(intervention.scheduled_date) ?? frDate(report.completed_at)
+  const startLabel = frDate(visitDateSource(intervention, report))
   const endLabel = frDate(report.completed_at)
   const datesLabel = startLabel && endLabel && startLabel !== endLabel
     ? `du ${startLabel} au ${endLabel}`

@@ -14,6 +14,7 @@ import { pdfSafe } from './pdfText'
 import type { ReactNode } from 'react'
 import { clientInfoLines } from './clientInfo'
 import { FullPhotosPages } from './FullPhotosPages'
+import { visitDateSource } from './reportDates'
 
 /**
  * Rapport compact : la page 1 dit tout (résultat, points à traiter avec
@@ -48,6 +49,9 @@ const fmt = (input: string | null | undefined, pattern: string) => {
   return d ? format(d, pattern, { locale: fr }) : null
 }
 
+/** Assemble des morceaux de texte avec « · », sans les vides ni les espaces saisis en trop */
+const dot = (...parts: Array<string | null | undefined>) => parts.map((p) => p?.trim()).filter(Boolean).join(' · ')
+
 type TodoRow = { priority: 'high' | 'normal' | 'low'; what: string; where: string | null; problem: string; detail: string | null; action: string; due: string | null; previous?: boolean }
 
 const PRIORITY_STYLE: Record<TodoRow['priority'], { fg: string; bg: string }> = {
@@ -72,7 +76,7 @@ function familyGroups(entries: UnitReportEntry[]) {
 }
 
 const zoneLine = (e: { zoneName: string | null; parentZone: string | null; implantation: string | null }) =>
-  [e.parentZone, e.zoneName, e.implantation].filter(Boolean).join(' · ') || null
+  dot(e.parentZone, e.zoneName, e.implantation) || null
 
 /** Points vérifiés sur les points applicables, « — » si le verdict a été posé sans cocher */
 function pointsText(e: UnitReportEntry): string {
@@ -109,7 +113,7 @@ function CompactContent({
     todo.push({
       priority: a.anomaly.priority,
       what: [a.unitSerial, a.unitFamilyLabel].filter(Boolean).join(' · ') || 'Site',
-      where: [a.unitZoneName, a.unitImplantation].filter(Boolean).join(' · ') || null,
+      where: dot(a.unitZoneName, a.unitImplantation) || null,
       problem: a.anomaly.title,
       detail: a.anomaly.description,
       action: a.anomaly.action ? ANOMALY_ACTION_LABELS[a.anomaly.action] : '—',
@@ -129,7 +133,7 @@ function CompactContent({
     todo.push({
       priority: a.anomaly.priority,
       what: [a.unitSerial, a.unitFamilyLabel].filter(Boolean).join(' · ') || 'Site',
-      where: [a.unitZoneName, a.unitImplantation].filter(Boolean).join(' · ') || null,
+      where: dot(a.unitZoneName, a.unitImplantation) || null,
       problem: a.anomaly.title,
       detail: [since ? `Signalée le ${since}, toujours en attente` : 'Signalée lors d\'une visite précédente', today ?? a.anomaly.description].filter(Boolean).join(' · '),
       action: a.anomaly.action ? ANOMALY_ACTION_LABELS[a.anomaly.action] : '—',
@@ -170,7 +174,7 @@ function CompactContent({
     else pointListsMap.set(key, { key, name, points: e.pointLabels, count: 1 })
   }
   const pointLists = [...pointListsMap.values()]
-  const visitDate = fmt(report.completed_at ?? intervention.scheduled_date, 'd MMMM yyyy')
+  const visitDate = fmt(visitDateSource(intervention, report), 'd MMMM yyyy')
   const completedLabel = fmt(report.completed_at, "d MMMM yyyy 'à' HH:mm") ?? '—'
   const nextLabel = fmt(nextInterventionDate, 'd MMMM yyyy')
   const address = intervention.address
@@ -206,11 +210,8 @@ function CompactContent({
   const photoGroups = [
     ...anomalyEntries.filter((a) => a.anomaly.status !== 'closed').map((a, i) => ({
       key: `a-${i}`,
-      title: [a.unitSerial, a.anomaly.title].filter(Boolean).join(' · '),
-      detail: [
-        [a.unitZoneName, a.unitImplantation].filter(Boolean).join(' · '),
-        a.anomaly.action ? ANOMALY_ACTION_LABELS[a.anomaly.action] : null,
-      ].filter(Boolean).join(' · ') || null,
+      title: dot(a.unitSerial, a.anomaly.title),
+      detail: dot(a.unitZoneName, a.unitImplantation, a.anomaly.action ? ANOMALY_ACTION_LABELS[a.anomaly.action] : null) || null,
       photos: a.anomaly.photos.filter(firstTime).map((p) => ({ key: p.path, url: p.url })),
     })),
     { key: 'site', title: 'Photos du site', detail: null, photos: report.photos.filter(firstTime).map((p) => ({ key: p.path, url: p.url })) },
