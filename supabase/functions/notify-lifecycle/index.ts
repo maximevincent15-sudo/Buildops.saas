@@ -9,6 +9,9 @@
 //   1. stripe-webhook (pour les events Stripe : payment, cancellation…)
 //   2. cron pg_cron (pour les trials J-3 et expirés)
 //
+// Sécurité : seuls les appels de la base (en-tête x-internal-secret) ou
+// d'une autre fonction (clé service) sont acceptés, voir _shared/internalAuth.ts.
+//
 // Payload attendu :
 //   { kind: 'trial_ending_soon' | 'trial_expired' | 'subscription_activated'
 //         | 'subscription_canceled' | 'payment_failed',
@@ -17,6 +20,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 import { checkRateLimit } from '../_shared/rateLimit.ts'
+import { isInternalCall, unauthorized } from '../_shared/internalAuth.ts'
 
 type EventKind =
   | 'trial_ending_soon'
@@ -175,6 +179,13 @@ async function sendToOrgAdmins(
 
 serve(async (req) => {
   try {
+    // Appel réservé à la base de données et à stripe-webhook
+    const internalAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    )
+    if (!(await isInternalCall(req, internalAdmin))) return unauthorized()
+
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
     const RESEND_FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'contact@firovia.fr'
     const RESEND_FROM_NAME = Deno.env.get('RESEND_FROM_NAME') ?? 'Firovia'
@@ -303,17 +314,17 @@ Notification automatique Firovia.`
     const htmlBody = `
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;">
   <div style="background:${meta.color};color:white;padding:20px;border-radius:8px 8px 0 0;">
-    <h1 style="margin:0;font-size:22px;">${meta.emoji} ${subject.replace(meta.emoji + ' ', '')}</h1>
+    <h1 style="margin:0;font-size:22px;">${meta.emoji} ${escapeHtml(subject.replace(meta.emoji + ' ', ''))}</h1>
   </div>
   <div style="background:#F8F9FA;padding:20px;border-radius:0 0 8px 8px;border:1px solid #E1E5EA;border-top:none;">
     <table style="width:100%;border-collapse:collapse;">
-      <tr><td style="padding:6px 0;color:#666;width:120px;">Entreprise</td><td style="padding:6px 0;font-weight:600;">${orgName}</td></tr>
-      <tr><td style="padding:6px 0;color:#666;">SIRET</td><td style="padding:6px 0;">${siret}</td></tr>
-      <tr><td style="padding:6px 0;color:#666;">Contact</td><td style="padding:6px 0;">${contactName}</td></tr>
-      <tr><td style="padding:6px 0;color:#666;">Email</td><td style="padding:6px 0;"><a href="mailto:${userEmail}" style="color:#1E3A5F;">${userEmail}</a></td></tr>
-      <tr><td style="padding:6px 0;color:#666;">Plan</td><td style="padding:6px 0;">${planLabel}</td></tr>
-      <tr><td style="padding:6px 0;color:#666;">Statut</td><td style="padding:6px 0;">${sub?.status ?? '—'}</td></tr>
-      <tr><td style="padding:6px 0;color:#666;">Fin trial</td><td style="padding:6px 0;">${trialEnd}</td></tr>
+      <tr><td style="padding:6px 0;color:#666;width:120px;">Entreprise</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(orgName)}</td></tr>
+      <tr><td style="padding:6px 0;color:#666;">SIRET</td><td style="padding:6px 0;">${escapeHtml(siret)}</td></tr>
+      <tr><td style="padding:6px 0;color:#666;">Contact</td><td style="padding:6px 0;">${escapeHtml(contactName)}</td></tr>
+      <tr><td style="padding:6px 0;color:#666;">Email</td><td style="padding:6px 0;"><a href="mailto:${escapeHtml(userEmail)}" style="color:#1E3A5F;">${escapeHtml(userEmail)}</a></td></tr>
+      <tr><td style="padding:6px 0;color:#666;">Plan</td><td style="padding:6px 0;">${escapeHtml(planLabel)}</td></tr>
+      <tr><td style="padding:6px 0;color:#666;">Statut</td><td style="padding:6px 0;">${escapeHtml(sub?.status ?? '—')}</td></tr>
+      <tr><td style="padding:6px 0;color:#666;">Fin trial</td><td style="padding:6px 0;">${escapeHtml(trialEnd)}</td></tr>
     </table>
   </div>
   <div style="margin-top:20px;padding:16px;background:#FFF9E6;border-left:3px solid ${meta.color};border-radius:4px;">
@@ -388,13 +399,13 @@ Notification automatique Firovia.`
     }
 
     return new Response(
-      JSON.stringify({ success: true, kind: body.kind, orgName, customerEmails }),
+      JSON.stringify({ success: true, kind: body.kind, customerEmails }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     )
   } catch (e) {
     console.error('[notify-lifecycle] internal error', e)
     return new Response(
-      JSON.stringify({ error: 'internal_error', message: e instanceof Error ? e.message : String(e) }),
+      JSON.stringify({ error: 'internal_error' }),
       { status: 500 },
     )
   }

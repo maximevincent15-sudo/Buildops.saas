@@ -21,12 +21,23 @@
 //   3. Save
 //
 // (--no-verify-jwt car appelé par la DB via webhook interne, pas par un user)
+// Sécurité : seuls les appels de la base (en-tête x-internal-secret) ou
+// d'une autre fonction (clé service) sont acceptés, voir _shared/internalAuth.ts.
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
+import { escapeHtml, isInternalCall, unauthorized } from '../_shared/internalAuth.ts'
 
 serve(async (req) => {
   try {
+    // Client admin (bypass RLS) pour lire org + email user
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    )
+    // Appel réservé à la base de données (sinon n'importe qui pourrait inonder contact@)
+    if (!(await isInternalCall(req, supabase))) return unauthorized()
+
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
     const RESEND_FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'contact@firovia.fr'
     const RESEND_FROM_NAME = Deno.env.get('RESEND_FROM_NAME') ?? 'Firovia'
@@ -44,12 +55,6 @@ serve(async (req) => {
       console.warn('[notify-signup] payload invalide', body)
       return new Response(JSON.stringify({ error: 'invalid_payload' }), { status: 400 })
     }
-
-    // Client admin (bypass RLS) pour lire org + email user
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    )
 
     // Récupère les infos de l'organisation
     const { data: org } = await supabase
@@ -109,11 +114,11 @@ Firovia`
 
   <div style="background: #F8F9FA; padding: 20px; border-radius: 0 0 8px 8px; border: 1px solid #E1E5EA; border-top: none;">
     <table style="width: 100%; border-collapse: collapse;">
-      <tr><td style="padding: 6px 0; color: #666; width: 120px;">Entreprise</td><td style="padding: 6px 0; font-weight: 600;">${orgName}</td></tr>
-      <tr><td style="padding: 6px 0; color: #666;">SIRET</td><td style="padding: 6px 0;">${siret}</td></tr>
-      <tr><td style="padding: 6px 0; color: #666;">Contact</td><td style="padding: 6px 0;">${fullName}</td></tr>
-      <tr><td style="padding: 6px 0; color: #666;">Email</td><td style="padding: 6px 0;"><a href="mailto:${userEmail}" style="color: #1E3A5F;">${userEmail}</a></td></tr>
-      <tr><td style="padding: 6px 0; color: #666;">Inscrit le</td><td style="padding: 6px 0;">${createdAt}</td></tr>
+      <tr><td style="padding: 6px 0; color: #666; width: 120px;">Entreprise</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(orgName)}</td></tr>
+      <tr><td style="padding: 6px 0; color: #666;">SIRET</td><td style="padding: 6px 0;">${escapeHtml(siret)}</td></tr>
+      <tr><td style="padding: 6px 0; color: #666;">Contact</td><td style="padding: 6px 0;">${escapeHtml(fullName)}</td></tr>
+      <tr><td style="padding: 6px 0; color: #666;">Email</td><td style="padding: 6px 0;"><a href="mailto:${escapeHtml(userEmail)}" style="color: #1E3A5F;">${escapeHtml(userEmail)}</a></td></tr>
+      <tr><td style="padding: 6px 0; color: #666;">Inscrit le</td><td style="padding: 6px 0;">${escapeHtml(createdAt)}</td></tr>
     </table>
   </div>
 
@@ -164,7 +169,7 @@ Firovia`
   } catch (e) {
     console.error('[notify-signup] internal error', e)
     return new Response(
-      JSON.stringify({ error: 'internal_error', message: e instanceof Error ? e.message : String(e) }),
+      JSON.stringify({ error: 'internal_error' }),
       { status: 500 },
     )
   }

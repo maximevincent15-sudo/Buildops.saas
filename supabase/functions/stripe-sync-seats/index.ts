@@ -26,6 +26,7 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 import Stripe from 'https://esm.sh/stripe@17.5.0?target=deno'
 import { checkRateLimit } from '../_shared/rateLimit.ts'
+import { isInternalCall, unauthorized } from '../_shared/internalAuth.ts'
 
 interface RequestBody {
   organization_id?: string
@@ -77,6 +78,14 @@ async function syncOne(stripe: Stripe, supabase, sub: { organization_id: string;
 
 serve(async (req) => {
   if (req.method !== 'POST') return jsonResponse({ error: 'method_not_allowed' }, 405)
+
+  // Appel réservé à la base (request_seat_sync, cron de 4 h) : sinon n'importe
+  // qui pourrait lister les clients payants ou solliciter Stripe en boucle
+  const internalAdmin = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+  )
+  if (!(await isInternalCall(req, internalAdmin))) return unauthorized()
 
   const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')
   if (!STRIPE_SECRET_KEY) return jsonResponse({ error: 'stripe_not_configured' }, 503)
@@ -130,5 +139,8 @@ serve(async (req) => {
     }
   }
 
-  return jsonResponse({ synced: results }, 200)
+  // Le détail (identifiants d'entreprises) reste dans les journaux, jamais dans la réponse
+  const failed = results.filter((r) => 'error' in r).length
+  if (results.length > 0) console.log('[stripe-sync-seats] synchronisés', results)
+  return jsonResponse({ ok: failed === 0, count: results.length, failed }, 200)
 })

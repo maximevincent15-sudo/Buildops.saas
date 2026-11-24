@@ -72,6 +72,22 @@ function senderName(orgName: string | null | undefined, fallback: string): strin
 /** Destinataires au plus par envoi (gardien + syndic + comptabilité…) */
 const MAX_RECIPIENTS = 10
 
+// ─── Garde-fous anti-abus par entreprise (audit de sécurité du 24/11/2026) ───
+// Sans eux, un compte d'essai jetable pourrait envoyer des mails rédigés
+// librement à n'importe qui depuis noreply@firovia.fr (hameçonnage, liste
+// noire du domaine, suspension de Resend). En cas de dépassement, l'app
+// ouvre la messagerie de l'utilisateur (mailto) : il n'est jamais bloqué.
+/** Envois par jour et par entreprise (abonnement payé / essai) */
+const ORG_DAILY_LIMIT = { paid: 300, trial: 60 }
+/** Adresses jamais vues par l'entreprise (ni fiche client, ni envoi précédent), par jour */
+const NEW_RECIPIENT_DAILY_LIMIT = { paid: 50, trial: 10 }
+
+/** Pied de mail fixe : le destinataire sait qui écrit et par quel outil */
+function footerFor(orgName: string | null | undefined): string {
+  const name = (orgName ?? '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
+  return `\n\n—\nMessage envoyé par ${name || 'votre prestataire'} via Firovia. Pour lui répondre, répondez simplement à ce mail.`
+}
+
 /** « a@x.fr, b@y.fr ; c@z.fr » → adresses distinctes, ou null si l'une est invalide */
 function parseRecipients(raw: unknown): string[] | null {
   const list = Array.from(new Set(
@@ -236,6 +252,59 @@ serve(async (req) => {
     const replyTo = [legalEmail, user.email].find((e) => e && EMAIL_RE.test(e)) ?? null
     const fromName = senderName(profile?.organizations?.name, RESEND_FROM_NAME)
 
+    // ─── Limites par entreprise ───
+    const orgId = profile?.organization_id
+    if (!orgId) {
+      return new Response(
+        JSON.stringify({ error: 'no_organization' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+    const { data: sub } = await adminClient
+      .from('subscriptions')
+      .select('status')
+      .eq('organization_id', orgId)
+      .maybeSingle()
+    const tier = sub?.status === 'active' || sub?.status === 'past_due' ? 'paid' : 'trial'
+    const rlOrgDay = await checkRateLimit(adminClient, {
+      bucket: `send-email:org:${orgId}:1d`,
+      limit: ORG_DAILY_LIMIT[tier],
+      windowSeconds: 86400,
+    })
+    if (!rlOrgDay.ok) {
+      return new Response(
+        JSON.stringify({ error: 'rate_limited_daily', retry_after_s: rlOrgDay.retryAfterS }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rlOrgDay.retryAfterS ?? 3600) } },
+      )
+    }
+    // Adresses déjà connues de l'entreprise : fiches clients (et adresses
+    // supplémentaires), techniciens, adresse légale, documents déjà envoyés.
+    // Les autres sont acceptées, mais en nombre limité par jour.
+    const { data: knownList, error: knownErr } = await adminClient.rpc('known_recipient_emails', {
+      p_org: orgId,
+      p_emails: recipients,
+    })
+    if (knownErr) console.warn('[send-document-email] adresses connues illisibles', knownErr.message)
+    const known = new Set(
+      [...(Array.isArray(knownList) ? knownList : []), user.email, legalEmail]
+        .filter((e) => typeof e === 'string' && e)
+        .map((e) => String(e).trim().toLowerCase()),
+    )
+    for (const email of recipients) {
+      if (known.has(email)) continue
+      const rlNew = await checkRateLimit(adminClient, {
+        bucket: `send-email:org:${orgId}:new-recipient:1d`,
+        limit: NEW_RECIPIENT_DAILY_LIMIT[tier],
+        windowSeconds: 86400,
+      })
+      if (!rlNew.ok) {
+        return new Response(
+          JSON.stringify({ error: 'new_recipient_limit', retry_after_s: rlNew.retryAfterS }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rlNew.retryAfterS ?? 3600) } },
+        )
+      }
+    }
+
     // PDF : uniquement depuis le stockage de ce projet (jamais une adresse
     // quelconque), lu avec les droits de l'utilisateur : fichiers privés
     // (bucket « documents ») compris, limités à son entreprise.
@@ -290,8 +359,8 @@ serve(async (req) => {
         from: `${fromName} <${RESEND_FROM_EMAIL}>`,
         reply_to: replyTo ?? undefined,
         to: recipients,
-        subject: payload.subject,
-        text: payload.body,
+        subject: String(payload.subject ?? '').replace(/[\r\n]+/g, ' ').slice(0, 200),
+        text: `${String(payload.body ?? '').slice(0, 20000)}${footerFor(profile?.organizations?.name)}`,
         attachments: attachments.length > 0 ? attachments : undefined,
       }),
     })

@@ -116,6 +116,30 @@ serve(async (req) => {
     const { data: i } = await userClient.from('interventions').select('*').eq('id', interventionId).maybeSingle()
     if (!i) return respond({ error: 'intervention_not_found' }, 404, cors)
 
+    // Limite par entreprise (audit de sécurité du 24/11/2026) : l'adresse d'un
+    // technicien est saisie librement, la fonction ne doit pas servir à
+    // envoyer des mails en masse depuis noreply@firovia.fr
+    const { data: sub } = await admin
+      .from('subscriptions')
+      .select('status')
+      .eq('organization_id', i.organization_id)
+      .maybeSingle()
+    const paid = sub?.status === 'active' || sub?.status === 'past_due'
+    const rlOrg = await checkRateLimit(admin, {
+      bucket: `notify-team:org:${i.organization_id}:1h`,
+      limit: paid ? 150 : 30,
+      windowSeconds: 3600,
+    })
+    if (!rlOrg.ok) return respond({ error: 'rate_limited', retry_after_s: rlOrg.retryAfterS }, 429, cors)
+    if (!paid) {
+      const rlDay = await checkRateLimit(admin, {
+        bucket: `notify-team:org:${i.organization_id}:1d`,
+        limit: 100,
+        windowSeconds: 86400,
+      })
+      if (!rlDay.ok) return respond({ error: 'rate_limited', retry_after_s: rlDay.retryAfterS }, 429, cors)
+    }
+
     const { data: org } = await admin
       .from('organizations')
       .select('name, notify_technicians, notify_admins_reports')

@@ -6,6 +6,9 @@
 // PDF des rapports et des factures sont privés : cette fonction vérifie le
 // jeton (actif, non révoqué, non expiré), vérifie que le document est bien
 // celui du client du jeton, puis renvoie un lien temporaire (10 min).
+// Le document et le fichier doivent aussi appartenir à l'entreprise du
+// jeton : sans cela, un compte d'essai pourrait faire signer le chemin d'un
+// fichier d'une autre entreprise (audit de sécurité du 24/11/2026).
 //
 // Déploiement : supabase functions deploy portal-file --no-verify-jwt
 
@@ -94,6 +97,7 @@ serve(async (req) => {
       .from('reports')
       .select('pdf_url, completed_at, interventions!inner(client_id)')
       .eq('id', id)
+      .eq('organization_id', tok.organization_id)
       .eq('interventions.client_id', tok.client_id)
       .maybeSingle()
     if (data?.completed_at) pdfUrl = data.pdf_url
@@ -102,6 +106,7 @@ serve(async (req) => {
       .from('invoices')
       .select('pdf_url, status')
       .eq('id', id)
+      .eq('organization_id', tok.organization_id)
       .eq('client_id', tok.client_id)
       .maybeSingle()
     if (data && data.status !== 'draft' && data.status !== 'cancelled') pdfUrl = data.pdf_url
@@ -110,6 +115,9 @@ serve(async (req) => {
   const projectHost = (() => { try { return new URL(supabaseUrl).host } catch { return '' } })()
   const loc = storageLocation(pdfUrl, projectHost)
   if (!loc) return json({ error: 'not_found' }, 404, corsHeaders)
+  // Les fichiers sont rangés par entreprise (« <organization_id>/… ») : on ne
+  // signe jamais un fichier rangé ailleurs que dans l'entreprise du jeton
+  if (!loc.path.startsWith(`${tok.organization_id}/`)) return json({ error: 'not_found' }, 404, corsHeaders)
   // Ancien PDF encore public : son adresse suffit
   if (loc.isPublic) return json({ url: pdfUrl }, 200, corsHeaders)
 
