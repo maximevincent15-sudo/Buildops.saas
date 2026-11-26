@@ -255,6 +255,12 @@ export function EquipePage() {
                 )}
               </span>
             )}
+            {!loading && subscription?.status === 'trialing' && (
+              <span style={{ marginLeft: 8, color: 'var(--ink3)' }}>
+                · Pendant l'essai, le nombre de comptes n'est pas limité. À l'abonnement, chaque formule inclut un compte
+                par technicien facturé + ses comptes bureau (2 en Essentiel, 5 en Pro).
+              </span>
+            )}
           </div>
         </div>
         <div className="dash-acts">

@@ -1,4 +1,5 @@
-import { Check, FileDown } from 'lucide-react'
+import { AlertTriangle, Check, FileDown } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import type { BillingPeriod, PlanOffer, Plan } from '../schemas'
 import { SEAT_DISCOUNT_FROM, billedSeats, computePlanTotal, computeYearlySavings } from '../constants'
 
@@ -7,6 +8,8 @@ interface Props {
   period: BillingPeriod
   /** Techniciens actifs de l'organisation (base du montant estimé) */
   technicians: number
+  /** Comptes de l'équipe (membres + invitations en attente) ; null = inconnu */
+  accounts?: number | null
   currentPlan: Plan | null
   currentPeriod: BillingPeriod | null
   onChoose: (priceId: string, plan: Plan, period: BillingPeriod) => void
@@ -16,13 +19,18 @@ interface Props {
   quoteLoading?: boolean
 }
 
-export function PlanCard({ offer, period, technicians, currentPlan, currentPeriod, onChoose, loading, onDownloadQuote, quoteLoading }: Props) {
+export function PlanCard({ offer, period, technicians, accounts = null, currentPlan, currentPeriod, onChoose, loading, onDownloadQuote, quoteLoading }: Props) {
   const price = offer.prices[period]
   const isCurrent = currentPlan === offer.plan && currentPeriod === period
   const unavailable = !price.priceId
   const seats = billedSeats(offer, technicians)
   const total = computePlanTotal(offer, period, technicians)
   const savings = period === 'yearly' ? computeYearlySavings(offer, technicians) : 0
+  // Comptes inclus (CGV art. 4) : un par technicien facturé + comptes bureau.
+  // Plus de comptes que ça : déclarer des techniciens ou retirer des comptes avant
+  const accountLimit = seats + offer.officeAccounts
+  const missingSeats = accounts !== null && accounts > accountLimit ? accounts - accountLimit : 0
+  const blockedByAccounts = !isCurrent && missingSeats > 0
 
   const borderColor = offer.accent ? 'var(--acc, #3A5CA8)' : 'var(--brd, #E1E5EA)'
   const buttonLabel = isCurrent
@@ -147,6 +155,30 @@ export function PlanCard({ offer, period, technicians, currentPlan, currentPerio
         ))}
       </ul>
 
+      {blockedByAccounts && (
+        <div style={{
+          display: 'flex',
+          gap: 8,
+          alignItems: 'flex-start',
+          background: '#FFF6E5',
+          border: '1px solid #F2D49B',
+          borderRadius: 8,
+          padding: '.6rem .7rem',
+          fontSize: '.8rem',
+          lineHeight: 1.45,
+          color: 'var(--ink)',
+          marginBottom: '.7rem',
+        }}>
+          <AlertTriangle size={14} strokeWidth={2} color="#A86400" style={{ marginTop: 2, flexShrink: 0 }} />
+          <span>
+            Votre équipe compte {accounts} comptes : cette formule en inclut {accountLimit} (un par technicien
+            facturé + {offer.officeAccounts} comptes bureau). Ajoutez {missingSeats} technicien{missingSeats > 1 ? 's' : ''} actif{missingSeats > 1 ? 's' : ''}{' '}
+            dans <Link to="/techniciens">Techniciens</Link> (facturé{missingSeats > 1 ? 's' : ''}), ou retirez des comptes dans{' '}
+            <Link to="/equipe">Équipe</Link>.
+          </span>
+        </div>
+      )}
+
       <button
         type="button"
         className={`btn-sm ${offer.accent && !isCurrent ? 'acc' : ''}`}
@@ -155,11 +187,11 @@ export function PlanCard({ offer, period, technicians, currentPlan, currentPerio
           padding: '.7rem 1rem',
           fontSize: '.9rem',
           fontWeight: 600,
-          cursor: isCurrent || loading || unavailable ? 'default' : 'pointer',
-          opacity: isCurrent || unavailable ? 0.5 : 1,
+          cursor: isCurrent || loading || unavailable || blockedByAccounts ? 'default' : 'pointer',
+          opacity: isCurrent || unavailable || blockedByAccounts ? 0.5 : 1,
         }}
-        onClick={() => !isCurrent && !loading && !unavailable && onChoose(price.priceId, offer.plan, period)}
-        disabled={isCurrent || loading || unavailable}
+        onClick={() => !isCurrent && !loading && !unavailable && !blockedByAccounts && onChoose(price.priceId, offer.plan, period)}
+        disabled={isCurrent || loading || unavailable || blockedByAccounts}
       >
         {loading ? 'Redirection…' : unavailable ? 'Bientôt disponible' : buttonLabel}
       </button>

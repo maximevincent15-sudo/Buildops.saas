@@ -22,6 +22,7 @@ import { useSubscription } from '../features/billing/hooks'
 import { InterventionModal } from '../features/planning/components/InterventionModal'
 import { cancelInterventionStart, setInterventionStatus } from '../features/planning/api'
 import { INTERVENTION_TYPE_LABELS, normalizeIntervention } from '../features/planning/schemas'
+import { technicianFullName } from '../features/technicians/schemas'
 import { interventionAddress } from '../features/planning/address'
 import type { CreateInterventionInput, Intervention } from '../features/planning/schemas'
 import { HistoricalVisitCard } from '../features/rapports/components/HistoricalVisitCard'
@@ -134,7 +135,7 @@ export function RapportEditorPage() {
   const { interventionId } = useParams<{ interventionId: string }>()
   const navigate = useNavigate()
   const profile = useAuthStore((s) => s.profile)
-  const { limits } = useSubscription()
+  const { limits, subscription } = useSubscription()
 
   const [intervention, setIntervention] = useState<Intervention | null>(null)
   // Démarrer depuis le rapport préparé, ou annuler un démarrage par erreur
@@ -206,6 +207,34 @@ export function RapportEditorPage() {
   const [uncheckedUnits, setUncheckedUnits] = useState<UncheckedUnitItem[] | null>(null)
   const [notCheckedOpen, setNotCheckedOpen] = useState(false)
   const [notCheckedReason, setNotCheckedReason] = useState<string>(NOT_CHECKED_REASONS[0])
+  // Abonnement payant par technicien : la visite doit être attribuée à un
+  // technicien actif avant la finalisation (CGV art. 4 : toute personne qui
+  // réalise des interventions est un technicien actif). Pas pendant l'essai.
+  const myTechnicianId = useAuthStore((s) => s.myTechnicianId)
+  const technicianRequired = !!subscription?.seat_based && ['active', 'past_due'].includes(subscription.status)
+  const [activeTechs, setActiveTechs] = useState<Array<{ id: string; first_name: string; last_name: string }> | null>(null)
+  const [techPickOpen, setTechPickOpen] = useState(false)
+  const [techPickId, setTechPickId] = useState('')
+  const [techPickSaving, setTechPickSaving] = useState(false)
+  useEffect(() => {
+    let alive = true
+    supabase
+      .from('technicians')
+      .select('id, first_name, last_name')
+      .eq('active', true)
+      .order('last_name', { ascending: true })
+      .then(
+        ({ data, error }) => {
+          if (alive) setActiveTechs(error ? null : ((data ?? []) as Array<{ id: string; first_name: string; last_name: string }>))
+        },
+        () => {
+          if (alive) setActiveTechs(null)
+        },
+      )
+    return () => {
+      alive = false
+    }
+  }, [])
   const [unitsReloadKey, setUnitsReloadKey] = useState(0)
   // Rapport appareil par appareil : la checklist d'ensemble est facultative, repliée
   const [globalChecklistOpen, setGlobalChecklistOpen] = useState(false)
@@ -727,6 +756,17 @@ export function RapportEditorPage() {
       )
       return
     }
+    // Visite attribuée à un technicien actif : son nom figure sur le rapport.
+    // Liste des techniciens indisponible (hors ligne, jamais chargée) : on ne bloque pas.
+    if (technicianRequired && activeTechs !== null) {
+      const assigned = !!intervention?.technician_id && activeTechs.some((t) => t.id === intervention.technician_id)
+      if (!assigned) {
+        const mine = myTechnicianId && activeTechs.some((t) => t.id === myTechnicianId) ? myTechnicianId : ''
+        setTechPickId(mine || activeTechs[0]?.id || '')
+        setTechPickOpen(true)
+        return
+      }
+    }
     // Rapport équipement par équipement : la checklist d'ensemble est facultative. Les
     // équipements sans contrôle sont traités à la fin (fenêtre « non contrôlés »).
     const unanswered = globalSummary.total - globalSummary.answered
@@ -770,6 +810,31 @@ export function RapportEditorPage() {
       return
     }
     await runFinalize()
+  }
+
+  /** Fenêtre « qui a réalisé la visite ? » : attribue la visite (puis l'utilisateur finalise) */
+  async function handleConfirmTechnician() {
+    const tech = activeTechs?.find((t) => t.id === techPickId)
+    if (!tech) return
+    const name = technicianFullName(tech)
+    setTechPickSaving(true)
+    setError(null)
+    try {
+      const { error: assignErr } = await supabase
+        .from('interventions')
+        .update({ technician_id: tech.id, technician_name: name })
+        .eq('id', iid)
+      if (assignErr) throw assignErr
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur inconnue')
+      setTechPickSaving(false)
+      return
+    }
+    setIntervention((prev) => (prev ? { ...prev, technician_id: tech.id, technician_name: name } : prev))
+    setTechPickSaving(false)
+    setTechPickOpen(false)
+    setFlash(`Visite attribuée à ${name}. Touchez « Finaliser » pour terminer.`)
+    setTimeout(() => setFlash(null), 4000)
   }
 
   /** Fenêtre « non contrôlés » : marque les équipements non vérifiés puis finalise */
@@ -1832,6 +1897,49 @@ export function RapportEditorPage() {
                 <button type="button" className="mf prim" onClick={() => void handleConfirmNotChecked()} disabled={saving}>
                   {saving ? 'Finalisation…' : 'Marquer non vérifiés et finaliser'}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fenêtre « qui a réalisé la visite ? » avant la finalisation */}
+      {techPickOpen && activeTechs && (
+        <div className="overlay open">
+          <div className="modal" style={{ maxWidth: 480 }}>
+            <div className="modal-head">
+              <span className="modal-title">Qui a réalisé cette visite ?</span>
+              <button type="button" className="modal-x" onClick={() => setTechPickOpen(false)} disabled={techPickSaving} aria-label="Fermer">×</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <p className="text-ink-2 text-sm font-light" style={{ margin: 0 }}>
+                Pour finaliser le rapport, la visite doit être attribuée à un technicien actif : son nom figure sur le
+                rapport envoyé au client.
+              </p>
+              {activeTechs.length === 0 ? (
+                <p className="text-ink-2 text-sm font-light" style={{ margin: 0 }}>
+                  Aucun technicien actif pour l'instant. Ajoutez-le d'abord dans{' '}
+                  <Link to="/techniciens">Techniciens</Link>, puis revenez finaliser.
+                </p>
+              ) : (
+                <div className="fg">
+                  <label>Technicien</label>
+                  <select value={techPickId} onChange={(e) => setTechPickId(e.target.value)} disabled={techPickSaving}>
+                    {activeTechs.map((t) => (
+                      <option key={t.id} value={t.id}>{technicianFullName(t)}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="modal-foot">
+                <button type="button" className="mf out" onClick={() => setTechPickOpen(false)} disabled={techPickSaving}>
+                  Annuler
+                </button>
+                {activeTechs.length > 0 && (
+                  <button type="button" className="mf prim" onClick={() => void handleConfirmTechnician()} disabled={techPickSaving || !techPickId}>
+                    {techPickSaving ? 'Enregistrement…' : 'Attribuer la visite'}
+                  </button>
+                )}
               </div>
             </div>
           </div>

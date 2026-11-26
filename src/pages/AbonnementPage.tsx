@@ -4,7 +4,7 @@ import { AlertTriangle, ExternalLink, CheckCircle2, XCircle } from 'lucide-react
 import { useAuthStore } from '../features/auth/store'
 import { useSubscription } from '../features/billing/hooks'
 import { CGV_URL, CGV_VERSION, PLAN_LABELS, PLAN_OFFERS } from '../features/billing/constants'
-import { countActiveTechnicians, createCheckoutSession, createPortalSession } from '../features/billing/api'
+import { countActiveTechnicians, countTeamAccounts, createCheckoutSession, createPortalSession } from '../features/billing/api'
 import { InvoicesList } from '../features/billing/components/InvoicesList'
 import { PlanCard } from '../features/billing/components/PlanCard'
 import type { BillingPeriod, Plan } from '../features/billing/schemas'
@@ -35,9 +35,13 @@ export function AbonnementPage() {
   const [cgvHighlight, setCgvHighlight] = useState(false)
   const [statusToast, setStatusToast] = useState<'success' | 'canceled' | null>(null)
   const [technicians, setTechnicians] = useState(0)
+  // Comptes de l'équipe (membres + invitations en attente) : une formule n'est
+  // proposée que si elle couvre tous les comptes (CGV art. 4)
+  const [accounts, setAccounts] = useState<number | null>(null)
 
   useEffect(() => {
     countActiveTechnicians().then(setTechnicians, () => setTechnicians(0))
+    countTeamAccounts().then(setAccounts, () => setAccounts(null))
   }, [])
 
   // Gestion du retour depuis Stripe Checkout (?status=success|canceled)
@@ -334,6 +338,7 @@ export function AbonnementPage() {
               offer={offer}
               period={period}
               technicians={technicians}
+              accounts={accounts}
               currentPlan={isBlocked || unpaidStart || (subscription?.stripe_subscription_id && !subscription.seat_based) ? null : subscription?.plan ?? null}
               currentPeriod={subscription?.billing_period ?? null}
               onChoose={handleChoose}

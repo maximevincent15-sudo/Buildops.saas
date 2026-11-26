@@ -65,6 +65,16 @@ const SELF_SERVE_PRICES = new Set([
   'price_1UQ19a2KbFmYQD88wfLBT8Ap', // Pro annuel par technicien
 ])
 
+// Minimum facturé et comptes bureau inclus de chaque formule (CGV art. 4),
+// alignés sur PLAN_OFFERS (src/features/billing/constants.ts) et
+// account_limit_for_org (SQL)
+const PRICE_OFFERS: Record<string, { minSeats: number; officeAccounts: number }> = {
+  'price_1UQ13C2KbFmYQD88IgXAJzkb': { minSeats: 2, officeAccounts: 2 }, // Essentiel mensuel
+  'price_1UQ15a2KbFmYQD88Yv284sG1': { minSeats: 2, officeAccounts: 2 }, // Essentiel annuel
+  'price_1UQ18Y2KbFmYQD88467baI77': { minSeats: 3, officeAccounts: 5 }, // Pro mensuel
+  'price_1UQ19a2KbFmYQD88wfLBT8Ap': { minSeats: 3, officeAccounts: 5 }, // Pro annuel
+}
+
 interface RequestBody {
   priceId: string
   /** Version des CGV acceptée par le client (case cochée sur /abonnement) */
@@ -155,6 +165,37 @@ serve(async (req) => {
       .eq('organization_id', profile.organization_id)
       .eq('active', true)
     const quantity = Math.max(1, activeTechnicians ?? 0)
+
+    // Comptes autorisés avec cette formule (CGV art. 4) : un par technicien
+    // facturé + les comptes bureau inclus. Pendant l'essai il n'y a pas de
+    // limite, et les comptes ouverts ne sont jamais retirés : avant de
+    // souscrire, l'entreprise déclare ses techniciens (facturés) ou retire
+    // des comptes. Même règle pour un changement de formule.
+    const offer = PRICE_OFFERS[priceId]
+    if (offer) {
+      const [{ count: members }, { count: pending }] = await Promise.all([
+        adminClient
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', profile.organization_id),
+        adminClient
+          .from('organization_invitations')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', profile.organization_id)
+          .is('accepted_at', null)
+          .is('cancelled_at', null)
+          .gt('expires_at', new Date().toISOString()),
+      ])
+      const accounts = (members ?? 0) + (pending ?? 0)
+      const accountLimit = Math.max(offer.minSeats, activeTechnicians ?? 0) + offer.officeAccounts
+      if (accounts > accountLimit) {
+        return jsonResponse(
+          { error: 'too_many_accounts', accounts, account_limit: accountLimit, missing_technicians: accounts - accountLimit },
+          409,
+          corsHeaders,
+        )
+      }
+    }
 
     // Preuve d'acceptation des CGV (art. 18 CGV) : version + date + auteur
     const cgvMetadata = {
