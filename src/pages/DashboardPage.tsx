@@ -227,7 +227,7 @@ export function DashboardPage() {
           <div className="b-section-head">
             <div>
               <div className="b-section-h">Pilotage business</div>
-              <div className="b-section-s">Top clients et top techniciens par CA facturé</div>
+              <div className="b-section-s">Top clients et CA de chaque technicien</div>
             </div>
           </div>
           <div className="b-grid-2">
@@ -239,10 +239,10 @@ export function DashboardPage() {
               barColor="var(--acc)"
             />
             <TopBarsChart
-              title="Top 5 techniciens"
-              subtitle="Par CA facturé sur leurs interventions"
+              title="Techniciens"
+              subtitle="CA facturé sur leurs interventions"
               items={bizStats.topTechnicians}
-              emptyMessage="Aucune facture liée à une intervention avec technicien assigné."
+              emptyMessage="Aucun technicien. Ajoutez vos techniciens pour suivre leur CA."
               barColor="var(--grn)"
             />
           </div>

@@ -50,7 +50,8 @@ export function TopBarsChart({ title, subtitle, items, emptyMessage, barColor }:
           {emptyMessage ?? 'Aucune donnée pour le moment.'}
         </p>
       ) : (
-        <div className="b-list">
+        // Liste longue (tous les techniciens) : défilement au-delà d'environ 8 lignes
+        <div className="b-list" style={{ maxHeight: 440, overflowY: 'auto' }}>
           {items.map((item, i) => {
             const pct = total > 0 ? Math.round((item.amount / total) * 100) : 0
             const avatarBg = i === 0 ? (barColor ?? 'var(--acc)') : palette[i % palette.length]

@@ -7,6 +7,9 @@ import { listInterventions } from '../planning/api'
 import type { Intervention } from '../planning/schemas'
 import { supabase } from '../../shared/lib/supabase'
 import { listVisitsToInvoice } from '../factures/visitBilling'
+import { listTechnicians } from '../technicians/api'
+import { technicianFullName } from '../technicians/schemas'
+import type { Technician } from '../technicians/schemas'
 
 export type BusinessStats = {
   // KPIs principales
@@ -20,7 +23,7 @@ export type BusinessStats = {
   visitsToInvoice: number           // visites terminées (rapport finalisé), hors contrat, sans facture
   // Top clients
   topClients: Array<{ name: string; amount: number; count: number }>
-  // Top techniciens
+  // CA par technicien : tous les techniciens actifs (même à 0 €) + les anciens qui ont du CA
   topTechnicians: Array<{ name: string; amount: number; count: number }>
   // Évolution mensuelle (12 derniers mois)
   monthlyRevenue: Array<{ key: string; label: string; amount: number }>
@@ -35,14 +38,15 @@ function monthLabel(date: Date): string {
 }
 
 export async function fetchBusinessStats(): Promise<BusinessStats> {
-  const [invoices, quotes, interventions, visitsToInvoice] = await Promise.all([
+  const [invoices, quotes, interventions, visitsToInvoice, technicians] = await Promise.all([
     listInvoices(),
     listQuotes(),
     listInterventions(),
     listVisitsToInvoice().catch(() => []),
+    listTechnicians().catch(() => [] as Technician[]),
   ])
 
-  return computeBusinessStats(invoices, quotes, interventions, visitsToInvoice.length)
+  return computeBusinessStats(invoices, quotes, interventions, visitsToInvoice.length, technicians)
 }
 
 export function computeBusinessStats(
@@ -50,6 +54,7 @@ export function computeBusinessStats(
   quotes: Quote[],
   interventions: Intervention[],
   visitsToInvoice = 0,
+  technicians: Technician[] = [],
 ): BusinessStats {
   const now = new Date()
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -121,24 +126,32 @@ export function computeBusinessStats(
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 5)
 
-  // ─── Top techniciens (via intervention_id de la facture) ──────
-  // On joint invoices.intervention_id → interventions.technician_name
+  // ─── CA par technicien (via intervention_id de la facture) ────
+  // Tous les techniciens, pas seulement un top 5 : les techniciens actifs
+  // apparaissent même sans facture (0 €), les anciens seulement s'ils ont
+  // du CA. Clé = technician_id (repli sur le nom pour les anciennes
+  // interventions sans id).
   const interventionById = new Map(interventions.map((iv) => [iv.id, iv]))
-  const techsMap = new Map<string, { amount: number; count: number }>()
+  const techNameById = new Map(technicians.map((t) => [t.id, technicianFullName(t)]))
+  const techsMap = new Map<string, { name: string; amount: number; count: number }>()
   for (const i of enrichedInvoices) {
     if (i.eff === 'cancelled' || i.eff === 'draft') continue
     if (!i.intervention_id) continue
     const interv = interventionById.get(i.intervention_id)
-    if (!interv?.technician_name) continue
-    const cur = techsMap.get(interv.technician_name) ?? { amount: 0, count: 0 }
+    if (!interv?.technician_name && !interv?.technician_id) continue
+    const key = interv.technician_id ?? `nom:${interv.technician_name}`
+    const name = (interv.technician_id && techNameById.get(interv.technician_id)) || interv.technician_name || '?'
+    const cur = techsMap.get(key) ?? { name, amount: 0, count: 0 }
     cur.amount += i.net
     cur.count += 1
-    techsMap.set(interv.technician_name, cur)
+    techsMap.set(key, cur)
   }
-  const topTechnicians = Array.from(techsMap.entries())
-    .map(([name, v]) => ({ name, amount: v.amount, count: v.count }))
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 5)
+  for (const t of technicians) {
+    if (!t.active || techsMap.has(t.id)) continue
+    techsMap.set(t.id, { name: technicianFullName(t), amount: 0, count: 0 })
+  }
+  const topTechnicians = Array.from(techsMap.values())
+    .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name, 'fr'))
 
   // ─── Évolution mensuelle (12 derniers mois) ───────────────────
   const monthlyMap = new Map<string, number>()
