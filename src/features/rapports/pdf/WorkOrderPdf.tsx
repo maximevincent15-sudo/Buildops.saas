@@ -113,7 +113,7 @@ export function WorkOrderPdf({ data: raw, organizationName, settings }: { data: 
         </View>
 
         <View style={s.grid}>
-          <Info label="Technicien" value={data.technicianName ?? '—'} />
+          <Info label={data.technicianName?.includes(' + ') ? 'Techniciens' : 'Technicien'} value={data.technicianName ?? '—'} />
           <Info label="Date" value={frDate(data.visitDate)} />
           <Info label="Arrivée" value={clock(data.arrivalAt)} />
           <Info label="Départ" value={clock(data.departureAt)} />

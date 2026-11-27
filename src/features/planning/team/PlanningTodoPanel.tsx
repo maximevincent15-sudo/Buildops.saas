@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ANOMALY_ACTION_LABELS } from '../../anomalies/schemas'
 import type { Anomaly } from '../../anomalies/schemas'
 import type { Technician } from '../../technicians/schemas'
+import { technicianLabel } from '../schemas'
 import type { Intervention } from '../schemas'
 import { EQUIPMENT_TAGS, cityKey, cityOf, formatDueShort, siteLabel } from './teamUtils'
 import type { TodoItem } from './teamUtils'
@@ -184,7 +185,7 @@ export function PlanningTodoPanel({
               <div className="pt-todo-name">{siteLabel(f.intervention)}</div>
               <div className="pt-todo-sub">
                 {f.intervention.reference} · {formatDate(f.intervention.scheduled_date)}
-                {f.intervention.technician_name ? ` · ${f.intervention.technician_name}` : ''}
+                {technicianLabel(f.intervention) ? ` · ${technicianLabel(f.intervention)}` : ''}
               </div>
               <ul className="pt-anoms">
                 {f.anomalies.slice(0, 4).map((a) => (
@@ -222,7 +223,7 @@ export function PlanningTodoPanel({
               <div key={i.id} className="pt-todo static">
                 <div className="pt-todo-name">{siteLabel(i)}</div>
                 <div className="pt-todo-sub">
-                  Prévue le {formatDate(i.scheduled_date)}{i.technician_name ? ` · ${i.technician_name}` : ''}
+                  Prévue le {formatDate(i.scheduled_date)}{technicianLabel(i) ? ` · ${technicianLabel(i)}` : ''}
                 </div>
                 <div className="pt-acts">
                   <Link className="pri" to={`/rapports/${i.id}`}>Ouvrir le rapport</Link>

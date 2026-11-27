@@ -4,6 +4,7 @@ import { ModalPortal } from '../../../shared/ui/ModalPortal'
 import { isOffline } from '../../../shared/lib/offline/state'
 import { formatEquipmentTypes } from '../../../shared/constants/interventions'
 import { askPersistentStorage, listVisitsToPrepare, prefetchReport, prefetchUnitPhotos, savePrepared } from '../prepareDay'
+import { technicianLabel } from '../schemas'
 import type { Intervention } from '../schemas'
 
 type Props = {
@@ -166,7 +167,7 @@ export function PrepareDayModal({ technicianId, onClose, onDone }: Props) {
                         <span style={{ flex: 1, minWidth: 0, fontSize: 13, lineHeight: 1.35 }}>
                           <strong>{v.reference}</strong> · {v.site_name || v.client_name}
                           <span className="text-ink-3" style={{ display: 'block', fontSize: 12 }}>
-                            {dayLabel(v)} · {formatEquipmentTypes(v.equipment_types)}{v.technician_name ? ` · ${v.technician_name}` : ''}
+                            {dayLabel(v)} · {formatEquipmentTypes(v.equipment_types)}{technicianLabel(v) ? ` · ${technicianLabel(v)}` : ''}
                           </span>
                         </span>
                       </label>

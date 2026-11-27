@@ -44,7 +44,8 @@ function sameIsoDay(dateStr: string | null, target: Date): boolean {
  * d'œil et savoir qui fait quoi.
  *
  * - Techniciens listés depuis les interventions du jour + une colonne
- *   "Non assigné" pour celles sans technician_name.
+ *   "Non assigné" pour celles sans technician_name. Une visite en binôme
+ *   apparaît dans la colonne de chacun des deux techniciens.
  * - Read-only : clic = ouvre le modal d'édition standard.
  */
 export function PlanningDayView({ interventions, colorMode = 'status', onClickIntervention, events = [], onAddEvent, onOpenEvent }: Props) {
@@ -60,10 +61,14 @@ export function PlanningDayView({ interventions, colorMode = 'status', onClickIn
     const map = new Map<string, Intervention[]>()
     // Techniciens avec au moins 1 intervention aujourd'hui
     for (const i of dayInterventions) {
-      const key = i.technician_name?.trim() || '__unassigned__'
-      const list = map.get(key) ?? []
-      list.push(i)
-      map.set(key, list)
+      // Binôme : la visite apparaît dans la colonne du principal et de l'équipier
+      const keys = [i.technician_name?.trim() || '__unassigned__', i.co_technician_name?.trim()]
+        .filter((k, n, all): k is string => !!k && all.indexOf(k) === n)
+      for (const key of keys) {
+        const list = map.get(key) ?? []
+        list.push(i)
+        map.set(key, list)
+      }
     }
     // Tri chronologique par nom (unassigned en dernier)
     const entries = Array.from(map.entries())

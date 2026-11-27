@@ -4,7 +4,7 @@ import { ModalPortal } from '../../../shared/ui/ModalPortal'
 import { SignaturePad } from '../../../shared/ui/SignaturePad'
 import { isOffline } from '../../../shared/lib/offline/state'
 import { EQUIPMENT_TYPES, formatEquipmentTypes } from '../../../shared/constants/interventions'
-import { INTERVENTION_TYPE_LABELS } from '../../planning/schemas'
+import { INTERVENTION_TYPE_LABELS, technicianLabel } from '../../planning/schemas'
 import type { Intervention } from '../../planning/schemas'
 import { interventionAddress } from '../../planning/address'
 import { listAnomaliesForIntervention } from '../../anomalies/api'
@@ -130,7 +130,8 @@ export function WorkOrderModal({
         siteName: intervention.site_name,
         siteAddress: interventionAddress(intervention) || null,
         dossierNumber: intervention.dossier_number?.trim() || null,
-        technicianName: intervention.technician_name,
+        // Binôme : « Karim Benali + Julien Moreau »
+        technicianName: technicianLabel(intervention),
         arrivalAt: intervention.started_at ?? null,
         departureAt: completedAt ?? new Date().toISOString(),
         // Libellés courts sur le PDF (« BAES » et non « BAES (éclairage de sécurité) »)

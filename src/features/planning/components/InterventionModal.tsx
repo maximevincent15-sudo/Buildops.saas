@@ -18,7 +18,10 @@ import {
 import type { EquipmentType } from '../../../shared/constants/interventions'
 import { AddressAutocomplete } from '../../../shared/ui/AddressAutocomplete'
 import { createIntervention, deleteIntervention, updateIntervention } from '../api'
-import { INTERVENTION_TYPE_LABELS, createInterventionSchema, isRecurringInterventionType } from '../schemas'
+import { INTERVENTION_TYPE_LABELS, createInterventionSchema, isRecurringInterventionType, technicianLabel } from '../schemas'
+import { listTechnicians } from '../../technicians/api'
+import { technicianFullName } from '../../technicians/schemas'
+import type { Technician } from '../../technicians/schemas'
 import type { CreateInterventionInput, Intervention, Slot } from '../schemas'
 import { ClientAutocomplete } from './ClientAutocomplete'
 import { TechnicianAutocomplete } from './TechnicianAutocomplete'
@@ -84,6 +87,8 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
       intervention_type: 'preventive',
       client_id: '',
       technician_id: '',
+      co_technician_id: '',
+      co_technician_name: '',
       dossier_number: '',
       recurrence_active: true,
       material_needed: [],
@@ -108,6 +113,8 @@ function toFormValues(i: Intervention | null | undefined): Partial<CreateInterve
     scheduled_date: i.scheduled_date ?? '',
     technician_name: i.technician_name ?? '',
     technician_id: i.technician_id ?? '',
+    co_technician_name: i.co_technician_name ?? '',
+    co_technician_id: i.co_technician_id ?? '',
     priority: i.priority as CreateInterventionInput['priority'],
     intervention_type: i.intervention_type ?? 'preventive',
     notes: i.notes ?? '',
@@ -156,6 +163,8 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
   const [clientAddress, setClientAddress] = useState<string | null>(null)
   // Types d'équipement choisis à la main (ou fournis) : on ne les recalcule plus d'après le parc
   const typesTouched = useRef(false)
+  // Binôme : techniciens actifs proposés comme équipier
+  const [activeTechnicians, setActiveTechnicians] = useState<Technician[]>([])
 
   const {
     register,
@@ -177,6 +186,18 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
   const slot = watch('slot')
   const materialNeeded = watch('material_needed') ?? []
   const zoneIds = watch('zone_ids') ?? []
+  const mainTechnicianId = watch('technician_id')
+  const coTechnicianId = watch('co_technician_id')
+
+  // Techniciens actifs (liste de l'équipier)
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    void listTechnicians()
+      .then((list) => { if (alive) setActiveTechnicians(list.filter((t) => t.active)) })
+      .catch(() => { /* liste vide : pas d'équipier proposé */ })
+    return () => { alive = false }
+  }, [open])
 
   // Charge l'email du client (mode edit uniquement, pour la relance)
   useEffect(() => {
@@ -839,11 +860,41 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                       onChange={(name, tech) => {
                         field.onChange(name)
                         setValue('technician_id', tech?.id ?? '')
+                        // L'équipier ne peut pas être le principal, ni exister sans principal de la liste
+                        if (!tech?.id || tech.id === getValues('co_technician_id')) {
+                          setValue('co_technician_id', '')
+                          setValue('co_technician_name', '')
+                        }
                       }}
                       placeholder="Tapez le nom ou choisissez dans vos techniciens"
                     />
                   )}
                 />
+              </div>
+
+              <div className="fg">
+                <label>Équipier (facultatif)</label>
+                <select
+                  value={coTechnicianId ?? ''}
+                  disabled={!mainTechnicianId}
+                  onChange={(e) => {
+                    const tech = activeTechnicians.find((t) => t.id === e.target.value)
+                    setValue('co_technician_id', tech?.id ?? '')
+                    setValue('co_technician_name', tech ? technicianFullName(tech) : '')
+                  }}
+                >
+                  <option value="">Aucun équipier</option>
+                  {activeTechnicians
+                    .filter((t) => t.id !== mainTechnicianId)
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>{technicianFullName(t)}</option>
+                    ))}
+                </select>
+                <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--ink2)' }}>
+                  {mainTechnicianId
+                    ? "Deux techniciens sur la même intervention : elle apparaît dans le planning de chacun et sur leur téléphone."
+                    : "Choisissez d'abord le technicien assigné dans votre liste de techniciens."}
+                </p>
               </div>
             </>
           )}
@@ -968,7 +1019,10 @@ export function InterventionModal({ open, onClose, onChanged, intervention, seed
                       .join(' · ') || '—'
                   }
                 />
-                <RecapLine k="Technicien" v={watch('technician_name') || '—'} />
+                <RecapLine
+                  k={watch('co_technician_name') ? 'Techniciens' : 'Technicien'}
+                  v={technicianLabel({ technician_name: watch('technician_name'), co_technician_name: watch('co_technician_name') }) || '—'}
+                />
               </div>
 
               <label

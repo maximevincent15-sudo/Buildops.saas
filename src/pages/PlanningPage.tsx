@@ -18,10 +18,12 @@ import { PlanningTeamView } from '../features/planning/team/PlanningTeamView'
 import { PlanningTodoPanel } from '../features/planning/team/PlanningTodoPanel'
 import type { FollowItem, PanelTab } from '../features/planning/team/PlanningTodoPanel'
 import {
+  assignmentAfterDrop,
   durationMinutes,
   formatDueShort,
   formatTime,
   isNoReport,
+  normalizeName,
   siteLabel,
   sortTodos,
   startOfWeekMonday,
@@ -48,6 +50,7 @@ import { PlanningWeekGridView } from '../features/planning/components/PlanningWe
 import { TYPE_COLORS, readStoredColorMode, storeColorMode } from '../features/planning/typeColors'
 import type { PlanningColorMode } from '../features/planning/typeColors'
 import { buildIcsCalendar, buildIcsForIntervention, downloadIcs } from '../features/planning/icsExport'
+import { isAssignedTo, technicianLabel } from '../features/planning/schemas'
 import type { CreateInterventionInput, Intervention } from '../features/planning/schemas'
 import {
   INTERVENTION_PRIORITIES,
@@ -128,6 +131,11 @@ export function PlanningPage() {
 
   // ─── Planning « Équipe » ───
   const [technicians, setTechnicians] = useState<Technician[]>([])
+  const techniciansByName = useMemo(() => {
+    const m = new Map<string, Technician>()
+    for (const t of technicians) m.set(normalizeName(`${t.first_name} ${t.last_name}`), t)
+    return m
+  }, [technicians])
   // Liste des interventions : onglet, recherche, technicien, affichage par 50
   const [listTab, setListTab] = useState<ListTab>('todo')
   const [listQuery, setListQuery] = useState('')
@@ -253,7 +261,7 @@ export function PlanningPage() {
     setPanelTab(tab)
   }
 
-  async function handleSchedule(interventionId: string, row: TeamRow, date: string, startMin: number) {
+  async function handleSchedule(interventionId: string, row: TeamRow, date: string, startMin: number, fromKey: string | null) {
     const i = interventions.find((x) => x.id === interventionId)
     if (!i) return
     if (i.status === 'terminee' || i.status === 'en_cours') {
@@ -261,9 +269,10 @@ export function PlanningPage() {
       return
     }
     try {
+      // Binôme : qui remplace qui dépend de la ligne d'où la carte a été prise
+      const assignment = assignmentAfterDrop(i, fromKey, row, techniciansByName)
       const updated = await scheduleIntervention(interventionId, {
-        technicianId: row.technicianId,
-        technicianName: row.name,
+        ...assignment,
         date,
         startTime: formatTime(startMin),
         durationMinutes: durationMinutes(i),
@@ -271,7 +280,7 @@ export function PlanningPage() {
       setInterventions((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
       // Le technicien reçoit le détail par mail (attribution ou déplacement)
       notifyAssignmentIfNeeded(i, updated)
-      showToast(`✓ ${siteLabel(i)} : ${row.name} · ${formatDueShort(date)} à ${formatTime(startMin)}`)
+      showToast(`✓ ${siteLabel(i)} : ${technicianLabel(updated) ?? row.name} · ${formatDueShort(date)} à ${formatTime(startMin)}`)
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Impossible de planifier cette intervention.', true)
     }
@@ -367,13 +376,14 @@ export function PlanningPage() {
   const total = interventions.length
   // « Mes interventions » : celles du technicien connecté (compte relié à sa fiche)
   const mineOnly = !!myTechnicianId && mine
-  const shown = mineOnly ? interventions.filter((i) => i.technician_id === myTechnicianId) : interventions
+  // (binôme : celles où il est équipier comptent aussi)
+  const shown = mineOnly ? interventions.filter((i) => isAssignedTo(i, myTechnicianId)) : interventions
 
   // Liste classée : onglet + recherche + technicien, sans date d'abord puis par mois
   const week = currentWeek()
   const listQ = normalizeSearch(listQuery)
   const listBase = shown.filter((i) => matchesQuery(i, listQ)
-    && (listTech === 'all' || (listTech === 'none' ? !i.technician_id : i.technician_id === listTech)))
+    && (listTech === 'all' || (listTech === 'none' ? !i.technician_id : isAssignedTo(i, listTech))))
   const tabCounts = new Map(LIST_TABS.map((tb) => [tb.key, listBase.filter((i) => matchesTab(i, tb.key, today, week)).length]))
   const listItems = listBase.filter((i) => matchesTab(i, listTab, today, week))
   const dueById = new Map(listItems.filter((i) => !i.scheduled_date).map((i) => [i.id, estimatedDue(i, interventions)]))
@@ -558,7 +568,7 @@ export function PlanningPage() {
                   weekStart={weekStart}
                   onWeekChange={(d) => setWeekStart(startOfWeekMonday(d))}
                   onOpen={openIntervention}
-                  onSchedule={(id, row, date, start) => void handleSchedule(id, row, date, start)}
+                  onSchedule={(id, row, date, start, fromKey) => void handleSchedule(id, row, date, start, fromKey)}
                 />
                 {panelVisible && (
                   <PlanningTodoPanel
@@ -759,7 +769,7 @@ export function PlanningPage() {
                       )}
                     </td>
                     <td>{formatEquipmentTypesShort(i)}</td>
-                    <td>{i.technician_name ?? '—'}</td>
+                    <td>{technicianLabel(i) ?? '—'}</td>
                     <td>
                       {i.scheduled_date ? formatDate(i.scheduled_date) : dueById.get(i.id) ? (
                         <span style={{ color: dueById.get(i.id)! < today ? 'var(--red)' : 'var(--ink2)', fontSize: '.8rem' }} title="Échéance estimée : dernière visite du site + fréquence du contrôle">
@@ -809,7 +819,7 @@ export function PlanningPage() {
                                 : 'Sans date'}
                           </span>
                           <span>{formatEquipmentTypesShort(i)}</span>
-                          <span>{i.technician_name ?? 'Non assignée'}</span>
+                          <span>{technicianLabel(i) ?? 'Non assignée'}</span>
                         </div>
                         {i.priority && i.priority !== 'normale' && (
                           <div className="plan-card-prio">{INTERVENTION_PRIORITIES[i.priority as InterventionPriority] ?? i.priority}</div>

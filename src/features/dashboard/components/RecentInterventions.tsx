@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { listRecentInterventions } from '../../planning/api'
 import type { Intervention } from '../../planning/schemas'
 import { formatEquipmentTypesShort } from '../../../shared/constants/interventions'
+import { technicianLabel } from '../../planning/schemas'
 
 /**
  * Heure (aujourd'hui) ou date de l'intervention. La date prévue est un jour
@@ -94,7 +95,8 @@ export function RecentInterventions() {
             const pill = statusPill(r.status)
             const subParts: string[] = []
             if (r.site_name) subParts.push(r.site_name)
-            if (r.technician_name) subParts.push(r.technician_name)
+            const techs = technicianLabel(r)
+            if (techs) subParts.push(techs)
             if (equip) subParts.push(equip)
             return (
               <div key={r.id} className="b-list-item">

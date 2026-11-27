@@ -7,6 +7,7 @@ import { INTERVENTION_STATUSES, STATUS_BADGE_CLASSES, formatEquipmentTypes } fro
 import type { InterventionStatus } from '../../../shared/constants/interventions'
 import { interventionAddress } from '../address'
 import { setInterventionStatus } from '../api'
+import { technicianLabel } from '../schemas'
 import type { Intervention } from '../schemas'
 
 type Props = {
@@ -69,8 +70,8 @@ export function InterventionSheet({ intervention: i, onClose, onEdit }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '1rem 0 1.3rem', fontSize: 14, color: 'var(--ink2)' }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><CalendarDays size={15} /> {dateLabel(i)}</div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><Wrench size={15} /> {formatEquipmentTypes(i.equipment_types)}</div>
-          {i.technician_name && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><User size={15} /> {i.technician_name}</div>
+          {technicianLabel(i) && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><User size={15} /> {technicianLabel(i)}</div>
           )}
           {address && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}><MapPin size={15} style={{ flex: '0 0 auto', marginTop: 2 }} /> {address}</div>

@@ -1,4 +1,5 @@
 import type { PlanningBlock } from './blocksApi'
+import { technicianLabel } from './schemas'
 import type { Intervention } from './schemas'
 import { INTERVENTION_STATUSES, formatEquipmentTypes } from '../../shared/constants/interventions'
 import type { InterventionStatus } from '../../shared/constants/interventions'
@@ -54,7 +55,8 @@ function interventionToEvent(i: Intervention): string | null {
   const summary = `${i.reference} — ${i.client_name} (${equipLabel})`
   const descLines: string[] = []
   if (i.site_name) descLines.push(`Site : ${i.site_name}`)
-  if (i.technician_name) descLines.push(`Technicien : ${i.technician_name}`)
+  const techs = technicianLabel(i)
+  if (techs) descLines.push(`${i.co_technician_name ? 'Techniciens' : 'Technicien'} : ${techs}`)
   if (i.address) descLines.push(`Adresse : ${i.address}`)
   descLines.push(`Statut : ${statusLabel}`)
   if (i.notes) descLines.push(`Notes : ${i.notes}`)

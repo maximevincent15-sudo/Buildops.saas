@@ -3,7 +3,8 @@
 // Firovia — Edge Function : notifications de l'équipe par mail (Resend)
 //
 //   intervention_assigned : le technicien reçoit le détail de l'intervention
-//                           qu'on vient de lui attribuer (ou de déplacer)
+//                           qu'on vient de lui attribuer (ou de déplacer) ;
+//                           role: 'co' → c'est l'équipier (binôme) qui le reçoit
 //   report_completed      : les administrateurs sont prévenus qu'un rapport
 //                           est terminé (conformité, anomalies, lien)
 //
@@ -162,11 +163,15 @@ serve(async (req) => {
 
     if (event === 'intervention_assigned') {
       if (org?.notify_technicians === false) return respond({ skipped: 'disabled' }, 200, cors)
-      if (!i.technician_id || !i.scheduled_date) return respond({ skipped: 'not_assigned' }, 200, cors)
+      // Binôme : role 'co' = l'équipier ; sinon le technicien principal
+      const asCo = payload?.role === 'co'
+      const techId = asCo ? i.co_technician_id : i.technician_id
+      if (!techId || !i.scheduled_date) return respond({ skipped: 'not_assigned' }, 200, cors)
+      // Toujours limité à l'organisation de l'intervention
       const { data: tech } = await admin
         .from('technicians')
         .select('first_name, email, user_id')
-        .eq('id', i.technician_id)
+        .eq('id', techId)
         .eq('organization_id', i.organization_id)
         .maybeSingle()
       if (!tech) return respond({ skipped: 'no_technician' }, 200, cors)
@@ -197,6 +202,7 @@ serve(async (req) => {
         changed ? 'Une intervention qui vous est attribuée a été modifiée :' : 'Une intervention vous a été attribuée :',
         '',
         line('Quand', `${when}${durationLabel(i.duration_minutes) ? ` (durée prévue : ${durationLabel(i.duration_minutes)})` : ''}`),
+        line('En binôme avec', asCo ? i.technician_name : i.co_technician_name),
         line('Client', i.client_name),
         i.site_name && i.site_name !== i.client_name ? line('Site', i.site_name) : null,
         line('Adresse', address),

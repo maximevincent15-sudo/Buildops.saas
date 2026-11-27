@@ -211,6 +211,11 @@ export function RapportEditorPage() {
   // technicien actif avant la finalisation (CGV art. 4 : toute personne qui
   // réalise des interventions est un technicien actif). Pas pendant l'essai.
   const myTechnicianId = useAuthStore((s) => s.myTechnicianId)
+  // Technicien noté sur les contrôles d'appareils : l'équipier s'il remplit
+  // lui-même le rapport (binôme), sinon le technicien principal
+  const checkTechnician = myTechnicianId && intervention?.co_technician_id === myTechnicianId
+    ? { technicianId: intervention.co_technician_id ?? null, technicianName: intervention.co_technician_name ?? null }
+    : { technicianId: intervention?.technician_id ?? null, technicianName: intervention?.technician_name ?? null }
   const technicianRequired = !!subscription?.seat_based && ['active', 'past_due'].includes(subscription.status)
   const [activeTechs, setActiveTechs] = useState<Array<{ id: string; first_name: string; last_name: string }> | null>(null)
   const [techPickOpen, setTechPickOpen] = useState(false)
@@ -385,6 +390,9 @@ export function RapportEditorPage() {
       equipment_types: seedTypes.length > 0 ? seedTypes : (equipmentType ? [equipmentType] : []),
       technician_name: intervention.technician_name ?? '',
       technician_id: intervention.technician_id ?? '',
+      // Même binôme pour la repasse
+      co_technician_name: intervention.co_technician_name ?? '',
+      co_technician_id: intervention.co_technician_id ?? '',
       scheduled_date: '',
       priority: 'urgente' as const,
       // Repasse ponctuelle : pas de visite suivante créée à sa clôture
@@ -819,10 +827,15 @@ export function RapportEditorPage() {
     const name = technicianFullName(tech)
     setTechPickSaving(true)
     setError(null)
+    // Binôme : si c'est l'équipier qui est choisi, il devient le principal (plus d'équipier)
+    const wasCo = tech.id === intervention?.co_technician_id
+    const patch = wasCo
+      ? { technician_id: tech.id, technician_name: name, co_technician_id: null, co_technician_name: null }
+      : { technician_id: tech.id, technician_name: name }
     try {
       const { error: assignErr } = await supabase
         .from('interventions')
-        .update({ technician_id: tech.id, technician_name: name })
+        .update(patch)
         .eq('id', iid)
       if (assignErr) throw assignErr
     } catch (e) {
@@ -830,7 +843,7 @@ export function RapportEditorPage() {
       setTechPickSaving(false)
       return
     }
-    setIntervention((prev) => (prev ? { ...prev, technician_id: tech.id, technician_name: name } : prev))
+    setIntervention((prev) => (prev ? { ...prev, ...patch } : prev))
     setTechPickSaving(false)
     setTechPickOpen(false)
     setFlash(`Visite attribuée à ${name}. Touchez « Finaliser » pour terminer.`)
@@ -843,10 +856,7 @@ export function RapportEditorPage() {
     setSaving(true)
     setError(null)
     try {
-      await markUnitsNotChecked(iid, orgId, uncheckedUnits.map((u) => u.unitId), notCheckedReason, {
-        technicianId: intervention?.technician_id,
-        technicianName: intervention?.technician_name,
-      })
+      await markUnitsNotChecked(iid, orgId, uncheckedUnits.map((u) => u.unitId), notCheckedReason, checkTechnician)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
       setSaving(false)
@@ -1443,8 +1453,8 @@ export function RapportEditorPage() {
         siteId={intervention.site_id}
         clientId={intervention.client_id}
         organizationId={orgId}
-        technicianId={intervention.technician_id}
-        technicianName={intervention.technician_name}
+        technicianId={checkTechnician.technicianId}
+        technicianName={checkTechnician.technicianName}
         readOnly={isCompleted}
         onVerdictsChange={setUnitVerdicts}
         onUncheckedChange={setUncheckedUnits}

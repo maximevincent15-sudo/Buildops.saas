@@ -13,15 +13,18 @@ type TechSummary = {
 function groupByTechnician(interventions: Intervention[]): TechSummary[] {
   const map = new Map<string, TechSummary>()
   for (const i of interventions) {
-    const name = i.technician_name?.trim()
-    if (!name) continue
-    const existing = map.get(name) ?? { name, done: 0, total: 0, recentClients: [] }
-    existing.total += 1
-    if (i.status === 'terminee') existing.done += 1
-    if (existing.recentClients.length < 2 && !existing.recentClients.includes(i.client_name)) {
-      existing.recentClients.push(i.client_name)
+    // Binôme : la visite compte pour le principal et pour l'équipier
+    const names = [i.technician_name?.trim(), i.co_technician_name?.trim()]
+      .filter((n, k, all): n is string => !!n && all.indexOf(n) === k)
+    for (const name of names) {
+      const existing = map.get(name) ?? { name, done: 0, total: 0, recentClients: [] }
+      existing.total += 1
+      if (i.status === 'terminee') existing.done += 1
+      if (existing.recentClients.length < 2 && !existing.recentClients.includes(i.client_name)) {
+        existing.recentClients.push(i.client_name)
+      }
+      map.set(name, existing)
     }
-    map.set(name, existing)
   }
   return Array.from(map.values()).sort((a, b) => b.total - a.total).slice(0, 5)
 }

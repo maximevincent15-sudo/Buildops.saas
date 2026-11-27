@@ -7,6 +7,7 @@ import { listReports } from '../features/rapports/api'
 import type { ReportWithIntervention } from '../features/rapports/api'
 import { formatEquipmentTypesShort } from '../shared/constants/interventions'
 import { FileLink } from '../shared/ui/FileLink'
+import { technicianLabel } from '../features/planning/schemas'
 
 function formatDate(d: string | null): string {
   if (!d) return '—'
@@ -147,7 +148,7 @@ export function RapportsListPage() {
                     </td>
                     <td>{interv.client_name}</td>
                     <td>{equipLabel}</td>
-                    <td>{interv.technician_name ?? '—'}</td>
+                    <td>{technicianLabel(interv) ?? '—'}</td>
                     <td>
                       {isDone ? (
                         <span className="badge b-grn" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>

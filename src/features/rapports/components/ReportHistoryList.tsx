@@ -9,6 +9,7 @@ import type { ReportWithIntervention } from '../api'
 import { computeReportSummary } from '../schemas'
 import type { ChecklistResponse } from '../schemas'
 import { FileLink } from '../../../shared/ui/FileLink'
+import { technicianLabel } from '../../planning/schemas'
 
 type Props = {
   /** Filtre principal — fournir au moins un client */
@@ -161,7 +162,7 @@ export function ReportHistoryList({
                   <div className="history-meta">
                     {formatDate(interv.scheduled_date ?? r.completed_at ?? r.created_at)}
                     {interv.site_name && <> · {interv.site_name}</>}
-                    {interv.technician_name && <> · {interv.technician_name}</>}
+                    {technicianLabel(interv) && <> · {technicianLabel(interv)}</>}
                     {isFinalized && anomalyCount > 0 && (
                       <span className="history-anomalies">
                         {' · '}

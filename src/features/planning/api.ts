@@ -5,6 +5,13 @@ import type { EquipmentType } from '../../shared/constants/interventions'
 import { isRecurringInterventionType, normalizeIntervention } from './schemas'
 import type { CreateInterventionInput, Intervention } from './schemas'
 
+function coTechnicianPayload(input: CreateInterventionInput) {
+  const mainId = input.technician_id || null
+  const coId = input.co_technician_id || null
+  if (!mainId || !coId || coId === mainId) return { co_technician_id: null, co_technician_name: null }
+  return { co_technician_id: coId, co_technician_name: input.co_technician_name || null }
+}
+
 function toDbPayload(input: CreateInterventionInput) {
   // equipment_type (legacy) = premier du tableau pour compat arrière
   const firstEquipment = input.equipment_types[0] ?? null
@@ -20,6 +27,8 @@ function toDbPayload(input: CreateInterventionInput) {
     equipment_types: input.equipment_types,
     technician_name: input.technician_name || null,
     technician_id: input.technician_id || null,
+    // Équipier : jamais sans technicien principal, jamais le même
+    ...coTechnicianPayload(input),
     scheduled_date: input.scheduled_date || null,
     priority: input.priority,
     intervention_type: input.intervention_type ?? 'preventive',
@@ -137,6 +146,9 @@ export async function scheduleIntervention(
   target: {
     technicianId: string | null
     technicianName: string | null
+    /** Équipier (binôme) : absent = inchangé, null = retiré */
+    coTechnicianId?: string | null
+    coTechnicianName?: string | null
     date: string // YYYY-MM-DD
     startTime: string // HH:MM
     durationMinutes: number
@@ -158,6 +170,12 @@ export async function scheduleIntervention(
     .update({
       technician_id: target.technicianId,
       technician_name: target.technicianName,
+      ...(target.coTechnicianId !== undefined
+        ? {
+            co_technician_id: target.technicianId && target.coTechnicianId !== target.technicianId ? target.coTechnicianId : null,
+            co_technician_name: target.technicianId && target.coTechnicianId && target.coTechnicianId !== target.technicianId ? target.coTechnicianName ?? null : null,
+          }
+        : {}),
       scheduled_date: target.date,
       start_time: target.startTime,
       duration_minutes: target.durationMinutes,
@@ -458,17 +476,19 @@ export async function createNextScheduledIntervention(
 
 /**
  * Interventions d'un technicien pour « Ma journée » : celles en cours, celles
- * d'aujourd'hui, et les prochaines (jusqu'à `days` jours).
+ * d'aujourd'hui, et les prochaines (jusqu'à `days` jours). Celles où il est
+ * équipier (binôme) comptent aussi.
  */
 export async function listMyInterventions(technicianId: string, days = 7): Promise<Intervention[]> {
   const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const today = new Date()
   const until = new Date(today.getFullYear(), today.getMonth(), today.getDate() + days)
+  // Principal OU équipier (binôme), et : en cours, ou prévue dans la période
+  const when = `or(status.eq.en_cours,and(scheduled_date.gte.${iso(today)},scheduled_date.lte.${iso(until)}))`
   const { data, error } = await supabase
     .from('interventions')
     .select('*')
-    .eq('technician_id', technicianId)
-    .or(`status.eq.en_cours,and(scheduled_date.gte.${iso(today)},scheduled_date.lte.${iso(until)})`)
+    .or(`and(technician_id.eq.${technicianId},${when}),and(co_technician_id.eq.${technicianId},${when})`)
     .order('scheduled_date', { ascending: true, nullsFirst: true })
     .order('start_time', { ascending: true, nullsFirst: false })
   if (error) throw error

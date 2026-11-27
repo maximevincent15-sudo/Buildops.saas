@@ -167,6 +167,8 @@ export type ReportWithIntervention = Report & {
     equipment_types: string[] | null
     scheduled_date: string | null
     technician_name: string | null
+    /** Équipier (binôme) */
+    co_technician_name?: string | null
     status: string
   } | null
 }
@@ -179,7 +181,7 @@ export async function listReports(): Promise<ReportWithIntervention[]> {
       *,
       intervention:interventions (
         id, reference, client_name, equipment_type, equipment_types,
-        scheduled_date, technician_name, status
+        scheduled_date, technician_name, co_technician_name, status
       )
     `)
     .order('created_at', { ascending: false })
@@ -192,7 +194,7 @@ export async function listReports(): Promise<ReportWithIntervention[]> {
         *,
         intervention:interventions (
           id, reference, client_name, equipment_type,
-          scheduled_date, technician_name, status
+          scheduled_date, technician_name, co_technician_name, status
         )
       `)
       .order('created_at', { ascending: false })
@@ -230,7 +232,7 @@ export async function listReportsForClient(opts: {
       *,
       intervention:interventions!inner (
         id, reference, client_name, client_id, site_name, equipment_type, equipment_types,
-        scheduled_date, technician_name, status
+        scheduled_date, technician_name, co_technician_name, status
       )
     `)
     .order('completed_at', { ascending: false, nullsFirst: false })
@@ -261,7 +263,7 @@ export async function listReportsForClient(opts: {
         *,
         intervention:interventions!inner (
           id, reference, client_name, client_id, site_name, equipment_type,
-          scheduled_date, technician_name, status
+          scheduled_date, technician_name, co_technician_name, status
         )
       `)
       .order('completed_at', { ascending: false, nullsFirst: false })

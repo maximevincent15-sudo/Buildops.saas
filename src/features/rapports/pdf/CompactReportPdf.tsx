@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ANOMALY_ACTION_LABELS, ANOMALY_PRIORITY_LABELS } from '../../anomalies/schemas'
 import { formatEquipmentTypes } from '../../../shared/constants/interventions'
+import { technicianLabel } from '../../planning/schemas'
 import { EQUIPMENT_FAMILIES } from '../../equipment/schemas'
 import { PdfLogo } from '../../parametres/pdf/PdfLogo'
 import { RECOMMENDED_ACTION_LABEL } from '../schemas'
@@ -260,7 +261,7 @@ function CompactContent({
             ['Site', intervention.site_name
               ? <>{intervention.site_name}{address ? <Text style={{ fontSize: 7.8, color: c.ink2 }}>{`\n${address}`}</Text> : null}</>
               : address ?? '—'],
-            ['Technicien', intervention.technician_name ?? '—'],
+            [intervention.co_technician_name ? 'Techniciens' : 'Technicien', technicianLabel(intervention) ?? '—'],
             ['Intervention', [interventionType, dossierNumber ? `dossier ${dossierNumber}` : null].filter(Boolean).join(' · ') || '—'],
             ['Équipements', formatEquipmentTypes(intervention.equipment_types)],
             ['Prochaine visite', nextLabel ?? '—'],
@@ -354,8 +355,8 @@ function CompactContent({
         {/* Signatures */}
         <View style={{ marginTop: 12, flexDirection: 'row', gap: 10 }} wrap={false}>
           <View style={{ flex: 1, borderWidth: 0.5, borderStyle: 'solid', borderColor: c.border, borderRadius: 4, padding: 7 }}>
-            <Text style={s.th}>Technicien</Text>
-            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', marginTop: 2 }}>{intervention.technician_name ?? '—'}</Text>
+            <Text style={s.th}>{intervention.co_technician_name ? 'Techniciens' : 'Technicien'}</Text>
+            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', marginTop: 2 }}>{technicianLabel(intervention) ?? '—'}</Text>
             <Text style={[s.small, { marginTop: 2 }]}>Signé électroniquement le {completedLabel}</Text>
           </View>
           {(clientSigned || report.signature_status === 'client_refused') && (

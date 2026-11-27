@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ANOMALY_ACTION_LABELS, ANOMALY_PRIORITY_LABELS } from '../../anomalies/schemas'
 import { formatEquipmentTypes } from '../../../shared/constants/interventions'
+import { technicianLabel } from '../../planning/schemas'
 import { PdfLogo } from '../../parametres/pdf/PdfLogo'
 import type { ChecklistItem } from '../checklists'
 import { RECOMMENDED_ACTION_LABEL, decodeChecklistId } from '../schemas'
@@ -298,7 +299,7 @@ function ClassicReportPdfContent({
           {clientNumber ? <InfoRow k="N° client" v={clientNumber} /> : null}
           <InfoRow k="Date(s) de la vérification" v={datesLabel} />
           <InfoRow k="Vérification précédente" v={frDate(previousVisitDate) ? `le ${frDate(previousVisitDate)}` : null} />
-          <InfoRow k="Vérificateur" v={intervention.technician_name} />
+          <InfoRow k={intervention.co_technician_name ? 'Vérificateurs' : 'Vérificateur'} v={technicianLabel(intervention)} />
           {technicianQualifications.length > 0 ? <InfoRow k="Qualification" v={technicianQualifications.join(' ; ')} /> : null}
           {interventionType ? <InfoRow k="Nature de l'intervention" v={interventionType} /> : null}
         </View>
@@ -452,8 +453,8 @@ function ClassicReportPdfContent({
           </View>
           <View style={styles.signRow}>
             <View style={styles.signBox}>
-              <Text style={styles.boxLabel}>Le vérificateur</Text>
-              <Text style={styles.boxStrong}>{pdfText(intervention.technician_name) || '—'}</Text>
+              <Text style={styles.boxLabel}>{intervention.co_technician_name ? 'Les vérificateurs' : 'Le vérificateur'}</Text>
+              <Text style={styles.boxStrong}>{pdfText(technicianLabel(intervention)) || '—'}</Text>
               <Text style={styles.boxLine}>{pdfText(organizationName)}</Text>
               <Text style={[styles.boxLine, { marginTop: 4 }]}>Rapport clos le {completedLabel}</Text>
             </View>

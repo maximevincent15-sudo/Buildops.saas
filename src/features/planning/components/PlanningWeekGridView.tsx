@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import { formatEquipmentTypesShort } from '../../../shared/constants/interventions'
 import type { PlanningBlock } from '../blocksApi'
 import { DayAddButton, DayEventList, EventChip } from '../events/DayEvents'
+import { technicianLabel } from '../schemas'
 import type { Intervention } from '../schemas'
 import { typeColorStyle } from '../typeColors'
 import type { PlanningColorMode } from '../typeColors'
@@ -388,7 +389,7 @@ export function PlanningWeekGridView({ interventions, colorMode = 'status', onCl
                     </div>
                     <div style={{ fontSize: 10.5, fontWeight: 500, opacity: 0.8, marginTop: 1 }}>
                       {formatEquipmentTypesShort(i)}
-                      {i.technician_name ? ` · ${i.technician_name}` : ''}
+                      {technicianLabel(i) ? ` · ${technicianLabel(i)}` : ''}
                     </div>
                     {i.start_time && (
                       <div

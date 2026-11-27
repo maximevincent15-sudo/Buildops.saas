@@ -10,6 +10,7 @@ import {
 import type { InterventionStatus } from '../../../shared/constants/interventions'
 import { createBlocks, deleteBlock, formatBlockTime, listBlocksForRange } from '../blocksApi'
 import type { PlanningBlock } from '../blocksApi'
+import { technicianLabel } from '../schemas'
 import type { Intervention } from '../schemas'
 
 // Créneaux horaires par pas de 30 min, de 7h à 22h
@@ -267,8 +268,8 @@ export function PlanningWeekView({ interventions, onClickIntervention }: Props) 
                       {!isCompact && (
                         <>
                           <div className="week-item-meta">{equipLabel}</div>
-                          {i.technician_name && (
-                            <div className="week-item-meta">{i.technician_name}</div>
+                          {technicianLabel(i) && (
+                            <div className="week-item-meta">{technicianLabel(i)}</div>
                           )}
                         </>
                       )}

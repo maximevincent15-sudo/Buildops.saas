@@ -21,6 +21,7 @@ import { clientInfoLines } from './clientInfo'
 import type { ReportClientInfo } from './clientInfo'
 import { FullPhotosPages } from './FullPhotosPages'
 import type { FullPhotoGroup } from './FullPhotosPages'
+import { technicianLabel } from '../../planning/schemas'
 import type { Intervention } from '../../planning/schemas'
 import type { ChecklistItem } from '../checklists'
 import { computeConformity } from '../conformity'
@@ -799,10 +800,10 @@ function ReportPdfContent({
               <Text style={styles.infoLabel}>Date prévue</Text>
               <Text style={styles.infoValue}>{dateLabel}</Text>
             </View>
-            {intervention.technician_name && (
+            {technicianLabel(intervention) && (
               <View style={styles.infoItemHalf}>
-                <Text style={styles.infoLabel}>Technicien</Text>
-                <Text style={styles.infoValue}>{intervention.technician_name}</Text>
+                <Text style={styles.infoLabel}>{intervention.co_technician_name ? 'Techniciens' : 'Technicien'}</Text>
+                <Text style={styles.infoValue}>{technicianLabel(intervention)}</Text>
               </View>
             )}
             {/* P1 — Bandeau enrichi : horaires réels + contact site */}
@@ -1129,10 +1130,10 @@ function ReportPdfContent({
             {/* Technicien */}
             <View style={[styles.signatureBox, { flexGrow: 1, flexBasis: '50%' }]}>
               <Text style={{ fontSize: 7, color: colors.ink3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Technicien qualifié
+                {intervention.co_technician_name ? 'Techniciens qualifiés' : 'Technicien qualifié'}
               </Text>
               <Text style={styles.signatureName}>
-                {intervention.technician_name ?? '—'}
+                {technicianLabel(intervention) ?? '—'}
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <View style={{ paddingVertical: 2, paddingHorizontal: 6, backgroundColor: colors.grnLt, borderRadius: 3 }}>

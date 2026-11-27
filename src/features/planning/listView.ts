@@ -3,6 +3,7 @@ import { fr } from 'date-fns/locale'
 import { normalizeSearch } from '../../shared/lib/search'
 import type { EquipmentType } from '../../shared/constants/interventions'
 import { INSPECTION_FREQUENCIES_DAYS } from '../alertes/frequencies'
+import { technicianLabel } from './schemas'
 import type { Intervention } from './schemas'
 
 /**
@@ -74,7 +75,7 @@ export function matchesTab(i: Intervention, tab: ListTab, today: string, week: {
 export function matchesQuery(i: Intervention, q: string): boolean {
   if (!q) return true
   return normalizeSearch([
-    i.reference, i.client_name, i.site_name ?? '', i.dossier_number ?? '', i.technician_name ?? '',
+    i.reference, i.client_name, i.site_name ?? '', i.dossier_number ?? '', technicianLabel(i) ?? '',
     i.chantier_city ?? '', i.address ?? '', i.chantier_address ?? '',
   ].join(' ')).includes(q)
 }

@@ -130,7 +130,8 @@ export function computeBusinessStats(
   // Tous les techniciens, pas seulement un top 5 : les techniciens actifs
   // apparaissent même sans facture (0 €), les anciens seulement s'ils ont
   // du CA. Clé = technician_id (repli sur le nom pour les anciennes
-  // interventions sans id).
+  // interventions sans id). En binôme, chacun des deux est crédité du CA
+  // (la somme de la liste peut donc dépasser le CA total).
   const interventionById = new Map(interventions.map((iv) => [iv.id, iv]))
   const techNameById = new Map(technicians.map((t) => [t.id, technicianFullName(t)]))
   const techsMap = new Map<string, { name: string; amount: number; count: number }>()
@@ -138,13 +139,24 @@ export function computeBusinessStats(
     if (i.eff === 'cancelled' || i.eff === 'draft') continue
     if (!i.intervention_id) continue
     const interv = interventionById.get(i.intervention_id)
-    if (!interv?.technician_name && !interv?.technician_id) continue
-    const key = interv.technician_id ?? `nom:${interv.technician_name}`
-    const name = (interv.technician_id && techNameById.get(interv.technician_id)) || interv.technician_name || '?'
-    const cur = techsMap.get(key) ?? { name, amount: 0, count: 0 }
-    cur.amount += i.net
-    cur.count += 1
-    techsMap.set(key, cur)
+    if (!interv) continue
+    // Binôme : le CA de la visite est compté pour le principal ET pour l'équipier
+    const people = [
+      { id: interv.technician_id, name: interv.technician_name },
+      { id: interv.co_technician_id ?? null, name: interv.co_technician_name ?? null },
+    ]
+    const seen = new Set<string>()
+    for (const p of people) {
+      if (!p.id && !p.name?.trim()) continue
+      const key = p.id ?? `nom:${p.name}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      const name = (p.id && techNameById.get(p.id)) || p.name || '?'
+      const cur = techsMap.get(key) ?? { name, amount: 0, count: 0 }
+      cur.amount += i.net
+      cur.count += 1
+      techsMap.set(key, cur)
+    }
   }
   for (const t of technicians) {
     if (!t.active || techsMap.has(t.id)) continue

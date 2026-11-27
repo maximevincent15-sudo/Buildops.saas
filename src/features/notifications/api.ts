@@ -16,20 +16,31 @@ const todayIso = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-type Planned = Pick<Intervention, 'id' | 'technician_id' | 'scheduled_date' | 'start_time' | 'status'>
+type Planned = Pick<Intervention, 'id' | 'technician_id' | 'co_technician_id' | 'scheduled_date' | 'start_time' | 'status'>
 
 /**
  * Prévient le technicien d'une intervention qu'on vient de lui attribuer ou
- * de déplacer (date / heure). Rien pour une intervention passée, terminée, ou
- * sans changement qui le concerne.
+ * de déplacer (date / heure), et l'équipier s'il y en a un (binôme). Rien
+ * pour une intervention passée, terminée, ou sans changement qui le concerne.
  */
 export function notifyAssignmentIfNeeded(before: Planned | null, after: Planned): void {
-  if (!after.technician_id || !after.scheduled_date) return
+  if (!after.scheduled_date) return
   if (after.status === 'terminee' || after.scheduled_date < todayIso()) return
-  const newTechnician = !before || before.technician_id !== after.technician_id
   const moved = !!before && (before.scheduled_date !== after.scheduled_date || (before.start_time ?? null) !== (after.start_time ?? null))
-  if (!newTechnician && !moved) return
-  invokeNotify({ event: 'intervention_assigned', interventionId: after.id, changed: !newTechnician && moved })
+  // Technicien principal
+  if (after.technician_id) {
+    const newTechnician = !before || before.technician_id !== after.technician_id
+    if (newTechnician || moved) {
+      invokeNotify({ event: 'intervention_assigned', interventionId: after.id, changed: !newTechnician && moved })
+    }
+  }
+  // Équipier (binôme) : même mail, s'il vient d'être ajouté ou si la visite bouge
+  if (after.co_technician_id) {
+    const newCo = !before || (before.co_technician_id ?? null) !== after.co_technician_id
+    if (newCo || moved) {
+      invokeNotify({ event: 'intervention_assigned', interventionId: after.id, role: 'co', changed: !newCo && moved })
+    }
+  }
 }
 
 /** Prévient les administrateurs qu'un rapport vient d'être terminé */

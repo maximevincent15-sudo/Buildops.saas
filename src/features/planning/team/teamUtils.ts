@@ -99,6 +99,58 @@ export function technicianRowKey(i: Intervention, techniciansByName: Map<string,
   return techniciansByName.get(normalizeName(name))?.id ?? `name:${normalizeName(name)}`
 }
 
+/** Clé de ligne de l'équipier (binôme), null s'il n'y en a pas. */
+export function coTechnicianRowKey(i: Intervention, techniciansByName: Map<string, Technician>): string | null {
+  if (i.co_technician_id) return i.co_technician_id
+  const name = i.co_technician_name?.trim()
+  if (!name) return null
+  return techniciansByName.get(normalizeName(name))?.id ?? `name:${normalizeName(name)}`
+}
+
+/** Lignes où l'intervention apparaît : technicien principal, puis équipier (binôme). */
+export function technicianRowKeys(i: Intervention, techniciansByName: Map<string, Technician>): string[] {
+  const main = technicianRowKey(i, techniciansByName)
+  const co = coTechnicianRowKey(i, techniciansByName)
+  return [main, co].filter((k, n, all): k is string => !!k && all.indexOf(k) === n)
+}
+
+/**
+ * Affectation après un glisser-déposer dans le planning Équipe.
+ * La carte est prise dans la ligne `fromKey` et posée dans la ligne `to` :
+ * - posée dans la ligne d'un membre du binôme (principal ou équipier) :
+ *   seuls le jour et l'heure changent, le binôme reste tel quel ;
+ * - posée dans la ligne d'un autre technicien : il remplace celui de la
+ *   ligne d'origine (le principal si on l'a prise chez le principal,
+ *   l'équipier si on l'a prise chez l'équipier).
+ */
+export function assignmentAfterDrop(
+  i: Intervention,
+  fromKey: string | null,
+  to: TeamRow,
+  techniciansByName: Map<string, Technician>,
+): { technicianId: string | null; technicianName: string | null; coTechnicianId: string | null; coTechnicianName: string | null } {
+  const mainKey = technicianRowKey(i, techniciansByName)
+  const coKey = coTechnicianRowKey(i, techniciansByName)
+  const keep = {
+    technicianId: i.technician_id,
+    technicianName: i.technician_name,
+    coTechnicianId: i.co_technician_id ?? null,
+    coTechnicianName: i.co_technician_name ?? null,
+  }
+  if (to.key === mainKey || (coKey && to.key === coKey)) return keep
+  if (coKey && fromKey === coKey) {
+    return { ...keep, coTechnicianId: to.technicianId, coTechnicianName: to.name }
+  }
+  // Nouveau principal ; l'équipier reste (il ne peut pas être aussi le principal)
+  const clearCo = !!to.technicianId && to.technicianId === i.co_technician_id
+  return {
+    technicianId: to.technicianId,
+    technicianName: to.name,
+    coTechnicianId: clearCo ? null : keep.coTechnicianId,
+    coTechnicianName: clearCo ? null : keep.coTechnicianName,
+  }
+}
+
 // ─── Statuts opérationnels ──────────────────────────────────────────────
 
 /** Horizon au-delà duquel une visite préventive non assignée n'est pas encore « à planifier ». */

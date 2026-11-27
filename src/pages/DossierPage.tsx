@@ -30,6 +30,7 @@ import type { InvoiceStatus } from '../features/factures/constants'
 import { INTERVENTION_STATUSES, STATUS_BADGE_CLASSES, formatEquipmentTypes } from '../shared/constants/interventions'
 import type { InterventionStatus } from '../shared/constants/interventions'
 import { FileLink } from '../shared/ui/FileLink'
+import { technicianLabel } from '../features/planning/schemas'
 
 const PHOTOS_STEP = 24
 
@@ -286,7 +287,7 @@ export function DossierPage() {
                     <div className="archive-meta">
                       {formatDate(i.scheduled_date ?? i.created_at)}
                       {' · '}{formatEquipmentTypes(i.equipment_types)}
-                      {i.technician_name && ` · ${i.technician_name}`}
+                      {technicianLabel(i) && ` · ${technicianLabel(i)}`}
                       {result && <> · <span className={`badge ${result.cls}`}>{result.label}</span></>}
                     </div>
                   </div>

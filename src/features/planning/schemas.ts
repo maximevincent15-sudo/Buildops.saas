@@ -55,6 +55,9 @@ export const createInterventionSchema = z.object({
   scheduled_date: z.string().optional(),
   technician_name: z.string().optional(),
   technician_id: z.string().optional(),
+  /** Équipier (binôme) : un second technicien sur la même intervention */
+  co_technician_name: z.string().optional(),
+  co_technician_id: z.string().optional(),
   priority: z.enum(['normale', 'urgente', 'reglementaire']),
   intervention_type: z.enum(INTERVENTION_TYPES).optional(),
   notes: z.string().optional(),
@@ -106,6 +109,9 @@ export type Intervention = {
   equipment_types: string[]
   technician_name: string | null
   technician_id: string | null
+  /** Équipier (binôme), facultatif : voit la visite, peut remplir le rapport */
+  co_technician_name?: string | null
+  co_technician_id?: string | null
   scheduled_date: string | null
   priority: string
   status: string
@@ -148,6 +154,23 @@ export type Intervention = {
   zone_ids: string[] | null
   material_needed: string[]
   recommendations: string | null
+}
+
+// ─── Binôme : technicien principal + équipier ───────────────────
+
+type AssignedNames = { technician_name?: string | null; co_technician_name?: string | null }
+type AssignedIds = { technician_id?: string | null; co_technician_id?: string | null }
+
+/** Nom(s) affiché(s) : « Karim Benali », ou « Karim Benali + Julien Moreau » en binôme. Null si personne. */
+export function technicianLabel(i: AssignedNames): string | null {
+  const names = [i.technician_name?.trim(), i.co_technician_name?.trim()].filter((n): n is string => !!n)
+  return names.length > 0 ? names.join(' + ') : null
+}
+
+/** Vrai si le technicien est le principal OU l'équipier de l'intervention. */
+export function isAssignedTo(i: AssignedIds, technicianId: string | null | undefined): boolean {
+  if (!technicianId) return false
+  return i.technician_id === technicianId || i.co_technician_id === technicianId
 }
 
 // Helper : normalise une intervention venant de Supabase (gère le cas legacy

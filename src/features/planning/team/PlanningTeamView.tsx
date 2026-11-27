@@ -12,13 +12,14 @@ import {
   EQUIPMENT_TAGS,
   WEEK_CAPACITY_HOURS,
   addDays,
+  coTechnicianRowKey,
   durationMinutes,
   isNoReport,
   normalizeName,
   placeLabel,
   siteLabel,
   startMinutes,
-  technicianRowKey,
+  technicianRowKeys,
   timeLabel,
   toIsoDate,
   todayIso,
@@ -36,7 +37,8 @@ type Props = {
   onWeekChange: (d: Date) => void
   onOpen: (i: Intervention) => void
   /** Glisser-déposer : affecte l'intervention au technicien / jour, à partir de startMinutes */
-  onSchedule: (interventionId: string, row: TeamRow, date: string, startMinutes: number) => void
+  /** fromKey : ligne d'où la carte a été prise (binôme : principal ou équipier) */
+  onSchedule: (interventionId: string, row: TeamRow, date: string, startMinutes: number, fromKey: string | null) => void
   /** Événements d'agenda (optionnels : la vue Équipe est centrée sur les techniciens) */
   events?: PlanningBlock[]
   onAddEvent?: (date: string) => void
@@ -84,9 +86,10 @@ export function PlanningTeamView({
     for (const i of interventions) {
       if (!i.scheduled_date || i.scheduled_date < weekStartIso || i.scheduled_date > weekEndIso) continue
       if (i.status === 'brouillon') continue
-      const key = technicianRowKey(i, techniciansByName)
-      if (!key) continue
-      m.set(key, [...(m.get(key) ?? []), i])
+      // Binôme : la visite apparaît dans la ligne du principal ET de l'équipier
+      for (const key of technicianRowKeys(i, techniciansByName)) {
+        m.set(key, [...(m.get(key) ?? []), i])
+      }
     }
     return m
   }, [interventions, techniciansByName, weekStartIso, weekEndIso])
@@ -105,10 +108,15 @@ export function PlanningTeamView({
     const known = new Set(list.map((r) => r.key))
     for (const [key, items] of weekByRow) {
       if (known.has(key)) continue
-      list.push({ key, technicianId: null, name: items[0].technician_name?.trim() || 'Technicien', sector: null, email: null })
+      // Nom : celui du principal, ou de l'équipier si c'est sa ligne
+      const first = items[0]
+      const name = coTechnicianRowKey(first, techniciansByName) === key
+        ? first.co_technician_name?.trim()
+        : first.technician_name?.trim()
+      list.push({ key, technicianId: null, name: name || 'Technicien', sector: null, email: null })
     }
     return list.sort((a, b) => a.name.localeCompare(b.name, 'fr'))
-  }, [technicians, weekByRow])
+  }, [technicians, weekByRow, techniciansByName])
 
   const sectors = useMemo(
     () => Array.from(new Set(rows.map((r) => r.sector).filter((s): s is string => !!s))).sort((a, b) => a.localeCompare(b, 'fr')),
@@ -121,13 +129,14 @@ export function PlanningTeamView({
     setDropTarget(null)
     const id = e.dataTransfer.getData('text/plain')
     if (!id) return
+    const fromKey = e.dataTransfer.getData('application/x-firovia-row') || null
     // Empile après la dernière intervention du jour (hors celle qu'on déplace)
     const sameDay = (weekByRow.get(row.key) ?? []).filter((i) => i.scheduled_date === date && i.id !== id)
     const lastEnd = sameDay.reduce((max, i) => {
       const s = startMinutes(i)
       return s === null ? max : Math.max(max, s + durationMinutes(i))
     }, DAY_START_MINUTES)
-    onSchedule(id, row, date, lastEnd)
+    onSchedule(id, row, date, lastEnd, fromKey)
   }
 
   const rangeLabel = `${RANGE_FMT.format(days[0])} – ${RANGE_FMT.format(days[days.length - 1])} ${days[0].getFullYear()}`
@@ -227,9 +236,16 @@ export function PlanningTeamView({
                           onDragLeave={() => setDropTarget((t) => (t === cellKey ? null : t))}
                           onDrop={(e) => handleDrop(e, row, date)}
                         >
-                          {cards.map((i) => (
-                            <TeamCard key={i.id} i={i} today={today} followCount={followCounts.get(i.id) ?? 0} colorMode={colorMode} onOpen={onOpen} />
-                          ))}
+                          {cards.map((i) => {
+                            // Binôme : on rappelle l'autre technicien sur la carte
+                            const hasCo = !!(i.co_technician_id || i.co_technician_name?.trim())
+                            const partner = hasCo
+                              ? (row.key === coTechnicianRowKey(i, techniciansByName) ? i.technician_name : i.co_technician_name)
+                              : null
+                            return (
+                              <TeamCard key={i.id} i={i} rowKey={row.key} partner={partner ?? null} today={today} followCount={followCounts.get(i.id) ?? 0} colorMode={colorMode} onOpen={onOpen} />
+                            )
+                          })}
                         </td>
                       )
                     })}
@@ -244,7 +260,7 @@ export function PlanningTeamView({
   )
 }
 
-function TeamCard({ i, today, followCount, colorMode, onOpen }: { i: Intervention; today: string; followCount: number; colorMode: PlanningColorMode; onOpen: (i: Intervention) => void }) {
+function TeamCard({ i, rowKey, partner, today, followCount, colorMode, onOpen }: { i: Intervention; rowKey: string; partner: string | null; today: string; followCount: number; colorMode: PlanningColorMode; onOpen: (i: Intervention) => void }) {
   let cls = 'plan'
   let status = 'Planifiée'
   if (i.status === 'en_cours') { cls = 'site'; status = 'En cours' }
@@ -262,7 +278,11 @@ function TeamCard({ i, today, followCount, colorMode, onOpen }: { i: Interventio
       type="button"
       className={`pt-card ${cls}`}
       draggable={movable}
-      onDragStart={(e) => { e.dataTransfer.setData('text/plain', i.id); e.dataTransfer.effectAllowed = 'move' }}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', i.id)
+        e.dataTransfer.setData('application/x-firovia-row', rowKey)
+        e.dataTransfer.effectAllowed = 'move'
+      }}
       onClick={() => onOpen(i)}
       style={colorMode === 'type' ? typeColorStyle(i.equipment_types, i.status) : undefined}
       title={`${i.reference} — ${i.client_name}${i.site_name ? ` · ${i.site_name}` : ''}`}
@@ -270,6 +290,7 @@ function TeamCard({ i, today, followCount, colorMode, onOpen }: { i: Interventio
       <span className="pt-card-time">{timeLabel(i)}{i.priority === 'urgente' && <span className="pt-urg">Urgent</span>}</span>
       <span className="pt-card-site">{siteLabel(i)}</span>
       <span className="pt-card-sub">{[place, i.site_name ? i.client_name : null].filter(Boolean).join(' · ') || i.reference}</span>
+      {partner && <span className="pt-card-sub">En binôme avec {partner}</span>}
       {i.equipment_types.length > 0 && (
         <span className="pt-tags">
           {i.equipment_types.map((t) => (

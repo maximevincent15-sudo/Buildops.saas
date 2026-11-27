@@ -27,15 +27,18 @@ const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padSt
 export async function listVisitsToPrepare(technicianId: string | null): Promise<Intervention[]> {
   const today = new Date()
   const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
-  let q = supabase
+  const when = `status.eq.en_cours,and(scheduled_date.gte.${isoDay(today)},scheduled_date.lte.${isoDay(tomorrow)})`
+  // Un technicien : ses visites comme principal ou comme équipier (binôme)
+  const filter = technicianId
+    ? `and(technician_id.eq.${technicianId},or(${when})),and(co_technician_id.eq.${technicianId},or(${when}))`
+    : when
+  const { data, error } = await supabase
     .from('interventions')
     .select('*')
-    .or(`status.eq.en_cours,and(scheduled_date.gte.${isoDay(today)},scheduled_date.lte.${isoDay(tomorrow)})`)
+    .or(filter)
     .neq('status', 'terminee')
     .order('scheduled_date', { ascending: true, nullsFirst: true })
     .order('start_time', { ascending: true, nullsFirst: false })
-  if (technicianId) q = q.eq('technician_id', technicianId)
-  const { data, error } = await q
   if (error) throw error
   return ((data ?? []) as Intervention[]).map(normalizeIntervention)
 }

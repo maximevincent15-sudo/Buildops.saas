@@ -128,6 +128,13 @@ export const interventionsImportDefinition: ImportDefinition = {
     },
     { key: 'scheduled_date', label: 'Date', example: '15/05/2026' },
     { key: 'technician_name', label: 'Technicien', example: 'Thomas Moreau' },
+    {
+      key: 'co_technician_name',
+      label: 'Équipier',
+      aliases: ['Second technicien', 'Binôme'],
+      example: 'Julien Moreau',
+      hint: 'Optionnel — un second technicien sur la même intervention',
+    },
     { key: 'priority', label: 'Priorité', example: 'normale' },
     {
       key: 'status',
@@ -195,6 +202,13 @@ export const interventionsImportDefinition: ImportDefinition = {
         messages.push(`Technicien "${row.technician_name}" non trouvé → laissé non assigné`)
       }
     }
+    // Équipier : doit être dans vos techniciens, avec un technicien principal
+    if (row.co_technician_name) {
+      const co = await resolveTechnicianByName(row.co_technician_name, context.cache ?? {})
+      if (!co) {
+        messages.push(`Équipier "${row.co_technician_name}" non trouvé → intervention sans équipier`)
+      }
+    }
 
     return { index: 0, values: row, status: 'valid', messages }
   },
@@ -230,9 +244,12 @@ export const interventionsImportDefinition: ImportDefinition = {
       cache.clientsByName.set(clientLower, client)
     }
 
-    // Résolution du tech
+    // Résolution du tech (et de l'équipier, seulement s'il est dans vos techniciens)
     const tech = row.technician_name
       ? await resolveTechnicianByName(row.technician_name, context.cache ?? {})
+      : null
+    const coTech = tech && row.co_technician_name
+      ? await resolveTechnicianByName(row.co_technician_name, context.cache ?? {})
       : null
 
     // Site existant du client (même nom) : la visite y est rattachée
@@ -253,6 +270,8 @@ export const interventionsImportDefinition: ImportDefinition = {
       scheduled_date: scheduledDate ?? undefined,
       technician_name: row.technician_name ?? undefined,
       technician_id: tech?.id ?? undefined,
+      co_technician_id: coTech && coTech.id !== tech?.id ? coTech.id : undefined,
+      co_technician_name: coTech && coTech.id !== tech?.id ? `${coTech.first_name} ${coTech.last_name}`.trim() : undefined,
       priority: parsePriority(row.priority),
       notes: row.notes ?? undefined,
     }
